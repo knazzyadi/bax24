@@ -1,14 +1,8 @@
-﻿import { getRequestConfig } from 'next-intl/server';
+﻿import { getRequestConfig, GetRequestConfigParams } from 'next-intl/server';
 
-export default getRequestConfig(async (params) => {
-  // Next.js 15: params هو Promise
-  const { locale } = await params;
-  
-  const locales = ['ar', 'en'];
-  const defaultLocale = 'en';
-  
-  // إذا كانت اللغة غير مدعومة، استخدم الافتراضية
-  const safeLocale = locales.includes(locale) ? locale : defaultLocale;
+export default getRequestConfig(async ({ locale }: GetRequestConfigParams) => {
+  // التأكد من أن locale قيمة صالحة، وإلا استخدام 'en'
+  const safeLocale = (locale === 'ar' || locale === 'en') ? locale : 'en';
   
   return {
     locale: safeLocale,

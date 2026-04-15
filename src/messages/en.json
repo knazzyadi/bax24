@@ -1,0 +1,22 @@
+{
+  "Landing": {
+    "title": "bax24 Facility Management System",
+    "subtitle": "Smart and easy management for your facilities",
+    "login": "Login"
+  },
+  "Login": {
+    "title": "Login",
+    "email": "Email",
+    "password": "Password",
+    "submit": "Sign In"
+  },
+  "Dashboard": {
+    "title": "Dashboard",
+    "welcome": "Welcome",
+    "facilities": "Facilities",
+    "maintenance": "Maintenance Requests",
+    "staff": "Staff",
+    "logout": "Logout",
+    "comingSoon": "More features coming soon..."
+  }
+}

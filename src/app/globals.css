@@ -1,26 +1,56 @@
 @import "tailwindcss";
 
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+}
+
+/* تعريف المتغيرات للوضع النهاري */
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --card: #ffffff;           /* تم التعديل: #ffffff بدلاً من #f9fafb */
+  --border: #e5e7eb;
+  --muted: #f3f4f6;
+  --muted-foreground: #6b7280;
+  --header-bg: #f3f4f6;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* تعريف المتغيرات للوضع الليلي */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  --card: #1e293b;
+  --border: #334155;
+  --muted: #1f2937;
+  --muted-foreground: #9ca3af;
+  --header-bg: #1f2937;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* تطبيق المتغيرات على العناصر الأساسية */
 body {
-  background: var(--background);
+  background-color: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* كلاسات مساعدة (إذا لم تكن معرفة عبر @theme) */
+.bg-background { background-color: var(--background); }
+.bg-card { background-color: var(--card); }
+.bg-muted { background-color: var(--muted); }
+.text-foreground { color: var(--foreground); }
+.text-muted-foreground { color: var(--muted-foreground); }
+.border-border { border-color: var(--border); }
+
+/* تأثير الشبكة - تم تعديل لون النهاري ليصبح أغمق قليلاً */
+.bg-grid-slate-100 {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='%2394a3b8' stroke-width='0.5'%3E%3Cpath d='M0 .5H31.5V32'/%3E%3C/svg%3E");
+}
+.dark .bg-grid-slate-100 {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32' width='32' height='32' fill='none' stroke='%231e293b' stroke-width='0.5'%3E%3Cpath d='M0 .5H31.5V32'/%3E%3C/svg%3E");
 }

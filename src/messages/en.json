@@ -1,8 +1,20 @@
 {
   "Landing": {
-    "title": "bax24 Facility Management System",
-    "subtitle": "Smart and easy management for your facilities",
-    "login": "Login"
+    "title": "Manage Your Facilities Smartly & Easily",
+    "subtitle": "Integrated facility management, maintenance efficiency, and precise reporting.",
+    "login": "Log in",
+    "register": "Get Started Free",
+    "features_title": "Key Features",
+    "feature1": "Facility & location management",
+    "feature2": "Maintenance requests tracking",
+    "feature3": "Real-time reports & analytics",
+    "feature4": "Full RTL/LTR + dark mode support",
+    "stats_title": "By the numbers",
+    "stats_facilities": "Facilities",
+    "stats_maintenance": "Requests",
+    "stats_users": "Active users",
+    "cta_title": "Ready to organize your facilities?",
+    "cta_subtitle": "Join thousands of companies that trust bax24"
   },
   "Login": {
     "title": "Login",
@@ -18,5 +30,140 @@
     "staff": "Staff",
     "logout": "Logout",
     "comingSoon": "More features coming soon..."
+  },
+  "Home": {
+    "title": "Facility Management System",
+    "description": "Smart system for maintenance and operations management",
+    "login": "Login",
+    "register": "Register",
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Use",
+    "featuresTitle": "System Features",
+    "feature1": "Manage tickets & maintenance",
+    "feature2": "Track assets & equipment",
+    "feature3": "Real-time reports",
+    "feature4": "Multi-role access control"
+  },
+  "Footer": {
+    "privacy": "Privacy Policy",
+    "terms": "Terms of Service",
+    "rights": "All rights reserved"
+  },
+  "Privacy": {
+    "home": "Home",
+    "title": "Privacy Policy",
+    "lastUpdated": "Last Updated: April 16, 2026",
+    "intro": "At bax24, we are committed to protecting your data privacy and transparency. This policy explains how we collect, use, and protect your information when you use our platform.",
+    "dataCollection": {
+      "title": "Data Collection",
+      "text1": "We collect the following information when you use the bax24 platform:",
+      "point1": "Account information: name, email, encrypted password, profile picture (optional).",
+      "point2": "Facility information: data about the facilities you manage (name, location, technical details).",
+      "point3": "Maintenance information: maintenance requests, reports, attachments, dates.",
+      "point4": "Usage data: access logs, IP address, browser type, pages visited, session duration."
+    },
+    "dataUsage": {
+      "title": "Data Usage",
+      "text1": "We use your information for the following purposes:",
+      "point1": "To provide and improve facility management services (maintenance schedules, reports, alerts).",
+      "point2": "To personalize your experience and display relevant content.",
+      "point3": "To communicate with you about system updates or new offers (you can opt out).",
+      "point4": "To analyze data to improve platform performance and user experience."
+    },
+    "dataSharing": {
+      "title": "Data Sharing",
+      "text1": "We do not sell or rent your personal data to third parties. We may share your information only in the following cases:",
+      "point1": "With service providers who assist us in operating the platform (e.g., cloud hosting, email service) under confidentiality agreements.",
+      "point2": "If required by law (e.g., in response to a court order or government investigation).",
+      "point3": "To protect our rights, property, or the safety of our users."
+    },
+    "dataSecurity": {
+      "title": "Data Security",
+      "text1": "We implement technical and organizational security measures to protect your data from unauthorized access, alteration, disclosure, or destruction, including:",
+      "point1": "Encryption of data in transit (SSL/TLS) and at rest (AES-256).",
+      "point2": "Restricted access to data for authorized personnel only.",
+      "point3": "Regular security reviews and penetration testing."
+    },
+    "userRights": {
+      "title": "Your Rights",
+      "text1": "You have the following rights regarding your data:",
+      "point1": "Access your personal data that we hold.",
+      "point2": "Correct any inaccurate or incomplete information.",
+      "point3": "Delete your data (subject to legal obligations).",
+      "point4": "Object to or restrict the processing of your data.",
+      "point5": "Port your data to another platform (data portability).",
+      "contactText": "To exercise these rights, please contact us at support@bax24.com"
+    },
+    "cookies": {
+      "title": "Cookies",
+      "text1": "We use cookies and similar technologies to improve platform performance, analyze traffic, and personalize content. You can control cookie settings through your browser."
+    },
+    "changes": {
+      "title": "Changes to This Privacy Policy",
+      "text1": "We may update this policy from time to time. We will notify you of any material changes via email or an in-app notice. The last update date is indicated at the top of this page."
+    },
+    "contact": {
+      "title": "Contact Us",
+      "text1": "If you have any questions about this Privacy Policy, please contact us at:",
+      "email": "Email: support@bax24.com",
+      "address": "Address: [Insert your legal address here]"
+    }
+  },
+  "Terms": {
+    "home": "Home",
+    "title": "Terms of Service",
+    "lastUpdated": "Last Updated: April 16, 2026",
+    "intro": "Welcome to bax24. By using our platform, you agree to comply with these terms and conditions. Please read them carefully.",
+    "acceptance": {
+      "title": "Acceptance of Terms",
+      "text": "By using or accessing the bax24 platform (website, app, or related services), you agree to be bound by these terms. If you do not agree to any part, please do not use our services."
+    },
+    "description": {
+      "title": "Service Description",
+      "text1": "bax24 is a facility management platform offering tools for maintenance tracking, asset management, reporting, and task scheduling. We reserve the right to modify or improve the service at any time without prior notice."
+    },
+    "account": {
+      "title": "User Account",
+      "point1": "You are responsible for maintaining the confidentiality of your account credentials (email and password).",
+      "point2": "You must provide accurate and complete information when registering and update it as needed.",
+      "point3": "We reserve the right to suspend or terminate any account that violates these terms or poses a security risk."
+    },
+    "userObligations": {
+      "title": "User Obligations",
+      "point1": "Use the service only for lawful purposes and in accordance with these terms.",
+      "point2": "Do not attempt to hack, disrupt, or overload the platform.",
+      "point3": "Do not upload or share malicious content (viruses, malware) or illegal material.",
+      "point4": "Respect the intellectual property rights of bax24 and third parties."
+    },
+    "payments": {
+      "title": "Payments and Subscriptions",
+      "text": "Some features may require a paid subscription. All fees will be communicated before payment. Payments are non-refundable unless required by law. We reserve the right to change pricing after notifying you."
+    },
+    "intellectualProperty": {
+      "title": "Intellectual Property",
+      "text": "All content, trademarks, software, and designs of bax24 are protected by copyright and intellectual property laws. You may not copy, modify, or distribute any part of the platform without prior written permission."
+    },
+    "limitation": {
+      "title": "Limitation of Liability",
+      "text": "bax24 shall not be liable for any indirect, incidental, special, or consequential damages arising from your use or inability to use the service, even if we have been advised of the possibility of such damages. Our maximum liability is the amount you paid us in the past 12 months."
+    },
+    "termination": {
+      "title": "Termination",
+      "text": "You may terminate your account at any time. We reserve the right to suspend or terminate your access to the service if you violate these terms, without liability to you."
+    },
+    "changes": {
+      "title": "Changes to Terms",
+      "text": "We may update these terms from time to time. We will notify you of any material changes via email or an in-app notice. Your continued use of the service after changes constitutes acceptance of the modified terms."
+    },
+    "governingLaw": {
+      "title": "Governing Law",
+      "text": "These terms shall be governed by and construed in accordance with the laws of [Your Country/State]. Any dispute arising from them shall be subject to the exclusive jurisdiction of the courts of [Your City]."
+    },
+    "contact": {
+      "title": "Contact Us",
+      "text": "If you have any questions about these terms, please contact us at:",
+      "email": "Email: legal@bax24.com",
+      "address": "Address: [Insert your legal address here]"
+    }
   }
 }

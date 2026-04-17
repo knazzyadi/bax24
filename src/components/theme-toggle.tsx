@@ -1,7 +1,7 @@
 'use client';
 
-import { useTheme } from 'next-themes';
-import { Sun, Moon, Monitor } from 'lucide-react';
+import { useTheme } from '@/components/theme-provider';
+import { Sun, Moon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 export function ThemeToggle() {
@@ -11,25 +11,17 @@ export function ThemeToggle() {
   useEffect(() => setMounted(true), []);
   if (!mounted) return null;
 
-  const toggleTheme = () => {
-    if (theme === 'light') setTheme('dark');
-    else if (theme === 'dark') setTheme('system');
-    else setTheme('light');
-  };
-
-  const getIcon = () => {
-    if (theme === 'light') return <Sun size={20} />;
-    if (theme === 'dark') return <Moon size={20} />;
-    return <Monitor size={20} />;
+  const toggle = () => {
+    setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
   return (
     <button
-      onClick={toggleTheme}
+      onClick={toggle}
       className="p-2 rounded-md hover:bg-muted transition"
       aria-label="تبديل المظهر"
     >
-      {getIcon()}
+      {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
     </button>
   );
 }

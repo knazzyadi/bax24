@@ -2,45 +2,9 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { DefaultSession } from "next-auth";
 
-// ============================================
-// توسيع أنواع NextAuth لدعم الخواص المخصصة
-// ============================================
-declare module "next-auth" {
-  interface User {
-    role?: string;
-    companyId?: string;
-  }
-  interface Session {
-    user: {
-      id?: string;
-      role?: string;
-      companyId?: string;
-    } & DefaultSession["user"];
-  }
-}
+const prisma = new PrismaClient();
 
-// ============================================
-// إعداد Prisma Client مع إعادة استخدام الاتصال
-// ============================================
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ["error"],
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
-
-// ============================================
-// تكوين NextAuth
-// ============================================
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
 
@@ -64,20 +28,23 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         });
 
         if (!user || !user.password) return null;
+
+        // منع المستخدمين المعطلين
         if (user.status === false) return null;
 
         const isValid = await bcrypt.compare(
           credentials.password as string,
           user.password
         );
+
         if (!isValid) return null;
 
         return {
           id: user.id,
           email: user.email,
-          name: user.name,
-          role: user.role?.name,
-          companyId: user.companyId ?? undefined,
+          name: user.name ?? "",
+          role: user.role?.name ?? "USER",
+          companyId: user.companyId ?? null,
         };
       },
     }),
@@ -91,8 +58,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
-        token.companyId = user.companyId;
+        token.role = (user.role as string) ?? "USER";
+        token.companyId = user.companyId ?? null;
       }
       return token;
     },

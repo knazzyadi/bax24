@@ -50,11 +50,11 @@
     "rights": "جميع الحقوق محفوظة"
   },
   "Privacy": {
-      "home": "الرئيسية",
-      "title": "سياسة الخصوصية",
-      "lastUpdated": "آخر تحديث: 16 أبريل 2026",
-      "intro": "في bax24، نحن ملتزمون بحماية خصوصية بياناتك وشفافية التعامل معها. توضح هذه السياسة كيفية جمع معلوماتك واستخدامها وحمايتها عند استخدام منصتنا.",
-      "dataCollection": {
+    "home": "الرئيسية",
+    "title": "سياسة الخصوصية",
+    "lastUpdated": "آخر تحديث: 16 أبريل 2026",
+    "intro": "في bax24، نحن ملتزمون بحماية خصوصية بياناتك وشفافية التعامل معها. توضح هذه السياسة كيفية جمع معلوماتك واستخدامها وحمايتها عند استخدام منصتنا.",
+    "dataCollection": {
       "title": "جمع البيانات",
       "text1": "نقوم بجمع المعلومات التالية عند استخدامك لمنصة bax24:",
       "point1": "معلومات الحساب: الاسم، البريد الإلكتروني، كلمة المرور المشفرة، الصورة الشخصية (اختياري).",
@@ -169,5 +169,675 @@
   "SuperAdmin": {
     "title": "لوحة تحكم السوبر أدمن",
     "description": "مرحبًا، هذه منطقة خاصة للمطور. سيتم إضافة أدوات الإدارة قريبًا."
+  },
+  "Dashboard": {
+    "header": {
+      "title": "لوحة التحكم",
+      "welcome": "مرحباً بعودتك"
+    },
+    "stats": {
+      "assets": {
+        "title": "الأصول",
+        "description": "إجمالي الأصول المسجلة"
+      },
+      "workOrders": {
+        "title": "أوامر العمل",
+        "description": "طلبات الصيانة النشطة"
+      },
+      "lowInventory": {
+        "title": "مخزون منخفض",
+        "description": "أصناف تحتاج لإعادة طلب"
+      },
+      "pendingRequests": {
+        "title": "طلبات معلقة",
+        "description": "طلبات تغيير الزيت والحوادث"
+      },
+      "live": "مباشر"
+    },
+    "quickAccess": {
+      "title": "وصول سريع"
+    },
+    "quickActions": {
+      "newWorkOrder": "طلب صيانة جديد",
+      "newWorkOrderDesc": "إنشاء طلب صيانة جديد",
+      "newAsset": "أصل جديد",
+      "newAssetDesc": "إضافة أصل أو جهاز"
+    },
+    "systemStatus": {
+      "title": "حالة النظام",
+      "message": "النظام يعمل بسلاسة",
+      "sync": "مزامنة البيانات"
+    }
+  },
+  "ListManager": {
+    "title": "إدارة القوائم",
+    "error": "حدث خطأ",
+    "addButton": "إضافة جديد",
+    "editButton": "تعديل البيانات",
+    "save": "حفظ التغييرات",
+    "cancel": "إلغاء",
+    "formDescription": "يرجى ملء الحقول أدناه بدقة. الحقول المميزة بعلامة (*) مطلوبة لضمان صحة البيانات.",
+    "fetchError": "فشل في جلب البيانات من الخادم",
+    "createSuccess": "تمت الإضافة بنجاح",
+    "updateSuccess": "تم التحديث بنجاح",
+    "deleteSuccess": "تم الحذف بنجاح",
+    "fieldRequired": "حقل {field} مطلوب",
+    "loading": "جاري التحميل...",
+    "noItems": "لا توجد سجلات حالياً",
+    "actions": "العمليات",
+    "confirmDelete": "تأكيد الحذف",
+    "deleteWarning": "هل أنت متأكد من حذف هذا السجل؟ لا يمكن التراجع عن هذا الإجراء.",
+    "delete": "حذف"
+  },
+  "Sidebar": {
+    "nav": {
+      "dashboard": "لوحة التحكم",
+      "workOrders": "أوامر العمل",
+      "reports": "البلاغات",
+      "maintenance": "الصيانة الدورية",
+      "contracts": "العقود",
+      "assets": "الأصول",
+      "vehicles": "طلبات المركبات",
+      "inventory": "المخزون",
+      "superDashboard": "لوحة تحكم السوبر أدمن",
+      "companies": "الشركات",
+      "users": "المستخدمون",
+      "settings": "الإعدادات",
+      "buildings": "المباني",
+      "floors": "الأدوار",
+      "rooms": "الغرف",
+      "assetTypes": "أنواع الأصول",
+      "workOrderStatuses": "حالات أوامر العمل",
+      "assetStatuses": "حالات الأصول",
+      "permissions": "الصلاحيات",
+      "drivers": "السائقين",
+      "vehiclesList": "المركبات"
+    },
+    "systemAdminSection": "إدارة النظام",
+    "settings": "الإعدادات",
+    "locationsSettings": "إعداد المواقع",
+    "vehiclesSettings": "إعداد المركبات",
+    "dictionariesSettings": "إعداد المعجم",
+    "company": "الشركة",
+    "logout": "تسجيل الخروج"
+  },
+  "WorkOrderPriorities": {
+    "systemSettings": "إعدادات النظام المركزية",
+    "title": "أولويات طلبات العمل",
+    "subtitle": "تحديد درجات الأهمية القصوى وترتيب استجابة الفرق الميدانية.",
+    "listTitle": "مصفوفة الأولويات",
+    "listDescription": "إدارة مستويات الأهمية (طارئ، مرتفع، منخفض) وتخصيص ألوان التنبيه البصرية.",
+    "name": "الاسم",
+    "nameEn": "الاسم بالإنجليزية",
+    "order": "الترتيب",
+    "isDefault": "افتراضي",
+    "color": "اللون",
+    "fields": {
+      "name": {
+        "label": "مسمى مستوى الأولوية *",
+        "placeholder": "مثال: طارئ - استجابة فورية"
+      },
+      "nameEn": {
+        "label": "الاسم بالإنجليزية",
+        "placeholder": "مثال: Emergency"
+      },
+      "color": {
+        "label": "لون التمييز البصري",
+        "placeholder": "#ef4444"
+      },
+      "order": {
+        "label": "وزن الترتيب (1 للأعلى)",
+        "placeholder": "القيمة الرقمية"
+      },
+      "isDefault": {
+        "label": "تعيين كخيار افتراضي للطلبات الجديدة"
+      }
+    },
+    "columns": {
+      "name": "درجة الأهمية",
+      "order": "الترتيب",
+      "orderPrefix": "مرتبة #",
+      "isDefault": "الحالة الافتراضية",
+      "defaultBadge": "افتراضي",
+      "notDefault": "---"
+    },
+    "tipTitle": "نصيحة التصميم",
+    "tipContent": "استخدم الألوان الصارخة (مثل الأحمر والبرتقالي) للأولويات العالية لضمان لفت انتباه الفنيين فور ظهور الطلب في لوحة التحكم الخاصة بهم."
+  },
+  "AssetStatuses": {
+    "color": "اللون",
+    "title": "حالات الأصول",
+    "subtitle": "تعريف الحالات التشغيلية للمعدات (مثل: يعمل، متعطل، تحت الصيانة)",
+    "listTitle": "قائمة الحالات",
+    "name": "الاسم",
+    "nameEn": "الاسم بالإنجليزية",
+    "order": "الترتيب",
+    "isDefault": "افتراضي",
+    "adviceTitle": "نصيحة إدارية",
+    "adviceText": "تغيير حالة الأصل يؤثر على تقارير التوافر (Availability)، تأكد من دقة المسميات."
+  },
+  "WorkOrderStatuses": {
+    "title": "حالات أوامر العمل",
+    "description": "إدارة مراحل سير العمل لبلاغات الصيانة (مثل: جديد، قيد التنفيذ، مكتمل)",
+    "listTitle": "مراحل سير العمل",
+    "name": "الاسم",
+    "nameEn": "الاسم بالإنجليزية",
+    "order": "الترتيب",
+    "isDefault": "افتراضي",
+    "color": "اللون",
+    "tipTitle": "تنبيه",
+    "tipContent": "الحالة الافتراضية هي التي سيتم تعيينها آلياً لأي بلاغ جديد يصل للنظام."
+  },
+  "AssetTypes": {
+    "title": "أنواع الأصول",
+    "subtitle": "تصنيف المعدات والآلات حسب النوع لسهولة الفلترة والبحث",
+    "listTitle": "قائمة الأنواع",
+    "name": "الاسم",
+    "nameEn": "الاسم بالإنجليزية",
+    "order": "الترتيب",
+    "isDefault": "افتراضي",
+    "adviceTitle": "نصيحة",
+    "adviceText": "تجميع الأصول المتشابهة في نوع واحد يساعدك في استخراج تقارير دقيقة لأداء كل فئة."
+  },
+  "Locations": {
+    "title": "المواقع",
+    "subtitle": "إدارة المواقع الجغرافية أو الفروع التابعة للمنشأة",
+    "listTitle": "قائمة المواقع المسجلة",
+    "name": "اسم الموقع",
+    "nameEn": "الاسم بالإنجليزية",
+    "order": "الترتيب",
+    "isDefault": "موقع افتراضي",
+    "adviceTitle": "معلومة",
+    "adviceText": "ربط الأصول بمواقع دقيقة يسهل على الفنيين الوصول لمكان العطل بسرعة."
+  },
+  "Companies": {
+    "title": "إدارة المنظمات",
+    "subtitle": "التحكم في الشركات المشتركة وتأسيس الحسابات",
+    "addCompany": "تأسيس منشأة جديدة",
+    "activeCompanies": "المنشآت النشطة",
+    "companyName": "المنشأة التجارية",
+    "companyNameEn": "اسم المنشأة (إنجليزي)",
+    "contact": "بيانات التواصل",
+    "subscription": "الاشتراك",
+    "actions": "الإجراءات",
+    "edit": "تعديل",
+    "suspend": "إيقاف العضوية",
+    "editSoon": "ميزة التعديل ستتوفر قريباً",
+    "noSubscription": "بدون اشتراك",
+    "expired": "منتهي",
+    "active": "نشط",
+    "confirmSuspend": "هل أنت متأكد من إيقاف عضوية \"{name}\"?",
+    "suspendSuccess": "تم إيقاف عضوية {name}",
+    "fetchError": "فشل تحميل الشركات",
+    "missingData": "يرجى إكمال البيانات الأساسية",
+    "createSuccess": "تم تأسيس الشركة والمدير بنجاح",
+    "updateSuccess": "تم التحديث",
+    "error": "حدث خطأ",
+    "unauthorized": "وصول غير مصرح",
+    "unauthorizedDesc": "هذه الصفحة مخصصة لمدير النظام العالمي فقط",
+    "newCompany": "تأسيس منشأة تجارية جديدة",
+    "editCompany": "تحديث بيانات المنشأة",
+    "companyDetails": "بيانات المنشأة",
+    "order": "الترتيب",
+    "email": "البريد الرسمي",
+    "phone": "رقم التواصل",
+    "subscriptionEnd": "تاريخ انتهاء الاشتراك",
+    "address": "العنوان",
+    "adminAccount": "حساب مدير النظام (Admin)",
+    "adminName": "اسم المدير",
+    "adminEmail": "إيميل الدخول",
+    "adminPassword": "كلمة المرور المؤقتة",
+    "cancel": "إلغاء",
+    "save": "حفظ التحديث",
+    "create": "إتمام التأسيس",
+    "adviceTitle": "نصيحة أمان النظام",
+    "adviceText": "عند إضافة شركة جديدة، سيقوم النظام بتأسيس حساب **مدير نظام (Admin)** آلي لها. يرجى التأكد من صحة البريد الإلكتروني المدخل لضمان وصول بيانات الاعتماد للمشترك الجديد."
+  },
+  "BuildingsPage": {
+    "title": "هيكل المباني",
+    "subtitle": "إدارة المواقع الرئيسية والمباني المسجلة.",
+    "addBuilding": "تسجيل مبنى",
+    "totalBuildings": "إجمالي المباني المسجلة",
+    "noBuildings": "لا توجد مباني مسجلة حالياً",
+    "codeLabel": "رمز",
+    "orderLabel": "الترتيب",
+    "deleteTitle": "حذف المبنى؟",
+    "deleteDescription": "أنت على وشك حذف \"{name}\". سيتم حذف المبنى بشكل ناعم ويمكن استعادته لاحقًا. لن يتم حذف الأدوار والغرف المرتبطة.",
+    "confirmDelete": "تأكيد الحذف",
+    "cancel": "إلغاء",
+    "certified": "سجل معتمد",
+    "fetchError": "فشل في جلب البيانات",
+    "deleteSuccess": "تم الحذف بنجاح",
+    "deleteError": "لا يمكن الحذف بسبب وجود بيانات مرتبطة"
+  },
+  "FloorsPage": {
+    "title": "إدارة الأدوار",
+    "subtitle": "إدارة أدوار المباني والطوابق.",
+    "addFloor": "تسجيل دور",
+    "totalFloors": "إجمالي الأدوار المسجلة",
+    "noFloors": "لا توجد أدوار مسجلة حالياً",
+    "codeLabel": "رمز",
+    "orderLabel": "الترتيب",
+    "noBuilding": "بدون مبنى",
+    "deleteTitle": "حذف الدور؟",
+    "deleteDescription": "أنت على وشك حذف \"{name}\". سيتم حذف الدور بشكل ناعم ويمكن استعادته لاحقًا. لن يتم حذف الغرف المرتبطة.",
+    "confirmDelete": "تأكيد الحذف",
+    "cancel": "إلغاء",
+    "certified": "سجل معتمد",
+    "fetchError": "فشل في جلب البيانات",
+    "deleteSuccess": "تم الحذف بنجاح",
+    "deleteError": "لا يمكن الحذف بسبب وجود بيانات مرتبطة"
+  },
+  "FloorsForm": {
+    "title": "تعديل بيانات الدور",
+    "subtitle": "تحديث مسمى الدور، رمزه، الاسم بالإنجليزية أو ترتيب ظهوره.",
+    "editTitle": "تعديل مستوى",
+    "reference": "تعديل المرجع",
+    "building": "المبنى التابع له",
+    "code": "رمز الدور",
+    "codePlaceholder": "مثال: G, 01, B1",
+    "order": "الترتيب",
+    "name": "مسمى الدور",
+    "nameEn": "مسمى الدور (إنجليزي)",
+    "nameEnPlaceholder": "مثال: Ground Floor",
+    "save": "حفظ التغييرات",
+    "cancel": "إلغاء",
+    "fetchError": "خطأ في جلب بيانات الدور",
+    "updateSuccess": "تم التحديث بنجاح",
+    "updateError": "فشل التحديث",
+    "nameRequired": "يرجى إدخال اسم الدور",
+    "codeRequired": "يرجى إدخال رمز الدور"
+  },
+  "RoomsPage": {
+    "title": "إدارة الوحدة",
+    "subtitle": "عرض وتنظيم المكاتب والوحدات داخل المنشأة.",
+    "addRoom": "إضافة وحدة",
+    "totalRooms": "إجمالي الوحدات المسجلة",
+    "noRooms": "لا توجد وحدة مسجلة حالياً",
+    "orderLabel": "الترتيب",
+    "noBuilding": "بدون مبنى",
+    "noFloor": "بدون دور",
+    "codeLabel": "الرمز",
+    "deleteTitle": "حذف الوحدة؟",
+    "deleteDescription": "أنت على وشك حذف \"{name}\". سيتم حذف الوحدة بشكل ناعم ويمكن استعادتها لاحقًا.",
+    "confirmDelete": "تأكيد الحذف",
+    "cancel": "إلغاء",
+    "fetchError": "فشل في جلب البيانات",
+    "deleteSuccess": "تم الحذف بنجاح",
+    "deleteError": "لا يمكن الحذف بسبب وجود بيانات مرتبطة"
+  },
+  "RoomsForm": {
+    "badge": "إضافة وحدة جديدة",
+    "title": "تسجيل وحدة جديدة",
+    "subtitle": "قم بربط الوحدة بالدور المناسب وتحديد ترتيبها ورمزها.",
+    "recordDetails": "تفاصيل السجل",
+    "roomUnit": "وحدة / مكتب",
+    "floor": "الدور / الطابق التابع له",
+    "selectFloor": "اختر الدور من القائمة",
+    "noBuilding": "بدون مبنى",
+    "code": "رمز الوحدة",
+    "codePlaceholder": "مثال: 101, A01, G01",
+    "codeHint": "رمز فريد للوحدة داخل الدور",
+    "order": "الترتيب",
+    "name": "اسم الوحدة / المكتب",
+    "namePlaceholder": "مثال: وحدة الاجتماعات الرئيسية",
+    "nameEn": "اسم الوحدة (إنجليزي)",
+    "nameEnPlaceholder": "مثال: Main Hall",
+    "save": "حفظ الوحدة",
+    "cancel": "إلغاء",
+    "fetchError": "فشل في جلب الأدوار",
+    "createSuccess": "تم إنشاء الوحدة بنجاح",
+    "updateSuccess": "تم تحديث الوحدة بنجاح",
+    "infoText": "الرمز سيساعد في التعرف السريع على الموقع (مثل 101، A02). الترتيب يحدد ظهور العنصر في القوائم.",
+    "fetchFloorsError": "فشل في تحميل قائمة الأدوار",
+    "missingFields": "يرجى اختيار الدور وتحديد اسم الوحدة والرمز.",
+    "createError": "فشل التسجيل",
+    "editBadge": "تعديل موقع الوحدة",
+    "editTitle": "تعديل بيانات الوحدة",
+    "building": "المبنى",
+    "selectBuilding": "اختر المبنى",
+    "updateError": "فشل التحديث"
+  },
+  "ReportStatuses": {
+    "title": "حالات البلاغات",
+    "subtitle": "إدارة مراحل معالجة بلاغات الصيانة والحوادث",
+    "listTitle": "قائمة حالات البلاغات",
+    "name": "الاسم",
+    "nameEn": "الاسم بالإنجليزية",
+    "order": "الترتيب",
+    "isDefault": "افتراضي",
+    "color": "اللون",
+    "tipTitle": "نصيحة بصرية",
+    "tipContent": "تخصيص ألوان لكل حالة يسهل على مدير النظام مراقبة سير العمل بمجرد النظر للوحة التحكم."
+  },
+  "MaintenanceFrequencies": {
+    "title": "إعدادات الصيانة",
+    "subtitle": "إدارة الفترات الزمنية وجدولة صيانة الأسطول والمعدات.",
+    "sectionTitle": "دوريات الصيانة المعتمدة",
+    "listTitle": "سجل الدوريات",
+    "name": "الاسم",
+    "nameEn": "الاسم بالإنجليزية",
+    "order": "الترتيب",
+    "isDefault": "افتراضي",
+    "color": "اللون",
+    "fields": {
+      "name": "اسم الدورية",
+      "nameEn": "الاسم بالإنجليزية",
+      "order": "ترتيب العرض",
+      "isDefault": "تعيين كخيار افتراضي"
+    },
+    "tipTitle": "نصيحة الجدولة الذكية",
+    "tipContent": "تأكد من ترتيب الدوريات تصاعدياً لسهولة الاختيار. الخيار **الافتراضي** سيظهر تلقائياً للفنيين عند فتح بلاغات الصيانة الوقائية الجديدة."
+  },
+  "ContractTypes": {
+    "color": "اللون",
+    "title": "أنواع العقود",
+    "subtitle": "تصنيف العقود حسب النوع (صيانة، إيجار، استشارات)",
+    "listTitle": "قائمة أنواع العقود",
+    "name": "اسم النوع",
+    "nameEn": "الاسم بالإنجليزية",
+    "order": "الترتيب",
+    "isDefault": "افتراضي",
+    "fields": {
+      "name": "اسم النوع",
+      "nameEn": "الاسم بالإنجليزية",
+      "order": "الترتيب",
+      "isDefault": "افتراضي"
+    },
+    "tipTitle": "نصيحة إدارية",
+    "tipContent": "تحديد النوع المناسب لكل عقد يساعد في تنظيم العقود وإنشاء تقارير دقيقة."
+  },
+  "MovementTypes": {
+    "name": "الاسم",
+    "nameEn": "الاسم بالإنجليزية",
+    "order": "الترتيب",
+    "isDefault": "افتراضي",
+    "title": "أنواع حركات المخزون",
+    "subtitle": "تصنيف عمليات المخزون (إضافة، سحب، تعديل، تحويل، جرد)",
+    "listTitle": "قائمة أنواع الحركات",
+    "fields": {
+      "name": "اسم النوع",
+      "nameEn": "الاسم بالإنجليزية",
+      "order": "الترتيب",
+      "isDefault": "افتراضي"
+    },
+    "tipTitle": "نصيحة فنية",
+    "tipContent": "تحديد نوع الحركة بدقة يساعد في تتبع المخزون وإنشاء تقارير دقيقة عن الاستهلاك والإضافة."
+  },
+  "RolesPermissions": {
+    "title": "إدارة الصلاحيات",
+    "subtitle": "تحديد صلاحيات الأدوار لكل وحدة",
+    "cardTitle": "صلاحيات الأدوار",
+    "cardDescription": "يمكنك تحديد الصلاحيات لكل دور على حدة",
+    "moduleHeader": "الوحدة",
+    "save": "حفظ",
+    "saveSuccess": "تم حفظ صلاحيات دور {role} بنجاح",
+    "saveError": "فشل حفظ الصلاحيات",
+    "fetchError": "فشل تحميل البيانات",
+    "unauthorizedTitle": "غير مصرح",
+    "unauthorizedDesc": "ليس لديك صلاحية للوصول إلى هذه الصفحة",
+    "roleSuperAdmin": "سوبر أدمن",
+    "roleAdmin": "أدمن",
+    "roleManager": "مدير فرع",
+    "roleTechnician": "فني",
+    "operation": {
+      "view": "عرض",
+      "create": "إنشاء",
+      "edit": "تعديل",
+      "update": "تعديل",
+      "delete": "حذف"
+    },
+    "moduleNames": {
+      "report": "البلاغات",
+      "workorder": "أوامر العمل",
+      "asset": "الأصول",
+      "inventory": "المخزون",
+      "contract": "العقود",
+      "vehicle": "المركبات"
+    },
+    "permission": {
+      "report:view": {
+        "description": "عرض جميع البلاغات في الفرع المسموح به"
+      },
+      "report:create": {
+        "description": "إنشاء بلاغ جديد (صيانة أو حادث)"
+      },
+      "report:update": {
+        "description": "تعديل بيانات البلاغ (مثل العنوان والوصف)"
+      },
+      "report:delete": {
+        "description": "حذف البلاغ بشكل دائم"
+      },
+      "workorder:view": {
+        "description": "عرض أوامر العمل"
+      },
+      "workorder:create": {
+        "description": "إنشاء أمر عمل جديد"
+      },
+      "workorder:update": {
+        "description": "تعديل أمر العمل (حالة، موعد، ملاحظات)"
+      },
+      "workorder:delete": {
+        "description": "حذف أمر العمل"
+      },
+      "asset:view": {
+        "description": "عرض الأصول (الأجهزة والمعدات)"
+      },
+      "asset:create": {
+        "description": "إضافة أصل جديد"
+      },
+      "asset:update": {
+        "description": "تعديل بيانات الأصل"
+      },
+      "asset:delete": {
+        "description": "حذف الأصل (مع التحقق من عدم وجود تبعيات)"
+      },
+      "inventory:view": {
+        "description": "عرض المخزون (القطع والمواد)"
+      },
+      "inventory:create": {
+        "description": "إضافة صنف جديد إلى المخزون"
+      },
+      "inventory:update": {
+        "description": "تعديل بيانات الصنف (السعر، الكمية الدنيا، إلخ)"
+      },
+      "inventory:delete": {
+        "description": "حذف صنف من المخزون"
+      },
+      "contract:view": {
+        "description": "عرض العقود"
+      },
+      "contract:create": {
+        "description": "إنشاء عقد جديد"
+      },
+      "contract:update": {
+        "description": "تعديل بيانات العقد"
+      },
+      "contract:delete": {
+        "description": "حذف العقد"
+      },
+      "vehicle:view": {
+        "description": "عرض المركبات المرتبطة بالأصول"
+      },
+      "vehicle:create": {
+        "description": "إضافة مركبة جديدة (ربطها بأصل)"
+      },
+      "vehicle:update": {
+        "description": "تعديل بيانات المركبة (الترخيص، التأمين)"
+      },
+      "vehicle:delete": {
+        "description": "حذف المركبة"
+      }
+    }
+  },
+  "LoginPage": {
+    "errorMessage": "بيانات الدخول غير صحيحة",
+    "title": "تسجيل الدخول",
+    "subtitle": "أدخل بياناتك للوصول إلى لوحة التحكم",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "remember": "تذكرني",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "loginButton": "دخول",
+    "noAccount": "ليس لديك حساب؟",
+    "contactAdmin": "اتصل بالإدارة",
+    "loading": "جاري الدخول...",
+    "featureAssets": "إدارة الأصول والمعدات",
+    "featureWorkOrders": "طلبات الصيانة والبلاغات",
+    "featureInventory": "المخزون والعقود",
+    "featureReports": "تقارير متقدمة"
+  },
+  "UsersPage": {
+    "title": "إدارة المستخدمين",
+    "subtitle": "إدارة صلاحيات الوصول والشركات",
+    "addUser": "إضافة مستخدم جديد",
+    "editUser": "تعديل مستخدم",
+    "name": "الاسم",
+    "enterName": "أدخل الاسم الكامل",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "passwordPlaceholder": "اتركه فارغاً لعدم التغيير",
+    "role": "الدور",
+    "selectRole": "اختر الدور",
+    "company": "الشركة",
+    "selectCompany": "اختيار الشركة",
+    "chooseCompany": "اختر شركة من القائمة",
+    "createUser": "إنشاء مستخدم",
+    "saveChanges": "حفظ التعديلات",
+    "role_SUPER_ADMIN": "سوبر أدمن",
+    "role_ADMIN": "مدير شركة",
+    "role_MANAGER": "مدير",
+    "role_TECHNICIAN": "فني",
+    "actions": "الإجراءات",
+    "fetchError": "حدث خطأ أثناء جلب البيانات",
+    "selectCompanyRequired": "يجب اختيار شركة لهذا المستخدم",
+    "status": "الحالة",
+    "edit": "تعديل",
+    "delete": "حذف",
+    "addDialogTitle": "إضافة عضو جديد للنظام",
+    "editDialogTitle": "تحديث بيانات المستخدم",
+    "fullName": "الاسم الكامل",
+    "passwordRequired": "مطلوب",
+    "roleLabel": "الدور الوظيفي",
+    "roleSuperAdmin": "مدير عام",
+    "roleAdmin": "مدير شركة",
+    "roleManager": "مشرف",
+    "roleTechnician": "فني",
+    "systemGeneral": "النظام العام",
+    "noName": "بدون اسم",
+    "cancel": "إلغاء",
+    "save": "حفظ العضو",
+    "adminNote": "* يمكنك إضافة مديري شركة ومشرفين وفنيين فقط. لا يمكنك إضافة مدير عام.",
+    "active": "نشط",
+    "inactive": "غير نشط",
+    "updateSuccess": "تم تحديث المستخدم بنجاح",
+    "createSuccess": "تمت إضافة المستخدم بنجاح",
+    "error": "حدث خطأ",
+    "networkError": "خطأ في الاتصال بالخادم",
+    "roleNotAllowed": "لا يمكنك إنشاء مستخدم بهذه الصلاحية",
+    "create": "إنشاء",
+    "addNewUser": "إضافة مستخدم جديد",
+    "namePlaceholder": "أدخل الاسم الكامل",
+    "passwordHint": "اتركه فارغاً إذا كنت لا تريد تغييره",
+    "optionalHint": "(اختياري عند التعديل)",
+    "allCompanies": "كل الشركات",
+    "confirmCreate": "تأكيد الإضافة",
+    "noUsersFound": "لا يوجد مستخدمون حالياً"
+  },
+  "AssetsPage": {
+    "title": "الأصول والمعدات",
+    "subtitle": "إدارة الأصول المركزية ومتابعة الحالة التشغيلية للمعدات.",
+    "addAsset": "تسجيل أصل جديد",
+    "name": "الاسم",
+    "filterType": "النوع",
+    "status": "الحالة",
+    "location": "الموقع",
+    "actions": "الإجراءات",
+    "searchPlaceholder": "البحث عن مسمى الأصل أو الكود...",
+    "apply": "تطبيق",
+    "noAssets": "لا توجد أصول متطابقة مع معايير البحث",
+    "noType": "غير مصنف",
+    "noLocation": "موقع غير محدد",
+    "noStatus": "بدون حالة",
+    "deleteTitle": "حذف الأصل؟",
+    "deleteDescription": "أنت على وشك حذف \"{name}\". سيتم حذف الأصل بشكل دائم. لا يمكن التراجع عن هذه الخطوة.",
+    "confirmDelete": "تأكيد الحذف",
+    "cancel": "إلغاء",
+    "deleteSuccess": "تم حذف الأصل بنجاح",
+    "deleteError": "لا يمكن حذف الأصل بسبب وجود بيانات مرتبطة",
+    "live": "مباشر",
+    "showing": "عرض {start} - {end} من {total} أصل",
+    "previous": "السابق",
+    "next": "التالي"
+  },
+  "AssetsForm": {
+    "badge": "إضافة سجل تقني جديد",
+    "title": "تسجيل أصل / معدة",
+    "cancel": "إلغاء العملية",
+    "basicInfo": "المعلومات الأساسية للأصل",
+    "name": "اسم الأصل أو المعدة",
+    "namePlaceholder": "مثال: مولد طاقة طوارئ 500kVA",
+    "nameEn": "اسم الأصل (إنجليزي)",
+    "nameEnPlaceholder": "Example: Emergency Power Generator 500kVA",
+    "type": "تصنيف النوع",
+    "selectType": "اختر النوع",
+    "status": "الحالة التشغيلية الأولية",
+    "selectStatus": "تحديد الحالة",
+    "location": "الموقع الجغرافي أو القسم",
+    "lifecycle": "دورة حياة الضمان والتوريد",
+    "purchaseDate": "تاريخ الشراء / التوريد",
+    "warrantyEnd": "تاريخ انتهاء فترة الضمان",
+    "notes": "ملاحظات فنية إضافية",
+    "notesPlaceholder": "اكتب هنا أي تفاصيل تقنية، أكواد ضمان، أو شروط صيانة خاصة...",
+    "readyTitle": "جاهز للأرشفة؟",
+    "readyDesc": "سيتم إدراج هذا الأصل في السجلات المركزية فور الحفظ.",
+    "submit": "تسجيل الأصل",
+    "infoText": "يمكنك لاحقاً تعديل بيانات الضمان أو شطب الأصل من صفحة تفاصيل المعدات.",
+    "fetchError": "فشل تحميل خيارات التهيئة",
+    "createSuccess": "تم تسجيل الأصل في النظام بنجاح",
+    "createError": "حدث خطأ أثناء معالجة البيانات",
+    "nameRequired": "اسم الأصل مطلوب",
+    "editBadge": "تعديل السجلات المركزية",
+    "editTitle": "تحديث بيانات {name}",
+    "asset": "الأصل",
+    "deleteButton": "شطب الأصل",
+    "deleteTitle": "تأكيد الإزالة النهائية",
+    "deleteDescription": "هل أنت متأكد من شطب الأصل \"{name}\"? سيتم مسح كافة سجلات الصيانة والضمان المرتبطة به.",
+    "confirmDelete": "نعم، احذف السجل",
+    "deleteSuccess": "تم شطب الأصل نهائياً",
+    "deleteError": "فشل حذف الأصل",
+    "technicalInfo": "المعلومات التقنية والوصف",
+    "save": "حفظ السجل",
+    "reminderTitle": "تذكير النظام",
+    "reminderText": "سيتم تحديث سجل التغييرات (Audit Log) تلقائياً باسم المستخدم الحالي وتاريخ التعديل لضمان الشفافية.",
+    "loading": "جاري فتح ملف الأصل الفني...",
+    "updateSuccess": "تم تحديث الأرشيف بنجاح",
+    "updateError": "حدث خطأ أثناء الحفظ"
+  },
+  "AssetDetail": {
+    "headerBadge": "إدارة الأصول المركزية",
+    "referenceCode": "كود المرجع",
+    "backButton": "العودة",
+    "editButton": "تعديل البيانات",
+    "technicalInfo": "المعلومات التقنية",
+    "type": "تصنيف الأصل",
+    "location": "الموقع الجغرافي",
+    "purchaseDate": "تاريخ التوريد",
+    "warrantyEnd": "نهاية الضمان",
+    "notesLabel": "ملاحظات فنية إضافية",
+    "noNotes": "لا توجد ملاحظات مسجلة لهذا الأصل.",
+    "activityTitle": "سجل النشاطات الأخير",
+    "viewAll": "عرض الأرشيف كامل",
+    "noActivity": "لا توجد عمليات مسجلة قريباً لهذا الأصل.",
+    "securityStatus": "حالة الأمان والتشغيل",
+    "lastCheck": "آخر فحص: اليوم",
+    "newWorkOrder": "فتح طلب عمل",
+    "systemAlert": "تنبيه النظام",
+    "auditLogNote": "يتم تسجيل جميع العمليات وتاريخ التغييرات بشكل آمن وتلقائي في السجل المركزي.",
+    "noLocation": "غير محدد",
+    "statusActive": "نشط التشغيل",
+    "statusMaintenance": "خارج الخدمة",
+    "statusRetired": "مؤرشف",
+    "noStatus": "بدون حالة"
   }
 }

@@ -22,15 +22,45 @@
     "password": "Password",
     "submit": "Sign In"
   },
-  "Dashboard": {
-    "title": "Dashboard",
-    "welcome": "Welcome",
-    "facilities": "Facilities",
-    "maintenance": "Maintenance Requests",
-    "staff": "Staff",
-    "logout": "Logout",
-    "comingSoon": "More features coming soon..."
+"Dashboard": {
+  "header": {
+    "title": "Overview",
+    "welcome": "Welcome back, here's what's happening in your system today."
   },
+  "stats": {
+    "assets": {
+      "title": "Total Assets",
+      "description": "Registered equipment and machinery"
+    },
+    "workOrders": {
+      "title": "Work Orders",
+      "description": "Ongoing maintenance tasks"
+    },
+    "lowInventory": {
+      "title": "Low Inventory",
+      "description": "Spare parts needing reorder"
+    },
+    "pendingRequests": {
+      "title": "Pending Requests",
+      "description": "Incident and maintenance reports"
+    },
+    "live": "LIVE"
+  },
+  "quickAccess": {
+    "title": "Quick Access"
+  },
+  "quickActions": {
+    "newWorkOrder": "New Work Order",
+    "newWorkOrderDesc": "Assign immediate maintenance task",
+    "newAsset": "Add New Asset",
+    "newAssetDesc": "Register equipment or machine"
+  },
+  "systemStatus": {
+    "title": "Security Status",
+    "message": "System operating efficiently",
+    "sync": "Sync"
+  }
+},
   "Home": {
     "title": "Facility Management System",
     "description": "Smart system for maintenance and operations management",
@@ -169,5 +199,630 @@
   "SuperAdmin": {
     "title": "Super Admin Dashboard",
     "description": "Welcome, this is a private area for the developer. Admin tools will be added soon."
+  },
+  "ListManager": {
+    "title": "List Management",
+    "error": "An error occurred",
+    "addButton": "Add New",
+    "editButton": "Edit Data",
+    "save": "Save Changes",
+    "cancel": "Cancel",
+    "formDescription": "Please fill in the fields below carefully. Fields marked with (*) are required.",
+    "fetchError": "Failed to fetch data from server",
+    "createSuccess": "Added successfully",
+    "updateSuccess": "Updated successfully",
+    "deleteSuccess": "Deleted successfully",
+    "fieldRequired": "{field} is required",
+    "loading": "Loading...",
+    "noItems": "No records found",
+    "actions": "Actions",
+    "confirmDelete": "Confirm Delete",
+    "deleteWarning": "Are you sure you want to delete this record? This action cannot be undone.",
+    "delete": "Delete"
+  },
+  "Sidebar": {
+    "nav": {
+      "dashboard": "Dashboard",
+      "workOrders": "Work Orders",
+      "reports": "Reports",
+      "maintenance": "Maintenance",
+      "contracts": "Contracts",
+      "assets": "Assets",
+      "vehicles": "Vehicle Requests",
+      "inventory": "Inventory",
+      "superDashboard": "Super Admin Dashboard",
+      "companies": "Companies",
+      "users": "Users",
+      "settings": "Settings",
+      "buildings": "Buildings",
+      "floors": "Floors",
+      "rooms": "Rooms",
+      "assetTypes": "Asset Types",
+      "workOrderStatuses": "Work Order Statuses",
+      "assetStatuses": "Asset Statuses",
+      "permissions": "Permissions",
+      "drivers": "Drivers",
+      "vehiclesList": "Vehicles"
+    },
+    "systemAdminSection": "System Admin",
+    "settings": "Settings",
+    "locationsSettings": "Location Settings",
+    "vehiclesSettings": "Vehicle Settings",
+    "dictionariesSettings": "Dictionary Settings",
+    "company": "Company",
+    "logout": "Logout"
+  },
+  "WorkOrderPriorities": {
+    "systemSettings": "Central System Settings",
+    "title": "Work Order Priorities",
+    "subtitle": "Define critical importance levels and field team response order.",
+    "listTitle": "Priority Matrix",
+    "listDescription": "Manage importance levels (Emergency, High, Low) and customize visual alert colors.",
+    "name": "Name",
+    "nameEn": "Name in English",
+    "order": "Order",
+    "isDefault": "Default",
+    "color": "Color",
+    "fields": {
+      "name": {
+        "label": "Priority Level Name *",
+        "placeholder": "Example: Emergency - Immediate Response"
+      },
+      "nameEn": {
+        "label": "Name in English",
+        "placeholder": "Example: Emergency"
+      },
+      "color": {
+        "label": "Visual Highlight Color",
+        "placeholder": "#ef4444"
+      },
+      "order": {
+        "label": "Order Weight (1 = highest)",
+        "placeholder": "Numeric value"
+      },
+      "isDefault": {
+        "label": "Set as default for new work orders"
+      }
+    },
+    "columns": {
+      "name": "Priority Level",
+      "order": "Order",
+      "orderPrefix": "Rank #",
+      "isDefault": "Default Status",
+      "defaultBadge": "Default",
+      "notDefault": "---"
+    },
+    "tipTitle": "Design Tip",
+    "tipContent": "Use striking colors (e.g., red, orange) for high priorities to ensure technicians' attention immediately when the request appears on their dashboard."
+  },
+  "AssetStatuses": {
+    "color": "Color",
+    "title": "Asset Statuses",
+    "subtitle": "Define operational statuses for equipment (e.g., Working, Broken, Under Maintenance)",
+    "listTitle": "Statuses List",
+    "name": "Name",
+    "nameEn": "Name in English",
+    "order": "Order",
+    "isDefault": "Default",
+    "adviceTitle": "Management Tip",
+    "adviceText": "Changing an asset's status affects Availability reports. Ensure labels are accurate."
+  },
+  "WorkOrderStatuses": {
+    "title": "Work Order Statuses",
+    "description": "Manage workflow stages for maintenance reports (e.g., New, In Progress, Completed)",
+    "listTitle": "Workflow Stages",
+    "name": "Name",
+    "nameEn": "Name in English",
+    "order": "Order",
+    "isDefault": "Default",
+    "color": "Color",
+    "tipTitle": "Note",
+    "tipContent": "The default status will be automatically assigned to any new report arriving in the system."
+  },
+  "AssetTypes": {
+    "title": "Asset Types",
+    "subtitle": "Classify equipment and machinery by type for easy filtering and searching",
+    "listTitle": "Types List",
+    "name": "Name",
+    "nameEn": "Name in English",
+    "order": "Order",
+    "isDefault": "Default",
+    "adviceTitle": "Tip",
+    "adviceText": "Grouping similar assets into one type helps you generate accurate performance reports for each category."
+  },
+  "Locations": {
+    "title": "Locations",
+    "subtitle": "Manage geographic locations or branches of the facility",
+    "listTitle": "Registered Locations List",
+    "name": "Location Name",
+    "nameEn": "Name in English",
+    "order": "Order",
+    "isDefault": "Default Location",
+    "adviceTitle": "Info",
+    "adviceText": "Linking assets to precise locations helps technicians quickly reach the fault site."
+  },
+  "Companies": {
+    "title": "Organizations Management",
+    "subtitle": "Manage companies and establish accounts",
+    "addCompany": "Establish New Organization",
+    "activeCompanies": "Active Organizations",
+    "companyName": "Organization",
+    "companyNameEn": "Organization Name (English)",
+    "contact": "Contact Info",
+    "subscription": "Subscription",
+    "actions": "Actions",
+    "edit": "Edit",
+    "suspend": "Suspend Membership",
+    "editSoon": "Edit feature coming soon",
+    "noSubscription": "No Subscription",
+    "expired": "Expired",
+    "active": "Active",
+    "confirmSuspend": "Are you sure you want to suspend \"{name}\"?",
+    "suspendSuccess": "Membership for {name} has been suspended",
+    "fetchError": "Failed to load companies",
+    "missingData": "Please fill in required fields",
+    "createSuccess": "Company and admin created successfully",
+    "updateSuccess": "Updated successfully",
+    "error": "An error occurred",
+    "unauthorized": "Unauthorized Access",
+    "unauthorizedDesc": "This page is for global system administrators only",
+    "newCompany": "Establish New Organization",
+    "editCompany": "Edit Organization Details",
+    "companyDetails": "Organization Details",
+    "order": "Order",
+    "email": "Official Email",
+    "phone": "Phone Number",
+    "subscriptionEnd": "Subscription End Date",
+    "address": "Address",
+    "adminAccount": "System Admin Account",
+    "adminName": "Admin Name",
+    "adminEmail": "Admin Email",
+    "adminPassword": "Temporary Password",
+    "cancel": "Cancel",
+    "save": "Save Changes",
+    "create": "Complete Establishment",
+    "adviceTitle": "System Security Advice",
+    "adviceText": "When adding a new company, the system will automatically create an **Admin** account for it. Please ensure the email address is correct to deliver credentials."
+  },
+  "BuildingsPage": {
+    "title": "Buildings Structure",
+    "subtitle": "Manage main locations and registered buildings.",
+    "addBuilding": "Add Building",
+    "totalBuildings": "Total Registered Buildings",
+    "noBuildings": "No buildings registered yet",
+    "codeLabel": "Code",
+    "orderLabel": "Order",
+    "deleteTitle": "Delete Building?",
+    "deleteDescription": "You are about to delete \"{name}\". The building will be soft-deleted and can be restored later. Associated floors and rooms will not be deleted.",
+    "confirmDelete": "Confirm Delete",
+    "cancel": "Cancel",
+    "certified": "Certified Record",
+    "fetchError": "Failed to fetch data",
+    "deleteSuccess": "Deleted successfully",
+    "deleteError": "Cannot delete due to associated data"
+  },
+  "FloorsPage": {
+    "title": "Floors Management",
+    "subtitle": "Manage building floors and levels.",
+    "addFloor": "Add Floor",
+    "totalFloors": "Total Registered Floors",
+    "noFloors": "No floors registered yet",
+    "codeLabel": "Code",
+    "orderLabel": "Order",
+    "noBuilding": "No building",
+    "deleteTitle": "Delete Floor?",
+    "deleteDescription": "You are about to delete \"{name}\". The floor will be soft-deleted and can be restored later. Associated rooms will not be deleted.",
+    "confirmDelete": "Confirm Delete",
+    "cancel": "Cancel",
+    "certified": "Certified Record",
+    "fetchError": "Failed to fetch data",
+    "deleteSuccess": "Deleted successfully",
+    "deleteError": "Cannot delete due to associated data"
+  },
+  "FloorsForm": {
+    "title": "Edit Floor Data",
+    "subtitle": "Update floor name, code, English name or display order.",
+    "editTitle": "Edit Level",
+    "reference": "Edit Reference",
+    "building": "Parent Building",
+    "code": "Floor Code",
+    "codePlaceholder": "e.g., G, 01, B1",
+    "order": "Order",
+    "name": "Floor Name",
+    "nameEn": "Floor Name (English)",
+    "nameEnPlaceholder": "e.g., Ground Floor",
+    "save": "Save Changes",
+    "cancel": "Cancel",
+    "fetchError": "Failed to fetch floor data",
+    "updateSuccess": "Updated successfully",
+    "updateError": "Update failed",
+    "nameRequired": "Floor name is required",
+    "codeRequired": "Floor code is required"
+  },
+  "RoomsPage": {
+    "title": "Units Management",
+    "subtitle": "View and organize offices and units within the facility.",
+    "addRoom": "Add Unit",
+    "totalRooms": "Total Registered Units",
+    "noRooms": "No units registered yet",
+    "orderLabel": "Order",
+    "noBuilding": "No building",
+    "noFloor": "No floor",
+    "codeLabel": "Code",
+    "deleteTitle": "Delete Unit?",
+    "deleteDescription": "You are about to delete \"{name}\". The unit will be soft-deleted and can be restored later.",
+    "confirmDelete": "Confirm Delete",
+    "cancel": "Cancel",
+    "fetchError": "Failed to fetch data",
+    "deleteSuccess": "Deleted successfully",
+    "deleteError": "Cannot delete due to associated data"
+  },
+  "RoomsForm": {
+    "badge": "Add New Unit",
+    "title": "Register New Unit",
+    "subtitle": "Link the unit to the appropriate floor and set its order and code.",
+    "recordDetails": "Record Details",
+    "roomUnit": "Unit / Office",
+    "floor": "Floor / Level",
+    "selectFloor": "Select floor from list",
+    "noBuilding": "No building",
+    "code": "Unit Code",
+    "codePlaceholder": "e.g., 101, A01, G01",
+    "codeHint": "Unique code for the unit within the floor",
+    "order": "Order",
+    "name": "Unit / Office Name",
+    "namePlaceholder": "e.g., Main Meeting Room",
+    "nameEn": "Unit Name (English)",
+    "nameEnPlaceholder": "e.g., Main Hall",
+    "save": "Save Unit",
+    "cancel": "Cancel",
+    "fetchError": "Failed to fetch floors",
+    "createSuccess": "Unit created successfully",
+    "updateSuccess": "Unit updated successfully",
+    "infoText": "The code helps to quickly identify the location (e.g., 101, A02). Order determines the display order in lists.",
+    "fetchFloorsError": "Failed to load floors list",
+    "missingFields": "Please select the floor, and enter unit name and code.",
+    "createError": "Registration failed",
+    "editBadge": "Edit Unit Location",
+    "editTitle": "Edit Unit Data",
+    "building": "Building",
+    "selectBuilding": "Select building",
+    "updateError": "Update failed"
+  },
+  "ReportStatuses": {
+    "title": "Report Statuses",
+    "subtitle": "Manage maintenance and incident report processing stages",
+    "listTitle": "Report Statuses List",
+    "name": "Name",
+    "nameEn": "English Name",
+    "order": "Order",
+    "isDefault": "Default",
+    "color": "Color",
+    "tipTitle": "Visual Tip",
+    "tipContent": "Assigning colors to each status makes it easier to monitor the workflow at a glance."
+  },
+  "MaintenanceFrequencies": {
+    "title": "Maintenance Settings",
+    "subtitle": "Manage time intervals and schedule fleet and equipment maintenance.",
+    "sectionTitle": "Approved Maintenance Cycles",
+    "listTitle": "Cycles Record",
+    "name": "Name",
+    "nameEn": "Name in English",
+    "order": "Order",
+    "isDefault": "Default",
+    "color": "Color",
+    "fields": {
+      "name": "Cycle Name",
+      "nameEn": "Name in English",
+      "order": "Display Order",
+      "isDefault": "Set as default option"
+    },
+    "tipTitle": "Smart Scheduling Tip",
+    "tipContent": "Ensure cycles are sorted ascending for easy selection. The **default** option will automatically appear to technicians when opening new preventive maintenance reports."
+  },
+  "ContractTypes": {
+    "color": "Color",
+    "title": "Contract Types",
+    "subtitle": "Classify contracts by type (Maintenance, Rental, Consultancy)",
+    "listTitle": "Contract Types List",
+    "fields": {
+      "name": "Type Name",
+      "nameEn": "Name in English",
+      "order": "Order",
+      "isDefault": "Default"
+    },
+    "tipTitle": "Management Tip",
+    "tipContent": "Setting the appropriate type for each contract helps organize contracts and generate accurate reports."
+  },
+  "MovementTypes": {
+    "name": "Name",
+    "nameEn": "Name in English",
+    "order": "Order",
+    "isDefault": "Default",
+    "title": "Inventory Movement Types",
+    "subtitle": "Classify inventory operations (Addition, Withdrawal, Adjustment, Transfer, Count)",
+    "listTitle": "Movement Types List",
+    "fields": {
+      "name": "Type Name",
+      "nameEn": "Name in English",
+      "order": "Order",
+      "isDefault": "Default"
+    },
+    "tipTitle": "Technical Tip",
+    "tipContent": "Accurately setting the movement type helps track inventory and generate precise consumption and addition reports."
+  },
+  "RolesPermissions": {
+    "title": "Roles & Permissions",
+    "subtitle": "Manage role-based permissions",
+    "cardTitle": "Role Permissions",
+    "cardDescription": "Set permissions for each role",
+    "moduleHeader": "Module",
+    "save": "Save",
+    "saveSuccess": "Permissions for {role} saved successfully",
+    "saveError": "Failed to save permissions",
+    "fetchError": "Failed to load data",
+    "unauthorizedTitle": "Unauthorized",
+    "unauthorizedDesc": "You don't have permission to access this page",
+    "roleSuperAdmin": "Super Admin",
+    "roleAdmin": "Admin",
+    "roleManager": "Branch Manager",
+    "roleTechnician": "Technician",
+    "operation": {
+      "view": "View",
+      "create": "Create",
+      "edit": "Edit",
+      "update": "Edit",
+      "delete": "Delete"
+    },
+    "moduleNames": {
+      "report": "Reports",
+      "workorder": "Work Orders",
+      "asset": "Assets",
+      "inventory": "Inventory",
+      "contract": "Contracts",
+      "vehicle": "Vehicles"
+    },
+    "permission": {
+      "report:view": {
+        "description": "View all reports in the allowed branch"
+      },
+      "report:create": {
+        "description": "Create a new report (maintenance or incident)"
+      },
+      "report:update": {
+        "description": "Edit report details (title, description, etc.)"
+      },
+      "report:delete": {
+        "description": "Permanently delete a report"
+      },
+      "workorder:view": {
+        "description": "View work orders"
+      },
+      "workorder:create": {
+        "description": "Create a new work order"
+      },
+      "workorder:update": {
+        "description": "Edit work order (status, date, notes)"
+      },
+      "workorder:delete": {
+        "description": "Delete a work order"
+      },
+      "asset:view": {
+        "description": "View assets (devices and equipment)"
+      },
+      "asset:create": {
+        "description": "Add a new asset"
+      },
+      "asset:update": {
+        "description": "Edit asset details"
+      },
+      "asset:delete": {
+        "description": "Delete an asset (with dependency check)"
+      },
+      "inventory:view": {
+        "description": "View inventory items (parts and materials)"
+      },
+      "inventory:create": {
+        "description": "Add a new inventory item"
+      },
+      "inventory:update": {
+        "description": "Edit item details (price, min quantity, etc.)"
+      },
+      "inventory:delete": {
+        "description": "Delete an inventory item"
+      },
+      "contract:view": {
+        "description": "View contracts"
+      },
+      "contract:create": {
+        "description": "Create a new contract"
+      },
+      "contract:update": {
+        "description": "Edit contract details"
+      },
+      "contract:delete": {
+        "description": "Delete a contract"
+      },
+      "vehicle:view": {
+        "description": "View vehicles linked to assets"
+      },
+      "vehicle:create": {
+        "description": "Add a new vehicle (link to an asset)"
+      },
+      "vehicle:update": {
+        "description": "Edit vehicle details (license, insurance)"
+      },
+      "vehicle:delete": {
+        "description": "Delete a vehicle"
+      }
+    }
+  },
+  "LoginPage": {
+    "errorMessage": "Invalid login credentials",
+    "title": "Login",
+    "subtitle": "Enter your credentials to access the dashboard",
+    "email": "Email address",
+    "password": "Password",
+    "remember": "Remember me",
+    "forgotPassword": "Forgot password?",
+    "loginButton": "Sign in",
+    "noAccount": "Don't have an account?",
+    "contactAdmin": "Contact admin",
+    "loading": "Logging in...",
+    "featureAssets": "Asset & Equipment Management",
+    "featureWorkOrders": "Maintenance Requests & Reports",
+    "featureInventory": "Inventory & Contracts",
+    "featureReports": "Advanced Reports"
+  },
+  "UsersPage": {
+    "title": "User Management",
+    "subtitle": "Control employee and manager access to the system.",
+    "addUser": "Add User",
+    "name": "User",
+    "role": "Role",
+    "company": "Company",
+    "status": "Status",
+    "actions": "Actions",
+    "edit": "Edit",
+    "delete": "Delete",
+    "addDialogTitle": "Add New Member",
+    "editDialogTitle": "Update User Data",
+    "fullName": "Full Name",
+    "email": "Email",
+    "password": "Password",
+    "passwordPlaceholder": "Leave blank if you don't want to change",
+    "passwordRequired": "Required",
+    "roleLabel": "Role",
+    "roleSuperAdmin": "Super Admin",
+    "roleAdmin": "Company Admin",
+    "roleManager": "Manager",
+    "roleTechnician": "Technician",
+    "systemGeneral": "General System",
+    "noName": "No Name",
+    "cancel": "Cancel",
+    "save": "Save User",
+    "adminNote": "* You can only add company admins, managers, and technicians. You cannot add a super admin.",
+    "active": "Active",
+    "inactive": "Inactive",
+    "fetchError": "Failed to load users list",
+    "updateSuccess": "User updated successfully",
+    "createSuccess": "User added successfully",
+    "error": "An error occurred",
+    "networkError": "Server connection error",
+    "roleNotAllowed": "You cannot create a user with this role",
+    "role_SUPER_ADMIN": "Super Admin",
+    "role_ADMIN": "Company Admin",
+    "role_MANAGER": "Manager",
+    "role_TECHNICIAN": "Technician",
+    "editUser": "Edit User",
+    "create": "Create",
+    "selectRole": "Select role",
+    "selectCompany": "Select company",
+    "selectCompanyRequired": "Please select a company for the user",
+    "addNewUser": "Add New User",
+    "namePlaceholder": "Enter full name",
+    "passwordHint": "Leave blank if you don't want to change",
+    "optionalHint": "(Optional when editing)",
+    "allCompanies": "All companies",
+    "saveChanges": "Save changes",
+    "confirmCreate": "Confirm creation",
+    "noUsersFound": "No users found"
+  },
+  "AssetsPage": {
+    "save": "Save",
+    "title": "Assets & Equipment",
+    "subtitle": "Central asset management and operational status tracking.",
+    "addAsset": "Register New Asset",
+    "name": "Name",
+    "filterType": "Type",
+    "status": "Status",
+    "location": "Location",
+    "actions": "Actions",
+    "searchPlaceholder": "Search by asset name or code...",
+    "apply": "Apply",
+    "noAssets": "No assets match your search criteria",
+    "noType": "Unclassified",
+    "noLocation": "No location",
+    "noStatus": "No status",
+    "deleteTitle": "Delete Asset?",
+    "deleteDescription": "You are about to delete \"{name}\". This asset will be permanently deleted. This action cannot be undone.",
+    "confirmDelete": "Confirm Delete",
+    "cancel": "Cancel",
+    "deleteSuccess": "Asset deleted successfully",
+    "deleteError": "Cannot delete asset due to associated data",
+    "live": "LIVE",
+    "showing": "Showing {start} - {end} of {total} assets",
+    "previous": "Previous",
+    "next": "Next"
+  },
+  "AssetsForm": {
+    "badge": "Add New Technical Record",
+    "title": "Register Asset / Equipment",
+    "cancel": "Cancel Operation",
+    "basicInfo": "Asset Basic Information",
+    "name": "Asset or Equipment Name",
+    "namePlaceholder": "e.g., Emergency Power Generator 500kVA",
+    "nameEn": "Asset Name (English)",
+    "nameEnPlaceholder": "e.g., Emergency Power Generator 500kVA",
+    "type": "Type Classification",
+    "selectType": "Select type",
+    "status": "Initial Operational Status",
+    "selectStatus": "Select status",
+    "location": "Geographic Location or Department",
+    "lifecycle": "Warranty & Supply Lifecycle",
+    "purchaseDate": "Purchase / Supply Date",
+    "warrantyEnd": "Warranty Expiry Date",
+    "notes": "Additional Technical Notes",
+    "notesPlaceholder": "Write any technical details, warranty codes, or special maintenance conditions...",
+    "readyTitle": "Ready to Archive?",
+    "readyDesc": "This asset will be added to the central records upon saving.",
+    "submit": "Register Asset",
+    "infoText": "You can later edit warranty data or delete the asset from the equipment details page.",
+    "fetchError": "Failed to load initialization options",
+    "createSuccess": "Asset registered successfully",
+    "createError": "An error occurred while processing data",
+    "nameRequired": "Asset name is required",
+    "editBadge": "Edit Central Records",
+    "editTitle": "Update {name} Data",
+    "asset": "Asset",
+    "deleteButton": "Delete Asset",
+    "deleteTitle": "Confirm Permanent Removal",
+    "deleteDescription": "Are you sure you want to delete \"{name}\"? All associated maintenance and warranty records will be erased.",
+    "confirmDelete": "Yes, delete record",
+    "deleteSuccess": "Asset permanently deleted",
+    "deleteError": "Failed to delete asset",
+    "technicalInfo": "Technical Information & Description",
+    "save": "Save Record",
+    "reminderTitle": "System Reminder",
+    "reminderText": "The audit log will be automatically updated with the current user's name and modification date to ensure transparency.",
+    "loading": "Loading asset technical file...",
+    "updateSuccess": "Archive updated successfully",
+    "updateError": "An error occurred while saving"
+  },
+  "AssetDetail": {
+    "headerBadge": "Central Asset Management",
+    "referenceCode": "Reference Code",
+    "backButton": "Back",
+    "editButton": "Edit Data",
+    "technicalInfo": "Technical Information",
+    "type": "Asset Type",
+    "location": "Geographic Location",
+    "purchaseDate": "Supply Date",
+    "warrantyEnd": "Warranty End",
+    "notesLabel": "Additional Technical Notes",
+    "noNotes": "No notes recorded for this asset.",
+    "activityTitle": "Recent Activity Log",
+    "viewAll": "View Full Archive",
+    "noActivity": "No recent operations recorded for this asset.",
+    "securityStatus": "Security & Operational Status",
+    "lastCheck": "Last inspection: today",
+    "newWorkOrder": "Open Work Order",
+    "systemAlert": "System Alert",
+    "auditLogNote": "All operations and change history are securely and automatically recorded in the central log.",
+    "noLocation": "Not specified",
+    "statusActive": "Active",
+    "statusMaintenance": "Under Maintenance",
+    "statusRetired": "Retired",
+    "noStatus": "No Status"
   }
 }

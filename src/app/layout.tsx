@@ -1,5 +1,6 @@
 import { ThemeProvider } from '@/components/theme-provider';
-import SessionProvider from '@/components/session-provider';
+import { NextIntlClientProvider } from 'next-intl';
+import { ClientLayout } from '@/components/ui/ClientLayout';
 import '@/app/globals.css';
 
 export default function RootLayout({
@@ -10,10 +11,10 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-          <SessionProvider>
-            {children}
-          </SessionProvider>
+        <ThemeProvider defaultTheme="dark">
+          <NextIntlClientProvider>
+            <ClientLayout>{children}</ClientLayout>
+          </NextIntlClientProvider>
         </ThemeProvider>
       </body>
     </html>

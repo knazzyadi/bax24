@@ -6,15 +6,16 @@ import { Footer } from './Footer';
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isSuperAdminPage = pathname?.includes('/super-admin');
+  // إخفاء الهيدر والفوتر في صفحات السوبر أدمن وصفحات الأدمن العادية
+  const isHiddenPage = pathname?.includes('/super-admin') || pathname?.includes('/dashboard');
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">
-      {!isSuperAdminPage && <Header />}
-      <main className={`flex-1 ${!isSuperAdminPage ? 'pt-20' : ''}`}>
+      {!isHiddenPage && <Header />}
+      <main className={`flex-1 ${!isHiddenPage ? 'pt-20' : ''}`}>
         {children}
       </main>
-      {!isSuperAdminPage && <Footer />}
+      {!isHiddenPage && <Footer />}
     </div>
   );
 }

@@ -1,0 +1,924 @@
+// This is your Prisma schema file for bax24 Facility Management System.
+// Generator and datasource
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ========================
+// Core Models
+// ========================
+
+model Company {
+  id                    String    @id @default(cuid()) @map("id")
+  name                  String    @unique @map("name")
+  nameEn                String?   @map("name_en")
+  address               String?
+  phone                 String?
+  email                 String?
+  subscriptionStartDate DateTime? @map("subscription_start_date")
+  subscriptionEndDate   DateTime? @map("subscription_end_date")
+  isActive              Boolean   @default(true) @map("is_active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
+
+  // Relations
+  users                  User[]
+  assets                 Asset[]
+  workOrders             WorkOrder[]
+  inventoryItems         InventoryItem[]
+  assetStatuses          AssetStatus[]
+  workOrderPriorities    WorkOrderPriority[]
+  workOrderStatuses      WorkOrderStatus[]
+  maintenanceFrequencies MaintenanceFrequency[]
+  movementTypes          MovementType[]
+  assetTypes             AssetType[]
+  contractTypes          ContractType[]
+  vendors                Vendor[]
+  contracts              Contract[]
+  drivers                Driver[]
+  vehicles               Vehicle[]
+  maintenanceReports     MaintenanceReport[]
+  buildings              Building[]
+  maintenanceGroups      MaintenanceGroup[]
+  roles                  Role[]
+  reportStatuses         ReportStatus[]
+
+  @@map("companies")
+}
+
+model User {
+  id                    String    @id @default(cuid()) @map("id")
+  name                  String?   @map("name")
+  email                 String    @unique @map("email")
+  emailVerified         DateTime? @map("email_verified")
+  password              String?   @map("password")
+  roleId                String?   @map("role_id")
+  status                Boolean   @default(false) @map("status")
+  activationToken       String?   @unique @map("activation_token")
+  activationExpires     DateTime? @map("activation_expires")
+  resetToken            String?   @unique @map("reset_token")
+  resetExpires          DateTime? @map("reset_expires")
+  failedLoginAttempts   Int       @default(0) @map("failed_login_attempts")
+  lockedUntil           DateTime? @map("locked_until")
+  lastLoginAt           DateTime? @map("last_login_at")
+  image                 String?
+  companyId             String?   @map("company_id")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
+  branchId              String?   @map("branch_id")
+
+  // Relations
+  role                  Role?                     @relation(fields: [roleId], references: [id])
+  company               Company?                  @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  branch                Building?                 @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  workOrders            WorkOrder[]               @relation("AssignedWorkOrders")
+  createdWorkOrders     WorkOrder[]               @relation("CreatedWorkOrders")
+  stockMovements        StockMovement[]
+  investigatedReports   MaintenanceReport[]       @relation("InvestigatedBy")
+  oilChangeApprovals    OilChangeRequest[]        @relation("OilChangeApprovals")
+  accidentApprovals     AccidentRequest[]         @relation("AccidentApprovals")
+  userBuildings         UserBuilding[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([deletedAt])
+  @@index([companyId, branchId])
+  @@index([roleId])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(cuid()) @map("id")
+  name        String   @unique @map("name")
+  label       String?  @map("label")
+  description String?  @map("description")
+  companyId   String?  @map("company_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company     Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  permissions RolePermission[]
+  users       User[]
+
+  @@index([companyId])
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(cuid()) @map("id")
+  name        String   @unique @map("name")
+  label       String?  @map("label")
+  description String?  @map("description")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String   @map("role_id")
+  permissionId String   @map("permission_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  // Relations
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// ========================
+// Asset & Inventory Models
+// ========================
+
+model AssetStatus {
+  id          String   @id @default(cuid()) @map("id")
+  name        String   @map("name")
+  nameEn      String?  @map("name_en")
+  description String?
+  color       String?  @default("#64748b") @map("color")
+  order       Int      @default(0) @map("order")
+  isDefault   Boolean  @default(false) @map("is_default")
+  companyId   String?  @map("company_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assets  Asset[]
+
+  @@index([companyId])
+  @@unique([name, companyId])
+  @@map("asset_statuses")
+}
+
+model AssetType {
+  id          String    @id @default(cuid()) @map("id")
+  name        String    @map("name")
+  nameEn      String?   @map("name_en")
+  description String?
+  order       Int       @default(0) @map("order")
+  isDefault   Boolean   @default(false) @map("is_default")
+  companyId   String?   @map("company_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assets  Asset[]
+
+  @@index([companyId])
+  @@unique([name, companyId])
+  @@map("asset_types")
+}
+
+model Asset {
+  id           String    @id @default(cuid()) @map("id")
+  code         String    @unique @default(cuid()) @map("code")
+  name         String    @map("name")
+  nameEn       String?   @map("name_en")
+  typeId       String?   @map("type_id")
+  roomId       String?   @map("room_id")
+  purchaseDate DateTime? @map("purchase_date")
+  warrantyEnd  DateTime? @map("warranty_end")
+  statusId     String?   @map("status_id")
+  notes        String?   @map("notes")
+  qrCode       String?   @unique @map("qr_code")
+  companyId    String    @map("company_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+  buildingId   String    @map("building_id")
+
+  // Relations
+  building           Building               @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  room               Room?                  @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  type               AssetType?             @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  status             AssetStatus?           @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  company            Company                @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  vehicle            Vehicle?               @relation("VehicleAsset")
+  workOrders         WorkOrder[]
+  maintenanceReports MaintenanceReport[]
+  maintenanceGroups  MaintenanceAsset[]
+
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([typeId])
+  @@index([statusId])
+  @@index([roomId])
+  @@index([buildingId])
+  @@index([deletedAt])
+  @@index([companyId, buildingId, deletedAt])
+  @@index([typeId, statusId])
+  @@index([roomId, buildingId])
+  @@map("assets")
+}
+
+// ========================
+// Work Order Models
+// ========================
+
+model WorkOrderPriority {
+  id          String   @id @default(cuid()) @map("id")
+  name        String   @map("name")
+  nameEn      String?  @map("name_en")
+  color       String?
+  description String?
+  order       Int      @default(0) @map("order")
+  isDefault   Boolean  @default(false) @map("is_default")
+  companyId   String?  @map("company_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company    Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workOrders WorkOrder[]
+
+  @@index([companyId])
+  @@map("work_order_priorities")
+}
+
+model WorkOrderStatus {
+  id          String   @id @default(cuid()) @map("id")
+  name        String   @map("name")
+  nameEn      String?  @map("name_en")
+  description String?
+  color       String?  @db.VarChar(7) @map("color")
+  order       Int      @default(0) @map("order")
+  isDefault   Boolean  @default(false) @map("is_default")
+  companyId   String?  @map("company_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company    Company?    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workOrders WorkOrder[]
+
+  @@index([companyId])
+  @@map("work_order_statuses")
+}
+
+model WorkOrder {
+  id           String    @id @default(cuid()) @map("id")
+  code         String    @unique @default(cuid()) @map("code")
+  title        String    @map("title")
+  description  String?   @map("description")
+  priorityId   String?   @map("priority_id")
+  statusId     String?   @map("status_id")
+  assetId      String?   @map("asset_id")
+  assignedToId String?   @map("assigned_to_id")
+  createdById  String    @map("created_by_id")
+  scheduledAt  DateTime? @map("scheduled_at")
+  completedAt  DateTime? @map("completed_at")
+  companyId    String    @map("company_id")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+  notes        String?   @map("notes")
+  type         String    @default("MAINTENANCE") @map("type")
+  deletedAt    DateTime? @map("deleted_at")
+  roomId       String?   @map("room_id")
+  buildingId   String    @map("building_id")
+
+  // Relations
+  building           Building                @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  room               Room?                   @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  asset              Asset?                  @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  priority           WorkOrderPriority?      @relation(fields: [priorityId], references: [id], onDelete: Restrict)
+  status             WorkOrderStatus?        @relation(fields: [statusId], references: [id], onDelete: Restrict)
+  assignedTo         User?                   @relation("AssignedWorkOrders", fields: [assignedToId], references: [id], onDelete: SetNull)
+  createdBy          User                    @relation("CreatedWorkOrders", fields: [createdById], references: [id], onDelete: Restrict)
+  company            Company                 @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  items              WorkOrderItem[]
+  stockMovements     StockMovement[]
+  maintenanceReports MaintenanceReport[]     @relation("WorkOrderReports")
+  incidentReports    MaintenanceReport[]     @relation("ConvertedToWorkOrder")
+  MaintenanceTask    MaintenanceTask[]
+
+  @@index([companyId])
+  @@index([statusId])
+  @@index([priorityId])
+  @@index([assetId])
+  @@index([assignedToId])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([roomId])
+  @@index([buildingId])
+  @@index([companyId, buildingId, deletedAt])
+  @@index([statusId, priorityId, scheduledAt])
+  @@index([assignedToId, statusId])
+  @@index([companyId, statusId, assignedToId])
+  @@map("work_orders")
+}
+
+model WorkOrderItem {
+  id              String   @id @default(cuid()) @map("id")
+  workOrderId     String   @map("work_order_id")
+  inventoryItemId String   @map("inventory_item_id")
+  quantityUsed    Int      @map("quantity_used")
+  unitPrice       Float?   @map("unit_price")
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  // Relations
+  workOrder     WorkOrder     @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+
+  @@index([workOrderId])
+  @@index([inventoryItemId])
+  @@map("work_order_items")
+}
+
+// ========================
+// Inventory Models
+// ========================
+
+model InventoryItem {
+  id          String    @id @default(cuid()) @map("id")
+  name        String    @map("name")
+  sku         String    @unique @map("sku")
+  quantity    Int       @default(0) @map("quantity")
+  minQuantity Int       @default(5) @map("min_quantity")
+  unitPrice   Float?    @map("unit_price")
+  roomId      String?   @map("room_id")
+  companyId   String?   @map("company_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  notes       String?   @map("notes")
+  buildingId  String?   @map("building_id")
+
+  // Relations
+  company Company?      @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  room    Room?         @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  workOrderItems WorkOrderItem[]
+  stockMovements StockMovement[]
+
+  @@index([companyId])
+  @@index([roomId])
+  @@index([deletedAt])
+  @@index([companyId, buildingId, deletedAt])
+  @@index([roomId, quantity])
+  @@map("inventory_items")
+}
+
+model StockMovement {
+  id              String    @id @default(cuid()) @map("id")
+  inventoryItemId String    @map("inventory_item_id")
+  quantity        Int       @map("quantity")
+  typeId          String?   @map("type_id")
+  reason          String?   @map("reason")
+  workOrderId     String?   @map("work_order_id")
+  userId          String    @map("user_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  inventoryItem InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Restrict)
+  type          MovementType? @relation(fields: [typeId], references: [id], onDelete: Restrict)
+  workOrder     WorkOrder?    @relation(fields: [workOrderId], references: [id], onDelete: SetNull)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([inventoryItemId])
+  @@index([typeId])
+  @@index([workOrderId])
+  @@index([userId])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@map("stock_movements")
+}
+
+model MovementType {
+  id          String   @id @default(cuid()) @map("id")
+  name        String   @map("name")
+  nameEn      String?  @map("name_en")
+  description String?
+  order       Int      @default(0) @map("order")
+  isDefault   Boolean  @default(false) @map("is_default")
+  companyId   String?  @map("company_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company        Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stockMovements StockMovement[]
+
+  @@index([companyId])
+  @@map("movement_types")
+}
+
+// ========================
+// Maintenance (Preventive)
+// ========================
+
+model MaintenanceFrequency {
+  id             String   @id @default(cuid()) @map("id")
+  name           String   @map("name")
+  nameEn         String?  @map("name_en")
+  description    String?
+  order          Int      @default(0) @map("order")
+  isDefault      Boolean  @default(false) @map("is_default")
+  companyId      String?  @map("company_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  intervalMonths Int?     @map("interval_months")
+
+  // Relations
+  company Company?           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  groups  MaintenanceGroup[]
+
+  @@index([companyId])
+  @@map("maintenance_frequencies")
+}
+
+model MaintenanceGroup {
+  id          String               @id @default(cuid()) @map("id")
+  description String?              @map("description")
+  frequencyId String               @map("frequency_id")
+  startDate   DateTime             @map("start_date")
+  nextDate    DateTime             @map("next_date")
+  endDate     DateTime?            @map("end_date")
+  companyId   String               @map("company_id")
+  notes       String?              @map("notes")
+  buildingId  String?              @map("building_id")
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+  deletedAt   DateTime?            @map("deleted_at")
+
+  // Relations
+  frequency MaintenanceFrequency @relation(fields: [frequencyId], references: [id])
+  company   Company              @relation(fields: [companyId], references: [id])
+  building  Building?            @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  assets    MaintenanceAsset[]
+  tasks     MaintenanceTask[]
+
+  @@index([buildingId])
+  @@index([companyId, buildingId])
+  @@index([nextDate])
+  @@index([deletedAt])
+  @@index([companyId, buildingId, deletedAt])
+  @@map("maintenance_groups")
+}
+
+model MaintenanceAsset {
+  id        String   @id @default(cuid()) @map("id")
+  groupId   String   @map("group_id")
+  assetId   String   @map("asset_id")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  group MaintenanceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  asset Asset            @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, assetId])
+  @@index([groupId])
+  @@index([assetId])
+  @@map("maintenance_assets")
+}
+
+model MaintenanceTask {
+  id            String   @id @default(cuid()) @map("id")
+  groupId       String   @map("group_id")
+  title         String   @map("title")
+  scheduledDate DateTime @map("scheduled_date")
+  status        String   @default("PENDING") @map("status")
+  workOrderId   String?  @map("work_order_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // Relations
+  group     MaintenanceGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  workOrder WorkOrder?       @relation(fields: [workOrderId], references: [id])
+
+  @@index([groupId])
+  @@index([scheduledDate])
+  @@index([deletedAt])
+  @@map("maintenance_tasks")
+}
+
+// ========================
+// Reports (Maintenance/Incident)
+// ========================
+
+model ReportStatus {
+  id        String   @id @default(cuid()) @map("id")
+  name      String   @map("name")
+  nameEn    String?  @map("name_en")
+  color     String?  @db.VarChar(7) @map("color")
+  order     Int      @default(0) @map("order")
+  isDefault Boolean  @default(false) @map("is_default")
+  companyId String?  @map("company_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("report_statuses")
+}
+
+enum ReportType {
+  MAINTENANCE
+  INCIDENT
+}
+
+enum IncidentSeverity {
+  MINOR
+  MAJOR
+  CRITICAL
+}
+
+enum ReportStatusEnum {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model MaintenanceReport {
+  id                     String            @id @default(cuid()) @map("id")
+  code                   String            @unique @default(cuid()) @map("code")
+  title                  String            @map("title")
+  description            String?           @map("description")
+  assetId                String?           @map("asset_id")
+  reporterName           String            @map("reporter_name")
+  reporterEmail          String            @map("reporter_email")
+  phone                  String?           @map("phone")
+  type                   ReportType        @default(MAINTENANCE) @map("type")
+  status                 ReportStatusEnum  @default(PENDING) @map("status")
+  workOrderId            String?           @map("work_order_id")
+  rejectionReason        String?           @map("rejection_reason")
+  severity               IncidentSeverity? @map("severity")
+  reportedTo             String?           @map("reported_to")
+  investigationNotes     String?           @map("investigation_notes")
+  investigatedById       String?           @map("investigated_by_id")
+  convertedToWorkOrderId String?           @map("converted_to_work_order_id")
+  createdAt              DateTime          @default(now()) @map("created_at")
+  updatedAt              DateTime          @updatedAt @map("updated_at")
+  deletedAt              DateTime?         @map("deleted_at")
+  roomId                 String?           @map("room_id")
+  companyId              String?           @map("company_id")
+  buildingId             String            @map("building_id")
+
+  // Relations
+  building             Building     @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  room                 Room?        @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  asset                Asset?       @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  workOrder            WorkOrder?   @relation("WorkOrderReports", fields: [workOrderId], references: [id], onDelete: SetNull)
+  investigatedBy       User?        @relation("InvestigatedBy", fields: [investigatedById], references: [id], onDelete: SetNull)
+  convertedToWorkOrder WorkOrder?   @relation("ConvertedToWorkOrder", fields: [convertedToWorkOrderId], references: [id], onDelete: SetNull)
+  company              Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  images               ReportImage[]
+
+  @@index([companyId])
+  @@index([assetId])
+  @@index([status])
+  @@index([workOrderId])
+  @@index([createdAt])
+  @@index([deletedAt])
+  @@index([roomId])
+  @@index([buildingId])
+  @@index([companyId, buildingId, deletedAt])
+  @@index([companyId, status, createdAt])
+  @@index([assetId, createdAt])
+  @@index([roomId, createdAt])
+  @@map("maintenance_reports")
+}
+
+model ReportImage {
+  id        String   @id @default(cuid()) @map("id")
+  reportId  String   @map("report_id")
+  url       String   @map("url")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  report MaintenanceReport @relation(fields: [reportId], references: [id], onDelete: Cascade)
+
+  @@index([reportId])
+  @@map("report_images")
+}
+
+// ========================
+// Building & Location Models
+// ========================
+
+model Building {
+  id        String    @id @default(cuid()) @map("id")
+  name      String    @map("name")
+  nameEn    String?   @map("name_en")
+  code      String    @unique @map("code")
+  order     Int       @default(0) @map("order")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  companyId String?   @map("company_id")
+
+  // Relations
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  floors               Floor[]
+  assets               Asset[]
+  workOrders           WorkOrder[]
+  maintenanceGroups    MaintenanceGroup[]
+  reports              MaintenanceReport[]
+  rooms                Room[]
+  contracts            Contract[]
+  vehicles             Vehicle[]
+  usersBranch          User[]
+  userBuildings        UserBuilding[]
+
+  @@index([companyId])
+  @@index([deletedAt])
+  @@map("buildings")
+}
+
+model Floor {
+  id         String    @id @default(cuid()) @map("id")
+  name       String    @map("name")
+  nameEn     String?   @map("name_en")
+  code       String    @map("code")
+  order      Int       @default(0) @map("order")
+  buildingId String    @map("building_id")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  // Relations
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+  rooms    Room[]
+
+  @@unique([buildingId, code])
+  @@index([buildingId])
+  @@index([deletedAt])
+  @@map("floors")
+}
+
+model Room {
+  id        String    @id @default(cuid()) @map("id")
+  name      String    @map("name")
+  nameEn    String?   @map("name_en")
+  code      String    @map("code")
+  order     Int       @default(0) @map("order")
+  floorId   String    @map("floor_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  buildingId String   @map("building_id")
+
+  // Relations
+  floor  Floor    @relation(fields: [floorId], references: [id], onDelete: Restrict)
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Restrict)
+
+  assets             Asset[]
+  workOrders         WorkOrder[]
+  inventoryItems     InventoryItem[]
+  maintenanceReports MaintenanceReport[]
+
+  @@unique([floorId, code])
+  @@index([floorId])
+  @@index([buildingId])
+  @@index([deletedAt])
+  @@index([buildingId, floorId, deletedAt])
+  @@map("rooms")
+}
+
+// ========================
+// Contracts & Vendors
+// ========================
+
+model ContractType {
+  id          String   @id @default(cuid()) @map("id")
+  name        String   @map("name")
+  nameEn      String?  @map("name_en")
+  color       String?  @db.VarChar(7) @map("color")
+  description String?
+  order       Int      @default(0) @map("order")
+  isDefault   Boolean  @default(false) @map("is_default")
+  companyId   String?  @map("company_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("contract_types")
+}
+
+model Vendor {
+  id            String    @id @default(cuid()) @map("id")
+  name          String    @map("name")
+  contactPerson String?   @map("contact_person")
+  phone         String?   @map("phone")
+  email         String?   @map("email")
+  address       String?   @map("address")
+  companyId     String?   @map("company_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // Relations
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([deletedAt])
+  @@map("vendors")
+}
+
+model Contract {
+  id          String    @id @default(cuid()) @map("id")
+  code        String    @unique @default(cuid()) @map("code")
+  title       String    @map("title")
+  description String?   @map("description")
+  supplier    String    @map("supplier")
+  startDate   DateTime  @map("start_date")
+  endDate     DateTime  @map("end_date")
+  value       Float?    @map("value")
+  status      String    @default("PENDING_REVIEW") @map("status")
+  type        String?   @map("type")
+  fileUrl     String?   @map("file_url")
+  notes       String?   @map("notes")
+  companyId   String?   @map("company_id")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+  buildingId  String?   @map("building_id")
+  cancellationReason String? @map("cancellation_reason")
+
+  // Relations
+  building Building? @relation(fields: [buildingId], references: [id], onDelete: SetNull)
+  company  Company?  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([status])
+  @@index([startDate])
+  @@index([endDate])
+  @@index([deletedAt])
+  @@index([buildingId])
+  @@index([companyId, buildingId, deletedAt])
+  @@index([status, startDate, endDate])
+  @@map("contracts")
+}
+
+// ========================
+// Vehicles & Drivers
+// ========================
+
+model Driver {
+  id        String    @id @default(cuid()) @map("id")
+  name      String    @map("name")
+  phone     String    @unique @map("phone")
+  idNumber  String    @unique @map("id_number")
+  isActive  Boolean   @default(true) @map("is_active")
+  companyId String?   @map("company_id")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  // Relations
+  company Company? @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  vehicles         VehicleDriver[]
+  oilRequests      OilChangeRequest[]
+  accidentRequests AccidentRequest[]
+
+  @@index([companyId])
+  @@index([deletedAt])
+  @@map("drivers")
+}
+
+model Vehicle {
+  id              String    @id @default(cuid()) @map("id")
+  code            String    @unique @default(cuid()) @map("code")
+  plateNumber     String    @unique @map("plate_number")
+  licenseExpiry   DateTime? @map("license_expiry")
+  insuranceExpiry DateTime? @map("insurance_expiry")
+  lastOilChange   DateTime? @map("last_oil_change")
+  assetId         String    @unique @map("asset_id")
+  companyId       String    @map("company_id")
+  buildingId      String?   @map("building_id")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  asset    Asset    @relation("VehicleAsset", fields: [assetId], references: [id], onDelete: Cascade)
+  company  Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  building Building? @relation(fields: [buildingId], references: [id])
+
+  drivers         VehicleDriver[]
+  oilRequests     OilChangeRequest[]
+  accidentRequests AccidentRequest[]
+
+  @@index([assetId])
+  @@index([companyId])
+  @@index([deletedAt])
+  @@index([companyId, buildingId, deletedAt])
+  @@index([code])
+  @@map("vehicles")
+}
+
+model VehicleDriver {
+  id         String   @id @default(cuid()) @map("id")
+  vehicleId  String   @map("vehicle_id")
+  driverId   String   @map("driver_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  isPrimary  Boolean  @default(false) @map("is_primary")
+
+  // Relations
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver  Driver  @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  @@unique([vehicleId, driverId])
+  @@index([vehicleId])
+  @@index([driverId])
+  @@map("vehicle_drivers")
+}
+
+model OilChangeRequest {
+  id              String    @id @default(cuid()) @map("id")
+  vehicleId       String    @map("vehicle_id")
+  driverId        String?   @map("driver_id")
+  mileage         Int?      @map("mileage")
+  invoiceUrl      String?   @map("invoice_url")
+  notes           String?   @map("notes")
+  status          String    @default("PENDING") @map("status")
+  requestedAt     DateTime  @default(now()) @map("requested_at")
+  approvedAt      DateTime? @map("approved_at")
+  approvedById    String?   @map("approved_by_id")
+  rejectionReason String?   @map("rejection_reason")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  vehicle    Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver     Driver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  approvedBy User?   @relation("OilChangeApprovals", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([vehicleId, status])
+  @@index([status, requestedAt])
+  @@map("oil_change_requests")
+}
+
+model AccidentRequest {
+  id              String    @id @default(cuid()) @map("id")
+  vehicleId       String    @map("vehicle_id")
+  driverId        String    @map("driver_id")
+  accidentDate    DateTime  @map("accident_date")
+  location        String    @map("location")
+  description     String    @map("description")
+  photosUrl       String?   @map("photos_url")
+  status          String    @default("PENDING") @map("status")
+  requestedAt     DateTime  @default(now()) @map("requested_at")
+  approvedAt      DateTime? @map("approved_at")
+  approvedById    String?   @map("approved_by_id")
+  rejectionReason String?   @map("rejection_reason")
+  deletedAt       DateTime? @map("deleted_at")
+  mileage         Int?      @map("mileage")
+
+  // Relations
+  vehicle    Vehicle @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driver     Driver  @relation(fields: [driverId], references: [id], onDelete: Restrict)
+  approvedBy User?   @relation("AccidentApprovals", fields: [approvedById], references: [id], onDelete: SetNull)
+
+  @@index([vehicleId])
+  @@index([driverId])
+  @@index([status])
+  @@index([deletedAt])
+  @@index([vehicleId, status])
+  @@index([status, requestedAt])
+  @@map("accident_requests")
+}
+
+// ========================
+// User-Building Many-to-Many
+// ========================
+
+model UserBuilding {
+  id         String   @id @default(cuid()) @map("id")
+  userId     String   @map("user_id")
+  buildingId String   @map("building_id")
+
+  // Relations
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, buildingId])
+  @@map("user_buildings")
+}

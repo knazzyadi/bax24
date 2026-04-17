@@ -1,18 +1,18 @@
 'use client';
 
-import { useRouter, usePathname } from 'next/navigation';
-import { useLocale } from 'next-intl';
+import { usePathname, useParams } from 'next/navigation';
 import { Globe } from 'lucide-react';
 
 export function LocaleSwitcher() {
-  const router = useRouter();
   const pathname = usePathname();
-  const currentLocale = useLocale();
+  const params = useParams();
+  const currentLocale = (params?.locale as string) || 'en';
 
   const switchLocale = () => {
     const newLocale = currentLocale === 'ar' ? 'en' : 'ar';
     const newPathname = pathname.replace(`/${currentLocale}`, `/${newLocale}`);
-    router.push(newPathname);
+    // إعادة تحميل الصفحة كاملة لضمان تحديث كل المحتوى
+    window.location.href = newPathname;
   };
 
   return (

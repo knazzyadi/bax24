@@ -165,5 +165,9 @@
       "email": "Email: legal@bax24.com",
       "address": "Address: [Insert your legal address here]"
     }
+  },
+  "SuperAdmin": {
+    "title": "Super Admin Dashboard",
+    "description": "Welcome, this is a private area for the developer. Admin tools will be added soon."
   }
 }

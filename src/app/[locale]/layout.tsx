@@ -1,10 +1,9 @@
-import React from 'react';
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
-import { Header } from '@/components/ui/Header';
-import { Footer } from '@/components/ui/Footer';
+import { ClientLayout } from '@/components/ui/ClientLayout';
 
+// قائمة اللغات المدعومة (يجب أن تطابق ما في middleware.ts)
 const locales = ['en', 'ar'];
 
 export default async function LocaleLayout({
@@ -14,21 +13,14 @@ export default async function LocaleLayout({
   children: React.ReactNode;
   params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
+  const { locale } = await params; // استخراج اللغة من الـ URL
   if (!locales.includes(locale as any)) notFound();
 
-  // تأكد من تمرير locale إلى getMessages
-  const messages = await getMessages({ locale });
+  const messages = await getMessages({ locale }); // تمرير اللغة لتحميل الترجمة الصحيحة
 
   return (
-    <NextIntlClientProvider messages={messages} locale={locale}>
-      <div className="min-h-screen flex flex-col">
-        <Header />
-        <main className="flex-1 pt-20">
-          {children}
-        </main>
-        <Footer />
-      </div>
+    <NextIntlClientProvider locale={locale} messages={messages}>
+      <ClientLayout>{children}</ClientLayout>
     </NextIntlClientProvider>
   );
 }

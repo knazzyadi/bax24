@@ -2,14 +2,20 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
-import { useParams } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { LocaleSwitcher } from './LocaleSwitcher';
 import { ThemeToggle } from './ThemeToggle';
 
 export function Header() {
   const params = useParams();
+  const pathname = usePathname();
   const locale = (params?.locale as string) || 'en';
   const isRTL = locale === 'ar';
+
+  // إخفاء الهيدر في صفحة السوبر أدمن (وأي صفحة تبدأ بـ /super-admin)
+  if (pathname?.includes('/super-admin')) {
+    return null;
+  }
 
   return (
     <header

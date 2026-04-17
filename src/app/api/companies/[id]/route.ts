@@ -38,7 +38,7 @@ type UpdateCompanyBody = {
 // ============================================
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> } // ✅ params هي Promise
 ) {
   try {
     const session = await auth();
@@ -47,6 +47,7 @@ export async function PUT(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
+    const { id } = await params; // ✅ استخدام await لاستخراج id
     const body: UpdateCompanyBody = await request.json();
 
     // ============================================
@@ -74,7 +75,7 @@ export async function PUT(
     }
 
     const updatedCompany = await prisma.company.update({
-      where: { id: params.id },
+      where: { id },
       data: updateData,
     });
 
@@ -83,7 +84,7 @@ export async function PUT(
     // ============================================
     const adminUser = await prisma.user.findFirst({
       where: {
-        companyId: params.id,
+        companyId: id,
         role: { name: 'ADMIN' },
       },
     });

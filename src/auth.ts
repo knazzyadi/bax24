@@ -2,10 +2,9 @@ import NextAuth, { DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-import { JWT as DefaultJWT } from "next-auth/jwt";
 
 // ============================================
-// Types Augmentation
+// Types Augmentation (بدون استيراد DefaultJWT)
 // ============================================
 declare module "next-auth" {
   interface User {
@@ -28,7 +27,7 @@ declare module "next-auth" {
 }
 
 declare module "next-auth/jwt" {
-  interface JWT extends DefaultJWT {
+  interface JWT {
     id: string;
     role: string;
     companyId?: string | null;
@@ -60,7 +59,7 @@ if (process.env.NODE_ENV !== "production") {
 // NextAuth Config
 // ============================================
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  trustHost: true,
+  trustHost: true,   // ✅ حل مشكلة UntrustedHost على Render
 
   providers: [
     Credentials({
@@ -71,7 +70,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
 
       async authorize(credentials) {
-        // تحقق مبكر (Early Return)
         if (!credentials?.email || !credentials?.password) return null;
 
         const email = credentials.email as string;
@@ -98,7 +96,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: user.role?.name ?? "USER",
           companyId: user.companyId ?? null,
           companyName: user.company?.name ?? null,
-          permissions: [], // جاهز للتوسع
+          permissions: [],
         };
       },
     }),
@@ -110,7 +108,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   callbacks: {
     async jwt({ token, user }) {
-      // فقط عند تسجيل الدخول
       if (user) {
         token.id = user.id;
         token.role = user.role;
@@ -118,7 +115,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.companyName = user.companyName ?? null;
         token.permissions = user.permissions ?? [];
       }
-
       return token;
     },
 
@@ -130,7 +126,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.companyName = token.companyName ?? null;
         session.user.permissions = token.permissions ?? [];
       }
-
       return session;
     },
   },

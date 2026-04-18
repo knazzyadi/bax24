@@ -1,16 +1,22 @@
 ﻿import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
-import { requireSuperAdmin } from '@/lib/auth-guard';
+import { PrismaClient } from '@prisma/client';
+import { auth } from '@/auth';
 import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
+import { sendInvitationEmail } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
-// ================= GET =================
-export async function GET() {
-  const { error } = await requireSuperAdmin();
-  if (error) return error;
+const prisma = new PrismaClient();
 
+// GET: جلب جميع الشركات مع بيانات المدير (ADMIN)
+export async function GET() {
   try {
+    const session = await auth();
+    if (!session || session.user?.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     const companies = await prisma.company.findMany({
       orderBy: { createdAt: 'desc' },
       select: {
@@ -29,26 +35,32 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json(
-      companies.map((c) => ({
-        ...c,
-        adminEmail: c.users[0]?.email || null,
-        adminName: c.users[0]?.name || null,
-      }))
-    );
+    const formattedCompanies = companies.map((company) => ({
+      id: company.id,
+      name: company.name,
+      nameEn: company.nameEn,
+      isActive: company.isActive,
+      subscriptionStartDate: company.subscriptionStartDate,
+      subscriptionEndDate: company.subscriptionEndDate,
+      createdAt: company.createdAt,
+      adminEmail: company.users[0]?.email || null,
+      adminName: company.users[0]?.name || null,
+    }));
+
+    return NextResponse.json(formattedCompanies);
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: 'خطأ في جلب البيانات' }, { status: 500 });
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-// ================= POST =================
+// POST: إنشاء شركة جديدة مع مديرها (ADMIN) وإرسال دعوة عبر البريد
 export async function POST(request: Request) {
-  const { error } = await requireSuperAdmin();
-  if (error) return error;
-
   try {
-    const body = await request.json();
+    const session = await auth();
+    if (!session || session.user?.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
     const {
       companyNameAr,
@@ -58,58 +70,90 @@ export async function POST(request: Request) {
       adminPassword,
       subscriptionStartDate,
       subscriptionEndDate,
-    } = body;
+    } = await request.json();
 
-    if (!companyNameAr || !adminEmail || !adminPassword) {
-      return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
+    if (!companyNameAr || !adminName || !adminEmail) {
+      return NextResponse.json({ error: 'بيانات ناقصة (اسم الشركة، اسم المدير، البريد الإلكتروني مطلوبة)' }, { status: 400 });
     }
 
-    const [existingCompany, existingUser] = await Promise.all([
-      prisma.company.findFirst({ where: { name: companyNameAr } }),
-      prisma.user.findUnique({ where: { email: adminEmail } }),
-    ]);
-
-    if (existingCompany)
-      return NextResponse.json({ error: 'اسم الشركة موجود' }, { status: 409 });
-
-    if (existingUser)
-      return NextResponse.json({ error: 'الإيميل مستخدم' }, { status: 409 });
-
-    const role = await prisma.role.upsert({
-      where: { name: 'ADMIN' },
-      update: {},
-      create: { name: 'ADMIN', label: 'Company Admin' },
+    // التحقق من عدم وجود شركة بنفس الاسم
+    const existingCompany = await prisma.company.findFirst({
+      where: { name: companyNameAr },
     });
+    if (existingCompany) {
+      return NextResponse.json({ error: 'اسم الشركة موجود مسبقاً' }, { status: 409 });
+    }
 
-    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    // التحقق من عدم وجود بريد إلكتروني مكرر للمدير
+    const existingUser = await prisma.user.findUnique({
+      where: { email: adminEmail },
+    });
+    if (existingUser) {
+      return NextResponse.json({ error: 'البريد الإلكتروني للمدير مستخدم بالفعل' }, { status: 409 });
+    }
 
+    // الحصول على دور ADMIN (إنشاؤه إذا لم يكن موجوداً)
+    let adminRole = await prisma.role.findUnique({
+      where: { name: 'ADMIN' },
+    });
+    if (!adminRole) {
+      adminRole = await prisma.role.create({
+        data: { name: 'ADMIN', label: 'Company Administrator' },
+      });
+      console.log('✅ تم إنشاء دور ADMIN تلقائياً');
+    }
+
+    // تحويل التواريخ بشكل آمن
+    const startDate =
+      subscriptionStartDate && !isNaN(new Date(subscriptionStartDate).getTime())
+        ? new Date(subscriptionStartDate)
+        : null;
+    const endDate =
+      subscriptionEndDate && !isNaN(new Date(subscriptionEndDate).getTime())
+        ? new Date(subscriptionEndDate)
+        : null;
+
+    // توليد رمز الدعوة (صلاحية 24 ساعة)
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 ساعة
+
+    // إنشاء الشركة والمستخدم في معاملة واحدة
     const result = await prisma.$transaction(async (tx) => {
       const company = await tx.company.create({
         data: {
           name: companyNameAr,
           nameEn: companyNameEn || null,
-          subscriptionStartDate: subscriptionStartDate ? new Date(subscriptionStartDate) : null,
-          subscriptionEndDate: subscriptionEndDate ? new Date(subscriptionEndDate) : null,
+          isActive: true,
+          subscriptionStartDate: startDate,
+          subscriptionEndDate: endDate,
         },
       });
 
-      const user = await tx.user.create({
+      const adminUser = await tx.user.create({
         data: {
           name: adminName,
           email: adminEmail,
-          password: hashedPassword,
-          roleId: role.id,
+          password: null, // لا توجد كلمة مرور حتى يتم تفعيل الحساب عبر الدعوة
+          roleId: adminRole.id,
           companyId: company.id,
-          status: true,
+          status: false, // الحساب غير نشط
+          invitationToken: token,
+          invitationExpires: expires,
         },
       });
 
-      return { company, user };
+      return { company, adminUser };
     });
 
-    return NextResponse.json(result, { status: 201 });
+    // إرسال البريد الإلكتروني للدعوة (خارج المعاملة)
+    await sendInvitationEmail(adminEmail, token, companyNameAr);
+
+    return NextResponse.json(
+      { success: true, company: result.company, admin: result.adminUser },
+      { status: 201 }
+    );
   } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'فشل إنشاء الشركة' }, { status: 500 });
+    console.error('POST /api/companies error:', error);
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

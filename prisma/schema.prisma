@@ -65,6 +65,13 @@ model User {
   updatedAt           DateTime            @updatedAt @map("updated_at")
   deletedAt           DateTime?           @map("deleted_at")
   branchId            String?             @map("branch_id")
+  
+  // الحقول الجديدة لنظام الدعوات واستعادة كلمة المرور
+  invitationToken     String?             @unique
+  invitationExpires   DateTime?
+  firstLogin          Boolean             @default(true)
+
+  // العلاقات
   accidentApprovals   AccidentRequest[]   @relation("AccidentApprovals")
   investigatedReports MaintenanceReport[] @relation("InvestigatedBy")
   oilChangeApprovals  OilChangeRequest[]  @relation("OilChangeApprovals")

@@ -1,6 +1,5 @@
 import { ThemeProvider } from '@/components/theme-provider';
-import { NextIntlClientProvider } from 'next-intl';
-import { ClientLayout } from '@/components/ui/ClientLayout';
+import { SessionProvider } from 'next-auth/react';
 import '@/app/globals.css';
 
 export default function RootLayout({
@@ -12,9 +11,9 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body>
         <ThemeProvider defaultTheme="dark">
-          <NextIntlClientProvider>
-            <ClientLayout>{children}</ClientLayout>
-          </NextIntlClientProvider>
+          <SessionProvider>
+            {children}
+          </SessionProvider>
         </ThemeProvider>
       </body>
     </html>

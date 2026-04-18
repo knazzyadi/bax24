@@ -1,6 +1,7 @@
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { notFound } from 'next/navigation';
+import { ClientLayout } from '@/components/ui/ClientLayout';
 
 const locales = ['en', 'ar'];
 
@@ -17,7 +18,7 @@ export default async function LocaleLayout({
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
-      {children}
+      <ClientLayout>{children}</ClientLayout>
     </NextIntlClientProvider>
   );
 }

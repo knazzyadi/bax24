@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 
@@ -20,13 +20,20 @@ export default function CompaniesPage() {
   const [openAdd, setOpenAdd] = useState(false);
   const [editCompany, setEditCompany] = useState<any>(null);
 
-  const fetchCompanies = async () => {
+  const fetchCompanies = useCallback(async () => {
     setLoading(true);
-    const res = await fetch('/api/companies');
-    const data = await res.json();
-    setCompanies(data);
-    setLoading(false);
-  };
+    try {
+      const res = await fetch('/api/companies');
+      const data = await res.json();
+      // التأكد من أن البيانات مصفوفة
+      setCompanies(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error(err);
+      setCompanies([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -36,30 +43,31 @@ export default function CompaniesPage() {
     } else {
       fetchCompanies();
     }
-  }, [status]);
+  }, [status, session, router, locale, fetchCompanies]);
 
-  const toggleStatus = async (id: string, current: boolean) => {
-    await fetch(`/api/companies/${id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ isActive: !current }),
-    });
-
-    fetchCompanies();
-  };
+  const toggleStatus = useCallback(async (id: string, current: boolean) => {
+    try {
+      await fetch(`/api/companies/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !current }),
+      });
+      fetchCompanies();
+    } catch (err) {
+      console.error(err);
+    }
+  }, [fetchCompanies]);
 
   if (loading) return <p className="p-6">جاري التحميل...</p>;
 
   return (
     <div className="p-6 space-y-4">
-
       {/* Header */}
-      <div className="flex justify-between">
+      <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold">إدارة الشركات</h1>
-
         <button
           onClick={() => setOpenAdd(true)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded"
+          className="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 transition"
         >
           + إضافة شركة
         </button>

@@ -16,12 +16,12 @@ export async function POST(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const { id } = await params; // ✅ استخدام await لأن params Promise
+    const { id } = await params;
 
-    // جلب المستخدم مع شركته
+    // ✅ أضف include للـ role
     const user = await prisma.user.findUnique({
       where: { id },
-      include: { company: true },
+      include: { role: true, company: true },
     });
 
     if (!user) {
@@ -43,8 +43,8 @@ export async function POST(
       data: {
         invitationToken: token,
         invitationExpires: expires,
-        status: false, // تعطيل الحساب حتى يتم تفعيله عبر الرابط الجديد
-        password: null, // إزالة أي كلمة مرور سابقة
+        status: false,
+        password: null,
       },
     });
 

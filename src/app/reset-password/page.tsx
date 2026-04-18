@@ -9,8 +9,7 @@ export default function ResetPasswordRoot() {
   const token = searchParams.get('token');
 
   useEffect(() => {
-    // يمكنك تغيير اللغة الافتراضية حسب إعدادات المستخدم أو المتصفح
-    const locale = 'ar'; // أو استخدم navigator.language.split('-')[0] مثلاً
+    const locale = 'ar'; // اللغة الافتراضية
     router.replace(`/${locale}/reset-password?token=${token}`);
   }, [token, router]);
 

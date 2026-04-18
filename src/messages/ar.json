@@ -22,15 +22,6 @@
     "password": "كلمة المرور",
     "submit": "دخول"
   },
-  "Dashboard": {
-    "title": "لوحة التحكم",
-    "welcome": "مرحباً بك",
-    "facilities": "المرافق",
-    "maintenance": "طلبات الصيانة",
-    "staff": "الموظفون",
-    "logout": "تسجيل خروج",
-    "comingSoon": "المزيد من الميزات قريباً..."
-  },
   "Home": {
     "title": "نظام إدارة المرافق",
     "description": "نظام ذكي لإدارة الصيانة والتشغيل بكفاءة عالية",
@@ -170,45 +161,52 @@
     "title": "لوحة تحكم السوبر أدمن",
     "description": "مرحبًا، هذه منطقة خاصة للمطور. سيتم إضافة أدوات الإدارة قريبًا."
   },
-  "Dashboard": {
-    "header": {
-      "title": "لوحة التحكم",
-      "welcome": "مرحباً بعودتك"
-    },
-    "stats": {
-      "assets": {
-        "title": "الأصول",
-        "description": "إجمالي الأصول المسجلة"
-      },
-      "workOrders": {
-        "title": "أوامر العمل",
-        "description": "طلبات الصيانة النشطة"
-      },
-      "lowInventory": {
-        "title": "مخزون منخفض",
-        "description": "أصناف تحتاج لإعادة طلب"
-      },
-      "pendingRequests": {
-        "title": "طلبات معلقة",
-        "description": "طلبات تغيير الزيت والحوادث"
-      },
-      "live": "مباشر"
-    },
-    "quickAccess": {
-      "title": "وصول سريع"
-    },
-    "quickActions": {
-      "newWorkOrder": "طلب صيانة جديد",
-      "newWorkOrderDesc": "إنشاء طلب صيانة جديد",
-      "newAsset": "أصل جديد",
-      "newAssetDesc": "إضافة أصل أو جهاز"
-    },
-    "systemStatus": {
-      "title": "حالة النظام",
-      "message": "النظام يعمل بسلاسة",
-      "sync": "مزامنة البيانات"
-    }
+"Dashboard": {
+  "header": {
+    "title": "لوحة التحكم",
+    "welcome": "مرحباً {company}"
   },
+  "stats": {
+    "assets": {
+      "title": "الأصول",
+      "description": "إجمالي الأصول المسجلة"
+    },
+    "workOrders": {
+      "title": "أوامر العمل",
+      "description": "طلبات الصيانة النشطة"
+    },
+    "lowInventory": {
+      "title": "مخزون منخفض",
+      "description": "أصناف تحتاج لإعادة طلب"
+    },
+    "pendingRequests": {
+      "title": "طلبات معلقة",
+      "description": "طلبات تغيير الزيت والحوادث"
+    },
+    "live": "مباشر"
+  },
+  "quickAccess": {
+    "title": "وصول سريع"
+  },
+  "quickActions": {
+    "newWorkOrder": "طلب صيانة جديد",
+    "newWorkOrderDesc": "إنشاء طلب صيانة جديد",
+    "newAsset": "أصل جديد",
+    "newAssetDesc": "إضافة أصل أو جهاز"
+  },
+  "systemStatus": {
+    "title": "حالة النظام",
+    "message": "النظام يعمل بسلاسة",
+    "sync": "مزامنة البيانات"
+  },
+  "title": "لوحة التحكم",
+  "welcome": "مرحباً بك",
+  "facilities": "المرافق",
+  "maintenance": "طلبات الصيانة",
+  "staff": "الموظفون",
+  "logout": "تسجيل خروج",
+  "comingSoon": "المزيد من الميزات قريباً..."
+},
   "ListManager": {
     "title": "إدارة القوائم",
     "error": "حدث خطأ",

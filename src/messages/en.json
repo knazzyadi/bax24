@@ -22,45 +22,6 @@
     "password": "Password",
     "submit": "Sign In"
   },
-"Dashboard": {
-  "header": {
-    "title": "Overview",
-    "welcome": "Welcome back, here's what's happening in your system today."
-  },
-  "stats": {
-    "assets": {
-      "title": "Total Assets",
-      "description": "Registered equipment and machinery"
-    },
-    "workOrders": {
-      "title": "Work Orders",
-      "description": "Ongoing maintenance tasks"
-    },
-    "lowInventory": {
-      "title": "Low Inventory",
-      "description": "Spare parts needing reorder"
-    },
-    "pendingRequests": {
-      "title": "Pending Requests",
-      "description": "Incident and maintenance reports"
-    },
-    "live": "LIVE"
-  },
-  "quickAccess": {
-    "title": "Quick Access"
-  },
-  "quickActions": {
-    "newWorkOrder": "New Work Order",
-    "newWorkOrderDesc": "Assign immediate maintenance task",
-    "newAsset": "Add New Asset",
-    "newAssetDesc": "Register equipment or machine"
-  },
-  "systemStatus": {
-    "title": "Security Status",
-    "message": "System operating efficiently",
-    "sync": "Sync"
-  }
-},
   "Home": {
     "title": "Facility Management System",
     "description": "Smart system for maintenance and operations management",
@@ -251,6 +212,45 @@
     "dictionariesSettings": "Dictionary Settings",
     "company": "Company",
     "logout": "Logout"
+  },
+  "Dashboard": {
+    "header": {
+      "title": "Dashboard",
+      "welcome": "Welcome {company}"
+    },
+    "stats": {
+      "assets": {
+        "title": "Assets",
+        "description": "Total registered assets"
+      },
+      "workOrders": {
+        "title": "Work Orders",
+        "description": "Active maintenance requests"
+      },
+      "lowInventory": {
+        "title": "Low Inventory",
+        "description": "Items needing reorder"
+      },
+      "pendingRequests": {
+        "title": "Pending Requests",
+        "description": "Oil change & accident requests"
+      },
+      "live": "Live"
+    },
+    "quickAccess": {
+      "title": "Quick Access"
+    },
+    "quickActions": {
+      "newWorkOrder": "New Work Order",
+      "newWorkOrderDesc": "Create a new work order",
+      "newAsset": "New Asset",
+      "newAssetDesc": "Add a new asset or device"
+    },
+    "systemStatus": {
+      "title": "System Status",
+      "message": "All systems operational",
+      "sync": "Data sync"
+    }
   },
   "WorkOrderPriorities": {
     "systemSettings": "Central System Settings",

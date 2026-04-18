@@ -184,9 +184,8 @@ export default function Sidebar() {
     <aside
       dir={isRTL ? "rtl" : "ltr"}
       className={cn(
-        "fixed top-0 z-50 h-screen bg-card border-e border-border flex flex-col transition-all duration-300 ease-in-out shadow-sm",
-        sidebarOpen ? "w-72" : "w-20",
-        isRTL ? "right-0" : "left-0"
+        "sticky top-0 h-screen bg-card border-e border-border flex flex-col",
+        sidebarOpen ? "w-72" : "w-20"
       )}
     >
       {/* Header */}

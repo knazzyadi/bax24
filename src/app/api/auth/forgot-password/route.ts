@@ -6,21 +6,26 @@ import { sendResetPasswordEmail } from '@/lib/email';
 const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
-  const { email } = await req.json();
-  const user = await prisma.user.findUnique({ where: { email } });
-  if (!user) {
-    // لا نكشف عن وجود البريد لأسباب أمنية
+  try {
+    const { email } = await req.json();
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      // لأسباب أمنية، لا نكشف إذا كان البريد موجوداً أم لا
+      return NextResponse.json({ success: true });
+    }
+
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 دقيقة
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { resetToken: token, resetExpires: expires },
+    });
+
+    await sendResetPasswordEmail(email, token);
     return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
-
-  const token = crypto.randomBytes(32).toString('hex');
-  const expires = new Date(Date.now() + 30 * 60 * 1000); // 30 دقيقة
-
-  await prisma.user.update({
-    where: { id: user.id },
-    data: { resetToken: token, resetExpires: expires },
-  });
-
-  await sendResetPasswordEmail(email, token);
-  return NextResponse.json({ success: true });
 }

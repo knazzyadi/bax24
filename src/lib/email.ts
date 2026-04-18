@@ -13,7 +13,7 @@ export async function sendInvitationEmail(to: string, token: string, companyName
 
 export async function sendResetPasswordEmail(to: string, token: string) {
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const resetLink = `${process.env.NEXTAUTH_URL}/reset-password?token=${token}`;
+  const resetLink = `${process.env.NEXTAUTH_URL}/ar/reset-password?token=${token}`;
   await resend.emails.send({
     from: process.env.EMAIL_FROM || 'noreply@bax24.com',
     to: [to],

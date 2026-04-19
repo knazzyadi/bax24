@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { Pencil, Trash2, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -34,6 +35,7 @@ export default function RoomsPage() {
   const router = useRouter();
   const params = useParams();
   const locale = params?.locale as string;
+  const t = useTranslations('Locations');
 
   const [rooms, setRooms] = useState<Room[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -100,7 +102,7 @@ export default function RoomsPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.buildingId || !form.floorId) {
-      setMessage({ type: 'error', text: 'يرجى اختيار المبنى والدور' });
+      setMessage({ type: 'error', text: t('requiredFields') });
       return;
     }
     try {
@@ -113,7 +115,7 @@ export default function RoomsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: editing ? 'تم التحديث' : 'تمت الإضافة' });
+      setMessage({ type: 'success', text: editing ? t('save') : t('save') });
       setEditing(null);
       setForm({ name: '', nameEn: '', code: '', order: 0, floorId: '', buildingId: '' });
       setShowForm(false);
@@ -124,15 +126,15 @@ export default function RoomsPage() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذه الغرفة؟')) return;
+    if (!confirm(t('deleteConfirm'))) return;
     try {
       const res = await fetch(`/api/locations/rooms/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) {
-        setMessage({ type: 'error', text: data.error || 'فشل الحذف' });
+        setMessage({ type: 'error', text: data.error || t('deleteError') });
         return;
       }
-      setMessage({ type: 'success', text: 'تم الحذف بنجاح' });
+      setMessage({ type: 'success', text: t('deleteSuccess') });
       fetchRooms();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -166,13 +168,13 @@ export default function RoomsPage() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-foreground">إدارة الغرف</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t('rooms')}</h1>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
             className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700 transition"
           >
-            <Plus size={18} /> إضافة غرفة جديدة
+            <Plus size={18} /> {t('addRoom')}
           </button>
         )}
       </div>
@@ -191,7 +193,7 @@ export default function RoomsPage() {
       {showForm && (
         <div className="bg-card border border-border p-4 rounded-lg shadow mb-6">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-semibold text-foreground">{editing ? 'تعديل غرفة' : 'إضافة غرفة جديدة'}</h2>
+            <h2 className="text-xl font-semibold text-foreground">{editing ? t('editRoom') : t('addRoom')}</h2>
             <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground transition">
               <X size={20} />
             </button>
@@ -203,7 +205,7 @@ export default function RoomsPage() {
               className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
               required
             >
-              <option value="">اختر المبنى</option>
+              <option value="">{t('building')}</option>
               {buildings.map(b => (
                 <option key={b.id} value={b.id}>{b.name}</option>
               ))}
@@ -215,14 +217,14 @@ export default function RoomsPage() {
               required
               disabled={!form.buildingId}
             >
-              <option value="">اختر الدور</option>
+              <option value="">{t('floor')}</option>
               {floors.map(f => (
                 <option key={f.id} value={f.id}>{f.name}</option>
               ))}
             </select>
             <input
               type="text"
-              placeholder="الاسم (عربي)"
+              placeholder={t('nameAr')}
               value={form.name}
               onChange={e => setForm({ ...form, name: e.target.value })}
               className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
@@ -230,14 +232,14 @@ export default function RoomsPage() {
             />
             <input
               type="text"
-              placeholder="الاسم (إنجليزي)"
+              placeholder={t('nameEn')}
               value={form.nameEn}
               onChange={e => setForm({ ...form, nameEn: e.target.value })}
               className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
             />
             <input
               type="text"
-              placeholder="الكود"
+              placeholder={t('code')}
               value={form.code}
               onChange={e => setForm({ ...form, code: e.target.value })}
               className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
@@ -245,17 +247,17 @@ export default function RoomsPage() {
             />
             <input
               type="number"
-              placeholder="الترتيب"
+              placeholder={t('order')}
               value={form.order}
               onChange={e => setForm({ ...form, order: Number(e.target.value) })}
               className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
             />
             <div className="md:col-span-2 flex gap-2">
               <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
-                {editing ? 'تحديث' : 'إضافة'}
+                {editing ? t('save') : t('save')}
               </button>
               <button type="button" onClick={cancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
-                إلغاء
+                {t('cancel')}
               </button>
             </div>
           </form>
@@ -270,13 +272,13 @@ export default function RoomsPage() {
             <thead className="bg-muted/50">
               <tr className="border-b border-border">
                 <th className="p-2 text-right text-foreground">#</th>
-                <th className="p-2 text-right text-foreground">المبنى</th>
-                <th className="p-2 text-right text-foreground">الدور</th>
-                <th className="p-2 text-right text-foreground">الاسم (عربي)</th>
-                <th className="p-2 text-right text-foreground">الاسم (إنجليزي)</th>
-                <th className="p-2 text-right text-foreground">الكود</th>
-                <th className="p-2 text-right text-foreground">الترتيب</th>
-                <th className="p-2 text-right text-foreground">الإجراءات</th>
+                <th className="p-2 text-right text-foreground">{t('building')}</th>
+                <th className="p-2 text-right text-foreground">{t('floor')}</th>
+                <th className="p-2 text-right text-foreground">{t('nameAr')}</th>
+                <th className="p-2 text-right text-foreground">{t('nameEn')}</th>
+                <th className="p-2 text-right text-foreground">{t('code')}</th>
+                <th className="p-2 text-right text-foreground">{t('order')}</th>
+                <th className="p-2 text-right text-foreground">{t('actions')}</th>
               </tr>
             </thead>
             <tbody>

@@ -27,6 +27,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const isValid = await bcrypt.compare(credentials.password as string, user.password);
         if (!isValid) return null;
 
+        // ✅ إضافة سطر للتحقق من القيمة في سجل الخادم
+        console.log('Company nameEn from DB:', user.company?.nameEn);
+
         return {
           id: user.id,
           email: user.email,

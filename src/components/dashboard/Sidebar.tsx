@@ -425,7 +425,7 @@ export default function Sidebar() {
 
               {/* إعداد الصلاحيات */}
               <SidebarNavItem
-                href="/admin/users"
+                href="/dashboard/users"
                 label={getLabel("nav.users", "المستخدمون")}
                 icon={Users}
                 isOpen={sidebarOpen}

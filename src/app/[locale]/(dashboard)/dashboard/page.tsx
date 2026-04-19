@@ -29,7 +29,7 @@ interface DashboardData {
 }
 
 export default function DashboardPage() {
-  const { data: session, status: sessionStatus } = useSession();
+  const { data: session, status } = useSession();
   const params = useParams();
   const locale = params?.locale as string;
   const isRTL = locale === 'ar';
@@ -43,8 +43,19 @@ export default function DashboardPage() {
     pendingRequests: 0,
   });
 
-  // الحصول على اسم الشركة من الجلسة
-  const companyName = session?.user?.companyName || 'شركتك';
+  // انتظار تحميل الجلسة لتجنب الوميض
+  const isSessionLoading = status === 'loading';
+
+  // اسم الشركة حسب اللغة الحالية (مع fallback آمن)
+  let companyDisplayName = 'شركتك';
+  if (!isSessionLoading && session?.user) {
+    if (locale === 'ar') {
+      companyDisplayName = session.user.companyName || 'شركتك';
+    } else {
+      // في الإنجليزية، استخدم companyNameEn أولاً، ثم companyName كـ fallback
+      companyDisplayName = session.user.companyNameEn || session.user.companyName || 'Your Company';
+    }
+  }
 
   const fetchStats = useCallback(async () => {
     setLoading(true);
@@ -124,6 +135,14 @@ export default function DashboardPage() {
     [data, t]
   );
 
+  if (isSessionLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   return (
     <div
       dir={isRTL ? 'rtl' : 'ltr'}
@@ -132,23 +151,18 @@ export default function DashboardPage() {
         isRTL ? 'text-right' : 'text-left'
       )}
     >
-      {/* Header Section */}
       <header className="space-y-1">
         <h1 className="text-3xl font-bold tracking-tight text-foreground">
           {t('header.title')}
         </h1>
         <p className="text-muted-foreground font-medium">
-          {t('header.welcome', { company: companyName })}
+          {t('header.welcome', { company: companyDisplayName })}
         </p>
       </header>
 
-      {/* Stats Grid */}
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {statsCards.map((stat, i) => (
-          <Card
-            key={i}
-            className="relative overflow-hidden transition-all hover:shadow-md group"
-          >
+          <Card key={i} className="relative overflow-hidden transition-all hover:shadow-md group">
             <CardHeader
               className={cn(
                 'flex flex-row items-center justify-between pb-2',
@@ -158,47 +172,27 @@ export default function DashboardPage() {
               <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
                 {stat.title}
               </CardTitle>
-              <div
-                className={cn(
-                  'p-2 rounded-lg transition-transform group-hover:scale-110',
-                  stat.bg
-                )}
-              >
+              <div className={cn('p-2 rounded-lg transition-transform group-hover:scale-110', stat.bg)}>
                 <stat.icon className={cn('h-5 w-5', stat.color)} />
               </div>
             </CardHeader>
             <CardContent>
-              <div
-                className={cn(
-                  'flex items-baseline gap-2',
-                  isRTL ? 'flex-row-reverse justify-end' : ''
-                )}
-              >
+              <div className={cn('flex items-baseline gap-2', isRTL ? 'flex-row-reverse justify-end' : '')}>
                 <span className="text-3xl font-bold tracking-tight">
-                  {loading ? (
-                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-                  ) : (
-                    stat.value.toLocaleString()
-                  )}
+                  {loading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : stat.value.toLocaleString()}
                 </span>
                 {!loading && (
-                  <Badge
-                    variant="secondary"
-                    className="bg-emerald-500/10 text-emerald-600 border-none text-[10px] font-bold"
-                  >
+                  <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-none text-[10px] font-bold">
                     <TrendingUp className="h-3 w-3 mr-1" /> {t('stats.live')}
                   </Badge>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mt-3 line-clamp-1">
-                {stat.description}
-              </p>
+              <p className="text-xs text-muted-foreground mt-3 line-clamp-1">{stat.description}</p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* Action Section */}
       <div className="grid gap-6 md:grid-cols-3">
         <Card className="md:col-span-2 shadow-sm">
           <CardHeader>
@@ -227,17 +221,12 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* System Status Card */}
         <Card className="bg-primary text-primary-foreground overflow-hidden relative group border-none">
           <CardHeader>
-            <CardTitle className="text-xl font-bold">
-              {t('systemStatus.title')}
-            </CardTitle>
+            <CardTitle className="text-xl font-bold">{t('systemStatus.title')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 relative z-10">
-            <div
-              className={cn('flex items-center gap-3', isRTL ? 'flex-row-reverse' : '')}
-            >
+            <div className={cn('flex items-center gap-3', isRTL ? 'flex-row-reverse' : '')}>
               <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
                 <ShieldCheck className="h-6 w-6 text-white" />
               </div>
@@ -253,12 +242,7 @@ export default function DashboardPage() {
               </div>
             </div>
           </CardContent>
-          <Activity
-            className={cn(
-              'absolute -bottom-4 h-24 w-24 opacity-10 group-hover:scale-110 transition-transform',
-              isRTL ? '-left-4' : '-right-4'
-            )}
-          />
+          <Activity className={cn('absolute -bottom-4 h-24 w-24 opacity-10 group-hover:scale-110 transition-transform', isRTL ? '-left-4' : '-right-4')} />
         </Card>
       </div>
     </div>
@@ -293,24 +277,14 @@ function QuickActionLink({
         isRTL ? 'flex-row-reverse' : ''
       )}
     >
-      <div
-        className={cn(
-          'p-3 rounded-lg transition-transform group-hover:scale-110 group-hover:-rotate-3',
-          variants[variant]
-        )}
-      >
+      <div className={cn('p-3 rounded-lg transition-transform group-hover:scale-110 group-hover:-rotate-3', variants[variant])}>
         <Icon className="h-5 w-5" />
       </div>
       <div className="flex-1">
         <h4 className="font-bold text-foreground text-sm">{title}</h4>
         <p className="text-xs text-muted-foreground line-clamp-1">{description}</p>
       </div>
-      <ArrowUpRight
-        className={cn(
-          'h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform',
-          isRTL && 'rotate-180'
-        )}
-      />
+      <ArrowUpRight className={cn('h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform', isRTL && 'rotate-180')} />
     </Link>
   );
 }

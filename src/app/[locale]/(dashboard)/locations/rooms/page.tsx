@@ -1,0 +1,308 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useSession } from 'next-auth/react';
+import { useRouter, useParams } from 'next/navigation';
+import { Pencil, Trash2, Plus, X } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface Building {
+  id: string;
+  name: string;
+}
+
+interface Floor {
+  id: string;
+  name: string;
+  buildingId: string;
+}
+
+interface Room {
+  id: string;
+  name: string;
+  nameEn: string | null;
+  code: string;
+  order: number;
+  floorId: string;
+  buildingId: string;
+  floor: Floor;
+  building: Building;
+}
+
+export default function RoomsPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
+  const params = useParams();
+  const locale = params?.locale as string;
+
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [floors, setFloors] = useState<Floor[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [editing, setEditing] = useState<Room | null>(null);
+  const [form, setForm] = useState({ name: '', nameEn: '', code: '', order: 0, floorId: '', buildingId: '' });
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [showForm, setShowForm] = useState(false);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') router.push(`/${locale}/login`);
+    else if (session?.user?.role !== 'ADMIN') router.push(`/${locale}/dashboard`);
+    else {
+      fetchRooms();
+      fetchBuildings();
+    }
+  }, [status]);
+
+  const fetchRooms = async () => {
+    try {
+      const res = await fetch('/api/locations/rooms');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setRooms(data);
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchBuildings = async () => {
+    try {
+      const res = await fetch('/api/locations/buildings');
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setBuildings(data);
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  const fetchFloorsByBuilding = async (buildingId: string) => {
+    if (!buildingId) {
+      setFloors([]);
+      return;
+    }
+    try {
+      const res = await fetch(`/api/locations/floors?buildingId=${buildingId}`);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setFloors(data);
+    } catch (err: any) {
+      console.error(err);
+    }
+  };
+
+  const handleBuildingChange = (buildingId: string) => {
+    setForm({ ...form, buildingId, floorId: '' });
+    fetchFloorsByBuilding(buildingId);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.buildingId || !form.floorId) {
+      setMessage({ type: 'error', text: 'يرجى اختيار المبنى والدور' });
+      return;
+    }
+    try {
+      const url = editing ? `/api/locations/rooms/${editing.id}` : '/api/locations/rooms';
+      const method = editing ? 'PUT' : 'POST';
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage({ type: 'success', text: editing ? 'تم التحديث' : 'تمت الإضافة' });
+      setEditing(null);
+      setForm({ name: '', nameEn: '', code: '', order: 0, floorId: '', buildingId: '' });
+      setShowForm(false);
+      fetchRooms();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذه الغرفة؟')) return;
+    try {
+      const res = await fetch(`/api/locations/rooms/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage({ type: 'error', text: data.error || 'فشل الحذف' });
+        return;
+      }
+      setMessage({ type: 'success', text: 'تم الحذف بنجاح' });
+      fetchRooms();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  const editRoom = (room: Room) => {
+    setEditing(room);
+    setForm({
+      name: room.name,
+      nameEn: room.nameEn || '',
+      code: room.code,
+      order: room.order,
+      floorId: room.floorId,
+      buildingId: room.buildingId,
+    });
+    fetchFloorsByBuilding(room.buildingId);
+    setShowForm(true);
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setForm({ name: '', nameEn: '', code: '', order: 0, floorId: '', buildingId: '' });
+    setShowForm(false);
+    setFloors([]);
+  };
+
+  if (status === 'loading') return <div className="p-6">جاري التحميل...</div>;
+  if (!session || session.user?.role !== 'ADMIN') return null;
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold text-foreground">إدارة الغرف</h1>
+        {!showForm && (
+          <button
+            onClick={() => setShowForm(true)}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700 transition"
+          >
+            <Plus size={18} /> إضافة غرفة جديدة
+          </button>
+        )}
+      </div>
+
+      {message && (
+        <div className={cn(
+          "p-2 mb-4 rounded",
+          message.type === 'success'
+            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
+        )}>
+          {message.text}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="bg-card border border-border p-4 rounded-lg shadow mb-6">
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-xl font-semibold text-foreground">{editing ? 'تعديل غرفة' : 'إضافة غرفة جديدة'}</h2>
+            <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground transition">
+              <X size={20} />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <select
+              value={form.buildingId}
+              onChange={e => handleBuildingChange(e.target.value)}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              required
+            >
+              <option value="">اختر المبنى</option>
+              {buildings.map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+            <select
+              value={form.floorId}
+              onChange={e => setForm({ ...form, floorId: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              required
+              disabled={!form.buildingId}
+            >
+              <option value="">اختر الدور</option>
+              {floors.map(f => (
+                <option key={f.id} value={f.id}>{f.name}</option>
+              ))}
+            </select>
+            <input
+              type="text"
+              placeholder="الاسم (عربي)"
+              value={form.name}
+              onChange={e => setForm({ ...form, name: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              required
+            />
+            <input
+              type="text"
+              placeholder="الاسم (إنجليزي)"
+              value={form.nameEn}
+              onChange={e => setForm({ ...form, nameEn: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+            />
+            <input
+              type="text"
+              placeholder="الكود"
+              value={form.code}
+              onChange={e => setForm({ ...form, code: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              required
+            />
+            <input
+              type="number"
+              placeholder="الترتيب"
+              value={form.order}
+              onChange={e => setForm({ ...form, order: Number(e.target.value) })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+            />
+            <div className="md:col-span-2 flex gap-2">
+              <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
+                {editing ? 'تحديث' : 'إضافة'}
+              </button>
+              <button type="button" onClick={cancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {loading ? (
+        <p>جاري التحميل...</p>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full border border-border rounded-lg">
+            <thead className="bg-muted/50">
+              <tr className="border-b border-border">
+                <th className="p-2 text-right text-foreground">#</th>
+                <th className="p-2 text-right text-foreground">المبنى</th>
+                <th className="p-2 text-right text-foreground">الدور</th>
+                <th className="p-2 text-right text-foreground">الاسم (عربي)</th>
+                <th className="p-2 text-right text-foreground">الاسم (إنجليزي)</th>
+                <th className="p-2 text-right text-foreground">الكود</th>
+                <th className="p-2 text-right text-foreground">الترتيب</th>
+                <th className="p-2 text-right text-foreground">الإجراءات</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rooms.map((room, idx) => (
+                <tr key={room.id} className="border-b border-border hover:bg-muted/30">
+                  <td className="p-2">{idx + 1}</td>
+                  <td className="p-2">{room.building.name}</td>
+                  <td className="p-2">{room.floor.name}</td>
+                  <td className="p-2">{room.name}</td>
+                  <td className="p-2">{room.nameEn || '-'}</td>
+                  <td className="p-2">{room.code}</td>
+                  <td className="p-2">{room.order}</td>
+                  <td className="p-2 flex gap-2">
+                    <button onClick={() => editRoom(room)} className="text-blue-600 dark:text-blue-400 hover:underline">
+                      <Pencil size={18} />
+                    </button>
+                    <button onClick={() => handleDelete(room.id)} className="text-red-600 dark:text-red-400 hover:underline">
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+           </table>
+        </div>
+      )}
+    </div>
+  );
+}

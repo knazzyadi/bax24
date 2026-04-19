@@ -1,55 +1,37 @@
-import NextAuth from "next-auth";
+import NextAuth, { DefaultSession } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 // ============================================
-// توسيع أنواع User و Session (لـ v5)
+// توسيع أنواع NextAuth لتدعم جميع الخواص المخصصة (companyId, companyName, companyNameEn)
 // ============================================
 declare module "next-auth" {
   interface User {
-    id: string;
-    role: string;
     companyId?: string | null;
     companyName?: string | null;
+    companyNameEn?: string | null;
   }
-
   interface Session {
     user: {
-      id: string;
-      role: string;
       companyId?: string | null;
       companyName?: string | null;
+      companyNameEn?: string | null;
     } & DefaultSession["user"];
   }
 }
 
-// استيراد DefaultSession للاستخدام أعلاه
-import { DefaultSession } from "next-auth";
-
-// ============================================
-// Prisma Singleton
-// ============================================
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ["error"],
-  });
-
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+declare module "next-auth/jwt" {
+  interface JWT {
+    companyId?: string | null;
+    companyName?: string | null;
+    companyNameEn?: string | null;
+  }
 }
 
-// ============================================
-// NextAuth Config
-// ============================================
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  trustHost: true,   // ✅ حل مشكلة UntrustedHost على Render
+const prisma = new PrismaClient();
 
+export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
       name: "credentials",
@@ -57,7 +39,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
 
@@ -79,13 +60,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           role: user.role?.name || "USER",
           companyId: user.companyId,
           companyName: user.company?.name,
+          companyNameEn: user.company?.nameEn,
         };
       },
     }),
   ],
-
   pages: { signIn: "/login" },
-
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -93,20 +73,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.role = user.role;
         token.companyId = user.companyId;
         token.companyName = user.companyName;
+        token.companyNameEn = user.companyNameEn;
       }
       return token;
     },
-
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
         session.user.companyId = token.companyId as string;
         session.user.companyName = token.companyName as string;
+        session.user.companyNameEn = token.companyNameEn as string;
       }
       return session;
     },
   },
-
   secret: process.env.NEXTAUTH_SECRET,
 });

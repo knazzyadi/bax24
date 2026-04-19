@@ -6,8 +6,11 @@ import { Footer } from './Footer';
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  // إخفاء الهيدر والفوتر في صفحات السوبر أدمن وصفحات الأدمن العادية
-  const isHiddenPage = pathname?.includes('/super-admin') || pathname?.includes('/dashboard');
+  // إخفاء الهيدر والفوتر في صفحات السوبر أدمن، صفحات الأدمن العادية، وصفحات المواقع
+  const isHiddenPage =
+    pathname?.includes('/super-admin') ||
+    pathname?.includes('/dashboard') ||
+    pathname?.includes('/locations'); // ✅ إضافة صفحات المواقع
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground">

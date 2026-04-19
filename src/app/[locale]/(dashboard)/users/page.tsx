@@ -52,7 +52,7 @@ export default function CompanyUsersPage() {
     try {
       const res = await fetch('/api/company/users');
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'فشل تحميل المستخدمين');
+      if (!res.ok) throw new Error(data.error || t('fetchError', { fallback: 'فشل تحميل المستخدمين' }));
       setUsers(data);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -72,7 +72,7 @@ export default function CompanyUsersPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: 'تم إرسال الدعوة بنجاح' });
+      setMessage({ type: 'success', text: t('inviteSuccess', { fallback: 'تم إرسال الدعوة بنجاح' }) });
       setShowModal(false);
       setForm({ name: '', email: '', role: 'SUPERVISOR' });
       fetchUsers();
@@ -92,7 +92,8 @@ export default function CompanyUsersPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: `تم ${currentStatus ? 'تعطيل' : 'تفعيل'} المستخدم` });
+      const statusText = !currentStatus ? t('active', { fallback: 'تفعيل' }) : t('inactive', { fallback: 'تعطيل' });
+      setMessage({ type: 'success', text: t('statusToggled', { status: statusText, fallback: `تم ${statusText} المستخدم` }) });
       fetchUsers();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -108,7 +109,7 @@ export default function CompanyUsersPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: 'تم إعادة إرسال الدعوة' });
+      setMessage({ type: 'success', text: t('resendSuccess', { fallback: 'تم إعادة إرسال الدعوة' }) });
       fetchUsers();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -116,12 +117,12 @@ export default function CompanyUsersPage() {
   };
 
   const deleteUser = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المستخدم؟')) return;
+    if (!confirm(t('deleteConfirm', { fallback: 'هل أنت متأكد من حذف هذا المستخدم؟' }))) return;
     try {
       const res = await fetch(`/api/company/users/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: 'تم الحذف بنجاح' });
+      setMessage({ type: 'success', text: t('deleteSuccess', { fallback: 'تم الحذف بنجاح' }) });
       fetchUsers();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -154,7 +155,7 @@ export default function CompanyUsersPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: 'تم تحديث المستخدم بنجاح' });
+      setMessage({ type: 'success', text: t('updateSuccess', { fallback: 'تم تحديث المستخدم بنجاح' }) });
       setEditingUser(null);
       fetchUsers();
     } catch (err: any) {
@@ -165,7 +166,7 @@ export default function CompanyUsersPage() {
   };
 
   if (sessionStatus === 'loading') {
-    return <div className="p-6 text-center">جاري التحميل...</div>;
+    return <div className="p-6 text-center">{t('loading', { fallback: 'جاري التحميل...' })}</div>;
   }
   if (!session || session.user?.role !== 'ADMIN') return null;
 
@@ -179,7 +180,7 @@ export default function CompanyUsersPage() {
           onClick={() => setShowModal(true)}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700 transition-colors"
         >
-          <Plus size={18} /> إضافة مستخدم جديد
+          <Plus size={18} /> {t('addUser', { fallback: 'إضافة مستخدم جديد' })}
         </button>
       </div>
 
@@ -197,28 +198,28 @@ export default function CompanyUsersPage() {
       )}
 
       {loading ? (
-        <div className="text-center py-8">جاري تحميل المستخدمين...</div>
+        <div className="text-center py-8">{t('loading', { fallback: 'جاري تحميل المستخدمين...' })}</div>
       ) : (
         <div className="overflow-x-auto border border-border rounded-lg">
           <table className="w-full">
             <thead className="bg-muted/50">
               <tr className="border-b border-border">
                 <th className="p-3 text-right">#</th>
-                <th className="p-3 text-right">الاسم</th>
-                <th className="p-3 text-right">البريد الإلكتروني</th>
-                <th className="p-3 text-right">الدور</th>
-                <th className="p-3 text-right">الحالة</th>
-                <th className="p-3 text-right">تاريخ الإنشاء</th>
-                <th className="p-3 text-right">الإجراءات</th>
-               </tr>
+                <th className="p-3 text-right">{t('name', { fallback: 'الاسم' })}</th>
+                <th className="p-3 text-right">{t('email', { fallback: 'البريد الإلكتروني' })}</th>
+                <th className="p-3 text-right">{t('role', { fallback: 'الدور' })}</th>
+                <th className="p-3 text-right">{t('status', { fallback: 'الحالة' })}</th>
+                <th className="p-3 text-right">{t('createdAt', { fallback: 'تاريخ الإنشاء' })}</th>
+                <th className="p-3 text-right">{t('actions', { fallback: 'الإجراءات' })}</th>
+                </tr>
             </thead>
             <tbody>
               {users.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="text-center py-8 text-muted-foreground">
-                    لا يوجد مستخدمون حتى الآن
-                   </td>
-                 </tr>
+                    {t('noUsers', { fallback: 'لا يوجد مستخدمون حتى الآن' })}
+                    </td>
+                </tr>
               ) : (
                 users.map((user, idx) => (
                   <tr key={user.id} className="border-b border-border hover:bg-muted/30">
@@ -235,7 +236,7 @@ export default function CompanyUsersPage() {
                             : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                         )}
                       >
-                        {user.status ? 'نشط' : 'غير نشط'}
+                        {user.status ? t('active', { fallback: 'نشط' }) : t('inactive', { fallback: 'غير نشط' })}
                       </span>
                     </td>
                     <td className="p-3">{new Date(user.createdAt).toLocaleDateString()}</td>
@@ -243,28 +244,28 @@ export default function CompanyUsersPage() {
                       <button
                         onClick={() => openEditModal(user)}
                         className="text-yellow-600 dark:text-yellow-400 hover:opacity-80"
-                        title="تعديل"
+                        title={t('editUser', { fallback: 'تعديل' })}
                       >
                         <Pencil size={18} />
                       </button>
                       <button
                         onClick={() => toggleStatus(user.id, user.status)}
                         className="text-blue-600 dark:text-blue-400 hover:opacity-80"
-                        title={user.status ? 'تعطيل' : 'تفعيل'}
+                        title={user.status ? t('statusInactive', { fallback: 'تعطيل' }) : t('statusActive', { fallback: 'تفعيل' })}
                       >
                         {user.status ? <XCircle size={18} /> : <CheckCircle size={18} />}
                       </button>
                       <button
                         onClick={() => resendInvite(user.id)}
                         className="text-green-600 dark:text-green-400 hover:opacity-80"
-                        title="إعادة إرسال الدعوة"
+                        title={t('resendInvite', { fallback: 'إعادة إرسال الدعوة' })}
                       >
                         <RefreshCw size={18} />
                       </button>
                       <button
                         onClick={() => deleteUser(user.id)}
                         className="text-red-600 dark:text-red-400 hover:opacity-80"
-                        title="حذف"
+                        title={t('delete', { fallback: 'حذف' })}
                       >
                         <Trash2 size={18} />
                       </button>
@@ -282,14 +283,14 @@ export default function CompanyUsersPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card border border-border p-6 rounded-xl w-full max-w-md shadow-xl">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">إضافة مستخدم جديد</h2>
+              <h2 className="text-xl font-semibold">{t('inviteUser', { fallback: 'إضافة مستخدم جديد' })}</h2>
               <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground">
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الاسم الكامل *</label>
+                <label className="block text-sm font-medium mb-1">{t('fullName', { fallback: 'الاسم الكامل' })} *</label>
                 <input
                   type="text"
                   value={form.name}
@@ -299,7 +300,7 @@ export default function CompanyUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">البريد الإلكتروني *</label>
+                <label className="block text-sm font-medium mb-1">{t('email', { fallback: 'البريد الإلكتروني' })} *</label>
                 <input
                   type="email"
                   value={form.email}
@@ -309,20 +310,20 @@ export default function CompanyUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">الدور *</label>
+                <label className="block text-sm font-medium mb-1">{t('role', { fallback: 'الدور' })} *</label>
                 <select
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
                   className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                 >
-                  <option value="SUPERVISOR">مشرف (Supervisor)</option>
-                  <option value="TECHNICIAN">فني (Technician)</option>
+                  <option value="SUPERVISOR">{t('supervisor', { fallback: 'مشرف (Supervisor)' })}</option>
+                  <option value="TECHNICIAN">{t('technician', { fallback: 'فني (Technician)' })}</option>
                 </select>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">إلغاء</button>
+                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">{t('cancel', { fallback: 'إلغاء' })}</button>
                 <button type="submit" disabled={submitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
-                  {submitting ? 'جاري الإرسال...' : 'إرسال الدعوة'}
+                  {submitting ? t('sending', { fallback: 'جاري الإرسال...' }) : t('sendInvite', { fallback: 'إرسال الدعوة' })}
                 </button>
               </div>
             </form>
@@ -335,14 +336,14 @@ export default function CompanyUsersPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card border border-border p-6 rounded-xl w-full max-w-md shadow-xl">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">تعديل المستخدم</h2>
+              <h2 className="text-xl font-semibold">{t('editUser', { fallback: 'تعديل المستخدم' })}</h2>
               <button onClick={() => setEditingUser(null)} className="text-muted-foreground hover:text-foreground">
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleUpdate} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الاسم الكامل</label>
+                <label className="block text-sm font-medium mb-1">{t('fullName', { fallback: 'الاسم الكامل' })}</label>
                 <input
                   type="text"
                   value={editForm.name}
@@ -352,7 +353,7 @@ export default function CompanyUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">البريد الإلكتروني</label>
+                <label className="block text-sm font-medium mb-1">{t('email', { fallback: 'البريد الإلكتروني' })}</label>
                 <input
                   type="email"
                   value={editForm.email}
@@ -362,20 +363,20 @@ export default function CompanyUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">الدور</label>
+                <label className="block text-sm font-medium mb-1">{t('role', { fallback: 'الدور' })}</label>
                 <select
                   value={editForm.role}
                   onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
                   className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                 >
-                  <option value="SUPERVISOR">مشرف (Supervisor)</option>
-                  <option value="TECHNICIAN">فني (Technician)</option>
+                  <option value="SUPERVISOR">{t('supervisor', { fallback: 'مشرف (Supervisor)' })}</option>
+                  <option value="TECHNICIAN">{t('technician', { fallback: 'فني (Technician)' })}</option>
                 </select>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 border rounded-lg">إلغاء</button>
+                <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 border rounded-lg">{t('cancel', { fallback: 'إلغاء' })}</button>
                 <button type="submit" disabled={editSubmitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
-                  {editSubmitting ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                  {editSubmitting ? t('saving', { fallback: 'جاري الحفظ...' }) : t('saveChanges', { fallback: 'حفظ التغييرات' })}
                 </button>
               </div>
             </form>

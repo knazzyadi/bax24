@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
+import { useTranslations } from 'next-intl';
 import { 
   Plus, X, RefreshCw, CheckCircle, XCircle, Trash2, Pencil, Search, 
   ChevronDown, ChevronUp 
@@ -36,6 +37,7 @@ export default function SuperAdminUsersPage() {
   const router = useRouter();
   const params = useParams();
   const locale = params?.locale as string;
+  const t = useTranslations('SuperAdminUsersPage');
 
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
@@ -74,7 +76,7 @@ export default function SuperAdminUsersPage() {
       if (filterCompany) params.append('companyId', filterCompany);
       const res = await fetch(`/api/users?${params.toString()}`);
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'فشل تحميل المستخدمين');
+      if (!res.ok) throw new Error(data.error || t('fetchError', { fallback: 'فشل تحميل المستخدمين' }));
       setUsers(data);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -122,8 +124,8 @@ export default function SuperAdminUsersPage() {
         body: JSON.stringify(inviteForm),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'فشل إرسال الدعوة');
-      setMessage({ type: 'success', text: 'تم إرسال الدعوة بنجاح' });
+      if (!res.ok) throw new Error(data.error || t('inviteError', { fallback: 'فشل إرسال الدعوة' }));
+      setMessage({ type: 'success', text: t('inviteSuccess', { fallback: 'تم إرسال الدعوة بنجاح' }) });
       setShowInviteModal(false);
       setInviteForm({ name: '', email: '', roleId: '', companyId: '' });
       fetchUsers();
@@ -143,8 +145,9 @@ export default function SuperAdminUsersPage() {
         body: JSON.stringify({ status: !currentStatus }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'فشل تحديث الحالة');
-      setMessage({ type: 'success', text: `تم ${!currentStatus ? 'تفعيل' : 'تعطيل'} المستخدم` });
+      if (!res.ok) throw new Error(data.error || t('statusError', { fallback: 'فشل تحديث الحالة' }));
+      const statusText = !currentStatus ? t('active', { fallback: 'تفعيل' }) : t('inactive', { fallback: 'تعطيل' });
+      setMessage({ type: 'success', text: t('statusToggled', { status: statusText, fallback: `تم ${statusText} المستخدم` }) });
       fetchUsers();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -157,7 +160,7 @@ export default function SuperAdminUsersPage() {
       const res = await fetch(`/api/users/${userId}/resend-invite`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: 'تم إعادة إرسال الدعوة بنجاح' });
+      setMessage({ type: 'success', text: t('resendSuccess', { fallback: 'تم إعادة إرسال الدعوة بنجاح' }) });
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     }
@@ -165,12 +168,12 @@ export default function SuperAdminUsersPage() {
 
   // Delete user (super admin only)
   const deleteUser = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟')) return;
+    if (!confirm(t('deleteConfirm', { fallback: 'هل أنت متأكد من حذف هذا المستخدم نهائياً؟' }))) return;
     try {
       const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: 'تم حذف المستخدم بنجاح' });
+      setMessage({ type: 'success', text: t('deleteSuccess', { fallback: 'تم حذف المستخدم بنجاح' }) });
       fetchUsers();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
@@ -206,7 +209,7 @@ export default function SuperAdminUsersPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: 'تم تحديث المستخدم بنجاح' });
+      setMessage({ type: 'success', text: t('updateSuccess', { fallback: 'تم تحديث المستخدم بنجاح' }) });
       setEditingUser(null);
       fetchUsers();
     } catch (err: any) {
@@ -217,7 +220,7 @@ export default function SuperAdminUsersPage() {
   };
 
   if (sessionStatus === 'loading') {
-    return <div className="p-6 text-center">جاري التحميل...</div>;
+    return <div className="p-6 text-center">{t('loading', { fallback: 'جاري التحميل...' })}</div>;
   }
   if (!session || session.user?.role !== 'SUPER_ADMIN') return null;
 
@@ -225,12 +228,12 @@ export default function SuperAdminUsersPage() {
     <div className="p-6 max-w-7xl mx-auto">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <h1 className="text-2xl font-bold text-foreground">إدارة المستخدمين (سوبر أدمن)</h1>
+        <h1 className="text-2xl font-bold text-foreground">{t('title', { fallback: 'إدارة المستخدمين (سوبر أدمن)' })}</h1>
         <button
           onClick={() => setShowInviteModal(true)}
           className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700 transition-colors"
         >
-          <Plus size={18} /> إضافة مستخدم جديد
+          <Plus size={18} /> {t('addUser', { fallback: 'إضافة مستخدم جديد' })}
         </button>
       </div>
 
@@ -256,7 +259,7 @@ export default function SuperAdminUsersPage() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="بحث بالاسم أو البريد"
+            placeholder={t('searchPlaceholder', { fallback: 'بحث بالاسم أو البريد' })}
             className="pr-9 p-2 border border-border rounded-lg bg-background w-64"
           />
         </div>
@@ -265,7 +268,7 @@ export default function SuperAdminUsersPage() {
           onChange={(e) => setFilterRole(e.target.value)}
           className="p-2 border border-border rounded-lg bg-background"
         >
-          <option value="">كل الأدوار</option>
+          <option value="">{t('allRoles', { fallback: 'كل الأدوار' })}</option>
           {roles.map((r) => (
             <option key={r.id} value={r.name}>{r.label || r.name}</option>
           ))}
@@ -275,7 +278,7 @@ export default function SuperAdminUsersPage() {
           onChange={(e) => setFilterCompany(e.target.value)}
           className="p-2 border border-border rounded-lg bg-background"
         >
-          <option value="">كل الشركات</option>
+          <option value="">{t('allCompanies', { fallback: 'كل الشركات' })}</option>
           {companies.map((c) => (
             <option key={c.id} value={c.id}>{c.name}</option>
           ))}
@@ -284,33 +287,33 @@ export default function SuperAdminUsersPage() {
           onClick={fetchUsers}
           className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
         >
-          بحث
+          {t('searchButton', { fallback: 'بحث' })}
         </button>
       </div>
 
       {/* Users Table */}
       {loading ? (
-        <div className="text-center py-8">جاري تحميل المستخدمين...</div>
+        <div className="text-center py-8">{t('loading', { fallback: 'جاري تحميل المستخدمين...' })}</div>
       ) : (
         <div className="overflow-x-auto border border-border rounded-lg">
           <table className="w-full">
             <thead className="bg-muted/50">
               <tr className="border-b border-border">
                 <th className="p-3 text-right">#</th>
-                <th className="p-3 text-right">الاسم</th>
-                <th className="p-3 text-right">البريد الإلكتروني</th>
-                <th className="p-3 text-right">الدور</th>
-                <th className="p-3 text-right">الشركة</th>
-                <th className="p-3 text-right">الحالة</th>
-                <th className="p-3 text-right">تاريخ الإنشاء</th>
-                <th className="p-3 text-right">الإجراءات</th>
+                <th className="p-3 text-right">{t('name', { fallback: 'الاسم' })}</th>
+                <th className="p-3 text-right">{t('email', { fallback: 'البريد الإلكتروني' })}</th>
+                <th className="p-3 text-right">{t('role', { fallback: 'الدور' })}</th>
+                <th className="p-3 text-right">{t('company', { fallback: 'الشركة' })}</th>
+                <th className="p-3 text-right">{t('status', { fallback: 'الحالة' })}</th>
+                <th className="p-3 text-right">{t('createdAt', { fallback: 'تاريخ الإنشاء' })}</th>
+                <th className="p-3 text-right">{t('actions', { fallback: 'الإجراءات' })}</th>
                </tr>
             </thead>
             <tbody>
               {users.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="text-center py-8 text-muted-foreground">
-                    لا يوجد مستخدمون
+                    {t('noUsers', { fallback: 'لا يوجد مستخدمون' })}
                    </td>
                 </tr>
               ) : (
@@ -330,7 +333,7 @@ export default function SuperAdminUsersPage() {
                             : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
                         )}
                       >
-                        {user.status ? 'نشط' : 'غير نشط'}
+                        {user.status ? t('active', { fallback: 'نشط' }) : t('inactive', { fallback: 'غير نشط' })}
                       </span>
                     </td>
                     <td className="p-3">{new Date(user.createdAt).toLocaleDateString()}</td>
@@ -338,14 +341,14 @@ export default function SuperAdminUsersPage() {
                       <button
                         onClick={() => openEditModal(user)}
                         className="text-yellow-600 dark:text-yellow-400 hover:opacity-80"
-                        title="تعديل"
+                        title={t('editUser', { fallback: 'تعديل' })}
                       >
                         <Pencil size={18} />
                       </button>
                       <button
                         onClick={() => toggleUserStatus(user.id, user.status)}
                         className="text-blue-600 dark:text-blue-400 hover:opacity-80"
-                        title={user.status ? 'تعطيل' : 'تفعيل'}
+                        title={user.status ? t('statusInactive', { fallback: 'تعطيل' }) : t('statusActive', { fallback: 'تفعيل' })}
                       >
                         {user.status ? <XCircle size={18} /> : <CheckCircle size={18} />}
                       </button>
@@ -353,7 +356,7 @@ export default function SuperAdminUsersPage() {
                         <button
                           onClick={() => resendInvite(user.id)}
                           className="text-green-600 dark:text-green-400 hover:opacity-80"
-                          title="إعادة إرسال الدعوة"
+                          title={t('resendInvite', { fallback: 'إعادة إرسال الدعوة' })}
                         >
                           <RefreshCw size={18} />
                         </button>
@@ -361,12 +364,12 @@ export default function SuperAdminUsersPage() {
                       <button
                         onClick={() => deleteUser(user.id)}
                         className="text-red-600 dark:text-red-400 hover:opacity-80"
-                        title="حذف"
+                        title={t('delete', { fallback: 'حذف' })}
                       >
                         <Trash2 size={18} />
                       </button>
                    </td>
-                 </tr>
+                  </tr>
                 ))
               )}
             </tbody>
@@ -379,14 +382,14 @@ export default function SuperAdminUsersPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card border border-border p-6 rounded-xl w-full max-w-md shadow-xl">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">إضافة مستخدم جديد</h2>
+              <h2 className="text-xl font-semibold">{t('inviteUser', { fallback: 'إضافة مستخدم جديد' })}</h2>
               <button onClick={() => setShowInviteModal(false)} className="text-muted-foreground hover:text-foreground">
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleInvite} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الاسم الكامل *</label>
+                <label className="block text-sm font-medium mb-1">{t('fullName', { fallback: 'الاسم الكامل' })} *</label>
                 <input
                   type="text"
                   required
@@ -396,7 +399,7 @@ export default function SuperAdminUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">البريد الإلكتروني *</label>
+                <label className="block text-sm font-medium mb-1">{t('email', { fallback: 'البريد الإلكتروني' })} *</label>
                 <input
                   type="email"
                   required
@@ -406,28 +409,28 @@ export default function SuperAdminUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">الدور *</label>
+                <label className="block text-sm font-medium mb-1">{t('role', { fallback: 'الدور' })} *</label>
                 <select
                   required
                   value={inviteForm.roleId}
                   onChange={(e) => setInviteForm({ ...inviteForm, roleId: e.target.value })}
                   className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                 >
-                  <option value="">اختر دور</option>
+                  <option value="">{t('selectRole', { fallback: 'اختر دور' })}</option>
                   {roles.map((role) => (
                     <option key={role.id} value={role.id}>{role.label || role.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">الشركة *</label>
+                <label className="block text-sm font-medium mb-1">{t('company', { fallback: 'الشركة' })} *</label>
                 <select
                   required
                   value={inviteForm.companyId}
                   onChange={(e) => setInviteForm({ ...inviteForm, companyId: e.target.value })}
                   className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                 >
-                  <option value="">اختر شركة</option>
+                  <option value="">{t('selectCompany', { fallback: 'اختر شركة' })}</option>
                   {companies.map((company) => (
                     <option key={company.id} value={company.id}>{company.name}</option>
                   ))}
@@ -435,9 +438,9 @@ export default function SuperAdminUsersPage() {
               </div>
               {inviteError && <div className="text-red-600 text-sm">{inviteError}</div>}
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowInviteModal(false)} className="px-4 py-2 border rounded-lg">إلغاء</button>
+                <button type="button" onClick={() => setShowInviteModal(false)} className="px-4 py-2 border rounded-lg">{t('cancel', { fallback: 'إلغاء' })}</button>
                 <button type="submit" disabled={inviting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
-                  {inviting ? 'جاري الإرسال...' : 'إرسال الدعوة'}
+                  {inviting ? t('sending', { fallback: 'جاري الإرسال...' }) : t('sendInvite', { fallback: 'إرسال الدعوة' })}
                 </button>
               </div>
             </form>
@@ -450,14 +453,14 @@ export default function SuperAdminUsersPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card border border-border p-6 rounded-xl w-full max-w-md shadow-xl">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">تعديل المستخدم</h2>
+              <h2 className="text-xl font-semibold">{t('editUser', { fallback: 'تعديل المستخدم' })}</h2>
               <button onClick={() => setEditingUser(null)} className="text-muted-foreground hover:text-foreground">
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleUpdate} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1">الاسم الكامل</label>
+                <label className="block text-sm font-medium mb-1">{t('fullName', { fallback: 'الاسم الكامل' })}</label>
                 <input
                   type="text"
                   value={editForm.name}
@@ -467,7 +470,7 @@ export default function SuperAdminUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">البريد الإلكتروني</label>
+                <label className="block text-sm font-medium mb-1">{t('email', { fallback: 'البريد الإلكتروني' })}</label>
                 <input
                   type="email"
                   value={editForm.email}
@@ -477,37 +480,37 @@ export default function SuperAdminUsersPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">الدور</label>
+                <label className="block text-sm font-medium mb-1">{t('role', { fallback: 'الدور' })}</label>
                 <select
                   value={editForm.roleId}
                   onChange={(e) => setEditForm({ ...editForm, roleId: e.target.value })}
                   className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                   required
                 >
-                  <option value="">اختر دور</option>
+                  <option value="">{t('selectRole', { fallback: 'اختر دور' })}</option>
                   {roles.map((role) => (
                     <option key={role.id} value={role.id}>{role.label || role.name}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">الشركة</label>
+                <label className="block text-sm font-medium mb-1">{t('company', { fallback: 'الشركة' })}</label>
                 <select
                   value={editForm.companyId}
                   onChange={(e) => setEditForm({ ...editForm, companyId: e.target.value })}
                   className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                   required
                 >
-                  <option value="">اختر شركة</option>
+                  <option value="">{t('selectCompany', { fallback: 'اختر شركة' })}</option>
                   {companies.map((company) => (
                     <option key={company.id} value={company.id}>{company.name}</option>
                   ))}
                 </select>
               </div>
               <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 border rounded-lg">إلغاء</button>
+                <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 border rounded-lg">{t('cancel', { fallback: 'إلغاء' })}</button>
                 <button type="submit" disabled={editSubmitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
-                  {editSubmitting ? 'جاري الحفظ...' : 'حفظ التغييرات'}
+                  {editSubmitting ? t('saving', { fallback: 'جاري الحفظ...' }) : t('saveChanges', { fallback: 'حفظ التغييرات' })}
                 </button>
               </div>
             </form>

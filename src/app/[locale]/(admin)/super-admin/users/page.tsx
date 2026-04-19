@@ -3,6 +3,11 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
+import { 
+  Plus, X, RefreshCw, CheckCircle, XCircle, Trash2, Pencil, Search, 
+  ChevronDown, ChevronUp 
+} from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 interface User {
   id: string;
@@ -14,23 +19,35 @@ interface User {
   createdAt: string;
 }
 
-export default function UsersPage() {
-  const { data: session, status } = useSession();
+interface Company {
+  id: string;
+  name: string;
+}
+
+interface Role {
+  id: string;
+  name: string;
+  label: string | null;
+}
+
+export default function SuperAdminUsersPage() {
+  const { data: session, status: sessionStatus } = useSession();
   const router = useRouter();
   const params = useParams();
   const locale = params?.locale as string;
 
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<any>(null);
-
+  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  
+  // States for search/filter
   const [search, setSearch] = useState('');
   const [filterRole, setFilterRole] = useState('');
-
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [roles, setRoles] = useState<any[]>([]);
-
+  const [filterCompany, setFilterCompany] = useState('');
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [roles, setRoles] = useState<Role[]>([]);
+  
+  // States for invite modal
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteForm, setInviteForm] = useState({
     name: '',
@@ -40,69 +57,59 @@ export default function UsersPage() {
   });
   const [inviting, setInviting] = useState(false);
   const [inviteError, setInviteError] = useState('');
+  
+  // States for edit modal
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editForm, setEditForm] = useState({ name: '', email: '', roleId: '', companyId: '' });
+  const [editSubmitting, setEditSubmitting] = useState(false);
 
+  // Fetch users with filters
   const fetchUsers = async () => {
     setLoading(true);
-    setError(null);
     try {
       const params = new URLSearchParams();
       if (search) params.append('search', search);
       if (filterRole) params.append('role', filterRole);
+      if (filterCompany) params.append('companyId', filterCompany);
       const res = await fetch(`/api/users?${params.toString()}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'فشل تحميل المستخدمين');
       setUsers(data);
     } catch (err: any) {
-      setError(err.message);
+      setMessage({ type: 'error', text: err.message });
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch meta data (companies, roles)
   const fetchMeta = async () => {
     try {
-      const [c, r] = await Promise.all([
+      const [companiesRes, rolesRes] = await Promise.all([
         fetch('/api/companies'),
         fetch('/api/roles'),
       ]);
-      if (c.ok) setCompanies(await c.json());
-      if (r.ok) setRoles(await r.json());
-    } catch (e) {
-      console.error(e);
+      if (companiesRes.ok) setCompanies(await companiesRes.json());
+      if (rolesRes.ok) setRoles(await rolesRes.json());
+    } catch (error) {
+      console.error('Error fetching meta:', error);
     }
   };
 
   useEffect(() => {
-    if (status === 'unauthenticated') {
+    if (sessionStatus === 'unauthenticated') {
       router.push(`/${locale}/login`);
-      return;
+    } else if (sessionStatus === 'authenticated') {
+      if (session?.user?.role !== 'SUPER_ADMIN') {
+        router.push(`/${locale}/dashboard`);
+      } else {
+        fetchUsers();
+        fetchMeta();
+      }
     }
-    if (session?.user?.role !== 'SUPER_ADMIN') {
-      router.push(`/${locale}/dashboard`);
-      return;
-    }
-    fetchUsers();
-    fetchMeta();
-  }, [status]);
+  }, [sessionStatus, session, locale, router]);
 
-  const toggleUserStatus = async (id: string, current: boolean) => {
-    try {
-      const res = await fetch(`/api/users/${id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: !current }),
-      });
-      if (!res.ok) throw new Error('فشل التحديث');
-      await fetchUsers();
-      setMessage({
-        type: 'success',
-        text: `تم ${!current ? 'تفعيل' : 'تعطيل'} المستخدم`,
-      });
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
-    }
-  };
-
+  // Invite new user
   const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     setInviting(true);
@@ -126,11 +133,27 @@ export default function UsersPage() {
     }
   };
 
+  // Toggle user status (activate/deactivate)
+  const toggleUserStatus = async (id: string, currentStatus: boolean) => {
+    try {
+      const res = await fetch(`/api/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: !currentStatus }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'فشل تحديث الحالة');
+      setMessage({ type: 'success', text: `تم ${!currentStatus ? 'تفعيل' : 'تعطيل'} المستخدم` });
+      fetchUsers();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  // Resend invitation email
   const resendInvite = async (userId: string) => {
     try {
-      const res = await fetch(`/api/users/${userId}/resend-invite`, {
-        method: 'POST',
-      });
+      const res = await fetch(`/api/users/${userId}/resend-invite`, { method: 'POST' });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setMessage({ type: 'success', text: 'تم إعادة إرسال الدعوة بنجاح' });
@@ -139,107 +162,227 @@ export default function UsersPage() {
     }
   };
 
-  if (status === 'loading') return <div className="p-6">جاري التحميل...</div>;
+  // Delete user (super admin only)
+  const deleteUser = async (id: string) => {
+    if (!confirm('هل أنت متأكد من حذف هذا المستخدم نهائياً؟')) return;
+    try {
+      const res = await fetch(`/api/users/${id}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage({ type: 'success', text: 'تم حذف المستخدم بنجاح' });
+      fetchUsers();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    }
+  };
+
+  // Open edit modal with user data
+  const openEditModal = (user: User) => {
+    setEditingUser(user);
+    setEditForm({
+      name: user.name || '',
+      email: user.email,
+      roleId: user.role?.id || '',
+      companyId: user.company?.id || '',
+    });
+  };
+
+  // Update user (name, email, role, company)
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingUser) return;
+    setEditSubmitting(true);
+    try {
+      const res = await fetch(`/api/users/${editingUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: editForm.name,
+          email: editForm.email,
+          roleId: editForm.roleId,
+          companyId: editForm.companyId,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      setMessage({ type: 'success', text: 'تم تحديث المستخدم بنجاح' });
+      setEditingUser(null);
+      fetchUsers();
+    } catch (err: any) {
+      setMessage({ type: 'error', text: err.message });
+    } finally {
+      setEditSubmitting(false);
+    }
+  };
+
+  if (sessionStatus === 'loading') {
+    return <div className="p-6 text-center">جاري التحميل...</div>;
+  }
   if (!session || session.user?.role !== 'SUPER_ADMIN') return null;
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-4">
-      <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold">المستخدمين</h1>
+    <div className="p-6 max-w-7xl mx-auto">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+        <h1 className="text-2xl font-bold text-foreground">إدارة المستخدمين (سوبر أدمن)</h1>
         <button
           onClick={() => setShowInviteModal(true)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700"
+          className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700 transition-colors"
         >
-          + إضافة مستخدم
+          <Plus size={18} /> إضافة مستخدم جديد
         </button>
       </div>
 
+      {/* Message */}
       {message && (
-        <div className={`p-2 rounded ${message.type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+        <div
+          className={cn(
+            'p-3 mb-4 rounded-md',
+            message.type === 'success'
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+          )}
+        >
           {message.text}
         </div>
       )}
 
-      <div className="flex gap-3">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="بحث..."
-          className="border p-2 rounded"
-        />
+      {/* Search and Filters */}
+      <div className="flex flex-wrap gap-3 mb-6">
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground" size={16} />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="بحث بالاسم أو البريد"
+            className="pr-9 p-2 border border-border rounded-lg bg-background w-64"
+          />
+        </div>
         <select
           value={filterRole}
           onChange={(e) => setFilterRole(e.target.value)}
-          className="border p-2 rounded"
+          className="p-2 border border-border rounded-lg bg-background"
         >
           <option value="">كل الأدوار</option>
-          {roles.map((r: any) => (
+          {roles.map((r) => (
             <option key={r.id} value={r.name}>{r.label || r.name}</option>
           ))}
         </select>
-        <button onClick={fetchUsers} className="bg-indigo-600 text-white px-3 rounded">
+        <select
+          value={filterCompany}
+          onChange={(e) => setFilterCompany(e.target.value)}
+          className="p-2 border border-border rounded-lg bg-background"
+        >
+          <option value="">كل الشركات</option>
+          {companies.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+        <button
+          onClick={fetchUsers}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition"
+        >
           بحث
         </button>
       </div>
 
+      {/* Users Table */}
       {loading ? (
-        <p>جاري التحميل...</p>
-      ) : error ? (
-        <div className="text-red-600">{error}</div>
+        <div className="text-center py-8">جاري تحميل المستخدمين...</div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border">
-            <thead>
-              <tr className="border-b text-right">
-                <th>#</th>
-                <th>الاسم</th>
-                <th>الإيميل</th>
-                <th>الدور</th>
-                <th>الشركة</th>
-                <th>الحالة</th>
-                <th>الإجراءات</th>
-              </tr>
+        <div className="overflow-x-auto border border-border rounded-lg">
+          <table className="w-full">
+            <thead className="bg-muted/50">
+              <tr className="border-b border-border">
+                <th className="p-3 text-right">#</th>
+                <th className="p-3 text-right">الاسم</th>
+                <th className="p-3 text-right">البريد الإلكتروني</th>
+                <th className="p-3 text-right">الدور</th>
+                <th className="p-3 text-right">الشركة</th>
+                <th className="p-3 text-right">الحالة</th>
+                <th className="p-3 text-right">تاريخ الإنشاء</th>
+                <th className="p-3 text-right">الإجراءات</th>
+               </tr>
             </thead>
             <tbody>
-              {users.map((u, i) => (
-                <tr key={u.id} className="border-b">
-                  <td>{i + 1}</td>
-                  <td>{u.name || '-'}</td>
-                  <td>{u.email}</td>
-                  <td>{u.role?.label || u.role?.name}</td>
-                  <td>{u.company?.name || '-'}</td>
-                  <td>
-                    <span className={u.status ? 'text-green-600' : 'text-red-600'}>
-                      {u.status ? 'نشط' : 'معطل'}
-                    </span>
-                  </td>
-                  <td className="space-x-2">
-                    <button
-                      onClick={() => toggleUserStatus(u.id, u.status)}
-                      className="text-sm text-indigo-600"
-                    >
-                      تغيير الحالة
-                    </button>
-                    {u.role?.name !== 'SUPER_ADMIN' && (
-                      <button
-                        onClick={() => resendInvite(u.id)}
-                        className="text-sm text-green-600"
-                      >
-                        إعادة إرسال الدعوة
-                      </button>
-                    )}
+              {users.length === 0 ? (
+                <tr>
+                  <td colSpan={8} className="text-center py-8 text-muted-foreground">
+                    لا يوجد مستخدمون
                    </td>
-                 </tr>
-              ))}
+                </tr>
+              ) : (
+                users.map((user, idx) => (
+                  <tr key={user.id} className="border-b border-border hover:bg-muted/30">
+                    <td className="p-3">{idx + 1}</td>
+                    <td className="p-3">{user.name || '-'}</td>
+                    <td className="p-3">{user.email}</td>
+                    <td className="p-3">{user.role?.label || user.role?.name || '-'}</td>
+                    <td className="p-3">{user.company?.name || '-'}</td>
+                    <td className="p-3">
+                      <span
+                        className={cn(
+                          'px-2 py-1 rounded-full text-xs font-medium',
+                          user.status
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                        )}
+                      >
+                        {user.status ? 'نشط' : 'غير نشط'}
+                      </span>
+                    </td>
+                    <td className="p-3">{new Date(user.createdAt).toLocaleDateString()}</td>
+                    <td className="p-3 flex gap-2">
+                      <button
+                        onClick={() => openEditModal(user)}
+                        className="text-yellow-600 dark:text-yellow-400 hover:opacity-80"
+                        title="تعديل"
+                      >
+                        <Pencil size={18} />
+                      </button>
+                      <button
+                        onClick={() => toggleUserStatus(user.id, user.status)}
+                        className="text-blue-600 dark:text-blue-400 hover:opacity-80"
+                        title={user.status ? 'تعطيل' : 'تفعيل'}
+                      >
+                        {user.status ? <XCircle size={18} /> : <CheckCircle size={18} />}
+                      </button>
+                      {user.role?.name !== 'SUPER_ADMIN' && (
+                        <button
+                          onClick={() => resendInvite(user.id)}
+                          className="text-green-600 dark:text-green-400 hover:opacity-80"
+                          title="إعادة إرسال الدعوة"
+                        >
+                          <RefreshCw size={18} />
+                        </button>
+                      )}
+                      <button
+                        onClick={() => deleteUser(user.id)}
+                        className="text-red-600 dark:text-red-400 hover:opacity-80"
+                        title="حذف"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
-           </table>
+          </table>
         </div>
       )}
 
+      {/* Invite Modal */}
       {showInviteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-xl w-full max-w-md shadow-xl">
-            <h2 className="text-xl font-bold mb-4">إضافة مستخدم جديد</h2>
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border p-6 rounded-xl w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">إضافة مستخدم جديد</h2>
+              <button onClick={() => setShowInviteModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X size={20} />
+              </button>
+            </div>
             <form onSubmit={handleInvite} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1">الاسم الكامل *</label>
@@ -248,7 +391,7 @@ export default function UsersPage() {
                   required
                   value={inviteForm.name}
                   onChange={(e) => setInviteForm({ ...inviteForm, name: e.target.value })}
-                  className="w-full p-2 border rounded-md dark:bg-gray-900"
+                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                 />
               </div>
               <div>
@@ -258,7 +401,7 @@ export default function UsersPage() {
                   required
                   value={inviteForm.email}
                   onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                  className="w-full p-2 border rounded-md dark:bg-gray-900"
+                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                 />
               </div>
               <div>
@@ -267,7 +410,7 @@ export default function UsersPage() {
                   required
                   value={inviteForm.roleId}
                   onChange={(e) => setInviteForm({ ...inviteForm, roleId: e.target.value })}
-                  className="w-full p-2 border rounded-md dark:bg-gray-900"
+                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                 >
                   <option value="">اختر دور</option>
                   {roles.map((role) => (
@@ -281,7 +424,7 @@ export default function UsersPage() {
                   required
                   value={inviteForm.companyId}
                   onChange={(e) => setInviteForm({ ...inviteForm, companyId: e.target.value })}
-                  className="w-full p-2 border rounded-md dark:bg-gray-900"
+                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
                 >
                   <option value="">اختر شركة</option>
                   {companies.map((company) => (
@@ -290,10 +433,80 @@ export default function UsersPage() {
                 </select>
               </div>
               {inviteError && <div className="text-red-600 text-sm">{inviteError}</div>}
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setShowInviteModal(false)} className="px-4 py-2 border rounded-md">إلغاء</button>
-                <button type="submit" disabled={inviting} className="px-4 py-2 bg-indigo-600 text-white rounded-md disabled:opacity-50">
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setShowInviteModal(false)} className="px-4 py-2 border rounded-lg">إلغاء</button>
+                <button type="submit" disabled={inviting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
                   {inviting ? 'جاري الإرسال...' : 'إرسال الدعوة'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Modal */}
+      {editingUser && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border border-border p-6 rounded-xl w-full max-w-md shadow-xl">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold">تعديل المستخدم</h2>
+              <button onClick={() => setEditingUser(null)} className="text-muted-foreground hover:text-foreground">
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleUpdate} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">الاسم الكامل</label>
+                <input
+                  type="text"
+                  value={editForm.name}
+                  onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">البريد الإلكتروني</label>
+                <input
+                  type="email"
+                  value={editForm.email}
+                  onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">الدور</label>
+                <select
+                  value={editForm.roleId}
+                  onChange={(e) => setEditForm({ ...editForm, roleId: e.target.value })}
+                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  required
+                >
+                  <option value="">اختر دور</option>
+                  {roles.map((role) => (
+                    <option key={role.id} value={role.id}>{role.label || role.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">الشركة</label>
+                <select
+                  value={editForm.companyId}
+                  onChange={(e) => setEditForm({ ...editForm, companyId: e.target.value })}
+                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  required
+                >
+                  <option value="">اختر شركة</option>
+                  {companies.map((company) => (
+                    <option key={company.id} value={company.id}>{company.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 border rounded-lg">إلغاء</button>
+                <button type="submit" disabled={editSubmitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
+                  {editSubmitting ? 'جاري الحفظ...' : 'حفظ التغييرات'}
                 </button>
               </div>
             </form>

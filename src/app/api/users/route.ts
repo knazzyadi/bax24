@@ -61,6 +61,7 @@ export async function GET(request: Request) {
 
         role: {
           select: {
+            id: true,   // ✅ تمت إضافة id
             name: true,
             label: true,
           },
@@ -68,6 +69,7 @@ export async function GET(request: Request) {
 
         company: {
           select: {
+            id: true,   // ✅ تمت إضافة id
             name: true,
           },
         },
@@ -82,8 +84,8 @@ export async function GET(request: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,
-        company: user.company,
+        role: user.role,        // الآن يحتوي على id, name, label
+        company: user.company,  // الآن يحتوي على id, name
         status: user.status,
         createdAt: user.createdAt,
       }))

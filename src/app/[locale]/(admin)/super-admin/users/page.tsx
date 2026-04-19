@@ -9,12 +9,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// ✅ تم تعديل الواجهة لتشمل id داخل role و company
 interface User {
   id: string;
   name: string | null;
   email: string;
-  role: { name: string; label: string | null } | null;
-  company: { name: string } | null;
+  role: { id: string; name: string; label: string | null } | null;
+  company: { id: string; name: string } | null;
   status: boolean;
   createdAt: string;
 }
@@ -364,8 +365,8 @@ export default function SuperAdminUsersPage() {
                       >
                         <Trash2 size={18} />
                       </button>
-                    </td>
-                  </tr>
+                   </td>
+                 </tr>
                 ))
               )}
             </tbody>

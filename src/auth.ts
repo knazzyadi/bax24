@@ -1,33 +1,7 @@
-import NextAuth, { DefaultSession } from "next-auth";
+import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
-
-// ============================================
-// توسيع أنواع NextAuth لتدعم جميع الخواص المخصصة (companyId, companyName, companyNameEn)
-// ============================================
-declare module "next-auth" {
-  interface User {
-    companyId?: string | null;
-    companyName?: string | null;
-    companyNameEn?: string | null;
-  }
-  interface Session {
-    user: {
-      companyId?: string | null;
-      companyName?: string | null;
-      companyNameEn?: string | null;
-    } & DefaultSession["user"];
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    companyId?: string | null;
-    companyName?: string | null;
-    companyNameEn?: string | null;
-  }
-}
 
 const prisma = new PrismaClient();
 

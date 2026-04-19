@@ -859,6 +859,14 @@
     "noStatus": "بدون حالة"
   },
   "SuperAdminUsersPage": {
+    "name": "الاسم",
+    "selectRole": "اختر دور",
+    "selectCompany": "اختر شركة",
+    "resendInvite": "إعادة إرسال الدعوة",
+    "delete": "حذف",
+    "status": "الحالة",
+    "createdAt": "تاريخ الإنشاء",
+    "actions": "الإجراءات",
     "title": "إدارة المستخدمين (سوبر أدمن)",
     "addUser": "إضافة مستخدم جديد",
     "searchPlaceholder": "بحث بالاسم أو البريد",

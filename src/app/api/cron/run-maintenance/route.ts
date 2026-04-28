@@ -48,7 +48,7 @@ export async function GET() {
       // جلب الأصول المستهدفة
       let targetAssets: any[] = [];
       if (schedule.scheduleAssets.length > 0) {
-        targetAssets = schedule.scheduleAssets.map(sa => sa.asset);
+        targetAssets = schedule.scheduleAssets.map((sa: { asset: any }) => sa.asset);
       } else if (schedule.assetTypeId) {
         const assetFilter: any = { companyId: schedule.companyId, deletedAt: null, typeId: schedule.assetTypeId };
         if (schedule.buildingId) assetFilter.buildingId = schedule.buildingId;
@@ -71,7 +71,7 @@ export async function GET() {
           createdBy: "SYSTEM_CRON",
           assetTypeId: schedule.assetTypeId,
           workOrderAssets: {
-            create: targetAssets.map(asset => ({ assetId: asset.id })),
+            create: targetAssets.map((asset: any) => ({ assetId: asset.id })),
           },
         },
       });

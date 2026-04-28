@@ -49,7 +49,6 @@ export default function InventoryClient({
   // تصفية البيانات محلياً
   const filteredItems = useMemo(() => {
     let result = [...initialItems];
-    // فلترة البحث
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter(
@@ -59,7 +58,6 @@ export default function InventoryClient({
           (item.sku?.toLowerCase().includes(term))
       );
     }
-    // فلترة حالة المخزون
     if (selectedStatus === "low") {
       result = result.filter((item) => item.quantity <= item.minQuantity);
     } else if (selectedStatus === "out") {
@@ -89,6 +87,7 @@ export default function InventoryClient({
     router.refresh();
   };
 
+  // ✅ تعريف الفلاتر (بدون value/onChange)
   const filterSections: FilterSection[] = [
     {
       id: "status",
@@ -98,10 +97,19 @@ export default function InventoryClient({
         { value: "low", label: t("filterLow") },
         { value: "out", label: t("filterOut") },
       ],
-      value: selectedStatus,
-      onChange: setSelectedStatus,
     },
   ];
+
+  // ✅ قيم الفلاتر الحالية
+  const filterValues = { status: selectedStatus };
+
+  // ✅ دالة تغيير الفلتر
+  const onFilterChange = (sectionId: string, value: string) => {
+    if (sectionId === "status") {
+      setSelectedStatus(value);
+      setCurrentPage(1); // إعادة تعيين الصفحة إلى 1
+    }
+  };
 
   const renderInventoryItem = (item: InventoryItem, actions: ItemActions) => {
     const isLow = item.quantity <= item.minQuantity;
@@ -192,6 +200,8 @@ export default function InventoryClient({
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
       filterSections={filterSections}
+      filterValues={filterValues}      // ✅ إضافة
+      onFilterChange={onFilterChange}  // ✅ إضافة
       items={paginatedItems}
       total={totalItems}
       currentPage={currentPage}

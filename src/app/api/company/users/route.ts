@@ -60,14 +60,14 @@ export async function GET() {
       },
     });
 
-    const usersWithBranches = users.map((user) => ({
+    const usersWithBranches = users.map((user: any) => ({
       id: user.id,
       name: user.name,
       email: user.email,
       role: user.role,
       status: user.status,
       createdAt: user.createdAt,
-      branches: user.userBranches.map((ub) => ub.branch),
+      branches: user.userBranches.map((ub: any) => ub.branch),
     }));
 
     return NextResponse.json(usersWithBranches);
@@ -155,7 +155,6 @@ export async function POST(request: Request) {
 
     // ربط الفروع عبر UserBranch
     if (branchIds && Array.isArray(branchIds) && branchIds.length > 0) {
-      // التأكد من أن الفروع تنتمي إلى نفس الشركة
       const validBranches = await prisma.branch.findMany({
         where: {
           id: { in: branchIds },
@@ -163,7 +162,7 @@ export async function POST(request: Request) {
         },
         select: { id: true },
       });
-      const validBranchIds = validBranches.map(b => b.id);
+      const validBranchIds = validBranches.map((b: { id: string }) => b.id);
       if (validBranchIds.length > 0) {
         await prisma.userBranch.createMany({
           data: validBranchIds.map((branchId: string) => ({

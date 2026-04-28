@@ -22,7 +22,7 @@ export async function PUT(
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    const { id } = await params;  // ✅ استخدام await
+    const { id } = await params;
     if (!id) {
       return NextResponse.json({ error: 'معرف المستخدم مطلوب' }, { status: 400 });
     }
@@ -46,7 +46,6 @@ export async function PUT(
         return NextResponse.json({ error: 'الاسم والبريد والدور مطلوبة' }, { status: 400 });
       }
 
-      // التحقق من عدم تكرار البريد
       const existing = await prisma.user.findFirst({
         where: { email, NOT: { id } },
       });
@@ -66,7 +65,6 @@ export async function PUT(
         data: { name, email, roleId: role.id },
       });
 
-      // تحديث الفروع المرتبطة (عبر UserBranch)
       if (branchIds && Array.isArray(branchIds)) {
         await prisma.userBranch.deleteMany({ where: { userId: id } });
         if (branchIds.length > 0) {
@@ -76,7 +74,7 @@ export async function PUT(
           });
           if (validBranches.length > 0) {
             await prisma.userBranch.createMany({
-              data: validBranches.map(b => ({ userId: id, branchId: b.id })),
+              data: validBranches.map((b: { id: string }) => ({ userId: id, branchId: b.id })),
               skipDuplicates: true,
             });
           }
@@ -97,24 +95,23 @@ export async function PUT(
 
     // إعادة إرسال الدعوة
     if (action === 'resendInvite') {
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-    await prisma.user.update({
-      where: { id },
-      data: {
-        invitationToken: token,
-        invitationExpires: expires,
-        status: false,
-      },
-    });
-    // استخدم البريد الإلكتروني الموجود في `user` (تم جلبه سابقاً)
-    const company = await prisma.company.findUnique({
-      where: { id: companyId },
-      select: { name: true },
-    });
-    await sendInvitationEmail(user.email, token, company?.name || 'شركتك');
-    return NextResponse.json({ success: true });
-  }
+      const token = crypto.randomBytes(32).toString('hex');
+      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+      await prisma.user.update({
+        where: { id },
+        data: {
+          invitationToken: token,
+          invitationExpires: expires,
+          status: false,
+        },
+      });
+      const company = await prisma.company.findUnique({
+        where: { id: companyId },
+        select: { name: true },
+      });
+      await sendInvitationEmail(user.email, token, company?.name || 'شركتك');
+      return NextResponse.json({ success: true });
+    }
 
     return NextResponse.json({ error: 'إجراء غير معروف' }, { status: 400 });
   } catch (error) {

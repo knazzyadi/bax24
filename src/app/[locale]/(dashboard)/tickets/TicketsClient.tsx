@@ -35,7 +35,7 @@ interface TicketsClientProps {
   initialSearch: string;
   initialStatus: string;
   canCreate?: boolean;
-  locale: string; // ✅ تمت الإضافة
+  locale: string;             // ✅ أضف هذا السطر
 }
 
 export default function TicketsClient({
@@ -43,11 +43,12 @@ export default function TicketsClient({
   initialSearch,
   initialStatus,
   canCreate = false,
-  locale, // ✅ استقبال locale من props
+  locale,                     // ✅ أضف هذا السطر
 }: TicketsClientProps) {
   const router = useRouter();
   const isRtl = locale === "ar";
 
+  // باقي الكود كما هو (بدون استخدام useLocale)
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [selectedStatus, setSelectedStatus] = useState(initialStatus);
   const [currentPage, setCurrentPage] = useState(1);

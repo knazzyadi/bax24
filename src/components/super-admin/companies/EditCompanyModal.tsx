@@ -1,3 +1,5 @@
+//src\components\super-admin\companies\EditCompanyModal.tsx
+//إنشاء نافذة (Modal) لتعديل بيانات الشركة داخل لوحة الـ Super Admin
 'use client';
 
 import { useEffect, useState } from 'react';

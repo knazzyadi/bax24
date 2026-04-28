@@ -1,3 +1,5 @@
+//src\components\super-admin\companies\AddCompanyModal.tsx
+//إنشاء نافذة (Modal) لإضافة شركة جديدة داخل لوحة الـ Super Admin وإرسال البيانات إلى API لإنشاء سجل جديد في قاعدة البيانات
 'use client';
 
 import { useState } from 'react';

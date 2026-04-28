@@ -1,9 +1,8 @@
+//src\types\next-auth.d.ts
+//هو الذي “يعلّم TypeScript” أن بيانات المستخدم في NextAuth ليست افتراضية
 import { DefaultSession } from "next-auth";
 import { JWT as DefaultJWT } from "next-auth/jwt";
 
-// ==========================
-// NextAuth Session Types
-// ==========================
 declare module "next-auth" {
   interface Session {
     user: {
@@ -12,6 +11,8 @@ declare module "next-auth" {
       companyId?: string | null;
       companyName?: string | null;
       companyNameEn?: string | null;
+      branchId?: string | null;
+      branchIds?: string[] | null; // 🔥 إضافة
     } & DefaultSession["user"];
   }
 
@@ -21,12 +22,11 @@ declare module "next-auth" {
     companyId?: string | null;
     companyName?: string | null;
     companyNameEn?: string | null;
+    branchId?: string | null;
+    branchIds?: string[] | null; // 🔥 إضافة
   }
 }
 
-// ==========================
-// JWT Types
-// ==========================
 declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id: string;
@@ -34,5 +34,7 @@ declare module "next-auth/jwt" {
     companyId?: string | null;
     companyName?: string | null;
     companyNameEn?: string | null;
+    branchId?: string | null;
+    branchIds?: string[] | null; // 🔥 إضافة
   }
 }

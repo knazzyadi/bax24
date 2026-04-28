@@ -1,3 +1,9 @@
+//src\components\theme-provider.tsx
+/**المسؤول عن
+ * إدارة الوضع الليلي / النهاري
+ * غالبًا يستخدم next-themes
+ * هذا أساسي (لا تحذفه)
+*/
 'use client';
 
 import { createContext, useContext, useEffect, useState } from 'react';

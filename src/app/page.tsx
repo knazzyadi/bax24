@@ -1,3 +1,9 @@
+//src\app\page.tsx
+/**
+ * هو الصفحة الرئيسية الافتراضية (Home Page)
+ * في تطبيق Next.js، وغالبًا تكون “صفحة البداية التجريبية
+ * ” قبل بناء المشروع الحقيقي
+*/
 import Image from "next/image";
 
 export default function Home() {

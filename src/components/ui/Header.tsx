@@ -1,3 +1,4 @@
+// src/components/ui/Header.tsx
 'use client';
 
 import Link from 'next/link';
@@ -5,6 +6,7 @@ import Image from 'next/image';
 import { useParams, usePathname } from 'next/navigation';
 import { LocaleSwitcher } from './LocaleSwitcher';
 import { ThemeToggle } from './ThemeToggle';
+import { publicRoutes } from '@/lib/publicRoutes'; // استيراد المسارات العامة
 
 export function Header() {
   const params = useParams();
@@ -12,8 +14,15 @@ export function Header() {
   const locale = (params?.locale as string) || 'en';
   const isRTL = locale === 'ar';
 
-  // إخفاء الهيدر في صفحة السوبر أدمن (وأي صفحة تبدأ بـ /super-admin)
-  if (pathname?.includes('/super-admin')) {
+  // استخراج المسار بعد إزالة الـ locale
+  const pathWithoutLocale = pathname?.replace(`/${locale}`, '') || '';
+  const cleanPath = pathWithoutLocale.startsWith('/') ? pathWithoutLocale.slice(1) : pathWithoutLocale;
+
+  // التحقق: هل المسار الحالي عام أم لا؟
+  const isPublic = publicRoutes.includes(cleanPath);
+
+  // إخفاء الهيدر إذا لم يكن المسار عاماً (وأيضاً في حالة /super-admin)
+  if (!isPublic || pathname?.includes('/super-admin')) {
     return null;
   }
 
@@ -50,7 +59,6 @@ export function Header() {
             className="rounded-full border border-border shadow-sm"
             priority
           />
-
           <span className="tracking-tight">bax24</span>
         </Link>
 

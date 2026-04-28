@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Pencil, Trash2, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { AdminGuard } from '@/lib/client-guard';
 
 interface Building {
   id: string;
@@ -13,9 +14,16 @@ interface Building {
   nameEn: string | null;
   code: string;
   order: number;
+  branchId: string | null;
+  branchName?: string | null;
 }
 
-export default function BuildingsPage() {
+interface Branch {
+  id: string;
+  name: string;
+}
+
+function BuildingsPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
@@ -24,17 +32,22 @@ export default function BuildingsPage() {
   const isRTL = locale === 'ar';
 
   const [buildings, setBuildings] = useState<Building[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Building | null>(null);
-  const [form, setForm] = useState({ name: '', nameEn: '', code: '', order: 0 });
+  const [form, setForm] = useState({ name: '', nameEn: '', code: '', order: 0, branchId: '' });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    if (status === 'unauthenticated') router.push(`/${locale}/login`);
-    else if (session?.user?.role !== 'ADMIN') router.push(`/${locale}/dashboard`);
-    else fetchBuildings();
-  }, [status]);
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
+      router.push(`/${locale}/login`);
+    } else {
+      fetchBuildings();
+      fetchBranches();
+    }
+  }, [status, locale, router]);
 
   const fetchBuildings = async () => {
     try {
@@ -46,6 +59,16 @@ export default function BuildingsPage() {
       setMessage({ type: 'error', text: err.message });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchBranches = async () => {
+    try {
+      const res = await fetch('/api/branches');
+      const data = await res.json();
+      if (res.ok) setBranches(data);
+    } catch (err) {
+      console.error('Failed to fetch branches', err);
     }
   };
 
@@ -61,9 +84,9 @@ export default function BuildingsPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: editing ? t('save') : t('save') });
+      setMessage({ type: 'success', text: t('save') });
       setEditing(null);
-      setForm({ name: '', nameEn: '', code: '', order: 0 });
+      setForm({ name: '', nameEn: '', code: '', order: 0, branchId: '' });
       setShowForm(false);
       fetchBuildings();
     } catch (err: any) {
@@ -89,18 +112,25 @@ export default function BuildingsPage() {
 
   const editBuilding = (b: Building) => {
     setEditing(b);
-    setForm({ name: b.name, nameEn: b.nameEn || '', code: b.code, order: b.order });
+    setForm({
+      name: b.name,
+      nameEn: b.nameEn || '',
+      code: b.code,
+      order: b.order,
+      branchId: b.branchId || '',
+    });
     setShowForm(true);
   };
 
   const cancelEdit = () => {
     setEditing(null);
-    setForm({ name: '', nameEn: '', code: '', order: 0 });
+    setForm({ name: '', nameEn: '', code: '', order: 0, branchId: '' });
     setShowForm(false);
   };
 
-  if (status === 'loading') return <div className="p-6">جاري التحميل...</div>;
-  if (!session || session.user?.role !== 'ADMIN') return null;
+  if (status === 'loading' || loading) {
+    return <div className="p-6">جاري التحميل...</div>;
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -117,12 +147,14 @@ export default function BuildingsPage() {
       </div>
 
       {message && (
-        <div className={cn(
-          "p-2 mb-4 rounded",
-          message.type === 'success'
-            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-        )}>
+        <div
+          className={cn(
+            'p-2 mb-4 rounded',
+            message.type === 'success'
+              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
+              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+          )}
+        >
           {message.text}
         </div>
       )}
@@ -130,7 +162,9 @@ export default function BuildingsPage() {
       {showForm && (
         <div className="bg-card border border-border p-4 rounded-lg shadow mb-6">
           <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-semibold text-foreground">{editing ? t('editBuilding') : t('addBuilding')}</h2>
+            <h2 className="text-xl font-semibold text-foreground">
+              {editing ? t('editBuilding') : t('addBuilding')}
+            </h2>
             <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground transition">
               <X size={20} />
             </button>
@@ -140,37 +174,56 @@ export default function BuildingsPage() {
               type="text"
               placeholder={t('nameAr')}
               value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
               required
             />
             <input
               type="text"
               placeholder={t('nameEn')}
               value={form.nameEn}
-              onChange={e => setForm({ ...form, nameEn: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
             />
             <input
               type="text"
               placeholder={t('code')}
               value={form.code}
-              onChange={e => setForm({ ...form, code: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
               required
             />
             <input
               type="number"
               placeholder={t('order')}
               value={form.order}
-              onChange={e => setForm({ ...form, order: Number(e.target.value) })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
             />
+            <select
+              value={form.branchId}
+              onChange={(e) => setForm({ ...form, branchId: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
+            >
+              <option value="">اختر الفرع (اختياري)</option>
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
             <div className="md:col-span-2 flex gap-2">
-              <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
-                {editing ? t('save') : t('save')}
+              <button
+                type="submit"
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition"
+              >
+                {t('save')}
               </button>
-              <button type="button" onClick={cancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
+              <button
+                type="button"
+                onClick={cancelEdit}
+                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition"
+              >
                 {t('cancel')}
               </button>
             </div>
@@ -178,43 +231,49 @@ export default function BuildingsPage() {
         </div>
       )}
 
-      {loading ? (
-        <p>جاري التحميل...</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border border-border rounded-lg">
-            <thead className="bg-muted/50">
-              <tr className="border-b border-border">
-                <th className="p-2 text-right text-foreground">#</th>
-                <th className="p-2 text-right text-foreground">{t('nameAr')}</th>
-                <th className="p-2 text-right text-foreground">{t('nameEn')}</th>
-                <th className="p-2 text-right text-foreground">{t('code')}</th>
-                <th className="p-2 text-right text-foreground">{t('order')}</th>
-                <th className="p-2 text-right text-foreground">{t('actions')}</th>
+      <div className="overflow-x-auto">
+        <table className="w-full border border-border rounded-lg">
+          <thead className="bg-muted/50">
+            <tr className="border-b border-border">
+              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>#</th>
+              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>{t('nameAr')}</th>
+              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>{t('nameEn')}</th>
+              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>{t('code')}</th>
+              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>{t('order')}</th>
+              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>الفرع</th>
+              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>{t('actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {buildings.map((b, idx) => (
+              <tr key={b.id} className="border-b border-border hover:bg-muted/30">
+                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{idx + 1}</td>
+                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.name}</td>
+                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.nameEn || '-'}</td>
+                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.code}</td>
+                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.order}</td>
+                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.branchName || '—'}</td>
+                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'} flex gap-2`}>
+                  <button onClick={() => editBuilding(b)} className="text-blue-600 dark:text-blue-400 hover:underline">
+                    <Pencil size={18} />
+                  </button>
+                  <button onClick={() => handleDelete(b.id)} className="text-red-600 dark:text-red-400 hover:underline">
+                    <Trash2 size={18} />
+                  </button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {buildings.map((b, idx) => (
-                <tr key={b.id} className="border-b border-border hover:bg-muted/30">
-                  <td className="p-2">{idx + 1}</td>
-                  <td className="p-2">{b.name}</td>
-                  <td className="p-2">{b.nameEn || '-'}</td>
-                  <td className="p-2">{b.code}</td>
-                  <td className="p-2">{b.order}</td>
-                  <td className="p-2 flex gap-2">
-                    <button onClick={() => editBuilding(b)} className="text-blue-600 dark:text-blue-400 hover:underline">
-                      <Pencil size={18} />
-                    </button>
-                    <button onClick={() => handleDelete(b.id)} className="text-red-600 dark:text-red-400 hover:underline">
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-           </table>
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
+  );
+}
+
+export default function BuildingsPage() {
+  return (
+    <AdminGuard>
+      <BuildingsPageContent />
+    </AdminGuard>
   );
 }

@@ -1,102 +1,143 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
+import { revalidatePath } from 'next/cache';
 
-const prisma = new PrismaClient();
-
+// PUT: تحديث دور (للمدير فقط)
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+    if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const companyId = session.user.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
     const { id } = await params;
     const { name, nameEn, code, order, buildingId } = await request.json();
 
-    // التحقق من وجود الدور
-    const existing = await prisma.floor.findUnique({
+    if (!name || !code || !buildingId) {
+      return NextResponse.json(
+        { error: 'الاسم والكود والمبنى مطلوبون' },
+        { status: 400 }
+      );
+    }
+
+    // جلب الدور مع المبنى للتحقق من الملكية
+    const existingFloor = await prisma.floor.findFirst({
       where: { id },
-      include: { building: true },
+      include: { building: { select: { companyId: true } } },
     });
-    if (!existing) {
+    if (!existingFloor) {
       return NextResponse.json({ error: 'الدور غير موجود' }, { status: 404 });
     }
 
-    // لأدمن الشركة: التأكد من أن الدور يتبع شركته (عن طريق المبنى)
-    if (session.user?.role === 'ADMIN' && existing.building.companyId !== session.user.companyId) {
-      return NextResponse.json({ error: 'لا يمكنك تعديل دور ليس ضمن شركتك' }, { status: 403 });
+    // التحقق من أن الدور ينتمي لنفس الشركة
+    if (existingFloor.building.companyId !== companyId) {
+      return NextResponse.json(
+        { error: 'لا يمكنك تعديل هذا الدور' },
+        { status: 403 }
+      );
     }
 
-    // إذا تم تغيير المبنى، تحقق من صلاحيته
-    if (buildingId && buildingId !== existing.buildingId) {
-      const newBuilding = await prisma.building.findUnique({ where: { id: buildingId } });
-      if (session.user?.role === 'ADMIN' && (!newBuilding || newBuilding.companyId !== session.user.companyId)) {
-        return NextResponse.json({ error: 'لا يمكنك نقل دور إلى مبنى ليس ضمن شركتك' }, { status: 403 });
+    // التحقق من أن المبنى الجديد (إذا تغير) ينتمي لنفس الشركة
+    if (buildingId !== existingFloor.buildingId) {
+      const newBuilding = await prisma.building.findFirst({
+        where: { id: buildingId, companyId },
+      });
+      if (!newBuilding) {
+        return NextResponse.json(
+          { error: 'المبنى الجديد غير صالح أو لا ينتمي لشركتك' },
+          { status: 400 }
+        );
       }
     }
 
-    const floor = await prisma.floor.update({
+    // التحقق من عدم تكرار الكود في نفس المبنى (مع استثناء نفس الدور)
+    const duplicate = await prisma.floor.findFirst({
+      where: {
+        buildingId,
+        code,
+        NOT: { id },
+      },
+    });
+    if (duplicate) {
+      return NextResponse.json(
+        { error: 'الكود موجود مسبقاً في هذا المبنى' },
+        { status: 409 }
+      );
+    }
+
+    // تحديث الدور
+    const updatedFloor = await prisma.floor.update({
       where: { id },
       data: {
         name,
         nameEn: nameEn || null,
         code,
         order: order || 0,
-        buildingId: buildingId || existing.buildingId,
+        buildingId,
       },
     });
-    return NextResponse.json(floor);
+
+    revalidatePath('/ar/locations/floors');
+    return NextResponse.json(updatedFloor);
   } catch (error) {
-    console.error(error);
+    console.error('PUT /api/locations/floors/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
+// DELETE: حذف دور (للمدير فقط)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+    if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const companyId = session.user.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
     const { id } = await params;
 
-    const floor = await prisma.floor.findUnique({
+    // جلب الدور مع المبنى للتحقق من الملكية
+    const floor = await prisma.floor.findFirst({
       where: { id },
-      include: {
-        building: true,
-        rooms: true, // التحقق من وجود غرف مرتبطة
-      },
+      include: { building: { select: { companyId: true } } },
     });
-
     if (!floor) {
       return NextResponse.json({ error: 'الدور غير موجود' }, { status: 404 });
     }
 
-    // لأدمن الشركة: التأكد من أن الدور يتبع شركته
-    if (session.user?.role === 'ADMIN' && floor.building.companyId !== session.user.companyId) {
-      return NextResponse.json({ error: 'لا يمكنك حذف دور ليس ضمن شركتك' }, { status: 403 });
-    }
-
-    // منع الحذف إذا كانت هناك غرف مرتبطة
-    if (floor.rooms && floor.rooms.length > 0) {
+    // التحقق من أن الدور ينتمي لنفس الشركة
+    if (floor.building.companyId !== companyId) {
       return NextResponse.json(
-        { error: 'لا يمكن حذف الدور لأنه مرتبط بغرف. قم بحذف الغرف أولاً.' },
-        { status: 409 }
+        { error: 'لا يمكنك حذف هذا الدور' },
+        { status: 403 }
       );
     }
 
+    // يمكنك إضافة تحقق من وجود غرف مرتبطة لاحقاً
+    // const roomsCount = await prisma.room.count({ where: { floorId: id } });
+    // if (roomsCount > 0) { return NextResponse.json(...) }
+
     await prisma.floor.delete({ where: { id } });
+    revalidatePath('/ar/locations/floors');
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(error);
+    console.error('DELETE /api/locations/floors/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

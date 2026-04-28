@@ -1,10 +1,11 @@
+// src/app/api/company/users/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { auth } from '@/auth';
-import crypto from 'crypto';
+import { prisma } from '@/lib/prisma';
 import { sendInvitationEmail } from '@/lib/email';
+import crypto from 'crypto';
 
-const prisma = new PrismaClient();
+export const dynamic = 'force-dynamic';
 
 export async function PUT(
   request: Request,
@@ -16,21 +17,76 @@ export async function PUT(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const { id } = await params;
-    // ✅ قراءة الجسم مرة واحدة فقط
-    const body = await request.json();
-    const { action } = body;
+    const companyId = session.user.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    }
 
-    // التحقق من أن المستخدم يتبع شركة الأدمن
+    const { id } = await params;  // ✅ استخدام await
+    if (!id) {
+      return NextResponse.json({ error: 'معرف المستخدم مطلوب' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { action, name, email, roleName, branchIds } = body;
+
+    // جلب المستخدم للتأكد من أنه يتبع نفس الشركة
     const user = await prisma.user.findUnique({
       where: { id },
       include: { company: true },
     });
-    if (!user || user.companyId !== session.user.companyId) {
-      return NextResponse.json({ error: 'المستخدم غير موجود أو لا يتبع شركتك' }, { status: 404 });
+
+    if (!user || user.companyId !== companyId) {
+      return NextResponse.json({ error: 'المستخدم غير موجود أو لا ينتمي لشركتك' }, { status: 404 });
     }
 
-    // تبديل حالة التفعيل/التعطيل
+    // تحديث البيانات العامة
+    if (action === 'update') {
+      if (!name || !email || !roleName) {
+        return NextResponse.json({ error: 'الاسم والبريد والدور مطلوبة' }, { status: 400 });
+      }
+
+      // التحقق من عدم تكرار البريد
+      const existing = await prisma.user.findFirst({
+        where: { email, NOT: { id } },
+      });
+      if (existing) {
+        return NextResponse.json({ error: 'البريد الإلكتروني مستخدم بالفعل' }, { status: 409 });
+      }
+
+      let role = await prisma.role.findUnique({ where: { name: roleName } });
+      if (!role) {
+        role = await prisma.role.create({
+          data: { name: roleName, label: roleName },
+        });
+      }
+
+      await prisma.user.update({
+        where: { id },
+        data: { name, email, roleId: role.id },
+      });
+
+      // تحديث الفروع المرتبطة (عبر UserBranch)
+      if (branchIds && Array.isArray(branchIds)) {
+        await prisma.userBranch.deleteMany({ where: { userId: id } });
+        if (branchIds.length > 0) {
+          const validBranches = await prisma.branch.findMany({
+            where: { id: { in: branchIds }, companyId },
+            select: { id: true },
+          });
+          if (validBranches.length > 0) {
+            await prisma.userBranch.createMany({
+              data: validBranches.map(b => ({ userId: id, branchId: b.id })),
+              skipDuplicates: true,
+            });
+          }
+        }
+      }
+
+      return NextResponse.json({ success: true });
+    }
+
+    // تبديل حالة التفعيل
     if (action === 'toggleStatus') {
       const updated = await prisma.user.update({
         where: { id },
@@ -41,60 +97,28 @@ export async function PUT(
 
     // إعادة إرسال الدعوة
     if (action === 'resendInvite') {
-      const token = crypto.randomBytes(32).toString('hex');
-      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      await prisma.user.update({
-        where: { id },
-        data: {
-          invitationToken: token,
-          invitationExpires: expires,
-          status: false,
-          password: null,
-        },
-      });
-      await sendInvitationEmail(user.email, token, user.company?.name || 'شركتك');
-      return NextResponse.json({ success: true });
-    }
-
-    // تحديث بيانات المستخدم (اسم، بريد، دور)
-    if (action === 'update') {
-      const { name, email, roleName } = body; // استخدم الجسم المقروء مسبقاً
-      if (!name || !email || !roleName) {
-        return NextResponse.json({ error: 'الاسم والبريد والدور مطلوبة' }, { status: 400 });
-      }
-      if (!['SUPERVISOR', 'TECHNICIAN'].includes(roleName)) {
-        return NextResponse.json({ error: 'دور غير مسموح' }, { status: 400 });
-      }
-
-      // التحقق من عدم وجود بريد مكرر (باستثناء هذا المستخدم)
-      const existing = await prisma.user.findFirst({
-        where: { email, NOT: { id } },
-      });
-      if (existing) {
-        return NextResponse.json({ error: 'البريد الإلكتروني مستخدم من قبل' }, { status: 409 });
-      }
-
-      // الحصول على الدور الجديد (إنشاء إذا لم يوجد)
-      let role = await prisma.role.findUnique({ where: { name: roleName } });
-      if (!role) {
-        role = await prisma.role.create({
-          data: {
-            name: roleName,
-            label: roleName === 'SUPERVISOR' ? 'مشرف' : 'فني',
-          },
-        });
-      }
-
-      const updated = await prisma.user.update({
-        where: { id },
-        data: { name, email, roleId: role.id },
-      });
-      return NextResponse.json({ success: true, user: updated });
-    }
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    await prisma.user.update({
+      where: { id },
+      data: {
+        invitationToken: token,
+        invitationExpires: expires,
+        status: false,
+      },
+    });
+    // استخدم البريد الإلكتروني الموجود في `user` (تم جلبه سابقاً)
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+      select: { name: true },
+    });
+    await sendInvitationEmail(user.email, token, company?.name || 'شركتك');
+    return NextResponse.json({ success: true });
+  }
 
     return NextResponse.json({ error: 'إجراء غير معروف' }, { status: 400 });
   } catch (error) {
-    console.error(error);
+    console.error('PUT /api/company/users/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
@@ -109,16 +133,28 @@ export async function DELETE(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
+    const companyId = session.user.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    }
+
     const { id } = await params;
-    const user = await prisma.user.findUnique({ where: { id } });
-    if (!user || user.companyId !== session.user.companyId) {
-      return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
+    if (!id) {
+      return NextResponse.json({ error: 'معرف المستخدم مطلوب' }, { status: 400 });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      select: { companyId: true },
+    });
+    if (!user || user.companyId !== companyId) {
+      return NextResponse.json({ error: 'المستخدم غير موجود أو لا ينتمي لشركتك' }, { status: 404 });
     }
 
     await prisma.user.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(error);
+    console.error('DELETE /api/company/users/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

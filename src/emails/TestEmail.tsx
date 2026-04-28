@@ -1,3 +1,5 @@
+//src\emails\TestEmail.tsx
+//إنشاء قالب بريد إلكتروني (Email Template) بسيط يُستخدم لإرسال رسائل عبر النظام.
 import * as React from 'react';
 
 export const TestEmail = () => (

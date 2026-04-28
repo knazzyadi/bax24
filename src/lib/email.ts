@@ -2,7 +2,7 @@ import { Resend } from 'resend';
 
 export async function sendInvitationEmail(to: string, token: string, companyName: string) {
   const resend = new Resend(process.env.RESEND_API_KEY);
-  const inviteLink = `${process.env.NEXTAUTH_URL}/invite?token=${token}`;
+  const inviteLink = `${process.env.NEXTAUTH_URL}/ar/accept-invitation?token=${token}`;
   await resend.emails.send({
     from: process.env.EMAIL_FROM || 'noreply@bax24.com',
     to: [to],

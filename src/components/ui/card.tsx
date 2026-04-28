@@ -1,3 +1,5 @@
+//src\components\ui\card.tsx
+//وظيفته كرت
 import * as React from "react";
 import { cn } from "@/lib/utils";
 

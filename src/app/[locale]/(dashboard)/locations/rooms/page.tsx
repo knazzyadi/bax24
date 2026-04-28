@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/locations/rooms/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,16 +7,14 @@ import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Pencil, Trash2, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-interface Building {
-  id: string;
-  name: string;
-}
+import { AdminGuard } from '@/lib/client-guard';
 
 interface Floor {
   id: string;
   name: string;
-  buildingId: string;
+  nameEn: string | null;
+  buildingId: string; // ✅ إضافة buildingId
+  building?: { id: string; name: string };
 }
 
 interface Room {
@@ -25,12 +24,10 @@ interface Room {
   code: string;
   order: number;
   floorId: string;
-  buildingId: string;
   floor: Floor;
-  building: Building;
 }
 
-export default function RoomsPage() {
+function RoomsPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
@@ -38,26 +35,35 @@ export default function RoomsPage() {
   const t = useTranslations('Locations');
 
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Room | null>(null);
-  const [form, setForm] = useState({ name: '', nameEn: '', code: '', order: 0, floorId: '', buildingId: '' });
+  const [form, setForm] = useState({
+    name: '',
+    nameEn: '',
+    code: '',
+    order: 0,
+    floorId: '',
+    buildingId: '', // ✅ حقل جديد
+  });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
-    if (status === 'unauthenticated') router.push(`/${locale}/login`);
-    else if (session?.user?.role !== 'ADMIN') router.push(`/${locale}/dashboard`);
-    else {
+    if (status === 'loading') return;
+    if (status === 'unauthenticated') {
+      router.push(`/${locale}/login`);
+    } else {
       fetchRooms();
-      fetchBuildings();
+      fetchFloors();
     }
-  }, [status]);
+  }, [status, locale, router]);
 
-  const fetchRooms = async () => {
+  const fetchRooms = async (bypassCache = false) => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/locations/rooms');
+      const url = bypassCache ? '/api/locations/rooms?t=' + Date.now() : '/api/locations/rooms';
+      const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setRooms(data);
@@ -68,24 +74,9 @@ export default function RoomsPage() {
     }
   };
 
-  const fetchBuildings = async () => {
+  const fetchFloors = async () => {
     try {
-      const res = await fetch('/api/locations/buildings');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setBuildings(data);
-    } catch (err: any) {
-      console.error(err);
-    }
-  };
-
-  const fetchFloorsByBuilding = async (buildingId: string) => {
-    if (!buildingId) {
-      setFloors([]);
-      return;
-    }
-    try {
-      const res = await fetch(`/api/locations/floors?buildingId=${buildingId}`);
+      const res = await fetch('/api/locations/floors');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       setFloors(data);
@@ -94,32 +85,46 @@ export default function RoomsPage() {
     }
   };
 
-  const handleBuildingChange = (buildingId: string) => {
-    setForm({ ...form, buildingId, floorId: '' });
-    fetchFloorsByBuilding(buildingId);
+  // عند تغيير floorId، نبحث عن buildingId من القائمة
+  const handleFloorChange = (floorId: string) => {
+    const selectedFloor = floors.find(f => f.id === floorId);
+    setForm(prev => ({
+      ...prev,
+      floorId,
+      buildingId: selectedFloor?.buildingId || '',
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.buildingId || !form.floorId) {
+    if (!form.floorId || !form.buildingId) {
       setMessage({ type: 'error', text: t('requiredFields') });
       return;
     }
     try {
       const url = editing ? `/api/locations/rooms/${editing.id}` : '/api/locations/rooms';
       const method = editing ? 'PUT' : 'POST';
+      const payload = {
+        name: form.name,
+        nameEn: form.nameEn || null,
+        code: form.code,
+        order: form.order,
+        floorId: form.floorId,
+        buildingId: form.buildingId, // ✅ إرسال buildingId
+      };
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: editing ? t('save') : t('save') });
+      setMessage({ type: 'success', text: t('save') });
       setEditing(null);
       setForm({ name: '', nameEn: '', code: '', order: 0, floorId: '', buildingId: '' });
       setShowForm(false);
-      fetchRooms();
+      await fetchRooms(true);
+      router.refresh();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     }
@@ -135,7 +140,8 @@ export default function RoomsPage() {
         return;
       }
       setMessage({ type: 'success', text: t('deleteSuccess') });
-      fetchRooms();
+      await fetchRooms(true);
+      router.refresh();
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     }
@@ -149,9 +155,8 @@ export default function RoomsPage() {
       code: room.code,
       order: room.order,
       floorId: room.floorId,
-      buildingId: room.buildingId,
+      buildingId: room.floor.buildingId,
     });
-    fetchFloorsByBuilding(room.buildingId);
     setShowForm(true);
   };
 
@@ -159,11 +164,9 @@ export default function RoomsPage() {
     setEditing(null);
     setForm({ name: '', nameEn: '', code: '', order: 0, floorId: '', buildingId: '' });
     setShowForm(false);
-    setFloors([]);
   };
 
-  if (status === 'loading') return <div className="p-6">جاري التحميل...</div>;
-  if (!session || session.user?.role !== 'ADMIN') return null;
+  if (status === 'loading' || loading) return <div className="p-6">جاري التحميل...</div>;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -180,12 +183,7 @@ export default function RoomsPage() {
       </div>
 
       {message && (
-        <div className={cn(
-          "p-2 mb-4 rounded",
-          message.type === 'success'
-            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-            : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-        )}>
+        <div className={cn('p-2 mb-4 rounded', message.type === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300')}>
           {message.text}
         </div>
       )}
@@ -194,117 +192,99 @@ export default function RoomsPage() {
         <div className="bg-card border border-border p-4 rounded-lg shadow mb-6">
           <div className="flex justify-between items-center mb-2">
             <h2 className="text-xl font-semibold text-foreground">{editing ? t('editRoom') : t('addRoom')}</h2>
-            <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground transition">
-              <X size={20} />
-            </button>
+            <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground transition"><X size={20} /></button>
           </div>
           <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <select
-              value={form.buildingId}
-              onChange={e => handleBuildingChange(e.target.value)}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
-              required
-            >
-              <option value="">{t('building')}</option>
-              {buildings.map(b => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-            <select
               value={form.floorId}
-              onChange={e => setForm({ ...form, floorId: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              onChange={(e) => handleFloorChange(e.target.value)}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
               required
-              disabled={!form.buildingId}
             >
               <option value="">{t('floor')}</option>
-              {floors.map(f => (
-                <option key={f.id} value={f.id}>{f.name}</option>
+              {floors.map((f) => (
+                <option key={f.id} value={f.id}>
+                  {f.name} {f.nameEn ? `(${f.nameEn})` : ''}
+                </option>
               ))}
             </select>
             <input
               type="text"
               placeholder={t('nameAr')}
               value={form.name}
-              onChange={e => setForm({ ...form, name: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
               required
             />
             <input
               type="text"
               placeholder={t('nameEn')}
               value={form.nameEn}
-              onChange={e => setForm({ ...form, nameEn: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
             />
             <input
               type="text"
               placeholder={t('code')}
               value={form.code}
-              onChange={e => setForm({ ...form, code: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              onChange={(e) => setForm({ ...form, code: e.target.value })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
               required
             />
             <input
               type="number"
               placeholder={t('order')}
               value={form.order}
-              onChange={e => setForm({ ...form, order: Number(e.target.value) })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 dark:bg-gray-800 dark:text-white dark:border-gray-700"
+              onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
+              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
             />
             <div className="md:col-span-2 flex gap-2">
-              <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
-                {editing ? t('save') : t('save')}
-              </button>
-              <button type="button" onClick={cancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
-                {t('cancel')}
-              </button>
+              <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">{t('save')}</button>
+              <button type="button" onClick={cancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">{t('cancel')}</button>
             </div>
           </form>
         </div>
       )}
 
-      {loading ? (
-        <p>جاري التحميل...</p>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border border-border rounded-lg">
-            <thead className="bg-muted/50">
-              <tr className="border-b border-border">
-                <th className="p-2 text-right text-foreground">#</th>
-                <th className="p-2 text-right text-foreground">{t('building')}</th>
-                <th className="p-2 text-right text-foreground">{t('floor')}</th>
-                <th className="p-2 text-right text-foreground">{t('nameAr')}</th>
-                <th className="p-2 text-right text-foreground">{t('nameEn')}</th>
-                <th className="p-2 text-right text-foreground">{t('code')}</th>
-                <th className="p-2 text-right text-foreground">{t('order')}</th>
-                <th className="p-2 text-right text-foreground">{t('actions')}</th>
+      <div className="overflow-x-auto">
+        <table className="w-full border border-border rounded-lg">
+          <thead className="bg-muted/50">
+            <tr className="border-b border-border">
+              <th className="p-2 text-right text-foreground">#</th>
+              <th className="p-2 text-right text-foreground">{t('floor')}</th>
+              <th className="p-2 text-right text-foreground">{t('nameAr')}</th>
+              <th className="p-2 text-right text-foreground">{t('nameEn')}</th>
+              <th className="p-2 text-right text-foreground">{t('code')}</th>
+              <th className="p-2 text-right text-foreground">{t('order')}</th>
+              <th className="p-2 text-right text-foreground">{t('actions')}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rooms.map((room, idx) => (
+              <tr key={room.id} className="border-b border-border hover:bg-muted/30">
+                <td className="p-2">{idx + 1}</td>
+                <td className="p-2">{room.floor.name}</td>
+                <td className="p-2">{room.name}</td>
+                <td className="p-2">{room.nameEn || '-'}</td>
+                <td className="p-2">{room.code}</td>
+                <td className="p-2">{room.order}</td>
+                <td className="p-2 flex gap-2">
+                  <button onClick={() => editRoom(room)} className="text-blue-600 dark:text-blue-400 hover:underline"><Pencil size={18} /></button>
+                  <button onClick={() => handleDelete(room.id)} className="text-red-600 dark:text-red-400 hover:underline"><Trash2 size={18} /></button>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {rooms.map((room, idx) => (
-                <tr key={room.id} className="border-b border-border hover:bg-muted/30">
-                  <td className="p-2">{idx + 1}</td>
-                  <td className="p-2">{room.building.name}</td>
-                  <td className="p-2">{room.floor.name}</td>
-                  <td className="p-2">{room.name}</td>
-                  <td className="p-2">{room.nameEn || '-'}</td>
-                  <td className="p-2">{room.code}</td>
-                  <td className="p-2">{room.order}</td>
-                  <td className="p-2 flex gap-2">
-                    <button onClick={() => editRoom(room)} className="text-blue-600 dark:text-blue-400 hover:underline">
-                      <Pencil size={18} />
-                    </button>
-                    <button onClick={() => handleDelete(room.id)} className="text-red-600 dark:text-red-400 hover:underline">
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-           </table>
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
+  );
+}
+
+export default function RoomsPage() {
+  return (
+    <AdminGuard>
+      <RoomsPageContent />
+    </AdminGuard>
   );
 }

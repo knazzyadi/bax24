@@ -1,3 +1,5 @@
+// src/components/dashboard/Sidebar.tsx
+//القائمة الجانبية
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -50,18 +52,19 @@ import {
 const MAIN_MENU_ITEMS = [
   { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
   { href: "/work-orders", labelKey: "nav.workOrders", icon: ClipboardList },
-  { href: "/reports", labelKey: "nav.reports", icon: FileText },
+  { href: "/tickets", labelKey: "nav.tickets", icon: FileText },
   { href: "/maintenance", labelKey: "nav.maintenance", icon: Calendar },
-  { href: "/vehicle-requests", labelKey: "nav.vehicles", icon: Car }, // ← المركبات هنا
+  { href: "/vehicle-requests", labelKey: "nav.vehicles", icon: Car },
   { href: "/contracts", labelKey: "nav.contracts", icon: FileSpreadsheet },
   { href: "/assets", labelKey: "nav.assets", icon: Package },
   { href: "/inventory", labelKey: "nav.inventory", icon: Box },
 ];
 
-// قائمة عناصر السوبر أدمن
+// قائمة عناصر السوبر أدمن (تم إضافة الفروع)
 const SUPER_ADMIN_ITEMS = [
   { href: "/super-admin", labelKey: "nav.superDashboard", icon: ShieldCheck },
   { href: "/super-admin/companies", labelKey: "nav.companies", icon: Building2 },
+  { href: "/super-admin/branches", labelKey: "nav.branches", icon: Building }, // ✅ تمت الإضافة
   { href: "/super-admin/users", labelKey: "nav.users", icon: Users },
   { href: "/super-admin/settings", labelKey: "nav.settings", icon: Settings },
 ];
@@ -277,7 +280,7 @@ export default function Sidebar() {
           <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className="space-y-1">
             <CollapsibleTrigger
               className={cn(
-                "w-full flex items-center justify-between px-4 py-3.5 text-muted-foreground font-bold text-[15px] rounded-2xl hover:bg-secondary transition-all",
+                "w-full flex items-center justify-between px-4 py-3.5 text-muted-foreground font-bold text-[15px] rounded-2xl hover:bg-primary/10 hover:text-primary transition-all",
                 !sidebarOpen && "justify-center px-0"
               )}
             >
@@ -297,7 +300,7 @@ export default function Sidebar() {
               <div ref={locationsRef}>
                 <Collapsible open={locationsOpen} onOpenChange={setLocationsOpen} className="space-y-1">
                   <CollapsibleTrigger
-                    className="w-full flex items-center justify-between px-4 py-2 text-muted-foreground font-bold text-[13px] rounded-xl hover:bg-secondary/50 transition-all"
+                    className="w-full flex items-center justify-between px-4 py-2 text-muted-foreground font-bold text-[13px] rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
                   >
                     <div className="flex items-center gap-2">
                       <Layers className="h-4 w-4" />
@@ -343,7 +346,7 @@ export default function Sidebar() {
               <div ref={vehiclesRef}>
                 <Collapsible open={vehiclesSettingsOpen} onOpenChange={setVehiclesSettingsOpen} className="space-y-1">
                   <CollapsibleTrigger
-                    className="w-full flex items-center justify-between px-4 py-2 text-muted-foreground font-bold text-[13px] rounded-xl hover:bg-secondary/50 transition-all"
+                    className="w-full flex items-center justify-between px-4 py-2 text-muted-foreground font-bold text-[13px] rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
                   >
                     <div className="flex items-center gap-2">
                       <Truck className="h-4 w-4" />
@@ -381,7 +384,7 @@ export default function Sidebar() {
               <div ref={dictionariesRef}>
                 <Collapsible open={dictionariesOpen} onOpenChange={setDictionariesOpen} className="space-y-1">
                   <CollapsibleTrigger
-                    className="w-full flex items-center justify-between px-4 py-2 text-muted-foreground font-bold text-[13px] rounded-xl hover:bg-secondary/50 transition-all"
+                    className="w-full flex items-center justify-between px-4 py-2 text-muted-foreground font-bold text-[13px] rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
                   >
                     <div className="flex items-center gap-2">
                       <BookOpen className="h-4 w-4" />
@@ -396,7 +399,7 @@ export default function Sidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent className="space-y-1 pr-4">
                     <SidebarNavItem
-                      href="/admin/asset-types"
+                      href="/settings/asset-types"
                       label={getLabel("nav.assetTypes", "أنواع الأصول")}
                       icon={Tag}
                       isOpen={sidebarOpen}
@@ -404,7 +407,7 @@ export default function Sidebar() {
                       locale={locale}
                     />
                     <SidebarNavItem
-                      href="/admin/work-order-statuses"
+                      href="/settings/work-order-statuses"
                       label={getLabel("nav.workOrderStatuses", "حالات أوامر العمل")}
                       icon={ClipboardList}
                       isOpen={sidebarOpen}
@@ -412,9 +415,17 @@ export default function Sidebar() {
                       locale={locale}
                     />
                     <SidebarNavItem
-                      href="/admin/asset-statuses"
+                      href="/settings/asset-statuses"
                       label={getLabel("nav.assetStatuses", "حالات الأصول")}
                       icon={Package}
+                      isOpen={sidebarOpen}
+                      subItem
+                      locale={locale}
+                    />
+                    <SidebarNavItem
+                      href="/settings/work-order-priorities"
+                      label={getLabel("nav.workOrderPriorities", "أولويات أوامر العمل")}
+                      icon={TrendingUp} // أو أي أيقونة مناسبة مثل Flag, AlertCircle
                       isOpen={sidebarOpen}
                       subItem
                       locale={locale}
@@ -483,7 +494,7 @@ export default function Sidebar() {
   );
 }
 
-// مكون عنصر التنقل المساعد
+// مكون عنصر التنقل المساعد - تم تعديل الألوان النشطة
 function SidebarNavItem({
   href,
   label,
@@ -509,8 +520,8 @@ function SidebarNavItem({
         "flex items-center gap-4 transition-all duration-200 group relative rounded-2xl",
         !isOpen ? "justify-center px-0" : "px-4",
         isActive
-          ? "bg-primary text-primary-foreground shadow-lg shadow-primary/20"
-          : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+          ? "bg-black text-white dark:bg-white dark:text-black shadow-lg"
+          : "text-muted-foreground hover:bg-primary/10 hover:text-primary",
         subItem ? "py-2 pl-6" : "py-3.5"
       )}
     >

@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { auth } from '@/auth';
-
-const prisma = new PrismaClient();
+import { prisma } from '@/lib/prisma';
 
 export async function GET(request: Request) {
   try {
@@ -20,19 +18,16 @@ export async function GET(request: Request) {
 
     const where: any = {};
 
-    // فلترة الدور (correct relation filtering)
     if (role) {
       where.role = {
         name: role,
       };
     }
 
-    // فلترة الشركة
     if (companyId) {
       where.companyId = companyId;
     }
 
-    // البحث
     if (search) {
       where.OR = [
         {
@@ -58,18 +53,16 @@ export async function GET(request: Request) {
         email: true,
         status: true,
         createdAt: true,
-
         role: {
           select: {
-            id: true,   // ✅ تمت إضافة id
+            id: true,
             name: true,
             label: true,
           },
         },
-
         company: {
           select: {
-            id: true,   // ✅ تمت إضافة id
+            id: true,
             name: true,
           },
         },
@@ -84,8 +77,8 @@ export async function GET(request: Request) {
         id: user.id,
         name: user.name,
         email: user.email,
-        role: user.role,        // الآن يحتوي على id, name, label
-        company: user.company,  // الآن يحتوي على id, name
+        role: user.role,
+        company: user.company,
         status: user.status,
         createdAt: user.createdAt,
       }))

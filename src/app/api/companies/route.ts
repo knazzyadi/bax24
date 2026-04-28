@@ -1,7 +1,7 @@
-﻿import { NextResponse } from 'next/server';
+﻿// src/app/api/companies/route.ts
+import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { auth } from '@/auth';
-import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
 
@@ -67,7 +67,6 @@ export async function POST(request: Request) {
       companyNameEn,
       adminName,
       adminEmail,
-      adminPassword,
       subscriptionStartDate,
       subscriptionEndDate,
     } = await request.json();
@@ -134,8 +133,8 @@ export async function POST(request: Request) {
           name: adminName,
           email: adminEmail,
           password: null, // لا توجد كلمة مرور حتى يتم تفعيل الحساب عبر الدعوة
-          roleId: adminRole.id,
-          companyId: company.id,
+          role: { connect: { id: adminRole.id } },
+          company: { connect: { id: company.id } },
           status: false, // الحساب غير نشط
           invitationToken: token,
           invitationExpires: expires,

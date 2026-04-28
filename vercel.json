@@ -1,0 +1,11 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/run-maintenance",
+      "schedule": "0 2 * * *",
+      "headers": {
+        "authorization": "Bearer your-secret-token"
+      }
+    }
+  ]
+}

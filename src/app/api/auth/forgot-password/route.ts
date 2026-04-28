@@ -1,16 +1,25 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { sendResetPasswordEmail } from '@/lib/email';
-
-const prisma = new PrismaClient();
 
 export async function POST(req: Request) {
   try {
     const { email } = await req.json();
-    const user = await prisma.user.findUnique({ where: { email } });
+
+    if (!email) {
+      return NextResponse.json(
+        { error: 'البريد الإلكتروني مطلوب' },
+        { status: 400 }
+      );
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    // نفس مبدأ الأمان: لا نكشف وجود الحساب
     if (!user) {
-      // لأسباب أمنية، لا نكشف إذا كان البريد موجوداً أم لا
       return NextResponse.json({ success: true });
     }
 
@@ -19,13 +28,21 @@ export async function POST(req: Request) {
 
     await prisma.user.update({
       where: { id: user.id },
-      data: { resetToken: token, resetExpires: expires },
+      data: {
+        resetToken: token,
+        resetExpires: expires,
+      },
     });
 
     await sendResetPasswordEmail(email, token);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+
+    return NextResponse.json(
+      { error: 'حدث خطأ في الخادم' },
+      { status: 500 }
+    );
   }
 }

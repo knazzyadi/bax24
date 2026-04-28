@@ -1,3 +1,5 @@
+//src\components\ui\LocaleSwitcher.tsx
+//تغيير اللغة (ar / en)
 'use client';
 
 import { usePathname, useParams } from 'next/navigation';

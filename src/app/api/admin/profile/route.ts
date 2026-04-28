@@ -1,9 +1,7 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
-
-const prisma = new PrismaClient();
 
 export async function PUT(request: Request) {
   try {
@@ -52,7 +50,11 @@ export async function PUT(request: Request) {
       }
     }
 
-    const updateData: any = {
+    const updateData: {
+      name: string;
+      email: string;
+      password?: string;
+    } = {
       name,
       email,
     };

@@ -1,3 +1,6 @@
+//src\components\super-admin\companies\CompaniesTable.tsx
+//عرض جدول (Table) للشركات داخل لوحة الـ Super Admin
+// مع إمكانية التعديل وتغيير حالة الشركة (تفعيل/تعطيل)
 'use client';
 
 interface Company {

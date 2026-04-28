@@ -1,104 +1,159 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { auth } from '@/auth';
+import { prisma } from '@/lib/prisma';
+import { revalidatePath } from 'next/cache';
 
-const prisma = new PrismaClient();
+// دالة مساعدة للتحقق من ملكية الغرفة وصلاحية التعديل/الحذف
+async function getAuthorizedRoom(id: string, companyId: string) {
+  return prisma.room.findFirst({
+    where: {
+      id,
+      building: { companyId },
+    },
+    select: {
+      id: true,
+      name: true,
+      nameEn: true,
+      code: true,
+      order: true,
+      floorId: true,
+      buildingId: true,
+      assets: { select: { id: true } },
+      workOrders: { select: { id: true } },
+      inventoryItems: { select: { id: true } },
+      maintenanceReports: { select: { id: true } },
+    },
+  });
+}
 
+// PUT: تحديث غرفة (للمدير فقط)
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+    if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const companyId = session.user.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
     const { id } = await params;
     const { name, nameEn, code, order, floorId, buildingId } = await request.json();
 
-    // التحقق من وجود الغرفة
-    const existing = await prisma.room.findUnique({
-      where: { id },
-      include: { building: true },
-    });
+    if (!name || !code || !floorId || !buildingId) {
+      return NextResponse.json(
+        { error: 'الاسم، الكود، الدور، والمبنى مطلوبون' },
+        { status: 400 }
+      );
+    }
+
+    // التحقق من وجود الغرفة وانتمائها للشركة
+    const existing = await getAuthorizedRoom(id, companyId);
     if (!existing) {
       return NextResponse.json({ error: 'الغرفة غير موجودة' }, { status: 404 });
     }
 
-    // لأدمن الشركة: التأكد من أن المبنى يتبع شركته
-    if (session.user?.role === 'ADMIN') {
-      const building = await prisma.building.findUnique({ where: { id: buildingId || existing.buildingId } });
-      if (!building || building.companyId !== session.user.companyId) {
-        return NextResponse.json({ error: 'لا يمكنك تعديل غرفة لمبنى ليس ضمن شركتك' }, { status: 403 });
+    // التأكد أن المبنى والدور الجديدين ينتميان للشركة (إذا تغيرا)
+    if (existing.buildingId !== buildingId) {
+      const newBuilding = await prisma.building.findFirst({
+        where: { id: buildingId, companyId },
+      });
+      if (!newBuilding) {
+        return NextResponse.json({ error: 'المبنى الجديد غير صالح' }, { status: 400 });
       }
     }
 
-    const room = await prisma.room.update({
+    if (existing.floorId !== floorId) {
+      const newFloor = await prisma.floor.findFirst({
+        where: { id: floorId, buildingId },
+      });
+      if (!newFloor) {
+        return NextResponse.json({ error: 'الدور الجديد غير صالح' }, { status: 400 });
+      }
+    }
+
+    // التحقق من عدم تكرار الكود في نفس المبنى (باستثناء نفس الغرفة)
+    const duplicate = await prisma.room.findFirst({
+      where: {
+        buildingId,
+        code,
+        NOT: { id },
+      },
+    });
+    if (duplicate) {
+      return NextResponse.json(
+        { error: 'الكود موجود مسبقاً في هذا المبنى' },
+        { status: 409 }
+      );
+    }
+
+    const updatedRoom = await prisma.room.update({
       where: { id },
       data: {
         name,
         nameEn: nameEn || null,
         code,
         order: order || 0,
-        floorId: floorId || existing.floorId,
-        buildingId: buildingId || existing.buildingId,
+        floorId,
+        buildingId,
       },
     });
-    return NextResponse.json(room);
+
+    revalidatePath('/ar/locations/rooms');
+    return NextResponse.json(updatedRoom);
   } catch (error) {
-    console.error(error);
+    console.error('PUT /api/locations/rooms/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
+// DELETE: حذف غرفة (للمدير فقط)
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    if (!session || (session.user?.role !== 'ADMIN' && session.user?.role !== 'SUPER_ADMIN')) {
+    if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const companyId = session.user.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
     const { id } = await params;
 
-    const room = await prisma.room.findUnique({
-      where: { id },
-      include: {
-        building: true,
-        assets: true,
-        workOrders: true,
-        inventoryItems: true,
-        maintenanceReports: true,
-      },
-    });
-
+    const room = await getAuthorizedRoom(id, companyId);
     if (!room) {
       return NextResponse.json({ error: 'الغرفة غير موجودة' }, { status: 404 });
     }
 
-    if (session.user?.role === 'ADMIN' && room.building.companyId !== session.user.companyId) {
-      return NextResponse.json({ error: 'لا يمكنك حذف غرفة ليس ضمن شركتك' }, { status: 403 });
-    }
-
-    // بناء قائمة بالعناصر المرتبطة
+    // جمع العلاقات النشطة لمنع الحذف
     const relations = [];
-    if (room.assets.length > 0) relations.push(`${room.assets.length} أصل(أصول)`);
-    if (room.workOrders.length > 0) relations.push(`${room.workOrders.length} أمر(أوامر) عمل`);
-    if (room.inventoryItems.length > 0) relations.push(`${room.inventoryItems.length} صنف(أصناف) مخزون`);
-    if (room.maintenanceReports.length > 0) relations.push(`${room.maintenanceReports.length} بلاغ(بلاغات) صيانة`);
+    if (room.assets.length) relations.push(`${room.assets.length} أصل`);
+    if (room.workOrders.length) relations.push(`${room.workOrders.length} أمر عمل`);
+    if (room.inventoryItems.length) relations.push(`${room.inventoryItems.length} مخزون`);
+    if (room.maintenanceReports.length) relations.push(`${room.maintenanceReports.length} بلاغ`);
 
     if (relations.length > 0) {
-      const errorMessage = `لا يمكن حذف الغرفة لأنها مرتبطة بـ: ${relations.join('، ')}. يرجى حذف هذه العناصر أولاً.`;
-      return NextResponse.json({ error: errorMessage }, { status: 409 });
+      return NextResponse.json(
+        { error: `لا يمكن حذف الغرفة لأنها مرتبطة بـ: ${relations.join('، ')}` },
+        { status: 409 }
+      );
     }
 
     await prisma.room.delete({ where: { id } });
+    revalidatePath('/ar/locations/rooms');
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(error);
+    console.error('DELETE /api/locations/rooms/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

@@ -28,6 +28,11 @@ interface DashboardData {
   pendingRequests: number;
 }
 
+interface StatsResponse {
+  count?: number;
+  error?: string;
+}
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const params = useParams();
@@ -43,16 +48,13 @@ export default function DashboardPage() {
     pendingRequests: 0,
   });
 
-  // انتظار تحميل الجلسة لتجنب الوميض
   const isSessionLoading = status === 'loading';
 
-  // اسم الشركة حسب اللغة الحالية (مع fallback آمن)
   let companyDisplayName = 'شركتك';
   if (!isSessionLoading && session?.user) {
     if (locale === 'ar') {
       companyDisplayName = session.user.companyName || 'شركتك';
     } else {
-      // في الإنجليزية، استخدم companyNameEn أولاً، ثم companyName كـ fallback
       companyDisplayName = session.user.companyNameEn || session.user.companyName || 'Your Company';
     }
   }
@@ -65,25 +67,34 @@ export default function DashboardPage() {
         '/api/stats/assets-count',
         '/api/stats/work-orders-count',
         '/api/stats/low-inventory-count',
+        '/api/stats/pending-requests-count',  // نجمع طلبات الزيت والحوادث هنا أو نهاية منفصلة
         '/api/stats/pending-oil-requests',
         '/api/stats/pending-accident-requests',
       ];
 
-      const results = await Promise.all(
-        endpoints.map((url) =>
-          fetch(url).then((res) => {
-            if (!res.ok) throw new Error('Failed to fetch');
-            return res.json();
-          })
-        )
+      // استخدام Promise.allSettled بدلاً من all لتجنب فشل واحد يؤدي إلى إسقاط الكل
+      const results = await Promise.allSettled(
+        endpoints.map(async (url) => {
+          const res = await fetch(url);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const json: StatsResponse = await res.json();
+          // بعض الـ APIs ترجع العدد مباشرة، والبعض ترجع { count: number }
+          if (typeof json === 'number') return json;
+          return json.count ?? 0;
+        })
       );
 
-      const [assets, workOrders, lowInventory, oil, accident] = results;
+      // استخراج القيم الناجحة فقط، واستخدام 0 للقيم الفاشلة
+      const values = results.map((result) => (result.status === 'fulfilled' ? result.value : 0));
+
+      // الترتيب: assets, workOrders, lowInventory, pendingRequests, oil, accident
+      const [assets, workOrders, lowInventory, pendingRequests, oil, accident] = values;
+      
       setData({
-        assets,
-        workOrders,
-        lowInventory,
-        pendingRequests: oil + accident,
+        assets: assets ?? 0,
+        workOrders: workOrders ?? 0,
+        lowInventory: lowInventory ?? 0,
+        pendingRequests: (oil ?? 0) + (accident ?? 0),
       });
     } catch (err) {
       console.error('Dashboard error:', err);

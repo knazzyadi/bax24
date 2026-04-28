@@ -89,6 +89,7 @@ export default function MaintenanceClient({
     router.refresh();
   };
 
+  // ✅ تعريف الفلاتر (بدون value/onChange)
   const filterSections: FilterSection[] = [
     {
       id: "isActive",
@@ -98,10 +99,19 @@ export default function MaintenanceClient({
         { value: "true", label: isRtl ? "نشط" : "Active" },
         { value: "false", label: isRtl ? "غير نشط" : "Inactive" },
       ],
-      value: selectedStatus,
-      onChange: setSelectedStatus,
     },
   ];
+
+  // ✅ قيم الفلاتر الحالية
+  const filterValues = { isActive: selectedStatus };
+
+  // ✅ دالة تغيير الفلتر
+  const onFilterChange = (sectionId: string, value: string) => {
+    if (sectionId === "isActive") {
+      setSelectedStatus(value);
+      setCurrentPage(1);
+    }
+  };
 
   const renderScheduleItem = (schedule: Schedule, actions: ItemActions) => {
     const frequencyLabel = FREQUENCY_LABELS[schedule.frequency]?.[isRtl ? "ar" : "en"] || schedule.frequency;
@@ -181,6 +191,8 @@ export default function MaintenanceClient({
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
       filterSections={filterSections}
+      filterValues={filterValues}
+      onFilterChange={onFilterChange}
       items={paginatedSchedules}
       total={totalFiltered}
       currentPage={currentPage}

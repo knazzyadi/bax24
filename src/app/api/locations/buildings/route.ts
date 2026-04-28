@@ -22,7 +22,7 @@ export async function GET() {
       orderBy: { order: 'asc' },
     });
 
-    const formatted = buildings.map((b) => ({
+    const formatted = buildings.map((b: any) => ({
       id: b.id,
       name: b.name,
       nameEn: b.nameEn,

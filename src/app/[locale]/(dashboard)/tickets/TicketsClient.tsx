@@ -3,7 +3,6 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
 import {
   ShieldCheck, AlertCircle, MapPin, Calendar,
   Edit, Trash2, Loader2, ChevronLeft, ChevronRight, User
@@ -36,6 +35,7 @@ interface TicketsClientProps {
   initialSearch: string;
   initialStatus: string;
   canCreate?: boolean;
+  locale: string; // ✅ تمت الإضافة
 }
 
 export default function TicketsClient({
@@ -43,9 +43,9 @@ export default function TicketsClient({
   initialSearch,
   initialStatus,
   canCreate = false,
+  locale, // ✅ استقبال locale من props
 }: TicketsClientProps) {
   const router = useRouter();
-  const locale = useLocale();
   const isRtl = locale === "ar";
 
   const [searchTerm, setSearchTerm] = useState(initialSearch);
@@ -122,19 +122,16 @@ export default function TicketsClient({
       boxShadow: `0 0 12px ${statusInfo.hex}80`,
     };
 
-    // ✅ نستخدم div مع onClick، ونضع key هنا (وليس داخل DataList)
     return (
       <div
         key={ticket.id}
         className="group flex flex-col md:flex-row items-start md:items-center gap-6 bg-card hover:bg-secondary/40 border border-border rounded-[2rem] p-5 px-8 transition-all duration-300 cursor-pointer"
         onClick={() => handleView(ticket.id)}
       >
-        {/* أيقونة الحالة */}
         <div className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105" style={glowStyle}>
           <AlertCircle size={24} style={{ color: statusInfo.hex }} />
         </div>
 
-        {/* المعلومات الأساسية */}
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-black group-hover:text-primary transition-colors duration-200 truncate leading-none text-foreground">
@@ -157,7 +154,6 @@ export default function TicketsClient({
           </div>
         </div>
 
-        {/* الجهة اليمنى: الكود + الحالة + الأزرار */}
         <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
           <span className="text-[14px] font-black text-primary px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 uppercase tracking-widest transition-colors duration-200 group-hover:bg-primary/20">
             {ticket.code || `#${ticket.id.slice(-4)}`}

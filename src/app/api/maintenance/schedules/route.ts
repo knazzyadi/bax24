@@ -60,7 +60,8 @@ export async function GET(request: NextRequest) {
       prisma.maintenanceSchedule.count({ where }),
     ]);
 
-    const serialized = schedules.map(s => ({
+    // ✅ إضافة نوع صريح للمعامل s
+    const serialized = schedules.map((s: any) => ({
       ...s,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),

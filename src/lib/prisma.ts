@@ -31,6 +31,13 @@ function createExtendedClient() {
             return query(args);
           }
 
+          // التحقق من وجود companyId صالح
+          const companyId = user.companyId;
+          if (!companyId) {
+            // إذا لم يكن هناك companyId، نمرر العملية بدون تعديل (أو نرمي خطأ حسب احتياجك)
+            return query(args);
+          }
+
           let modifiedArgs = args;
 
           // استثناء النماذج التي لا تحتوي على companyId
@@ -43,7 +50,7 @@ function createExtendedClient() {
               ...args,
               where: {
                 ...existingWhere,
-                companyId: user.companyId,
+                companyId: companyId,
               },
             };
           }
@@ -56,7 +63,7 @@ function createExtendedClient() {
                 ...args,
                 data: {
                   ...(existingData && typeof existingData === 'object' ? existingData : {}),
-                  companyId: user.companyId,
+                  companyId: companyId,
                 },
               };
             } else if (operation === 'createMany') {
@@ -64,12 +71,12 @@ function createExtendedClient() {
               if (Array.isArray(inputData)) {
                 modifiedArgs = {
                   ...args,
-                  data: inputData.map((item: any) => ({ ...item, companyId: user.companyId })),
+                  data: inputData.map((item: any) => ({ ...item, companyId: companyId })),
                 };
               } else if (inputData && typeof inputData === 'object') {
                 modifiedArgs = {
                   ...args,
-                  data: { ...inputData, companyId: user.companyId },
+                  data: { ...inputData, companyId: companyId },
                 };
               }
             }

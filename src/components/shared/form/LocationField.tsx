@@ -1,18 +1,17 @@
 // src/components/shared/form/LocationField.tsx
-//حقل الموقع (جاهز)
 import { MapPin } from "lucide-react";
-import LocationSelector from "@/components/shared/LocationSelector";
+import LocationSelector, { LocationValue } from "@/components/shared/LocationSelector";
 import { FormField } from "./FormField";
 
 interface LocationFieldProps {
-  value: string;
-  onChange: (value: string) => void;
+  value: LocationValue;
+  onChange: (value: LocationValue) => void;
 }
 
 export function LocationField({ value, onChange }: LocationFieldProps) {
   return (
     <FormField label="تحديد الموقع" icon={<MapPin size={14} />}>
-      <LocationSelector value={value} onValueChange={onChange} />
+      <LocationSelector value={value} onChange={onChange} />
     </FormField>
   );
 }

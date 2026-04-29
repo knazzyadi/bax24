@@ -78,7 +78,8 @@ export async function GET(request: NextRequest) {
       prisma.workOrder.count({ where }),
     ]);
 
-    const serialized = workOrders.map(wo => ({
+    // ✅ إضافة نوع صريح للمعامل wo
+    const serialized = workOrders.map((wo: any) => ({
       ...wo,
       createdAt: wo.createdAt.toISOString(),
       updatedAt: wo.updatedAt.toISOString(),

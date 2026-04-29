@@ -38,7 +38,7 @@ export async function POST(
     // 2. تحديد الأصول المستهدفة (أصول محددة أو حسب النطاق ونوع الأصل)
     let targetAssets: any[] = [];
     if (schedule.scheduleAssets.length > 0) {
-      targetAssets = schedule.scheduleAssets.map(sa => sa.asset);
+      targetAssets = schedule.scheduleAssets.map((sa: { asset: any }) => sa.asset);
     } else if (schedule.assetTypeId) {
       const assetFilter: any = {
         companyId,
@@ -73,7 +73,7 @@ export async function POST(
         createdBy: session.user.id,
         assetTypeId: schedule.assetTypeId,
         workOrderAssets: {
-          create: targetAssets.map(asset => ({ assetId: asset.id })),
+          create: targetAssets.map((asset: any) => ({ assetId: asset.id })),
         },
       },
       include: { workOrderAssets: true },

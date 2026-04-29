@@ -1,39 +1,35 @@
 // src/hooks/useToastNotifications.ts
 import { useCallback } from "react";
 import { useTranslations } from "next-intl";
-import { toast, type ToastOptions } from "sonner";
+import { toast } from "sonner"; // ✅ إزالة 'type ToastOptions' لأنها غير مصدرة
 
 export function useToastNotifications() {
   const t = useTranslations("notifications");
 
-  // إشعارات النجاح
   const success = useCallback(
-    (messageKey: string, values?: Record<string, string | number>, options?: ToastOptions) => {
+    (messageKey: string, values?: Record<string, string | number>, options?: any) => {
       const message = t(messageKey, values);
       toast.success(message, { duration: 3000, ...options });
     },
     [t]
   );
 
-  // إشعارات الخطأ
   const error = useCallback(
-    (messageKey: string, values?: Record<string, string | number>, options?: ToastOptions) => {
+    (messageKey: string, values?: Record<string, string | number>, options?: any) => {
       const message = t(messageKey, values);
       toast.error(message, { duration: 4000, ...options });
     },
     [t]
   );
 
-  // إشعارات معلومات
   const info = useCallback(
-    (messageKey: string, values?: Record<string, string | number>, options?: ToastOptions) => {
+    (messageKey: string, values?: Record<string, string | number>, options?: any) => {
       const message = t(messageKey, values);
       toast.info(message, { duration: 3000, ...options });
     },
     [t]
   );
 
-  // إشعارات تحميل/وعد (Promise)
   const promise = useCallback(
     <T>(
       promise: Promise<T>,
@@ -45,7 +41,7 @@ export function useToastNotifications() {
         successValues?: Record<string, string | number>;
         errorValues?: Record<string, string | number>;
       },
-      options?: ToastOptions
+      options?: any
     ) => {
       return toast.promise(promise, {
         loading: t(messages.loadingKey, messages.loadingValues),
@@ -57,7 +53,6 @@ export function useToastNotifications() {
     [t]
   );
 
-  // اختصارات سريعة للإجراءات المتكررة (اختياري)
   const showSaved = useCallback(
     (name?: string) => success("saved", { name: name || t("item") }),
     [success, t]
@@ -87,7 +82,6 @@ export function useToastNotifications() {
     error,
     info,
     promise,
-    // اختصارات
     showSaved,
     showUpdated,
     showDeleted,

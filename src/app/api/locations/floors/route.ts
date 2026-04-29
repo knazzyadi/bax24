@@ -41,7 +41,7 @@ export async function GET() {
     });
 
     // تنسيق البيانات لتناسب الواجهة
-    const formatted = floors.map((f) => ({
+    const formatted = floors.map((f: any) => ({
       id: f.id,
       name: f.name,
       nameEn: f.nameEn,

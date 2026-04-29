@@ -2,10 +2,7 @@
 import { PrismaClient } from '@prisma/client';
 import { RequestContext } from './request-context';
 
-// النماذج التي لا يتم تطبيق العزل عليها نهائياً
 const SKIP_MODELS = ['User', 'Role', 'Permission', 'Company'];
-
-// النماذج التي ليس لديها حقل companyId (نمنع إضافته تلقائياً)
 const MODELS_WITHOUT_COMPANY_ID = [
   'TicketImage', 'WorkOrderAsset', 'ScheduleAsset',
   'UserBranch', 'WorkOrderAttachment', 'Notification'
@@ -15,9 +12,7 @@ type ExtendedPrismaClient = ReturnType<typeof createExtendedClient>;
 
 function createExtendedClient() {
   const baseClient = new PrismaClient({
-    log: process.env.NODE_ENV === 'development'
-      ? ['query', 'error', 'warn']
-      : ['error'],
+    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
   });
 
   const extendedClient = baseClient.$extends({
@@ -31,21 +26,16 @@ function createExtendedClient() {
             return query(args);
           }
 
-          // التحقق من وجود companyId صالح
           const companyId = user.companyId;
           if (!companyId) {
-            // إذا لم يكن هناك companyId، نمرر العملية بدون تعديل (أو نرمي خطأ حسب احتياجك)
             return query(args);
           }
 
-          let modifiedArgs = args;
-
-          // استثناء النماذج التي لا تحتوي على companyId
           const shouldAddCompanyId = !MODELS_WITHOUT_COMPANY_ID.includes(model);
+          let modifiedArgs = args as any;  // ✅ استخدام any للتغلب على تعقيد الأنواع
 
-          // عمليات الجلب (findMany, findFirst, count)
           if (['findMany', 'findFirst', 'count'].includes(operation) && shouldAddCompanyId) {
-            const existingWhere = (args && typeof args === 'object' && 'where' in args) ? args.where : {};
+            const existingWhere = (args && typeof args === 'object' && 'where' in args) ? (args as any).where : {};
             modifiedArgs = {
               ...args,
               where: {
@@ -55,10 +45,9 @@ function createExtendedClient() {
             };
           }
 
-          // عمليات الإنشاء (create, createMany)
           if (['create', 'createMany'].includes(operation) && shouldAddCompanyId) {
             if (operation === 'create') {
-              const existingData = (args && typeof args === 'object' && 'data' in args) ? args.data : {};
+              const existingData = (args && typeof args === 'object' && 'data' in args) ? (args as any).data : {};
               modifiedArgs = {
                 ...args,
                 data: {
@@ -67,7 +56,7 @@ function createExtendedClient() {
                 },
               };
             } else if (operation === 'createMany') {
-              const inputData = (args && typeof args === 'object' && 'data' in args) ? args.data : undefined;
+              const inputData = (args && typeof args === 'object' && 'data' in args) ? (args as any).data : undefined;
               if (Array.isArray(inputData)) {
                 modifiedArgs = {
                   ...args,
@@ -92,9 +81,7 @@ function createExtendedClient() {
 }
 
 let prismaInstance: ExtendedPrismaClient | undefined;
-
 export const prisma = (global as any).prismaInstance ?? createExtendedClient();
-
 if (process.env.NODE_ENV !== 'production') {
   (global as any).prismaInstance = prisma;
 }

@@ -1,9 +1,14 @@
 //src\app\page.tsx
+import { redirect } from 'next/navigation';
+
+export default function Home() {
+  // إعادة توجيه دائمة إلى الصفحة الرئيسية باللغة العربية
+  redirect('/ar');
+}
 /**
  * هو الصفحة الرئيسية الافتراضية (Home Page)
  * في تطبيق Next.js، وغالبًا تكون “صفحة البداية التجريبية
  * ” قبل بناء المشروع الحقيقي
-*/
 import Image from "next/image";
 
 export default function Home() {
@@ -69,3 +74,4 @@ export default function Home() {
     </div>
   );
 }
+*/

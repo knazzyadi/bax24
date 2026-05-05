@@ -4,6 +4,42 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/permissions';
 
+// ========== دالة توليد كود فريد لكل نوع أصل ==========
+async function generateAssetCode(companyId: string, typeId: string): Promise<string> {
+  // 1. الحصول على رمز نوع الأصل (مثل "EL", "MED")
+  const assetType = await prisma.assetType.findUnique({
+    where: { id: typeId },
+    select: { code: true },
+  });
+  if (!assetType || !assetType.code) {
+    throw new Error('نوع الأصل غير صالح أو لا يحتوي على رمز (code)');
+  }
+  const typeCode = assetType.code;
+
+  // 2. البحث عن آخر أصل من نفس النوع ونفس الشركة (للتسلسل)
+  const lastAsset = await prisma.asset.findFirst({
+    where: {
+      companyId,
+      typeId,
+      deletedAt: null,
+    },
+    orderBy: { createdAt: 'desc' },
+    select: { code: true },
+  });
+
+  let nextNumber = 1;
+  if (lastAsset?.code) {
+    // استخراج الرقم التسلسلي من الكود (مفترضاً الصيغة "AST-0001-EL")
+    const match = lastAsset.code.match(/AST-(\d+)-/);
+    if (match) {
+      nextNumber = parseInt(match[1]) + 1;
+    }
+  }
+
+  const paddedNumber = nextNumber.toString().padStart(4, '0');
+  return `AST-${paddedNumber}-${typeCode}`;
+}
+
 export async function GET(request: Request) {
   try {
     const session = await auth();
@@ -31,15 +67,12 @@ export async function GET(request: Request) {
       deletedAt: null,
     };
 
-    // 🔥 الفلترة حسب الفروع للمستخدمين غير الأدمن
     if (!isAdmin) {
       if (branchIds.length > 0) {
-        // استخدام العلاقة المباشرة building.branchId (أسرع وأكثر دقة)
         where.building = {
           branchId: { in: branchIds }
         };
       } else {
-        // لا فروع مسموحة -> لا نعرض أي أصول
         return NextResponse.json({
           assets: [],
           total: 0,
@@ -50,7 +83,6 @@ export async function GET(request: Request) {
       }
     }
 
-    // فلاتر البحث والنوع والموقع
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
@@ -135,10 +167,12 @@ export async function POST(request: Request) {
     await requirePermission('assets.create', session);
 
     const body = await request.json();
-    const { name, nameEn, code, typeId, statusId, roomId, purchaseDate, warrantyEnd, notes } = body;
+    // ✅ removed 'code' from destructuring – it will be auto‑generated
+    const { name, nameEn, typeId, statusId, roomId, purchaseDate, warrantyEnd, notes } = body;
 
-    if (!name || !code || !roomId) {
-      return NextResponse.json({ error: 'الاسم، الكود، والموقع إلزامية' }, { status: 400 });
+    // ✅ 'code' no longer required; 'typeId' becomes mandatory
+    if (!name || !typeId || !roomId) {
+      return NextResponse.json({ error: 'الاسم، نوع الأصل، والموقع إلزامية' }, { status: 400 });
     }
 
     const companyId = session.user.companyId ?? undefined;
@@ -146,11 +180,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
     }
 
+    // ✅ التحقق من وجود نوع الأصل (للتأكد من وجود رمز)
+    const assetType = await prisma.assetType.findUnique({
+      where: { id: typeId },
+      select: { code: true },
+    });
+    if (!assetType || !assetType.code) {
+      return NextResponse.json({ error: 'نوع الأصل غير صالح أو لا يحتوي على رمز (code)' }, { status: 400 });
+    }
+
+    // ✅ توليد الكود تلقائياً
+    const code = await generateAssetCode(companyId, typeId);
+
+    // (اختياري) يمكنك إزالة التحقق من وجود الكود لأنه مضمون أنه فريد بفضل التوليد
+    // لكن نبقيه للتأكد
     const existing = await prisma.asset.findFirst({
       where: { code, companyId },
     });
     if (existing) {
-      return NextResponse.json({ error: 'هذا الكود مستخدم مسبقاً' }, { status: 409 });
+      // هذا لا يجب أن يحدث أبداً، لكن للمرونة
+      return NextResponse.json({ error: 'تعارض في توليد الكود، حاول مرة أخرى' }, { status: 409 });
     }
 
     const room = await prisma.room.findUnique({
@@ -162,7 +211,6 @@ export async function POST(request: Request) {
     }
     const buildingId = room.buildingId;
 
-    // التحقق من الصلاحية على المبنى (لغير ADMIN)
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       const building = await prisma.building.findUnique({
@@ -180,9 +228,9 @@ export async function POST(request: Request) {
         name,
         nameEn: nameEn || undefined,
         code,
-        typeId: typeId || undefined,
+        typeId,
         statusId: statusId || undefined,
-        roomId: roomId || undefined,
+        roomId,
         buildingId,
         companyId,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,

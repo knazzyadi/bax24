@@ -352,7 +352,6 @@ model MaintenanceSchedule {
   branch         Branch?         @relation(fields: [branchId], references: [id])
   building       Building?       @relation(fields: [buildingId], references: [id])
   company        Company         @relation(fields: [companyId], references: [id])
-  frequencyDays  Int?            // ⭐ أضف هذا الحقل
   scheduleAssets ScheduleAsset[]
 }
 

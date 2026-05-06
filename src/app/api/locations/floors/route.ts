@@ -3,8 +3,8 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
-// GET: جلب جميع الأدوار الخاصة بمباني الشركة (للمدير فقط)
-export async function GET() {
+// GET: جلب الأدوار (يمكن فلترتها حسب buildingId)
+export async function GET(request: Request) {
   try {
     const session = await auth();
     if (!session || session.user?.role !== 'ADMIN') {
@@ -16,13 +16,20 @@ export async function GET() {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة بهذا الحساب' }, { status: 400 });
     }
 
-    // جلب جميع الأدوار المرتبطة بمباني الشركة
-    const floors = await prisma.floor.findMany({
-      where: {
-        building: {
-          companyId: companyId,
-        },
+    const { searchParams } = new URL(request.url);
+    const buildingId = searchParams.get('buildingId');
+
+    const where: any = {
+      building: {
+        companyId: companyId,
       },
+    };
+    if (buildingId) {
+      where.buildingId = buildingId;
+    }
+
+    const floors = await prisma.floor.findMany({
+      where,
       select: {
         id: true,
         name: true,
@@ -34,31 +41,21 @@ export async function GET() {
           select: {
             id: true,
             name: true,
+            nameEn: true,
           },
         },
       },
       orderBy: { order: 'asc' },
     });
 
-    // تنسيق البيانات لتناسب الواجهة
-    const formatted = floors.map((f: any) => ({
-      id: f.id,
-      name: f.name,
-      nameEn: f.nameEn,
-      code: f.code,
-      order: f.order,
-      buildingId: f.buildingId,
-      building: f.building,
-    }));
-
-    return NextResponse.json(formatted);
+    return NextResponse.json(floors);
   } catch (error) {
     console.error('GET /api/locations/floors error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-// POST: إضافة دور جديد (للمدير فقط)
+// POST: إضافة دور جديد (للمدير فقط) - بدون تغيير
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -79,7 +76,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // التحقق من أن المبنى ينتمي لنفس الشركة
     const building = await prisma.building.findFirst({
       where: { id: buildingId, companyId },
     });
@@ -90,7 +86,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // التحقق من عدم تكرار الكود في نفس المبنى
     const existingFloor = await prisma.floor.findFirst({
       where: { buildingId, code },
     });
@@ -111,9 +106,7 @@ export async function POST(request: Request) {
       },
     });
 
-    // مسح كاش الصفحة
     revalidatePath('/ar/locations/floors');
-
     return NextResponse.json(newFloor, { status: 201 });
   } catch (error) {
     console.error('POST /api/locations/floors error:', error);

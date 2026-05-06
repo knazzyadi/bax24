@@ -27,10 +27,18 @@ const normalizeBuilding = (b: BuildingType) => ({
   ...b,
   nameEn: b.nameEn ?? undefined,
 });
+
 const normalizeFloor = (f: FloorType) => ({
   ...f,
   nameEn: f.nameEn ?? undefined,
+  // تأكد من وجود building داخل الكائن الذي يعيده API
+  building: f.building ? {
+    id: f.building.id,
+    name: f.building.name,
+    nameEn: f.building.nameEn ?? undefined,
+  } : undefined,
 });
+
 const normalizeRoom = (r: RoomType) => ({
   ...r,
   nameEn: r.nameEn ?? undefined,
@@ -69,16 +77,23 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
       .finally(() => setLoadingBuildings(false));
   }, []);
 
-  // جلب الأدوار عند تغيير المبنى المختار داخلياً
+  // جلب الأدوار عند تغيير المبنى المختار داخلياً - استخدام API الأدوار المحسن
   useEffect(() => {
     if (!selectedBuildingId) {
       setFloors([]);
       return;
     }
     setLoadingFloors(true);
-    fetch(`/api/buildings/${selectedBuildingId}/floors`)
+    fetch(`/api/locations/floors?buildingId=${selectedBuildingId}`)
       .then(res => res.ok ? res.json() : [])
-      .then(setFloors)
+      .then(data => {
+        // تأكد من أن البيانات تحتوي على حقل building
+        const floorsWithBuilding = data.map((floor: any) => ({
+          ...floor,
+          building: floor.building || null,
+        }));
+        setFloors(floorsWithBuilding);
+      })
       .catch(() => setFloors([]))
       .finally(() => setLoadingFloors(false));
   }, [selectedBuildingId]);
@@ -101,7 +116,6 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
     setSelectedBuildingId(buildingId);
     setSelectedFloorId("");
     setSelectedRoomId("");
-    // لا نبلغ الأب حتى يتم اختيار الغرفة
   };
 
   const handleFloorChange = (floorId: string) => {
@@ -111,7 +125,6 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
 
   const handleRoomChange = (roomId: string) => {
     setSelectedRoomId(roomId);
-    // الآن فقط نبلغ الأب بالغرفة المختارة (مع الاحتفاظ بالمبنى والدور للمزامنة المستقبلية)
     onChange({ buildingId: selectedBuildingId, floorId: selectedFloorId, roomId });
   };
 

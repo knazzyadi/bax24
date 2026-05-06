@@ -58,6 +58,17 @@ interface Asset { id: string; name: string; code: string; nameEn?: string; }
 
 type LocationLevel = 'building' | 'floor' | 'room';
 
+// دالة مساعدة لتحويل التردد النصي إلى أيام (للتوافق القديم)
+function frequencyStringToDays(freq: string): number {
+  switch (freq) {
+    case 'DAILY': return 1;
+    case 'WEEKLY': return 7;
+    case 'MONTHLY': return 30;
+    case 'YEARLY': return 365;
+    default: return 30;
+  }
+}
+
 export default function EditMaintenanceSchedulePage() {
   const router = useRouter();
   const params = useParams();
@@ -102,6 +113,7 @@ export default function EditMaintenanceSchedulePage() {
   const [formData, setFormData] = useState({
     name: "",
     frequency: "MONTHLY",
+    frequencyDays: 30,
     leadDays: 30,
     startDate: "",
     assetTypeId: "",
@@ -140,14 +152,20 @@ export default function EditMaintenanceSchedulePage() {
         const res = await fetch(`/api/maintenance/schedules/${id}`);
         if (!res.ok) throw new Error("Failed to fetch");
         const data = await res.json();
+        // حساب frequencyDays: إذا كان موجوداً استخدمه، وإلا احسبه من frequency النصي
+        let freqDays = data.frequencyDays;
+        if (!freqDays && data.frequency) {
+          freqDays = frequencyStringToDays(data.frequency);
+        }
         setFormData({
           name: data.name,
           frequency: data.frequency,
-          leadDays: data.leadDays,
+          frequencyDays: freqDays || 30,
+          leadDays: data.leadDays || 30,
           startDate: data.startDate ? data.startDate.split('T')[0] : "",
           assetTypeId: data.assetTypeId || "",
           notes: data.notes || "",
-          isActive: data.isActive,
+          isActive: data.isActive !== undefined ? data.isActive : true,
         });
         // تعيين الموقع
         if (data.buildingId) {
@@ -320,11 +338,18 @@ export default function EditMaintenanceSchedulePage() {
       return;
     }
 
+    // تحديد frequencyDays النهائي
+    let finalFrequencyDays = formData.frequencyDays;
+    if (!finalFrequencyDays || finalFrequencyDays <= 0) {
+      finalFrequencyDays = frequencyStringToDays(formData.frequency);
+    }
+
     setIsSubmitting(true);
     try {
       const payload: any = {
         name: formData.name,
         frequency: formData.frequency,
+        frequencyDays: finalFrequencyDays,
         leadDays: formData.leadDays,
         startDate: formData.startDate || null,
         branchId,
@@ -409,23 +434,33 @@ export default function EditMaintenanceSchedulePage() {
             </FormField>
             <FormField label={t("frequency")}>
               <Select value={formData.frequency} onValueChange={(v) => setFormData({ ...formData, frequency: v })}>
-            <SelectTrigger className="h-12 rounded-xl">
-                {formData.frequency === "DAILY" ? t("daily") :
-                formData.frequency === "WEEKLY" ? t("weekly") :
-                formData.frequency === "MONTHLY" ? t("monthly") :
-                formData.frequency === "YEARLY" ? t("yearly") :
-                <SelectValue placeholder={t("selectFrequency")} />}
-            </SelectTrigger>
-            <SelectContent>
-                <SelectItem value="DAILY">{t("daily")}</SelectItem>
-                <SelectItem value="WEEKLY">{t("weekly")}</SelectItem>
-                <SelectItem value="MONTHLY">{t("monthly")}</SelectItem>
-                <SelectItem value="YEARLY">{t("yearly")}</SelectItem>
-            </SelectContent>
-            </Select>
+                <SelectTrigger className="h-12 rounded-xl">
+                  {formData.frequency === "DAILY" ? t("daily") :
+                   formData.frequency === "WEEKLY" ? t("weekly") :
+                   formData.frequency === "MONTHLY" ? t("monthly") :
+                   formData.frequency === "YEARLY" ? t("yearly") :
+                   <SelectValue placeholder={t("selectFrequency")} />}
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="DAILY">{t("daily")}</SelectItem>
+                  <SelectItem value="WEEKLY">{t("weekly")}</SelectItem>
+                  <SelectItem value="MONTHLY">{t("monthly")}</SelectItem>
+                  <SelectItem value="YEARLY">{t("yearly")}</SelectItem>
+                </SelectContent>
+              </Select>
             </FormField>
           </div>
           <div className="grid md:grid-cols-3 gap-6 mt-4">
+            <FormField label={t("frequencyDays")} tooltip={isRtl ? "عدد الأيام بين كل صيانة والأخرى (يُحسب تلقائياً إذا ترك فارغاً)" : "Number of days between each maintenance (auto‑calculated if empty)"}>
+              <Input
+                type="number"
+                min={1}
+                value={formData.frequencyDays}
+                onChange={(e) => setFormData({ ...formData, frequencyDays: parseInt(e.target.value) || 0 })}
+                className="h-12 rounded-xl"
+                placeholder={isRtl ? "مثال: 30" : "e.g. 30"}
+              />
+            </FormField>
             <FormField label={t("leadDays")}>
               <Input
                 type="number"
@@ -443,19 +478,19 @@ export default function EditMaintenanceSchedulePage() {
               />
               <p className="text-xs text-muted-foreground mt-1">{t("startDateHint")}</p>
             </FormField>
-            <div className="flex items-end pb-2">
-              <div className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  id="isActive"
-                  checked={formData.isActive}
-                  onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                  className="w-4 h-4 rounded border-gray-300"
-                />
-                <Label htmlFor="isActive" className="cursor-pointer font-black">
-                  {t("active")}
-                </Label>
-              </div>
+          </div>
+          <div className="flex items-center gap-4 mt-4">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="isActive"
+                checked={formData.isActive}
+                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                className="w-4 h-4 rounded border-gray-300"
+              />
+              <Label htmlFor="isActive" className="cursor-pointer font-black">
+                {t("active")}
+              </Label>
             </div>
           </div>
         </FormSection>

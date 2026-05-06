@@ -335,7 +335,8 @@ model WorkOrderAsset {
 model MaintenanceSchedule {
   id             String          @id @default(cuid())
   name           String
-  frequency      String
+  frequency      String          // يمكن الاحتفاظ به للعرض أو الإزالة لاحقاً، لكن نتركه حالياً
+  frequencyDays  Int             @default(0)  // القيمة بعدد الأيام (7 = أسبوعي، 30 = شهري)
   leadDays       Int             @default(30)
   branchId       String?
   buildingId     String?

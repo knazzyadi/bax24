@@ -4,6 +4,24 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 
+// دالة مساعدة لتحويل تردد نصي إلى عدد الأيام
+function frequencyStringToDays(freq: string): number {
+  switch (freq.toLowerCase()) {
+    case 'daily':
+      return 1;
+    case 'weekly':
+      return 7;
+    case 'monthly':
+      return 30;
+    case 'quarterly':
+      return 90;
+    case 'yearly':
+      return 365;
+    default:
+      return 30; // القيمة الافتراضية شهر
+  }
+}
+
 // GET: جلب قائمة جداول الصيانة الوقائية (مع دعم الفلترة والفروع)
 export async function GET(request: NextRequest) {
   try {
@@ -60,13 +78,14 @@ export async function GET(request: NextRequest) {
       prisma.maintenanceSchedule.count({ where }),
     ]);
 
-    // ✅ إضافة نوع صريح للمعامل s
+    // ✅ إضافة frequencyDays في الرد
     const serialized = schedules.map((s: any) => ({
       ...s,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
       startDate: s.startDate?.toISOString() || null,
       lastRunAt: s.lastRunAt?.toISOString() || null,
+      frequencyDays: s.frequencyDays ?? frequencyStringToDays(s.frequency) // احتياطي
     }));
 
     return NextResponse.json({ items: serialized, total, currentPage: page, totalPages: Math.ceil(total / limit), limit });
@@ -88,7 +107,8 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const {
       name,
-      frequency,
+      frequency,        // قد يكون نصياً (للتوافق القديم)
+      frequencyDays,   // العدد الجديد (أيام)
       leadDays,
       startDate,
       branchId,
@@ -112,9 +132,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // تحديد عدد الأيام: الأولوية لـ frequencyDays، ثم تحويل frequency النصي
+    let finalFrequencyDays: number | null = null;
+    if (frequencyDays !== undefined && typeof frequencyDays === 'number') {
+      finalFrequencyDays = frequencyDays;
+    } else if (frequency) {
+      finalFrequencyDays = frequencyStringToDays(frequency);
+    } else {
+      finalFrequencyDays = 30; // القيمة الافتراضية
+    }
+
     const scheduleData: any = {
       name,
-      frequency,
+      frequency: frequency || "monthly",   // نحتفظ بالحقل النصي للتوافق القديم (يمكن حذفه لاحقاً)
+      frequencyDays: finalFrequencyDays,
       leadDays: leadDays || 30,
       startDate: startDate ? new Date(startDate) : null,
       branchId: branchId || null,

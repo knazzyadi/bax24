@@ -13,8 +13,8 @@ interface Floor {
   id: string;
   name: string;
   nameEn: string | null;
-  buildingId: string; // ✅ إضافة buildingId
-  building?: { id: string; name: string };
+  buildingId: string;
+  building?: { id: string; name: string; nameEn: string | null };
 }
 
 interface Room {
@@ -25,6 +25,7 @@ interface Room {
   order: number;
   floorId: string;
   floor: Floor;
+  building?: { id: string; name: string; nameEn: string | null };
 }
 
 function RoomsPageContent() {
@@ -44,7 +45,7 @@ function RoomsPageContent() {
     code: '',
     order: 0,
     floorId: '',
-    buildingId: '', // ✅ حقل جديد
+    buildingId: '',
   });
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -85,7 +86,6 @@ function RoomsPageContent() {
     }
   };
 
-  // عند تغيير floorId، نبحث عن buildingId من القائمة
   const handleFloorChange = (floorId: string) => {
     const selectedFloor = floors.find(f => f.id === floorId);
     setForm(prev => ({
@@ -110,7 +110,7 @@ function RoomsPageContent() {
         code: form.code,
         order: form.order,
         floorId: form.floorId,
-        buildingId: form.buildingId, // ✅ إرسال buildingId
+        buildingId: form.buildingId,
       };
       const res = await fetch(url, {
         method,
@@ -155,7 +155,7 @@ function RoomsPageContent() {
       code: room.code,
       order: room.order,
       floorId: room.floorId,
-      buildingId: room.floor.buildingId,
+      buildingId: room.floor?.buildingId || room.building?.id || '',
     });
     setShowForm(true);
   };
@@ -263,7 +263,9 @@ function RoomsPageContent() {
             {rooms.map((room, idx) => (
               <tr key={room.id} className="border-b border-border hover:bg-muted/30">
                 <td className="p-2">{idx + 1}</td>
-                <td className="p-2">{room.floor.name}</td>
+                <td className="p-2">
+                  {room.building?.name ? `${room.building.name} - ` : ''}{room.floor?.name || ''}
+                </td>
                 <td className="p-2">{room.name}</td>
                 <td className="p-2">{room.nameEn || '-'}</td>
                 <td className="p-2">{room.code}</td>

@@ -1,4 +1,3 @@
-// src/app/[locale]/(dashboard)/locations/rooms/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -14,7 +13,7 @@ interface Floor {
   name: string;
   nameEn: string | null;
   buildingId: string;
-  building?: { id: string; name: string; nameEn: string | null };
+  building?: { id: string; name: string; nameEn?: string | null };
 }
 
 interface Room {
@@ -24,8 +23,7 @@ interface Room {
   code: string;
   order: number;
   floorId: string;
-  floor: Floor;
-  building?: { id: string; name: string; nameEn: string | null };
+  floor: Floor & { building?: { id: string; name: string; nameEn?: string | null } };
 }
 
 function RoomsPageContent() {
@@ -80,6 +78,7 @@ function RoomsPageContent() {
       const res = await fetch('/api/locations/floors');
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
+      // تأكد من أن كل دور يحتوي على buildingId و building.name (حتى نعرضه في القائمة)
       setFloors(data);
     } catch (err: any) {
       console.error(err);
@@ -97,7 +96,8 @@ function RoomsPageContent() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.floorId || !form.buildingId) {
+    // تحقق من الحقول الأساسية
+    if (!form.name.trim() || !form.code.trim() || !form.floorId || !form.buildingId) {
       setMessage({ type: 'error', text: t('requiredFields') });
       return;
     }
@@ -148,6 +148,8 @@ function RoomsPageContent() {
   };
 
   const editRoom = (room: Room) => {
+    // عند التعديل، نحتاج إلى تعيين buildingId من بيانات الدور
+    const floor = floors.find(f => f.id === room.floorId);
     setEditing(room);
     setForm({
       name: room.name,
@@ -155,7 +157,7 @@ function RoomsPageContent() {
       code: room.code,
       order: room.order,
       floorId: room.floorId,
-      buildingId: room.floor.buildingId,
+      buildingId: floor?.buildingId || room.floor?.building?.id || '',
     });
     setShowForm(true);
   };
@@ -208,7 +210,6 @@ function RoomsPageContent() {
                 </option>
               ))}
             </select>
-            {/* باقي الحقول كما هي */}
             <input
               type="text"
               placeholder={t('nameAr')}
@@ -265,7 +266,7 @@ function RoomsPageContent() {
               <tr key={room.id} className="border-b border-border hover:bg-muted/30">
                 <td className="p-2">{idx + 1}</td>
                 <td className="p-2">
-                  {room.building?.name ? `${room.building.name} - ` : ''}{room.floor.name}
+                  {room.floor?.building?.name ? `${room.floor.building.name} - ` : ''}{room.floor.name}
                 </td>
                 <td className="p-2">{room.name}</td>
                 <td className="p-2">{room.nameEn || '-'}</td>

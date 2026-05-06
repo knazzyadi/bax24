@@ -4,9 +4,23 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/permissions';
 
-// ========== دالة توليد كود فريد لكل نوع أصل ==========
-async function generateAssetCode(companyId: string, typeId: string): Promise<string> {
-  // 1. الحصول على رمز نوع الأصل (مثل "EL", "MED")
+// ========== دالة توليد كود فريد لكل فرع+نوع ==========
+async function generateAssetCode(
+  companyId: string,
+  branchId: string,
+  typeId: string
+): Promise<string> {
+  // 1. الحصول على رمز الفرع (مثل "BR01")
+  const branch = await prisma.branch.findUnique({
+    where: { id: branchId },
+    select: { code: true },
+  });
+  if (!branch || !branch.code) {
+    throw new Error('الفرع غير صالح أو لا يحتوي على رمز (code)');
+  }
+  const branchCode = branch.code;
+
+  // 2. الحصول على رمز نوع الأصل (مثل "EL", "MED")
   const assetType = await prisma.assetType.findUnique({
     where: { id: typeId },
     select: { code: true },
@@ -16,10 +30,11 @@ async function generateAssetCode(companyId: string, typeId: string): Promise<str
   }
   const typeCode = assetType.code;
 
-  // 2. البحث عن آخر أصل من نفس النوع ونفس الشركة (للتسلسل)
+  // 3. البحث عن آخر أصل لنفس (الفرع + النوع) في نفس الشركة
   const lastAsset = await prisma.asset.findFirst({
     where: {
       companyId,
+      branchId,
       typeId,
       deletedAt: null,
     },
@@ -29,15 +44,14 @@ async function generateAssetCode(companyId: string, typeId: string): Promise<str
 
   let nextNumber = 1;
   if (lastAsset?.code) {
-    // استخراج الرقم التسلسلي من الكود (مفترضاً الصيغة "AST-0001-EL")
-    const match = lastAsset.code.match(/AST-(\d+)-/);
+    // استخراج الرقم التسلسلي من الكود (بافتراض الصيغة ATS-فرع-نوع-XXXX)
+    const match = lastAsset.code.match(/-(\d{4})$/);
     if (match) {
       nextNumber = parseInt(match[1]) + 1;
     }
   }
-
   const paddedNumber = nextNumber.toString().padStart(4, '0');
-  return `AST-${paddedNumber}-${typeCode}`;
+  return `ATS-${branchCode}-${typeCode}-${paddedNumber}`;
 }
 
 export async function GET(request: Request) {
@@ -167,10 +181,8 @@ export async function POST(request: Request) {
     await requirePermission('assets.create', session);
 
     const body = await request.json();
-    // ✅ removed 'code' from destructuring – it will be auto‑generated
     const { name, nameEn, typeId, statusId, roomId, purchaseDate, warrantyEnd, notes } = body;
 
-    // ✅ 'code' no longer required; 'typeId' becomes mandatory
     if (!name || !typeId || !roomId) {
       return NextResponse.json({ error: 'الاسم، نوع الأصل، والموقع إلزامية' }, { status: 400 });
     }
@@ -180,7 +192,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
     }
 
-    // ✅ التحقق من وجود نوع الأصل (للتأكد من وجود رمز)
+    // الحصول على buildingId ثم branchId من الغرفة
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      select: {
+        buildingId: true,
+        building: { select: { branchId: true } }
+      },
+    });
+    if (!room) {
+      return NextResponse.json({ error: 'الغرفة غير موجودة' }, { status: 400 });
+    }
+    const buildingId = room.buildingId;
+    const branchId = room.building?.branchId;
+    if (!branchId) {
+      return NextResponse.json({ error: 'الغرفة غير مرتبطة بفرع' }, { status: 400 });
+    }
+
+    // التحقق من وجود نوع الأصل مع رمز
     const assetType = await prisma.assetType.findUnique({
       where: { id: typeId },
       select: { code: true },
@@ -189,28 +218,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'نوع الأصل غير صالح أو لا يحتوي على رمز (code)' }, { status: 400 });
     }
 
-    // ✅ توليد الكود تلقائياً
-    const code = await generateAssetCode(companyId, typeId);
+    // توليد الكود باستخدام الفرع والنوع
+    const code = await generateAssetCode(companyId, branchId, typeId);
 
-    // (اختياري) يمكنك إزالة التحقق من وجود الكود لأنه مضمون أنه فريد بفضل التوليد
-    // لكن نبقيه للتأكد
+    // التحقق من عدم تكرار الكود (للأمان)
     const existing = await prisma.asset.findFirst({
       where: { code, companyId },
     });
     if (existing) {
-      // هذا لا يجب أن يحدث أبداً، لكن للمرونة
       return NextResponse.json({ error: 'تعارض في توليد الكود، حاول مرة أخرى' }, { status: 409 });
     }
 
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
-      select: { buildingId: true },
-    });
-    if (!room) {
-      return NextResponse.json({ error: 'الغرفة غير موجودة' }, { status: 400 });
-    }
-    const buildingId = room.buildingId;
-
+    // التحقق من صلاحية المستخدم على المبنى (لغير الأدمن)
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       const building = await prisma.building.findUnique({
@@ -232,6 +251,7 @@ export async function POST(request: Request) {
         statusId: statusId || undefined,
         roomId,
         buildingId,
+        branchId,
         companyId,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
         warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,

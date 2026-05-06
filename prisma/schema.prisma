@@ -94,6 +94,7 @@ model Branch {
   company              Company               @relation(fields: [companyId], references: [id])
   buildings            Building[]
   userBranches         UserBranch[]
+  assets               Asset[]               // ✅ العلاقة العكسية مع Asset
 
   @@map("branches")
 }
@@ -210,17 +211,21 @@ model Asset {
   qrCode          String?          @unique
   companyId       String
   buildingId      String
+  branchId        String?          @map("branch_id")  // تمت إزالة @db.ObjectId
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
   scheduleAssets  ScheduleAsset[]
   tickets         Ticket[]
   workOrderAssets WorkOrderAsset[]
+  
+  // علاقات
   building        Building         @relation(fields: [buildingId], references: [id])
   company         Company          @relation(fields: [companyId], references: [id])
   room            Room?            @relation(fields: [roomId], references: [id])
   status          AssetStatus?     @relation(fields: [statusId], references: [id])
   type            AssetType?       @relation(fields: [typeId], references: [id])
+  branch          Branch?          @relation(fields: [branchId], references: [id])
 
   @@unique([companyId, code])
   @@index([companyId])

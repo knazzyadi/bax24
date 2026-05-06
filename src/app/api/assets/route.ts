@@ -4,7 +4,7 @@ import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/permissions';
 
-// ========== دالة توليد كود فريد لكل فرع+نوع ==========
+// ========== دالة توليد كود فريد لكل (فرع + نوع) ==========
 async function generateAssetCode(
   companyId: string,
   branchId: string,
@@ -20,7 +20,7 @@ async function generateAssetCode(
   }
   const branchCode = branch.code;
 
-  // 2. الحصول على رمز نوع الأصل (مثل "EL", "MED")
+  // 2. الحصول على رمز نوع الأصل (مثل "EL", "MED", "FS")
   const assetType = await prisma.assetType.findUnique({
     where: { id: typeId },
     select: { code: true },
@@ -44,12 +44,13 @@ async function generateAssetCode(
 
   let nextNumber = 1;
   if (lastAsset?.code) {
-    // استخراج الرقم التسلسلي من الكود (بافتراض الصيغة ATS-فرع-نوع-XXXX)
+    // استخراج الرقم التسلسلي من آخر كود (بصيغة ATS-XXXX-XXXX-1234)
     const match = lastAsset.code.match(/-(\d{4})$/);
     if (match) {
       nextNumber = parseInt(match[1]) + 1;
     }
   }
+
   const paddedNumber = nextNumber.toString().padStart(4, '0');
   return `ATS-${branchCode}-${typeCode}-${paddedNumber}`;
 }
@@ -192,7 +193,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
     }
 
-    // الحصول على buildingId ثم branchId من الغرفة
+    // الحصول على buildingId و branchId من الغرفة
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       select: {

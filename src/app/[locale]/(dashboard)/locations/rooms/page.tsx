@@ -155,7 +155,7 @@ function RoomsPageContent() {
       code: room.code,
       order: room.order,
       floorId: room.floorId,
-      buildingId: room.floor?.buildingId || room.building?.id || '',
+      buildingId: room.floor.buildingId,
     });
     setShowForm(true);
   };
@@ -204,10 +204,11 @@ function RoomsPageContent() {
               <option value="">{t('floor')}</option>
               {floors.map((f) => (
                 <option key={f.id} value={f.id}>
-                  {f.name} {f.nameEn ? `(${f.nameEn})` : ''}
+                  {f.building?.name ? `${f.building.name} - ` : ''}{f.name} {f.nameEn ? `(${f.nameEn})` : ''}
                 </option>
               ))}
             </select>
+            {/* باقي الحقول كما هي */}
             <input
               type="text"
               placeholder={t('nameAr')}
@@ -264,7 +265,7 @@ function RoomsPageContent() {
               <tr key={room.id} className="border-b border-border hover:bg-muted/30">
                 <td className="p-2">{idx + 1}</td>
                 <td className="p-2">
-                  {room.building?.name ? `${room.building.name} - ` : ''}{room.floor?.name || ''}
+                  {room.building?.name ? `${room.building.name} - ` : ''}{room.floor.name}
                 </td>
                 <td className="p-2">{room.name}</td>
                 <td className="p-2">{room.nameEn || '-'}</td>

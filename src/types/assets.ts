@@ -1,4 +1,4 @@
-// src/types/assets.ts الحل الجذري: نقل جميع الواجهات المشتركة إلى ملف واحد
+// src/types/assets.ts
 /** بدلاً من تكرار تعريفات AssetStatus و AssetType و Building و Floor و Room 
  * في كل ملف، سننشئ ملفًا مركزيًا للأنواع (types) ونستورده في كل مكان
 */
@@ -33,6 +33,12 @@ export interface Floor {
   nameEn?: string | null;
   buildingId: string;
   code?: string;
+  // إضافة building اختيارية للاستخدام في القوائم المنسدلة
+  building?: {
+    id: string;
+    name: string;
+    nameEn?: string | null;
+  };
 }
 
 export interface Room {

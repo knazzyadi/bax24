@@ -21,7 +21,8 @@ async function getAuthorizedRoom(id: string, companyId: string) {
       assets: { select: { id: true } },
       workOrders: { select: { id: true } },
       inventoryItems: { select: { id: true } },
-      maintenanceReports: { select: { id: true } },
+      // ✅ تمت إزالة maintenanceReports لأنه غير موجود في نموذج Prisma
+      // maintenanceReports: { select: { id: true } },
     },
   });
 }
@@ -148,7 +149,8 @@ export async function DELETE(
     if (room.assets.length) relations.push(`${room.assets.length} أصل`);
     if (room.workOrders.length) relations.push(`${room.workOrders.length} أمر عمل`);
     if (room.inventoryItems.length) relations.push(`${room.inventoryItems.length} مخزون`);
-    if (room.maintenanceReports.length) relations.push(`${room.maintenanceReports.length} بلاغ`);
+    // تم إزالة maintenanceReports لأنه غير موجود
+    // if (room.maintenanceReports?.length) relations.push(`${room.maintenanceReports.length} بلاغ`);
 
     if (relations.length > 0) {
       return NextResponse.json(

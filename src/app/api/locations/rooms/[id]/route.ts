@@ -33,6 +33,8 @@ export async function PUT(
 ) {
   try {
     const session = await auth();
+    console.log('🔍 PUT /api/locations/rooms/[id] - session:', session?.user?.email);
+
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -43,7 +45,10 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const { name, nameEn, code, order, floorId, buildingId } = await request.json();
+    const body = await request.json();
+    const { name, nameEn, code, order, floorId, buildingId } = body;
+
+    console.log('📦 PUT room data:', { id, name, nameEn, code, order, floorId, buildingId });
 
     if (!name || !code || !floorId || !buildingId) {
       return NextResponse.json(
@@ -119,6 +124,8 @@ export async function DELETE(
 ) {
   try {
     const session = await auth();
+    console.log('🔍 DELETE /api/locations/rooms/[id] - session:', session?.user?.email);
+
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -129,6 +136,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
+    console.log('🗑️ DELETE room id:', id);
 
     const room = await getAuthorizedRoom(id, companyId);
     if (!room) {

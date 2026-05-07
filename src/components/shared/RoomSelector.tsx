@@ -1,16 +1,16 @@
 // src/components/shared/RoomSelector.tsx
-//وظيفتهم اختيار مبنى → دور → غرفة
 "use client";
 
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 
 export interface Room {
   id: string;
-  name: string;          // اسم الغرفة فقط (للعرض داخل القائمة)
-  displayName?: string;  // الاسم مع الكود (للعرض في الحقل بعد الاختيار)
+  name: string;
+  nameEn?: string;
   floorId: string;
   buildingId?: string;
+  displayName?: string; // الاسم مع الكود (اختياري)
 }
 
 interface RoomSelectorProps {
@@ -19,6 +19,8 @@ interface RoomSelectorProps {
   rooms: Room[];
   floorId?: string;
   placeholder?: string;
+  emptyMessage?: string;
+  noFloorMessage?: string;
   loading?: boolean;
 }
 
@@ -28,17 +30,18 @@ export function RoomSelector({
   rooms, 
   floorId, 
   placeholder = "اختر الغرفة",
+  emptyMessage = "لا توجد غرف",
+  noFloorMessage = "اختر الدور أولاً",
   loading = false
 }: RoomSelectorProps) {
   const isDisabled = !floorId || loading;
 
   const getPlaceholderText = () => {
-    if (!floorId) return "اختر الدور أولاً";
+    if (!floorId) return noFloorMessage;
     if (loading) return "جاري التحميل...";
     return placeholder;
   };
 
-  // العثور على الغرفة المختارة للحصول على displayName
   const selectedRoom = rooms.find(r => r.id === value);
   const displayValue = selectedRoom?.displayName || selectedRoom?.name || "";
 
@@ -57,12 +60,12 @@ export function RoomSelector({
       <SelectContent>
         {rooms.map((room) => (
           <SelectItem key={room.id} value={room.id}>
-            {room.name}   {/* نعرض الاسم فقط داخل القائمة */}
+            {room.name}
           </SelectItem>
         ))}
         {rooms.length === 0 && !loading && floorId && (
           <div className="px-3 py-2 text-sm text-muted-foreground text-center">
-            لا توجد غرف
+            {emptyMessage}
           </div>
         )}
       </SelectContent>

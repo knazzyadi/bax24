@@ -843,6 +843,14 @@
     "next": "Next"
   },
   "AssetsForm": {
+    "selectBuilding": "Select building",
+    "noBuildings": "No buildings found",
+    "selectFloor": "Select floor",
+    "noFloors": "No floors found",
+    "selectBuildingFirst": "Select a building first",
+    "selectRoom": "Select room",
+    "noRooms": "No rooms found",
+    "selectFloorFirst": "Select a floor first",
     "pageTitle": "Register Asset",
     "pageSubtitle": "Add new record",
     "bulkImportTitle": "Bulk Asset Import",

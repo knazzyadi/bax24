@@ -63,6 +63,17 @@ export default function NewAssetPage() {
   const locale = useLocale();
   const t = useTranslations('AssetsForm');
   const isRtl = locale === "ar";
+
+  // تعريف نصوص placeholder المترجمة باستخدام useTranslations
+  const buildingPlaceholder = t('selectBuilding');
+  const buildingEmpty = t('noBuildings');
+  const floorPlaceholder = t('selectFloor');
+  const floorEmpty = t('noFloors');
+  const floorNoBuilding = t('selectBuildingFirst');
+  const roomPlaceholder = t('selectRoom');
+  const roomEmpty = t('noRooms');
+  const roomNoFloor = t('selectFloorFirst');
+  
   
   const [loading, setLoading] = useState(false);
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
@@ -398,7 +409,7 @@ export default function NewAssetPage() {
         actions={
           <Button 
             variant="outline" 
-            className="rounded-full border-primary text-primary hover:bg-primary/10 gap-2"
+            className="rounded-full border-primary text-primary hover:bg-primary/10 gap-2 font-normal"
             onClick={() => setBulkDialogOpen(true)}
           >
             <Upload className="h-4 w-4" />
@@ -410,18 +421,18 @@ export default function NewAssetPage() {
       <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
         <DialogContent className="max-w-7xl max-h-[85vh] overflow-y-auto rounded-2xl bg-card border-border shadow-xl p-0">
           <DialogHeader className="sticky top-0 z-10 bg-card border-b border-border px-6 py-4">
-            <DialogTitle className="text-xl font-black">
+            <DialogTitle className="text-xl font-semibold">
               {t('bulkImportTitle')}
             </DialogTitle>
           </DialogHeader>
           <div className="p-6 space-y-6">
             <div className="flex flex-wrap gap-3 items-center">
-              <Button type="button" variant="outline" onClick={downloadTemplate} className="gap-2 rounded-full">
+              <Button type="button" variant="outline" onClick={downloadTemplate} className="gap-2 rounded-full font-normal">
                 <FileUp className="h-4 w-4" /> {t('bulkImportTemplate')}
               </Button>
               <label className="cursor-pointer">
                 <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
-                <Button type="button" variant="secondary" className="gap-2 rounded-full">
+                <Button type="button" variant="secondary" className="gap-2 rounded-full font-normal">
                   <Upload className="h-4 w-4" /> {t('bulkUploadCSV')}
                 </Button>
               </label>
@@ -432,15 +443,15 @@ export default function NewAssetPage() {
                 <Table>
                   <TableHeader className="bg-muted/50">
                     <TableRow>
-                      <TableHead className="whitespace-nowrap">{t('tableName')}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t('tableType')}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t('tableStatus')}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t('tableBuilding')}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t('tableFloor')}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t('tableRoom')}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t('tablePurchaseDate')}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t('tableWarrantyEnd')}</TableHead>
-                      <TableHead className="whitespace-nowrap">{t('tableNotes')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tableName')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tableType')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tableStatus')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tableBuilding')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tableFloor')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tableRoom')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tablePurchaseDate')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tableWarrantyEnd')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tableNotes')}</TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -521,14 +532,14 @@ export default function NewAssetPage() {
             </div>
 
             <div className="flex flex-wrap justify-between items-center gap-4 pt-2">
-              <Button type="button" variant="outline" onClick={addBulkRow} className="gap-2 rounded-full">
+              <Button type="button" variant="outline" onClick={addBulkRow} className="gap-2 rounded-full font-normal">
                 <Plus className="h-4 w-4" /> {t('bulkAddRow')}
               </Button>
               <div className="flex gap-3">
-                <Button type="button" variant="ghost" onClick={() => setBulkDialogOpen(false)} className="rounded-full">
+                <Button type="button" variant="ghost" onClick={() => setBulkDialogOpen(false)} className="rounded-full font-normal">
                   {t('bulkCancel')}
                 </Button>
-                <Button onClick={saveBulkAssets} disabled={bulkLoading} className="rounded-full bg-primary hover:bg-primary/90">
+                <Button onClick={saveBulkAssets} disabled={bulkLoading} className="rounded-full bg-primary hover:bg-primary/90 font-normal">
                   {bulkLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : t('bulkSaveAll')}
                 </Button>
               </div>
@@ -543,18 +554,18 @@ export default function NewAssetPage() {
             <InfoCard title={t('basicInfo')} icon={<FileText className="h-5 w-5" />}>
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">{t('name')} *</Label>
+                  <Label className="text-sm font-medium text-muted-foreground/70">{t('name')} *</Label>
                   <Input 
                     name="name" 
                     value={formData.name} 
                     onChange={handleChange} 
                     placeholder={t('namePlaceholder')} 
                     required 
-                    className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6 w-full placeholder:text-muted-foreground/50" 
+                    className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary text-lg px-6 w-full placeholder:text-muted-foreground/50" 
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-1">
+                  <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-1">
                     <Globe className="h-4 w-4" /> {t('nameEn')}
                   </Label>
                   <Input 
@@ -562,14 +573,14 @@ export default function NewAssetPage() {
                     value={formData.nameEn} 
                     onChange={handleChange} 
                     placeholder={t('nameEnPlaceholder')} 
-                    className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6 w-full placeholder:text-muted-foreground/50" 
+                    className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary text-lg px-6 w-full placeholder:text-muted-foreground/50" 
                   />
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-muted-foreground/70">{t('type')}</Label>
+                    <Label className="text-muted-foreground/70 font-medium">{t('type')}</Label>
                     <Select value={formData.typeId} onValueChange={(v) => handleSelectChange("typeId", v)} disabled={types.length === 0}>
-                      <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background font-black px-6">
+                      <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background px-6">
                         {(() => {
                           const selected = types.find(t => t.id === formData.typeId);
                           if (selected) return isRtl ? selected.name : (selected.nameEn || selected.name);
@@ -587,9 +598,9 @@ export default function NewAssetPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-muted-foreground/70">{t('status')}</Label>
+                    <Label className="text-muted-foreground/70 font-medium">{t('status')}</Label>
                     <Select value={formData.statusId} onValueChange={(v) => handleSelectChange("statusId", v)} disabled={statuses.length === 0}>
-                      <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background font-black px-6">
+                      <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background px-6">
                         {(() => {
                           const selected = statuses.find(s => s.id === formData.statusId);
                           if (selected) return isRtl ? selected.name : (selected.nameEn || selected.name);
@@ -610,12 +621,12 @@ export default function NewAssetPage() {
                 
                 <div className={containerClass}>
                   <div className="space-y-3">
-                    <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
+                    <h3 className="text-foreground font-medium text-lg uppercase tracking-widest flex items-center gap-2">
                       <MapPin size={16} /> {t('locationDetails')}
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <div className="space-y-2">
-                        <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+                        <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
                           <BuildingIcon size={12} /> {t('buildingLabel')}
                         </Label>
                         <BuildingSelector
@@ -623,10 +634,12 @@ export default function NewAssetPage() {
                           onValueChange={handleBuildingChange}
                           buildings={buildings.map(normalizeBuilding)}
                           loading={buildings.length === 0}
+                          placeholder={buildingPlaceholder}
+                          emptyMessage={buildingEmpty}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+                        <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
                           <Layers size={12} /> {t('floorLabel')}
                         </Label>
                         <FloorSelector
@@ -635,10 +648,13 @@ export default function NewAssetPage() {
                           floors={floors.map(normalizeFloor)}
                           buildingId={buildingId}
                           loading={loadingFloors}
+                          placeholder={floorPlaceholder}
+                          emptyMessage={floorEmpty}
+                          noBuildingMessage={floorNoBuilding}
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+                        <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
                           <DoorOpen size={12} /> {t('roomLabel')}
                         </Label>
                         <RoomSelector
@@ -647,6 +663,9 @@ export default function NewAssetPage() {
                           rooms={rooms.map(normalizeRoom)}
                           floorId={floorId}
                           loading={loadingRooms}
+                          placeholder={roomPlaceholder}
+                          emptyMessage={roomEmpty}
+                          noFloorMessage={roomNoFloor}
                         />
                       </div>
                     </div>
@@ -654,10 +673,10 @@ export default function NewAssetPage() {
                       <div className="mt-5 relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-lg">
                         <div className="absolute inset-0 bg-primary/20 blur-2xl opacity-30" />
                         <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-2">
-                          <span className="text-sm font-bold text-foreground">
+                          <span className="text-sm font-medium text-foreground">
                             {t('selectedRoom')}
                           </span>
-                          <span className="text-sm font-mono font-black text-primary tracking-wider">
+                          <span className="text-sm font-mono font-medium text-primary tracking-wider">
                             {(() => {
                               const selectedRoom = rooms.find(r => r.id === roomId);
                               return selectedRoom ? `${selectedRoom.name} — ${selectedRoom.fullCode || selectedRoom.code}` : selectedRoomFullCode;
@@ -674,7 +693,7 @@ export default function NewAssetPage() {
             <InfoCard title={t('lifecycle')} icon={<ShieldCheck className="h-5 w-5 text-emerald-500/70" />}>
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground/70">{t('purchaseDate')}</Label>
+                  <Label className="text-muted-foreground/70 font-medium">{t('purchaseDate')}</Label>
                   <div className="relative">
                     <Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" />
                     <Input 
@@ -682,12 +701,12 @@ export default function NewAssetPage() {
                       type="date" 
                       value={formData.purchaseDate} 
                       onChange={handleChange} 
-                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-primary font-black w-full" 
+                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-primary w-full" 
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground/70">{t('warrantyEnd')}</Label>
+                  <Label className="text-muted-foreground/70 font-medium">{t('warrantyEnd')}</Label>
                   <div className="relative">
                     <ShieldCheck className="absolute right-4 top-4 h-5 w-5 text-emerald-500/70" />
                     <Input 
@@ -695,7 +714,7 @@ export default function NewAssetPage() {
                       type="date" 
                       value={formData.warrantyEnd} 
                       onChange={handleChange} 
-                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-emerald-500/50 font-black w-full" 
+                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-emerald-500/50 w-full" 
                     />
                   </div>
                 </div>
@@ -711,19 +730,19 @@ export default function NewAssetPage() {
                   value={formData.notes} 
                   onChange={handleChange} 
                   placeholder={t('notesPlaceholder')} 
-                  className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-6 resize-none leading-relaxed min-h-[120px] w-full" 
+                  className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary p-6 resize-none leading-relaxed min-h-[120px] w-full" 
                 />
                 <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 border border-primary/10">
                   <Info className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
-                  <p className="text-[11px] font-bold text-primary/70 leading-tight italic">{t('infoText')}</p>
+                  <p className="text-[11px] font-medium text-primary/70 leading-tight italic">{t('infoText')}</p>
                 </div>
               </div>
             </InfoCard>
             <div className="flex gap-3">
-              <Button type="button" onClick={() => router.back()} variant="outline" className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-black">
+              <Button type="button" onClick={() => router.back()} variant="outline" className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium">
                 {t('cancel')}
               </Button>
-              <Button type="submit" disabled={loading} className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black h-12">
+              <Button type="submit" disabled={loading} className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-12">
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
                 {t('submit')}
               </Button>

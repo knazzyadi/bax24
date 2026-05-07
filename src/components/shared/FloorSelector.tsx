@@ -1,5 +1,4 @@
 // src/components/shared/FloorSelector.tsx
-//وظيفتهم اختيار مبنى → دور → غرفة
 "use client";
 
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
@@ -8,6 +7,7 @@ import { Loader2 } from "lucide-react";
 export interface Floor {
   id: string;
   name: string;
+  nameEn?: string;
   buildingId: string;
 }
 
@@ -17,6 +17,8 @@ interface FloorSelectorProps {
   floors: Floor[];
   buildingId?: string;
   placeholder?: string;
+  emptyMessage?: string;
+  noBuildingMessage?: string;
   loading?: boolean;
 }
 
@@ -26,17 +28,18 @@ export function FloorSelector({
   floors, 
   buildingId, 
   placeholder = "اختر الدور",
+  emptyMessage = "لا توجد أدوار",
+  noBuildingMessage = "اختر المبنى أولاً",
   loading = false
 }: FloorSelectorProps) {
   const filteredFloors = floors.filter((f) => f.buildingId === buildingId);
   const isDisabled = !buildingId || loading;
   
-  // العثور على اسم الدور المحدد
   const selectedFloor = filteredFloors.find((f) => f.id === value);
   const displayValue = selectedFloor ? selectedFloor.name : undefined;
 
   const getPlaceholderText = () => {
-    if (!buildingId) return "اختر المبنى أولاً";
+    if (!buildingId) return noBuildingMessage;
     if (loading) return "جاري التحميل...";
     return placeholder;
   };
@@ -61,7 +64,7 @@ export function FloorSelector({
         ))}
         {filteredFloors.length === 0 && !loading && buildingId && (
           <div className="px-3 py-2 text-sm text-muted-foreground text-center">
-            لا توجد أدوار
+            {emptyMessage}
           </div>
         )}
       </SelectContent>

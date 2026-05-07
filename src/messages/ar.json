@@ -845,6 +845,14 @@
     "next": "التالي"
   },
   "AssetsForm": {
+    "selectBuilding": "اختر المبنى",
+    "noBuildings": "لا توجد مباني",
+    "selectFloor": "اختر الدور",
+    "noFloors": "لا توجد أدوار",
+    "selectBuildingFirst": "اختر المبنى أولاً",
+    "selectRoom": "اختر الغرفة",
+    "noRooms": "لا توجد غرف",
+    "selectFloorFirst": "اختر الدور أولاً",
     "allTypes": "جميع الأنواع",
     "allStatuses": "جميع الحالات",
     "pageTitle": "تسجيل أصل",

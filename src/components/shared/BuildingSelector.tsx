@@ -1,8 +1,7 @@
 // src/components/shared/BuildingSelector.tsx
-//وظيفتهم اختيار مبنى → دور → غرفة
 "use client";
 
-import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 
 export interface Building {
@@ -17,6 +16,7 @@ interface BuildingSelectorProps {
   onValueChange: (value: string) => void;
   buildings: Building[];
   placeholder?: string;
+  emptyMessage?: string;
   loading?: boolean;
 }
 
@@ -25,17 +25,17 @@ export function BuildingSelector({
   onValueChange, 
   buildings, 
   placeholder = "اختر المبنى",
+  emptyMessage = "لا توجد مباني",
   loading = false
 }: BuildingSelectorProps) {
   const isDisabled = loading || buildings.length === 0;
   
-  // العثور على اسم المبنى المحدد
   const selectedBuilding = buildings.find((b) => b.id === value);
   const displayValue = selectedBuilding ? selectedBuilding.name : undefined;
 
   const getPlaceholderText = () => {
     if (loading) return "جاري التحميل...";
-    if (buildings.length === 0) return "لا توجد مباني";
+    if (buildings.length === 0) return emptyMessage;
     return placeholder;
   };
 
@@ -59,7 +59,7 @@ export function BuildingSelector({
         ))}
         {buildings.length === 0 && !loading && (
           <div className="px-3 py-2 text-sm text-muted-foreground text-center">
-            لا توجد مباني لعرضها
+            {emptyMessage}
           </div>
         )}
       </SelectContent>

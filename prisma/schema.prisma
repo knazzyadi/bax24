@@ -5,8 +5,8 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
-  directUrl = env("DIRECT_URL")
 }
+
 model Company {
   id                    String                @id @default(cuid())
   name                  String                @unique
@@ -91,10 +91,10 @@ model Branch {
   maintenanceSchedules MaintenanceSchedule[]
   tickets              Ticket[]
   workOrders           WorkOrder[]
+  assets               Asset[]
   company              Company               @relation(fields: [companyId], references: [id])
   buildings            Building[]
   userBranches         UserBranch[]
-  assets               Asset[]               // ✅ العلاقة العكسية مع Asset
 
   @@map("branches")
 }
@@ -211,21 +211,19 @@ model Asset {
   qrCode          String?          @unique
   companyId       String
   buildingId      String
-  branchId        String?          @map("branch_id")  // تمت إزالة @db.ObjectId
   createdAt       DateTime         @default(now())
   updatedAt       DateTime         @updatedAt
   deletedAt       DateTime?
+  branchId        String?          @map("branch_id")
   scheduleAssets  ScheduleAsset[]
   tickets         Ticket[]
   workOrderAssets WorkOrderAsset[]
-  
-  // علاقات
+  branch          Branch?          @relation(fields: [branchId], references: [id])
   building        Building         @relation(fields: [buildingId], references: [id])
   company         Company          @relation(fields: [companyId], references: [id])
   room            Room?            @relation(fields: [roomId], references: [id])
   status          AssetStatus?     @relation(fields: [statusId], references: [id])
   type            AssetType?       @relation(fields: [typeId], references: [id])
-  branch          Branch?          @relation(fields: [branchId], references: [id])
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -335,8 +333,8 @@ model WorkOrderAsset {
 model MaintenanceSchedule {
   id             String          @id @default(cuid())
   name           String
-  frequency      String          // يمكن الاحتفاظ به للعرض أو الإزالة لاحقاً، لكن نتركه حالياً
-  frequencyDays  Int             @default(0)  // القيمة بعدد الأيام (7 = أسبوعي، 30 = شهري)
+  frequency      String
+  frequencyDays Int?
   leadDays       Int             @default(30)
   branchId       String?
   buildingId     String?

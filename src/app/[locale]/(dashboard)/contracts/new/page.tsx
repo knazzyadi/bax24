@@ -42,7 +42,7 @@ export default function NewContractPage() {
     startDate: "",
     endDate: "",
     description: "",
-    branchId: "",      // ✅ استخدم branchId بدلاً من buildingId
+    branchId: "",
   });
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -152,29 +152,29 @@ export default function NewContractPage() {
               <div className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-sm font-black text-muted-foreground/70">{t('title')} *</Label>
+                    <Label className="text-sm font-medium text-muted-foreground/70">{t('title')} *</Label>
                     <Input
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder={t('titlePlaceholder')}
                       required
-                      className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6"
+                      className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary text-lg px-6"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-black text-muted-foreground/70">{t('code')}</Label>
+                    <Label className="text-sm font-medium text-muted-foreground/70">{t('code')}</Label>
                     <Input
                       value={formData.code}
                       onChange={(e) => setFormData({ ...formData, code: e.target.value })}
                       placeholder="اختياري"
-                      className="h-14 rounded-2xl border-primary bg-background font-bold text-lg px-6"
+                      className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
                     />
                   </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
                       <Building className="h-4 w-4 text-primary" /> {t('supplier')} *
                     </Label>
                     <Input
@@ -182,11 +182,11 @@ export default function NewContractPage() {
                       onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
                       placeholder={t('supplierPlaceholder')}
                       required
-                      className="h-14 rounded-2xl border-primary bg-background font-bold text-lg px-6"
+                      className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-emerald-500" /> {t('value')} *
                     </Label>
                     <Input
@@ -197,14 +197,14 @@ export default function NewContractPage() {
                       onChange={(e) => setFormData({ ...formData, value: e.target.value })}
                       placeholder="0.00"
                       required
-                      className="h-14 rounded-2xl border-primary bg-background font-bold text-lg px-6"
+                      className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
                     />
                   </div>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-primary" /> {t('startDate')} *
                     </Label>
                     <Input
@@ -212,11 +212,11 @@ export default function NewContractPage() {
                       value={formData.startDate}
                       onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                       required
-                      className="h-14 rounded-2xl border-primary bg-background font-bold px-6"
+                      className="h-14 rounded-2xl border-primary bg-background px-6"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
                       <Calendar className="h-4 w-4 text-destructive" /> {t('endDate')} *
                     </Label>
                     <Input
@@ -224,24 +224,24 @@ export default function NewContractPage() {
                       value={formData.endDate}
                       onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
                       required
-                      className="h-14 rounded-2xl border-primary bg-background font-bold px-6"
+                      className="h-14 rounded-2xl border-primary bg-background px-6"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">{t('description')}</Label>
+                  <Label className="text-sm font-medium text-muted-foreground/70">{t('description')}</Label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                     placeholder={t('descriptionPlaceholder')}
-                    className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-6 min-h-[100px]"
+                    className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary p-6 min-h-[100px]"
                   />
                 </div>
 
                 {/* المرفقات */}
                 <div className="space-y-4">
-                  <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-2">
+                  <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
                     <Paperclip className="h-4 w-4 text-primary" /> {t('attachments')}
                   </Label>
                   <div className="flex items-center gap-3 flex-wrap">
@@ -253,7 +253,7 @@ export default function NewContractPage() {
                         className="hidden"
                         accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                       />
-                      <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors px-4 py-2 text-sm font-black">
+                      <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary hover:bg-primary/20 transition-colors px-4 py-2 text-sm font-medium">
                         <Upload className="h-4 w-4" />
                         {isRtl ? "اختر ملفات" : "Choose Files"}
                       </div>
@@ -266,7 +266,7 @@ export default function NewContractPage() {
 
                   {attachments.length > 0 && (
                     <div className="border border-border rounded-xl overflow-hidden">
-                      <div className="bg-muted/30 px-4 py-2 text-xs font-black text-muted-foreground uppercase tracking-wider">
+                      <div className="bg-muted/30 px-4 py-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">
                         {isRtl ? `المرفقات (${attachments.length})` : `Attachments (${attachments.length})`}
                       </div>
                       <div className="divide-y divide-border">
@@ -283,7 +283,7 @@ export default function NewContractPage() {
                                 )}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <p className="text-sm font-bold truncate">{att.name}</p>
+                                <p className="text-sm font-medium truncate">{att.name}</p>
                                 <p className="text-[10px] text-muted-foreground">{(att.size / 1024).toFixed(0)} KB</p>
                               </div>
                             </div>
@@ -324,7 +324,7 @@ export default function NewContractPage() {
 
             {/* حقل اختيار الفرع */}
             <div className="bg-card border border-primary/30 rounded-2xl p-5 space-y-4">
-              <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-2">
+              <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
                 <Building className="h-4 w-4 text-primary" /> {isRtl ? "الفرع *" : "Branch *"}
               </Label>
               <BranchSelector
@@ -344,14 +344,14 @@ export default function NewContractPage() {
                 type="button"
                 onClick={() => router.back()}
                 variant="outline"
-                className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-black"
+                className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium"
               >
                 {t('cancel')}
               </Button>
               <Button
                 type="submit"
                 disabled={loading}
-                className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black h-12"
+                className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-12"
               >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                 {t('save')}

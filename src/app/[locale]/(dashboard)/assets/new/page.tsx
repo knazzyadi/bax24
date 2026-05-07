@@ -634,8 +634,8 @@ export default function NewAssetPage() {
                           onValueChange={handleBuildingChange}
                           buildings={buildings.map(normalizeBuilding)}
                           loading={buildings.length === 0}
-                          placeholder={buildingPlaceholder}
-                          emptyMessage={buildingEmpty}
+                          placeholder={t('selectBuilding')}
+                          emptyMessage={t('noBuildings')}
                         />
                       </div>
                       <div className="space-y-2">
@@ -648,9 +648,9 @@ export default function NewAssetPage() {
                           floors={floors.map(normalizeFloor)}
                           buildingId={buildingId}
                           loading={loadingFloors}
-                          placeholder={floorPlaceholder}
-                          emptyMessage={floorEmpty}
-                          noBuildingMessage={floorNoBuilding}
+                          placeholder={t('selectFloor')}
+                          emptyMessage={t('noFloors')}
+                          noBuildingMessage={t('selectBuildingFirst')}
                         />
                       </div>
                       <div className="space-y-2">
@@ -663,9 +663,9 @@ export default function NewAssetPage() {
                           rooms={rooms.map(normalizeRoom)}
                           floorId={floorId}
                           loading={loadingRooms}
-                          placeholder={roomPlaceholder}
-                          emptyMessage={roomEmpty}
-                          noFloorMessage={roomNoFloor}
+                          placeholder={t('selectRoom')}
+                          emptyMessage={t('noRooms')}
+                          noFloorMessage={t('selectFloorFirst')}
                         />
                       </div>
                     </div>

@@ -1,8 +1,8 @@
-// src/components/shared/BuildingSelector.tsx
 "use client";
 
-import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { useLocale } from "next-intl";
 
 export interface Building {
   id: string;
@@ -28,13 +28,19 @@ export function BuildingSelector({
   emptyMessage = "لا توجد مباني",
   loading = false
 }: BuildingSelectorProps) {
+  const locale = useLocale();
+  const isRtl = locale === "ar";
   const isDisabled = loading || buildings.length === 0;
-  
+
+  const getDisplayName = (building: Building) => {
+    return isRtl ? building.name : (building.nameEn || building.name);
+  };
+
   const selectedBuilding = buildings.find((b) => b.id === value);
-  const displayValue = selectedBuilding ? selectedBuilding.name : undefined;
+  const displayValue = selectedBuilding ? getDisplayName(selectedBuilding) : undefined;
 
   const getPlaceholderText = () => {
-    if (loading) return "جاري التحميل...";
+    if (loading) return isRtl ? "جاري التحميل..." : "Loading...";
     if (buildings.length === 0) return emptyMessage;
     return placeholder;
   };
@@ -54,7 +60,7 @@ export function BuildingSelector({
       <SelectContent>
         {buildings.map((b) => (
           <SelectItem key={b.id} value={b.id}>
-            {b.name}
+            {getDisplayName(b)}
           </SelectItem>
         ))}
         {buildings.length === 0 && !loading && (

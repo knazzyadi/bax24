@@ -1,16 +1,16 @@
-// src/components/shared/RoomSelector.tsx
 "use client";
 
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { useLocale } from "next-intl";
 
 export interface Room {
   id: string;
   name: string;
   nameEn?: string;
+  displayName?: string;
   floorId: string;
   buildingId?: string;
-  displayName?: string; // الاسم مع الكود (اختياري)
 }
 
 interface RoomSelectorProps {
@@ -34,16 +34,23 @@ export function RoomSelector({
   noFloorMessage = "اختر الدور أولاً",
   loading = false
 }: RoomSelectorProps) {
+  const locale = useLocale();
+  const isRtl = locale === "ar";
   const isDisabled = !floorId || loading;
 
-  const getPlaceholderText = () => {
-    if (!floorId) return noFloorMessage;
-    if (loading) return "جاري التحميل...";
-    return placeholder;
+  const getDisplayName = (room: Room) => {
+    return isRtl ? room.name : (room.nameEn || room.name);
   };
 
   const selectedRoom = rooms.find(r => r.id === value);
-  const displayValue = selectedRoom?.displayName || selectedRoom?.name || "";
+  const displayValue = selectedRoom?.displayName || getDisplayName(selectedRoom);
+
+  const getPlaceholderText = () => {
+    if (!floorId) return noFloorMessage;
+    if (loading) return isRtl ? "جاري التحميل..." : "Loading...";
+    if (rooms.length === 0) return emptyMessage;
+    return placeholder;
+  };
 
   return (
     <Select value={value} onValueChange={onValueChange} disabled={isDisabled}>
@@ -60,7 +67,7 @@ export function RoomSelector({
       <SelectContent>
         {rooms.map((room) => (
           <SelectItem key={room.id} value={room.id}>
-            {room.name}
+            {getDisplayName(room)}
           </SelectItem>
         ))}
         {rooms.length === 0 && !loading && floorId && (

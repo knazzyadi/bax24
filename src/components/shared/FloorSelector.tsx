@@ -1,8 +1,8 @@
-// src/components/shared/FloorSelector.tsx
 "use client";
 
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import { useLocale } from "next-intl";
 
 export interface Floor {
   id: string;
@@ -32,15 +32,22 @@ export function FloorSelector({
   noBuildingMessage = "اختر المبنى أولاً",
   loading = false
 }: FloorSelectorProps) {
+  const locale = useLocale();
+  const isRtl = locale === "ar";
   const filteredFloors = floors.filter((f) => f.buildingId === buildingId);
   const isDisabled = !buildingId || loading;
-  
+
+  const getDisplayName = (floor: Floor) => {
+    return isRtl ? floor.name : (floor.nameEn || floor.name);
+  };
+
   const selectedFloor = filteredFloors.find((f) => f.id === value);
-  const displayValue = selectedFloor ? selectedFloor.name : undefined;
+  const displayValue = selectedFloor ? getDisplayName(selectedFloor) : undefined;
 
   const getPlaceholderText = () => {
     if (!buildingId) return noBuildingMessage;
-    if (loading) return "جاري التحميل...";
+    if (loading) return isRtl ? "جاري التحميل..." : "Loading...";
+    if (filteredFloors.length === 0) return emptyMessage;
     return placeholder;
   };
 
@@ -59,7 +66,7 @@ export function FloorSelector({
       <SelectContent>
         {filteredFloors.map((f) => (
           <SelectItem key={f.id} value={f.id}>
-            {f.name}
+            {getDisplayName(f)}
           </SelectItem>
         ))}
         {filteredFloors.length === 0 && !loading && buildingId && (

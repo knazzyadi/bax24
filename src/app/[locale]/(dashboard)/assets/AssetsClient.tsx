@@ -171,14 +171,16 @@ export default function AssetsClient({
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-black group-hover:text-primary transition-colors duration-200 truncate leading-none text-foreground">
+            {/* ✅ تغيير font-black إلى font-normal */}
+            <h3 className="text-lg font-normal group-hover:text-primary transition-colors duration-200 truncate leading-none text-foreground">
               {isRtl ? asset.name : (asset.nameEn || asset.name)}
             </h3>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-bold">
+          {/* ✅ تغيير font-bold إلى font-normal */}
+          <div className="flex items-center gap-2 text-[11px] font-normal text-muted-foreground">
             <Package size={12} /> {getTypeDisplay(asset.type, isRtl)}
           </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-bold mt-1">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-normal text-muted-foreground mt-1">
             <div className="flex items-center gap-2">
               <MapPin size={12} /> {getFullLocation(asset, isRtl)}
             </div>
@@ -190,12 +192,14 @@ export default function AssetsClient({
         </div>
 
         <div className="shrink-0">
-          <span className="text-[12px] font-black text-primary px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 uppercase tracking-widest transition-colors duration-200 group-hover:bg-primary/20">
+          {/* ✅ تغيير font-black إلى font-normal */}
+          <span className="text-[12px] font-normal text-primary px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 uppercase tracking-widest transition-colors duration-200 group-hover:bg-primary/20">
             {asset.code || `#${asset.id.slice(-4)}`}
           </span>
         </div>
 
         <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
+          {/* شارة الحالة - نحتفظ بـ font-black لأنها عنصر مميز */}
           <span className="rounded-full font-black text-sm px-4 py-1.5 border-none shadow-md inline-flex items-center gap-1" style={glowStyle}>
             <Icon size={14} style={{ color: statusColor }} /> {statusInfo.label}
           </span>

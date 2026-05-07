@@ -74,7 +74,7 @@ function DetailItem({ label, value, icon: Icon, isEditing, onChange, type = "tex
 
   return (
     <div className="space-y-2">
-      <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+      <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
         <Icon className="h-3 w-3" />
         {label}
       </div>
@@ -83,18 +83,18 @@ function DetailItem({ label, value, icon: Icon, isEditing, onChange, type = "tex
           type={type}
           value={type === "date" ? formatDateForInput(value) : value}
           onChange={(e) => onChange(e.target.value)}
-          className="rounded-xl border-primary h-9 bg-background font-bold text-sm"
+          className="rounded-xl border-primary h-9 bg-background font-medium text-sm"
         />
       ) : (
         <div className="flex items-baseline gap-1">
-          <span className={cn("text-lg font-bold tracking-tight", isPrice ? "text-primary" : "text-foreground")}>
+          <span className={cn("text-lg font-medium tracking-tight", isPrice ? "text-primary" : "text-foreground")}>
             {isPrice
               ? Number(value || 0).toLocaleString()
               : type === "date" && value
               ? format(new Date(value), "d MMMM yyyy", { locale: ar })
               : value || "—"}
           </span>
-          {isPrice && <span className="text-[10px] font-bold text-muted-foreground mr-1">ر.س</span>}
+          {isPrice && <span className="text-[10px] font-medium text-muted-foreground mr-1">ر.س</span>}
         </div>
       )}
     </div>
@@ -360,14 +360,14 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             <Button
               onClick={() => setIsEditing(false)}
               variant="outline"
-              className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-black"
+              className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium"
             >
               {t("cancel")}
             </Button>
             <Button
               onClick={handleSave}
               disabled={saving}
-              className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black h-12"
+              className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-12"
             >
               {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
               {t("save")}
@@ -376,7 +376,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           <Button
             onClick={handleDelete}
             variant="outline"
-            className="w-full rounded-full border-destructive text-destructive hover:bg-destructive/10 font-black h-12"
+            className="w-full rounded-full border-destructive text-destructive hover:bg-destructive/10 font-medium h-12"
           >
             <Trash2 className="h-5 w-5 mr-2" />
             {t("delete")}
@@ -392,7 +392,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
               onClick={openCancelDialog}
               disabled={cancelling}
               variant="outline"
-              className="flex-1 rounded-full border-orange-500 text-orange-500 hover:bg-orange-500/10 h-12 font-black"
+              className="flex-1 rounded-full border-orange-500 text-orange-500 hover:bg-orange-500/10 h-12 font-medium"
             >
               {cancelling ? <Loader2 className="h-5 w-5 animate-spin" /> : <X className="h-5 w-5" />}
               {t("terminate")}
@@ -403,7 +403,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
               onClick={openReactivateDialog}
               disabled={reactivating}
               variant="outline"
-              className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-black"
+              className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium"
             >
               {reactivating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
               {t("reactivate")}
@@ -412,7 +412,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           {canEdit && (
             <Button
               onClick={() => setIsEditing(true)}
-              className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black h-12"
+              className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-12"
             >
               <Pencil className="h-5 w-5 mr-2" />
               {t("edit")}
@@ -475,7 +475,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
 
               {/* الوصف */}
               <div className="pt-2">
-                <div className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
                   <FileText className="h-3.5 w-3.5" /> {t("description")}
                 </div>
                 {isEditing && canEdit ? (
@@ -494,7 +494,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
 
               {/* الملاحظات (notes) */}
               <div className="pt-2 border-t border-border">
-                <div className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
                   <FileText className="h-3.5 w-3.5" /> {t("notes")}
                 </div>
                 {isEditing && canEdit ? (
@@ -513,7 +513,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
               {/* سبب الإلغاء (إذا كان العقد ملغياً) */}
               {contract.status === "CANCELLED" && contract.cancellationReason && (
                 <div className="pt-2 border-t border-border">
-                  <div className="flex items-center gap-2 text-[11px] font-bold text-muted-foreground uppercase tracking-widest">
+                  <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
                     <X className="h-3.5 w-3.5" /> {t("cancellationReason")}
                   </div>
                   <div className="mt-2 p-4 bg-red-50 dark:bg-red-950/20 rounded-xl text-sm font-medium text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800">
@@ -531,21 +531,21 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           <SidebarCard title={t("additionalInfo")} icon={<Info className="h-5 w-5" />}>
             <div className="space-y-4">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
                   <History className="h-3 w-3" /> {t("createdAt")}
                 </div>
-                <p className="font-bold text-sm">
+                <p className="font-medium text-sm">
                   {contract.createdAt ? format(new Date(contract.createdAt), "yyyy/MM/dd") : "—"}
                 </p>
               </div>
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
                   <Building className="h-3 w-3" /> {t("branch")}
                 </div>
                 {isEditing && canEdit ? (
                   <BranchSelector value={branchId} onValueChange={setBranchId} />
                 ) : (
-                  <p className="font-bold text-sm">{contract.branch?.name || t("notSpecified")}</p>
+                  <p className="font-medium text-sm">{contract.branch?.name || t("notSpecified")}</p>
                 )}
               </div>
             </div>
@@ -554,7 +554,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           {/* المرفقات */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+              <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
                 <Paperclip className="h-4 w-4" />
                 {t("attachments")} ({attachments.length})
               </div>
@@ -567,7 +567,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                     className="hidden"
                     accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
                   />
-                  <div className="inline-flex items-center gap-1 text-primary hover:underline text-xs font-black">
+                  <div className="inline-flex items-center gap-1 text-primary hover:underline text-xs font-medium">
                     <Upload className="h-4 w-4" />
                     {isRtl ? "إضافة ملفات" : "Add files"}
                   </div>
@@ -593,14 +593,14 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                     ) : (
                       <File className="h-5 w-5 text-muted-foreground shrink-0" />
                     )}
-                    <span className="text-sm font-bold truncate max-w-[200px]">{att.name}</span>
+                    <span className="text-sm font-medium truncate max-w-[200px]">{att.name}</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <a
                       href={att.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-primary hover:underline text-xs font-black flex items-center gap-1"
+                      className="text-primary hover:underline text-xs font-medium flex items-center gap-1"
                     >
                       <Eye className="h-4 w-4" /> {t("preview")}
                     </a>
@@ -622,7 +622,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           {/* نصيحة */}
           <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20 flex items-start gap-3">
             <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-            <div className="text-xs font-bold text-muted-foreground">{t("helpText")}</div>
+            <div className="text-xs font-medium text-muted-foreground">{t("helpText")}</div>
           </div>
 
           {renderActionButtons()}
@@ -630,7 +630,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           <Button
             variant="outline"
             onClick={() => router.back()}
-            className="w-full rounded-full border-primary text-primary hover:bg-primary/10 font-black h-11"
+            className="w-full rounded-full border-primary text-primary hover:bg-primary/10 font-medium h-11"
           >
             {t("back")}
           </Button>

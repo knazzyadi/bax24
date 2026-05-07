@@ -109,7 +109,7 @@ export default function ContractsClient({
   const onFilterChange = (sectionId: string, value: string) => {
     if (sectionId === "status") {
       setSelectedStatus(value);
-      setCurrentPage(1); // Reset to first page when filter changes
+      setCurrentPage(1);
     }
   };
 
@@ -142,14 +142,14 @@ export default function ContractsClient({
         {/* بيانات العقد */}
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-black group-hover:text-primary transition-colors duration-200 truncate leading-none text-foreground">
+            <h3 className="text-lg font-medium group-hover:text-primary transition-colors duration-200 truncate leading-none text-foreground">
               {contract.title}
             </h3>
           </div>
-          <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-bold">
+          <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
             <Building size={12} /> {contract.supplier}
           </div>
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-bold">
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium text-muted-foreground">
             <div className="flex items-center gap-2">
               <Building size={12} />
               {contract.branch?.name || (isRtl ? "غير محدد" : "Not specified")}
@@ -161,22 +161,22 @@ export default function ContractsClient({
             </div>
           </div>
           {contract.type && (
-            <div className="flex items-center gap-2 text-[11px] text-muted-foreground font-bold">
+            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
               <Tag size={12} /> {contract.type}
             </div>
           )}
         </div>
 
-        {/* رقم العقد (مكان المبلغ سابقاً) */}
+        {/* رقم العقد */}
         <div className="shrink-0">
-          <span className="text-lg font-black text-primary transition-colors duration-200 group-hover:text-primary/70">
+          <span className="text-lg font-medium text-primary transition-colors duration-200 group-hover:text-primary/70">
             {contract.code || `#${contract.id.slice(-4)}`}
           </span>
         </div>
 
         <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
           <span
-            className="rounded-full font-black text-sm px-4 py-1.5 border-none shadow-md inline-flex items-center gap-1"
+            className="rounded-full font-medium text-sm px-4 py-1.5 border-none shadow-md inline-flex items-center gap-1"
             style={{
               backgroundColor: `${statusColor}20`,
               color: statusColor,

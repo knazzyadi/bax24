@@ -1,4 +1,3 @@
-// src/app/[locale]/(dashboard)/contracts/[id]/edit/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -92,7 +91,6 @@ export default function EditContractPage() {
       const result = await res.json();
       if (res.ok) {
         toast.success(t("updateSuccess"));
-        // استخدام window.location.href لضمان العودة إلى قائمة العقود
         window.location.href = `/${locale}/contracts`;
       } else {
         toast.error(result.error || t("updateError"));
@@ -129,7 +127,7 @@ export default function EditContractPage() {
             <InfoCard title={t("basicInfo")} icon={<FileText className="h-5 w-5" />}>
               <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label>{t("title")} *</Label>
+                  <Label className="text-sm font-medium text-muted-foreground/70">{t("title")} *</Label>
                   <Input
                     value={formData.title}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
@@ -138,7 +136,7 @@ export default function EditContractPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("supplier")} *</Label>
+                  <Label className="text-sm font-medium text-muted-foreground/70">{t("supplier")} *</Label>
                   <Input
                     value={formData.supplier}
                     onChange={(e) => setFormData({ ...formData, supplier: e.target.value })}
@@ -148,7 +146,7 @@ export default function EditContractPage() {
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label>{t("value")}</Label>
+                    <Label className="text-sm font-medium text-muted-foreground/70">{t("value")}</Label>
                     <Input
                       type="number"
                       step="0.01"
@@ -158,7 +156,7 @@ export default function EditContractPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>{t("code")}</Label>
+                    <Label className="text-sm font-medium text-muted-foreground/70">{t("code")}</Label>
                     <Input
                       value={formData.code}
                       onChange={(e) => setFormData({ ...formData, code: e.target.value })}
@@ -169,7 +167,7 @@ export default function EditContractPage() {
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label>{t("startDate")} *</Label>
+                    <Label className="text-sm font-medium text-muted-foreground/70">{t("startDate")} *</Label>
                     <div className="relative">
                       <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -182,7 +180,7 @@ export default function EditContractPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <Label>{t("endDate")} *</Label>
+                    <Label className="text-sm font-medium text-muted-foreground/70">{t("endDate")} *</Label>
                     <div className="relative">
                       <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       <Input
@@ -196,7 +194,7 @@ export default function EditContractPage() {
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("description")}</Label>
+                  <Label className="text-sm font-medium text-muted-foreground/70">{t("description")}</Label>
                   <Textarea
                     value={formData.description}
                     onChange={(e) => setFormData({ ...formData, description: e.target.value })}
@@ -205,7 +203,7 @@ export default function EditContractPage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>{t("notes")}</Label>
+                  <Label className="text-sm font-medium text-muted-foreground/70">{t("notes")}</Label>
                   <Textarea
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
@@ -224,10 +222,10 @@ export default function EditContractPage() {
               </div>
             </InfoCard>
             <div className="flex gap-3">
-              <Button type="button" variant="outline" onClick={() => router.back()} className="flex-1 rounded-full border-red-500 text-red-500 hover:bg-red-50 h-12 font-black">
+              <Button type="button" variant="outline" onClick={() => router.back()} className="flex-1 rounded-full border-red-500 text-red-500 hover:bg-red-50 h-12 font-normal">
                 <X className="h-4 w-4 ml-2" /> {t("cancel")}
               </Button>
-              <Button type="submit" disabled={saving} className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black h-12">
+              <Button type="submit" disabled={saving} className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-normal h-12">
                 {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                 {t("save")}
               </Button>

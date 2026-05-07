@@ -344,14 +344,14 @@ export default function NewContractPage() {
                 type="button"
                 onClick={() => router.back()}
                 variant="outline"
-                className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium"
+                className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-normal"
               >
                 {t('cancel')}
               </Button>
               <Button
                 type="submit"
                 disabled={loading}
-                className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-12"
+                className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-normal h-12"
               >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                 {t('save')}

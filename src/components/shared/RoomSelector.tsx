@@ -1,3 +1,4 @@
+// src/components/shared/RoomSelector.tsx
 "use client";
 
 import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
@@ -43,7 +44,10 @@ export function RoomSelector({
   };
 
   const selectedRoom = rooms.find(r => r.id === value);
-  const displayValue = selectedRoom?.displayName || getDisplayName(selectedRoom);
+  // ✅ التحقق من وجود selectedRoom قبل استدعاء getDisplayName
+  const displayValue = selectedRoom 
+    ? (selectedRoom.displayName || getDisplayName(selectedRoom))
+    : undefined;
 
   const getPlaceholderText = () => {
     if (!floorId) return noFloorMessage;

@@ -74,19 +74,29 @@ export default function EditInventoryPage() {
     notes: "",
   });
 
-  // ===== Load item (safe fetch with AbortController) =====
+  // حالة الموقع الكامل (المبنى، الطابق، الغرفة) لتمريرها إلى LocationSelector
+  const [selectedLocation, setSelectedLocation] = useState<LocationValue>({
+    buildingId: "",
+    floorId: "",
+    roomId: "",
+  });
+
+  // ===== Load item with full location data (safe fetch with AbortController) =====
   useEffect(() => {
     if (!id) return;
 
     const controller = new AbortController();
 
     const fetchItem = async () => {
+      setFetching(true);
       try {
         const res = await fetch(`/api/inventory/${id}`, {
           signal: controller.signal,
         });
         if (!res.ok) throw new Error();
         const data = await res.json();
+
+        // تعبئة بيانات النموذج الأساسية
         setFormData({
           name: data.name || "",
           sku: data.sku || "",
@@ -96,6 +106,20 @@ export default function EditInventoryPage() {
           roomId: data.room?.id || "",
           notes: data.notes || "",
         });
+
+        // استخراج بيانات الموقع الكاملة (buildingId, floorId) من علاقة room
+        if (data.room) {
+          const buildingId = data.room.floor?.building?.id || "";
+          const floorId = data.room.floor?.id || "";
+          const roomId = data.room.id || "";
+          setSelectedLocation({
+            buildingId,
+            floorId,
+            roomId,
+          });
+        } else {
+          setSelectedLocation({ buildingId: "", floorId: "", roomId: "" });
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === "AbortError") return;
         toast.error(t("fetchError"));
@@ -116,6 +140,9 @@ export default function EditInventoryPage() {
   }, []);
 
   const handleLocationChange = useCallback((location: LocationValue) => {
+    // تحديث الموقع الكامل
+    setSelectedLocation(location);
+    // تحديث roomId في النموذج
     setFormData((prev) => ({ ...prev, roomId: location.roomId }));
   }, []);
 
@@ -230,17 +257,13 @@ export default function EditInventoryPage() {
                   </div>
                 </div>
 
-                {/* الموقع */}
+                {/* الموقع - الآن يعرض البيانات الحالية */}
                 <div className="space-y-2">
                   <Label className="text-sm font-black text-muted-foreground/70">
                     {t("location")}
                   </Label>
                   <LocationSelector
-                    value={{
-                      buildingId: "",
-                      floorId: "",
-                      roomId: formData.roomId,
-                    }}
+                    value={selectedLocation}  // ✅ استخدام الحالة الكاملة للموقع
                     onChange={handleLocationChange}
                   />
                 </div>

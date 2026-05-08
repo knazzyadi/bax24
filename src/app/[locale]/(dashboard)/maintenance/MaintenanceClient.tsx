@@ -8,24 +8,74 @@ import { Calendar, Clock, FileText, Building, Tag, Edit, Trash2, Loader2, Chevro
 import { toast } from "sonner";
 import { DataList, type FilterSection, type ItemActions } from "@/components/shared/DataList";
 
+// ✅ توسيع واجهة Schedule لتشمل الحقول المطلوبة لحساب nextDueDate
 interface Schedule {
   id: string;
   name: string;
   frequency: string;
+  frequencyDays?: number;        // قد لا يكون موجوداً في البيانات القديمة
   leadDays: number;
   isActive: boolean;
+  startDate?: string | null;
+  createdAt: string;             // مطلوب للحساب
   lastRunAt?: string | null;
   assetType: { id: string; name: string; nameEn?: string } | null;
   branch: { id: string; name: string; nameEn?: string } | null;
   building: { id: string; name: string; nameEn?: string } | null;
 }
 
-// ✅ تحديث الترددات إلى الخيارات الجديدة
 const FREQUENCY_LABELS: Record<string, { ar: string; en: string }> = {
   MONTHLY: { ar: "شهري", en: "Monthly" },
   QUARTERLY: { ar: "ربع سنوي", en: "Quarterly" },
   SEMI_ANNUAL: { ar: "نصف سنوي", en: "Semi-annual" },
   YEARLY: { ar: "سنوي", en: "Yearly" },
+};
+
+// دالة لحساب عدد الأيام من التردد (في حال عدم وجود frequencyDays)
+const getDaysFromFrequency = (freq: string): number => {
+  switch (freq) {
+    case 'MONTHLY': return 30;
+    case 'QUARTERLY': return 90;
+    case 'SEMI_ANNUAL': return 180;
+    case 'YEARLY': return 365;
+    default: return 30;
+  }
+};
+
+// دالة حساب تاريخ الاستحقاق القادم
+const getNextDueDate = (schedule: Schedule): Date | null => {
+  const lastRun = schedule.lastRunAt ? new Date(schedule.lastRunAt) : null;
+  const start = schedule.startDate ? new Date(schedule.startDate) : null;
+  const createdAt = new Date(schedule.createdAt);
+  const reference = lastRun || start || createdAt;
+  const days = schedule.frequencyDays || getDaysFromFrequency(schedule.frequency);
+  const next = new Date(reference);
+  next.setDate(next.getDate() + days);
+  return next;
+};
+
+// دالة للتحقق مما إذا كان التاريخ يقع ضمن نطاق زمني معين
+const isWithinPeriod = (date: Date, period: 'today' | 'week' | 'month'): boolean => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  switch (period) {
+    case 'today':
+      return target.getTime() === today.getTime();
+    case 'week': {
+      const weekLater = new Date(today);
+      weekLater.setDate(today.getDate() + 7);
+      return target >= today && target <= weekLater;
+    }
+    case 'month': {
+      const monthLater = new Date(today);
+      monthLater.setDate(today.getDate() + 30);
+      return target >= today && target <= monthLater;
+    }
+    default:
+      return false;
+  }
 };
 
 interface MaintenanceClientProps {
@@ -35,7 +85,7 @@ interface MaintenanceClientProps {
   totalPages: number;
   limit: number;
   q: string;
-  isActive: string;
+  isActive: string;  // هذا لم يعد مستخدماً، لكن يمكن الاحتفاظ به للتوافق
   locale: string;
 }
 
@@ -53,22 +103,25 @@ export default function MaintenanceClient({
   const isRtl = locale === "ar";
 
   const [searchTerm, setSearchTerm] = useState(initialSearch);
-  const [selectedStatus, setSelectedStatus] = useState(initialStatus);
+  const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(initialPage);
 
+  // فلترة الجداول بناءً على فترة الاستحقاق
   const filteredSchedules = useMemo(() => {
     let result = [...initialSchedules];
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
       result = result.filter((s) => s.name.toLowerCase().includes(term));
     }
-    if (selectedStatus === "true") {
-      result = result.filter((s) => s.isActive === true);
-    } else if (selectedStatus === "false") {
-      result = result.filter((s) => s.isActive === false);
+    if (selectedPeriod !== "all") {
+      result = result.filter((schedule) => {
+        const nextDue = getNextDueDate(schedule);
+        if (!nextDue) return false;
+        return isWithinPeriod(nextDue, selectedPeriod as 'today' | 'week' | 'month');
+      });
     }
     return result;
-  }, [initialSchedules, searchTerm, selectedStatus]);
+  }, [initialSchedules, searchTerm, selectedPeriod]);
 
   const totalFiltered = filteredSchedules.length;
   const totalFilteredPages = Math.ceil(totalFiltered / limit);
@@ -91,26 +144,24 @@ export default function MaintenanceClient({
     router.refresh();
   };
 
-  // ✅ تعريف الفلاتر (بدون value/onChange)
+  // ✅ فلتر زمني جديد
   const filterSections: FilterSection[] = [
     {
-      id: "isActive",
-      label: isRtl ? "الحالة" : "Status",
+      id: "period",
+      label: isRtl ? "الاستحقاق" : "Due period",
       options: [
-        { value: "", label: isRtl ? "الكل" : "All" },
-        { value: "true", label: isRtl ? "نشط" : "Active" },
-        { value: "false", label: isRtl ? "غير نشط" : "Inactive" },
+        { value: "all", label: isRtl ? "الكل" : "All" },
+        { value: "today", label: isRtl ? "صيانات اليوم" : "Today's schedules" },
+        { value: "week", label: isRtl ? "صيانات هذا الأسبوع" : "This week" },
+        { value: "month", label: isRtl ? "صيانات هذا الشهر" : "This month" },
       ],
     },
   ];
 
-  // ✅ قيم الفلاتر الحالية
-  const filterValues = { isActive: selectedStatus };
-
-  // ✅ دالة تغيير الفلتر
+  const filterValues = { period: selectedPeriod };
   const onFilterChange = (sectionId: string, value: string) => {
-    if (sectionId === "isActive") {
-      setSelectedStatus(value);
+    if (sectionId === "period") {
+      setSelectedPeriod(value);
       setCurrentPage(1);
     }
   };
@@ -119,6 +170,8 @@ export default function MaintenanceClient({
     const frequencyLabel = FREQUENCY_LABELS[schedule.frequency]?.[isRtl ? "ar" : "en"] || schedule.frequency;
     const assetTypeName = schedule.assetType ? (isRtl ? schedule.assetType.name : schedule.assetType.nameEn || schedule.assetType.name) : "—";
     const locationName = schedule.building?.name || schedule.branch?.name || (isRtl ? "جميع المواقع" : "All locations");
+    const nextDue = getNextDueDate(schedule);
+    const formattedNextDue = nextDue ? nextDue.toLocaleDateString(isRtl ? 'ar-SA' : 'en-US') : '—';
 
     return (
       <div
@@ -132,9 +185,7 @@ export default function MaintenanceClient({
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-medium group-hover:text-primary truncate leading-none">
-              {schedule.name}
-            </h3>
+            <h3 className="text-lg font-medium group-hover:text-primary truncate leading-none">{schedule.name}</h3>
             {!schedule.isActive && (
               <span className="text-xs bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
                 {isRtl ? "غير نشط" : "Inactive"}
@@ -145,13 +196,7 @@ export default function MaintenanceClient({
             <div className="flex items-center gap-2"><Clock size={12} /> {frequencyLabel}</div>
             <div className="flex items-center gap-2"><Tag size={12} /> {assetTypeName}</div>
             <div className="flex items-center gap-2"><Building size={12} /> {locationName}</div>
-            <div className="flex items-center gap-2"><Calendar size={12} /> {isRtl ? "قبل" : "Lead"}: {schedule.leadDays} {isRtl ? "يوم" : "days"}</div>
-            {schedule.lastRunAt && (
-              <div className="flex items-center gap-2">
-                <Clock size={12} />
-                {isRtl ? "آخر تنفيذ:" : "Last run:"} {new Date(schedule.lastRunAt).toLocaleDateString(isRtl ? 'ar-SA' : 'en-US')}
-              </div>
-            )}
+            <div className="flex items-center gap-2"><Calendar size={12} /> {isRtl ? "قادم:" : "Next:"} {formattedNextDue}</div>
           </div>
         </div>
 

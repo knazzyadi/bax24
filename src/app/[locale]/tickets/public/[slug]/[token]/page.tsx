@@ -89,7 +89,7 @@ export default function PublicTicketPage() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // خريطة لنوع البلاغ لاختيار النص المعروض
+  // خريطة لنوع البلاغ (العربية والإنجليزية)
   const ticketTypeMap: Record<string, string> = {
     MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
     INCIDENT: isRtl ? "حادث" : "Incident",
@@ -242,11 +242,11 @@ export default function PublicTicketPage() {
   // إرسال البلاغ
   const handleSubmit = async () => {
     if (!form.title.trim()) {
-      toast.error(isRtl ? "عنوان البلاغ مطلوب" : "Title is required");
+      toast.error(isRtl ? "عنوان البلاغ مطلوب" : "Ticket title is required");
       return;
     }
     if (!roomId) {
-      toast.error(isRtl ? "يرجى اختيار الغرفة" : "Please select a room");
+      toast.error(isRtl ? "يرجى اختيار موقع البلاغ" : "Please select a location");
       return;
     }
     if (!form.reporterName.trim() || !form.reporterEmail.trim()) {
@@ -346,11 +346,12 @@ export default function PublicTicketPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* العمود الأيسر */}
               <div className="space-y-6">
+                {/* نوع البلاغ - مع SelectValue بدون children */}
                 <div>
-                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع البلاغ *" : "Type *"}</Label>
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع البلاغ *" : "Ticket Type *"}</Label>
                   <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })}>
                     <SelectTrigger className="h-12 text-base">
-                      <SelectValue placeholder={isRtl ? "اختر النوع" : "Select type"} />
+                      <SelectValue placeholder={isRtl ? "اختر نوع البلاغ" : "Select type"} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="MAINTENANCE">{ticketTypeMap.MAINTENANCE}</SelectItem>
@@ -358,16 +359,33 @@ export default function PublicTicketPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {/* عنوان البلاغ */}
                 <div>
-                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "العنوان *" : "Title *"}</Label>
-                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="h-12 text-base" />
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "عنوان البلاغ *" : "Ticket Title *"}</Label>
+                  <Input
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    className="h-12 text-base"
+                    placeholder={isRtl ? "مثال: عطل في التكييف" : "e.g., AC malfunction"}
+                  />
                 </div>
+
+                {/* وصف البلاغ */}
                 <div>
-                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "الوصف *" : "Description *"}</Label>
-                  <Textarea rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="text-base" />
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "وصف البلاغ *" : "Description *"}</Label>
+                  <Textarea
+                    rows={5}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    className="text-base"
+                    placeholder={isRtl ? "تفاصيل المشكلة..." : "Problem details..."}
+                  />
                 </div>
+
+                {/* موقع البلاغ */}
                 <div>
-                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "الموقع *" : "Location *"}</Label>
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "موقع البلاغ *" : "Location *"}</Label>
                   <div className="grid grid-cols-3 gap-3">
                     <BuildingSelector
                       value={buildingId}
@@ -401,6 +419,8 @@ export default function PublicTicketPage() {
                     />
                   </div>
                 </div>
+
+                {/* اختيار الأصل (يظهر فقط إذا تم اختيار الغرفة) */}
                 {roomId && (
                   <div>
                     <Label className="text-base font-semibold mb-2 block">{isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}</Label>
@@ -422,19 +442,35 @@ export default function PublicTicketPage() {
                 )}
               </div>
 
-              {/* العمود الأيمن */}
+              {/* العمود الأيمن - بيانات المراسل والصور */}
               <div className="space-y-6">
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "الاسم *" : "Name *"}</Label>
-                  <Input value={form.reporterName} onChange={(e) => setForm({ ...form, reporterName: e.target.value })} className="h-12 text-base" />
+                  <Input
+                    value={form.reporterName}
+                    onChange={(e) => setForm({ ...form, reporterName: e.target.value })}
+                    className="h-12 text-base"
+                    placeholder={isRtl ? "الاسم الكامل" : "Full name"}
+                  />
                 </div>
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "البريد الإلكتروني *" : "Email *"}</Label>
-                  <Input type="email" value={form.reporterEmail} onChange={(e) => setForm({ ...form, reporterEmail: e.target.value })} className="h-12 text-base" />
+                  <Input
+                    type="email"
+                    value={form.reporterEmail}
+                    onChange={(e) => setForm({ ...form, reporterEmail: e.target.value })}
+                    className="h-12 text-base"
+                    placeholder="example@domain.com"
+                  />
                 </div>
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "رقم الهاتف (اختياري)" : "Phone (optional)"}</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="h-12 text-base" />
+                  <Input
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="h-12 text-base"
+                    placeholder={isRtl ? "05xxxxxxxx" : "+9665xxxxxxxx"}
+                  />
                 </div>
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>

@@ -17,9 +17,9 @@ export function DetailHeader({ icon, title, subtitle, actions }: DetailHeaderPro
           {icon}
         </div>
         <div>
-          <h1 className="text-4xl font-black tracking-tighter">{title}</h1>
+          <h1 className="text-4xl font-medium tracking-tighter">{title}</h1>
           {subtitle && (
-            <p className="text-muted-foreground mt-2 font-medium">{subtitle}</p>
+            <p className="text-muted-foreground mt-2 font-normal">{subtitle}</p>
           )}
         </div>
       </div>

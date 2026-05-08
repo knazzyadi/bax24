@@ -115,14 +115,12 @@ export function DataList<T extends { id: string }>({
   const startItem = (currentPage - 1) * itemsPerPage + 1;
   const endItem = Math.min(startItem + itemsPerPage - 1, total);
 
-  // دالة للحصول على التسمية الحالية للفلتر
   const getCurrentFilterLabel = (section: FilterSection): string => {
     const currentValue = filterValues[section.id] || "all";
     const option = section.options.find(opt => opt.value === currentValue);
     return option ? option.label : section.label;
   };
 
-  // دالة للحصول على التسمية الحالية للفرز (إذا وجد)
   const getCurrentSortLabel = (): string => {
     if (!sortValue || !sortOptions) return "ترتيب حسب";
     const option = sortOptions.find(opt => opt.value === sortValue);
@@ -131,23 +129,23 @@ export function DataList<T extends { id: string }>({
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* الهيدر مع زر الإضافة */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           {icon && <div className="text-primary">{icon}</div>}
           <div>
-            <h1 className="text-2xl font-black tracking-tight">{title}</h1>
+            {/* تغيير font-black إلى font-medium */}
+            <h1 className="text-2xl font-medium tracking-tight">{title}</h1>
             {subtitle && <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>}
           </div>
         </div>
         {addButtonLabel && addButtonLink && (
-          <Button onClick={() => router.push(addButtonLink)} className="rounded-full font-black">
+          // تغيير font-black إلى font-medium
+          <Button onClick={() => router.push(addButtonLink)} className="rounded-full font-medium">
             {addButtonLabel}
           </Button>
         )}
       </div>
 
-      {/* شريط البحث والفلاتر */}
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative flex-1 min-w-[200px]">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -212,14 +210,12 @@ export function DataList<T extends { id: string }>({
         )}
       </div>
 
-      {/* عرض العناصر */}
       {items.length === 0 ? (
         <div className="text-center py-12 text-muted-foreground">{emptyMessage}</div>
       ) : (
         <div className="space-y-4">{items.map((item) => renderItem(item, actions))}</div>
       )}
 
-      {/* الترقيم */}
       {total > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
           <div className="text-sm text-muted-foreground">

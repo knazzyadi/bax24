@@ -15,7 +15,8 @@ export function SidebarCard({ title, icon, children, className }: SidebarCardPro
       {(title || icon) && (
         <div className="mb-4 flex items-center gap-2 border-b border-border pb-3">
           {icon && <div className="text-primary">{icon}</div>}
-          <h3 className="text-lg font-black text-foreground uppercase tracking-widest">
+          {/* تغيير font-black إلى font-medium */}
+          <h3 className="text-lg font-medium text-foreground uppercase tracking-widest">
             {title}
           </h3>
         </div>

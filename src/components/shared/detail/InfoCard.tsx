@@ -1,5 +1,4 @@
 // src/components/shared/detail/InfoCard.tsx
-//إنشاء “بطاقة معلومات (Info Card)” جاهزة تُستخدم لعرض البيانات بشكل منظم داخل صفحات التفاصيل
 import { ReactNode } from "react";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +15,8 @@ export function InfoCard({ title, icon, children, className }: InfoCardProps) {
       {title && (
         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-border">
           {icon && <span className="text-muted-foreground">{icon}</span>}
-          <h3 className="text-lg font-black tracking-tight">{title}</h3>
+          {/* تغيير font-black إلى font-medium */}
+          <h3 className="text-lg font-medium tracking-tight">{title}</h3>
         </div>
       )}
       <div>{children}</div>

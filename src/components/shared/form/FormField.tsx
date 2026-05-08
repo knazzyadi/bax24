@@ -11,7 +11,7 @@ interface FormFieldProps {
   children: ReactNode;
   required?: boolean;
   className?: string;
-  tooltip?: string; // ✅ أضفناها هنا
+  tooltip?: string;
 }
 
 export function FormField({
@@ -24,11 +24,11 @@ export function FormField({
 }: FormFieldProps) {
   return (
     <div className={cn("space-y-2", className)}>
-      <Label className="text-foreground font-black text-xs uppercase tracking-widest flex items-center gap-2">
+      {/* تغيير font-black إلى font-medium */}
+      <Label className="text-foreground font-medium text-xs uppercase tracking-widest flex items-center gap-2">
         {icon && <span className="text-foreground">{icon}</span>}
         {label}
 
-        {/* ✅ tooltip */}
         {tooltip && (
           <span
             className="text-gray-400 text-[11px] font-normal normal-case cursor-help"

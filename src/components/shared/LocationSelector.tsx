@@ -22,7 +22,6 @@ interface LocationSelectorProps {
   disabled?: boolean;
 }
 
-// دوال تطبيع لتحويل null إلى undefined
 const normalizeBuilding = (b: BuildingType) => ({
   ...b,
   nameEn: b.nameEn ?? undefined,
@@ -31,7 +30,6 @@ const normalizeBuilding = (b: BuildingType) => ({
 const normalizeFloor = (f: FloorType) => ({
   ...f,
   nameEn: f.nameEn ?? undefined,
-  // تأكد من وجود building داخل الكائن الذي يعيده API
   building: f.building ? {
     id: f.building.id,
     name: f.building.name,
@@ -48,19 +46,16 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
   const locale = useLocale();
   const isRtl = locale === "ar";
 
-  // الحالة الداخلية للهرمية
   const [selectedBuildingId, setSelectedBuildingId] = useState(value.buildingId);
   const [selectedFloorId, setSelectedFloorId] = useState(value.floorId);
   const [selectedRoomId, setSelectedRoomId] = useState(value.roomId);
 
-  // مزامنة الحالة الداخلية مع props (مهم في صفحة التعديل)
   useEffect(() => {
     setSelectedBuildingId(value.buildingId);
     setSelectedFloorId(value.floorId);
     setSelectedRoomId(value.roomId);
   }, [value.buildingId, value.floorId, value.roomId]);
 
-  // بيانات المباني والأدوار والغرف
   const [buildings, setBuildings] = useState<BuildingType[]>([]);
   const [floors, setFloors] = useState<FloorType[]>([]);
   const [rooms, setRooms] = useState<RoomType[]>([]);
@@ -68,7 +63,6 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  // جلب المباني
   useEffect(() => {
     fetch("/api/buildings")
       .then(res => res.json())
@@ -77,7 +71,6 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
       .finally(() => setLoadingBuildings(false));
   }, []);
 
-  // جلب الأدوار عند تغيير المبنى المختار داخلياً - استخدام API الأدوار المحسن
   useEffect(() => {
     if (!selectedBuildingId) {
       setFloors([]);
@@ -87,7 +80,6 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
     fetch(`/api/locations/floors?buildingId=${selectedBuildingId}`)
       .then(res => res.ok ? res.json() : [])
       .then(data => {
-        // تأكد من أن البيانات تحتوي على حقل building
         const floorsWithBuilding = data.map((floor: any) => ({
           ...floor,
           building: floor.building || null,
@@ -98,7 +90,6 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
       .finally(() => setLoadingFloors(false));
   }, [selectedBuildingId]);
 
-  // جلب الغرف عند تغيير الدور المختار داخلياً
   useEffect(() => {
     if (!selectedFloorId) {
       setRooms([]);
@@ -131,7 +122,7 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="space-y-2">
-        <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+        <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
           <Building size={12} /> {isRtl ? "المبنى / الموقع" : "Building / Location"}
         </Label>
         <BuildingSelector
@@ -142,7 +133,7 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
         />
       </div>
       <div className="space-y-2">
-        <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+        <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
           <Layers size={12} /> {isRtl ? "الدور / المنطقة" : "Floor / Zone"}
         </Label>
         <FloorSelector
@@ -154,7 +145,7 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
         />
       </div>
       <div className="space-y-2">
-        <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+        <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
           <DoorOpen size={12} /> {isRtl ? "الوحدة" : "Unit"}
         </Label>
         <RoomSelector

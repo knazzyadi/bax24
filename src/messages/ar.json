@@ -1507,6 +1507,8 @@
     "notesPlaceholder": "أضف ملاحظات إضافية (اختياري)"
   },
   "MaintenanceForm": {
+    "assets": "الأصول",
+    "selectedLocation": "الموقع المختار",
     "frequencyDays": "عدد الأيام بين الصيانة",
     "quarterly": "ربع سنوي",
     "semiAnnual": "نصف سنوي",

@@ -1519,6 +1519,8 @@
     }
   },
   "MaintenanceForm": {
+    "assets": "Assets",
+    "selectedLocation": "Selected Location",
     "frequencyDays": "Days between maintenance",
     "quarterly": "Quarterly",
     "semiAnnual": "Semi-annual",

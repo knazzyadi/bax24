@@ -1519,6 +1519,7 @@
     }
   },
   "MaintenanceForm": {
+    "frequencyDays": "Days between maintenance",
     "quarterly": "Quarterly",
     "semiAnnual": "Semi-annual",
     "newTitle": "Add New Preventive Maintenance Schedule",

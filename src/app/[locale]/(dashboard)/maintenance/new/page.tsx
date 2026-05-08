@@ -379,7 +379,10 @@ export default function NewMaintenanceSchedulePage() {
               />
             </FormField>
             <FormField label={t("frequency")}>
-              <Select value={formData.frequency} onValueChange={(v) => setFormData({ ...formData, frequency: v })}>
+              <Select value={formData.frequency} onValueChange={(v) => {
+                  const newDays = frequencyStringToDays(v);
+                  setFormData({ ...formData, frequency: v, frequencyDays: newDays });
+                }}>
                 <SelectTrigger className="h-12 rounded-xl font-medium">
                   {formData.frequency === "MONTHLY" ? t("monthly") :
                    formData.frequency === "QUARTERLY" ? t("quarterly") :

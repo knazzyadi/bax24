@@ -1507,6 +1507,7 @@
     "notesPlaceholder": "أضف ملاحظات إضافية (اختياري)"
   },
   "MaintenanceForm": {
+    "frequencyDays": "عدد الأيام بين الصيانة",
     "quarterly": "ربع سنوي",
     "semiAnnual": "نصف سنوي",
     "newTitle": "إضافة جدول صيانة وقائية جديد",

@@ -74,14 +74,12 @@ export default function EditInventoryPage() {
     notes: "",
   });
 
-  // حالة الموقع الكامل (المبنى، الطابق، الغرفة) لتمريرها إلى LocationSelector
   const [selectedLocation, setSelectedLocation] = useState<LocationValue>({
     buildingId: "",
     floorId: "",
     roomId: "",
   });
 
-  // ===== Load item with full location data (safe fetch with AbortController) =====
   useEffect(() => {
     if (!id) return;
 
@@ -96,7 +94,6 @@ export default function EditInventoryPage() {
         if (!res.ok) throw new Error();
         const data = await res.json();
 
-        // تعبئة بيانات النموذج الأساسية
         setFormData({
           name: data.name || "",
           sku: data.sku || "",
@@ -107,7 +104,6 @@ export default function EditInventoryPage() {
           notes: data.notes || "",
         });
 
-        // استخراج بيانات الموقع الكاملة (buildingId, floorId) من علاقة room
         if (data.room) {
           const buildingId = data.room.floor?.building?.id || "";
           const floorId = data.room.floor?.id || "";
@@ -133,20 +129,16 @@ export default function EditInventoryPage() {
     return () => controller.abort();
   }, [id, locale, router, t]);
 
-  // ===== Handlers =====
   const handleChange = useCallback((e: ChangeEvent) => {
     const { name, value } = e.target;
     setFormData((prev) => ({ ...prev, [name]: value }));
   }, []);
 
   const handleLocationChange = useCallback((location: LocationValue) => {
-    // تحديث الموقع الكامل
     setSelectedLocation(location);
-    // تحديث roomId في النموذج
     setFormData((prev) => ({ ...prev, roomId: location.roomId }));
   }, []);
 
-  // ===== Submit =====
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (loading) return;
@@ -178,7 +170,8 @@ export default function EditInventoryPage() {
 
       if (res.ok) {
         toast.success(t("updateSuccess"));
-        router.push(`/${locale}/inventory/${id}`);
+        // ✅ التغيير المطلوب: التوجيه إلى صفحة القائمة بدلاً من التفاصيل
+        router.push(`/${locale}/inventory`);
         router.refresh();
       } else {
         const error = await res.json();
@@ -220,11 +213,9 @@ export default function EditInventoryPage() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* العمود الرئيسي */}
           <div className="lg:col-span-2 space-y-8">
             <InfoCard title={t("identity")} icon={<Package className="h-5 w-5" />}>
               <div className="space-y-6">
-                {/* الاسم */}
                 <div className="space-y-2">
                   <Label className="text-sm font-black text-muted-foreground/70">
                     {t("name")} *
@@ -239,7 +230,6 @@ export default function EditInventoryPage() {
                   />
                 </div>
 
-                {/* SKU */}
                 <div className="space-y-2">
                   <Label className="text-sm font-black text-muted-foreground/70">
                     {t("sku")} *
@@ -257,13 +247,12 @@ export default function EditInventoryPage() {
                   </div>
                 </div>
 
-                {/* الموقع - الآن يعرض البيانات الحالية */}
                 <div className="space-y-2">
                   <Label className="text-sm font-black text-muted-foreground/70">
                     {t("location")}
                   </Label>
                   <LocationSelector
-                    value={selectedLocation}  // ✅ استخدام الحالة الكاملة للموقع
+                    value={selectedLocation}
                     onChange={handleLocationChange}
                   />
                 </div>
@@ -310,7 +299,6 @@ export default function EditInventoryPage() {
             </InfoCard>
           </div>
 
-          {/* العمود الجانبي */}
           <div className="space-y-8">
             <InfoCard title={t("notes")} icon={<FileText className="h-5 w-5" />}>
               <div className="space-y-4">

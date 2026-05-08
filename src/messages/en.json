@@ -1351,6 +1351,11 @@
     "selectedRoom": "Selected Unit"
   },
   "TicketsForm": {
+    "attachedImage": "Attached Image",
+    "uploadImage": "Upload Image",
+    "changeImage": "Change Image",
+    "imageDeleted": "Image deleted successfully",
+    "imageDeleteError": "Failed to delete image",
     "none": "None",
     "selectAsset": "Select asset",
     "editTitle": "Edit Ticket",

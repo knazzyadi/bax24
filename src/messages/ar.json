@@ -1314,6 +1314,11 @@
     "next": "التالي"
   },
   "TicketsForm": {
+    "attachedImage": "الصورة المرفقة",
+    "uploadImage": "رفع صورة",
+    "changeImage": "تغيير الصورة",
+    "imageDeleted": "تم حذف الصورة بنجاح",
+    "imageDeleteError": "فشل حذف الصورة",
     "none": "لا شيء",
     "selectAsset": "اختر الجهاز",
     "editTitle": "تعديل البلاغ",

@@ -5,7 +5,8 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import {
-  Info, Loader2, MapPin, Building, Layers, DoorOpen, AlertCircle, FileText, Calendar, Save, X, Check, Plus
+  Info, Loader2, MapPin, Building, Layers, DoorOpen, AlertCircle,
+  FileText, Calendar, Save, X, Check, Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,43 +27,21 @@ import { RoomSelector } from "@/components/shared/RoomSelector";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
 
-// تعريف الأنواع (كما هي)
-interface Building {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-}
-
-interface Floor {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-  buildingId: string;
-}
-
-interface Room {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-  floorId: string;
-  buildingId?: string;
-  fullCode?: string;
-}
-
+// --- تعريف الأنواع ---
+interface Building { id: string; name: string; nameEn?: string; code?: string; }
+interface Floor { id: string; name: string; nameEn?: string; code?: string; buildingId: string; }
+interface Room { id: string; name: string; nameEn?: string; code?: string; floorId: string; buildingId?: string; fullCode?: string; }
 interface AssetType { id: string; name: string; nameEn?: string; }
-interface Asset { id: string; name: string; code: string; nameEn?: string; }
+interface Asset { id: string; name: string; nameEn?: string; code: string; }
 
 type LocationLevel = 'building' | 'floor' | 'room';
 
-function frequencyStringToDays(freq: string): number {
+function frequencyToDays(freq: string): number {
   switch (freq) {
-    case 'MONTHLY': return 30;
-    case 'QUARTERLY': return 90;
-    case 'SEMI_ANNUAL': return 180;
-    case 'YEARLY': return 365;
+    case "MONTHLY": return 30;
+    case "QUARTERLY": return 90;
+    case "SEMI_ANNUAL": return 180;
+    case "YEARLY": return 365;
     default: return 30;
   }
 }
@@ -73,12 +52,12 @@ export default function EditMaintenanceSchedulePage() {
   const id = params.id as string;
   const locale = useLocale();
   const isRtl = locale === "ar";
-  const t = useTranslations('MaintenanceForm');
+  const t = useTranslations("MaintenanceForm");
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // بيانات الجدول
+  // --- بيانات النموذج ---
   const [formData, setFormData] = useState({
     name: "",
     frequency: "MONTHLY",
@@ -90,40 +69,36 @@ export default function EditMaintenanceSchedulePage() {
     isActive: true,
   });
 
-  // بيانات الموقع
-  const [branchId, setBranchId] = useState<string>("");
-  const [buildingId, setBuildingId] = useState<string>("");
-  const [floorId, setFloorId] = useState<string>("");
-  const [roomId, setRoomId] = useState<string>("");
-  const [locationLevel, setLocationLevel] = useState<LocationLevel>('building');
+  // --- بيانات الموقع ---
+  const [branchId, setBranchId] = useState("");
+  const [buildingId, setBuildingId] = useState("");
+  const [floorId, setFloorId] = useState("");
+  const [roomId, setRoomId] = useState("");
+  const [locationLevel, setLocationLevel] = useState<LocationLevel>("building");
 
-  // قوائم الاختيار
-  const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
+  // --- القوائم ---
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+  const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  const [tempSelectedAssetIds, setTempSelectedAssetIds] = useState<string[]>([]);
+  const [assetDialogOpen, setAssetDialogOpen] = useState(false);
 
-  // حالات التحميل
-  const [loadingAssetTypes, setLoadingAssetTypes] = useState(true);
-  const [loadingBuildings, setLoadingBuildings] = useState(true);
+  // --- حالات التحميل الجزئية ---
+  const [loadingMaster, setLoadingMaster] = useState(true);
+  const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [loadingAssets, setLoadingAssets] = useState(false);
-  const [loadingSchedule, setLoadingSchedule] = useState(true);
-  const [dataFetched, setDataFetched] = useState(false);
-
-  // حوار اختيار الأصول
-  const [assetDialogOpen, setAssetDialogOpen] = useState(false);
-  const [tempSelectedAssetIds, setTempSelectedAssetIds] = useState<string[]>([]);
 
   const containerClass = "bg-card border border-border rounded-md p-6 shadow-sm hover:shadow-md transition-all";
 
-  // --- 1. تحميل البيانات الرئيسية (أنواع الأصول والمباني) أولاً ---
+  // 1. تحميل البيانات الرئيسية (أنواع الأصول والمباني)
   useEffect(() => {
     const controller = new AbortController();
-    async function loadMasterData() {
+    (async () => {
       try {
         const [assetTypesRes, buildingsRes] = await Promise.all([
           fetch("/api/asset-types", { signal: controller.signal }),
@@ -131,88 +106,83 @@ export default function EditMaintenanceSchedulePage() {
         ]);
         if (assetTypesRes.ok) setAssetTypes(await assetTypesRes.json());
         if (buildingsRes.ok) setBuildings(await buildingsRes.json());
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error(error);
-        toast.error(t("fetchError"));
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error(err);
       } finally {
-        setLoadingAssetTypes(false);
-        setLoadingBuildings(false);
+        setLoadingMaster(false);
       }
-    }
-    loadMasterData();
+    })();
     return () => controller.abort();
-  }, [t]);
+  }, []);
 
-  // --- 2. تحميل بيانات الجدول (بعد توفر المباني وأنواع الأصول) ---
+  // 2. تحميل بيانات جدول الصيانة (بعد الانتهاء من البيانات الرئيسية تقريباً)
   useEffect(() => {
-    if (loadingAssetTypes || loadingBuildings) return; // انتظر حتى تنتهي البيانات الرئيسية
+    if (loadingMaster) return; // ننتظر حتى نحمل المباني وأنواع الأصول
     if (!id) return;
 
     const controller = new AbortController();
-    async function loadSchedule() {
+    (async () => {
       setLoadingSchedule(true);
       try {
         const res = await fetch(`/api/maintenance/schedules/${id}`, { signal: controller.signal });
-        if (!res.ok) throw new Error("Failed to fetch schedule");
+        if (!res.ok) throw new Error();
         const data = await res.json();
 
-        // تعبئة بيانات النموذج
-        let freqDays = data.frequencyDays;
-        if (!freqDays && data.frequency) freqDays = frequencyStringToDays(data.frequency);
+        // تعبئة النموذج الأساسي
         setFormData({
           name: data.name || "",
           frequency: data.frequency || "MONTHLY",
-          frequencyDays: freqDays || 30,
+          frequencyDays: data.frequencyDays || frequencyToDays(data.frequency),
           leadDays: data.leadDays || 30,
-          startDate: data.startDate ? data.startDate.split('T')[0] : "",
+          startDate: data.startDate?.split("T")[0] || "",
           assetTypeId: data.assetTypeId || "",
           notes: data.notes || "",
-          isActive: data.isActive !== undefined ? data.isActive : true,
+          isActive: data.isActive ?? true,
         });
 
-        // تعيين الموقع
-        if (data.branchId) setBranchId(data.branchId);
-        if (data.buildingId) {
-          setBuildingId(data.buildingId);
-          setLocationLevel('building');
-        } else if (data.floorId) {
-          setFloorId(data.floorId);
-          setLocationLevel('floor');
-        } else if (data.roomId) {
-          setRoomId(data.roomId);
-          setLocationLevel('room');
-        }
+        // تعيين الفرع والموقع
+        setBranchId(data.branchId || "");
 
-        // تعيين الأصول المختارة
-        if (data.scheduleAssets && data.scheduleAssets.length) {
-          const assetIds = data.scheduleAssets.map((sa: any) => sa.assetId);
-          setSelectedAssetIds(assetIds);
-        }
+        const bId = data.buildingId || "";
+        const fId = data.floorId || "";
+        const rId = data.roomId || "";
 
-        setDataFetched(true);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.error(error);
+        setBuildingId(bId);
+        setFloorId(fId);
+        setRoomId(rId);
+
+        // تحديد مستوى الموقع
+        if (rId) setLocationLevel("room");
+        else if (fId) setLocationLevel("floor");
+        else if (bId) setLocationLevel("building");
+
+        // تعيين الأصول المرتبطة
+        const assetIds = data.scheduleAssets?.map((a: any) => a.assetId) || [];
+        setSelectedAssetIds(assetIds);
+        setTempSelectedAssetIds(assetIds);
+
+        setLoadingSchedule(false);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error(err);
         toast.error(t("fetchError"));
         router.push(`/${locale}/maintenance`);
       } finally {
-        setLoadingSchedule(false);
-        setLoading(false); // إنهاء حالة التحميل العامة
+        setLoading(false);
       }
-    }
-    loadSchedule();
+    })();
     return () => controller.abort();
-  }, [id, loadingAssetTypes, loadingBuildings, locale, router, t]);
+  }, [id, loadingMaster, locale, router, t]);
 
-  // --- 3. تحميل الأدوار عند تغيير buildingId (بعد توفر البيانات) ---
+  // 3. تحميل الأدوار عند تغيير buildingId (بعد تحميل بيانات الجدول)
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
       return;
     }
     const controller = new AbortController();
-    async function fetchFloors() {
+    (async () => {
       setLoadingFloors(true);
       try {
         const res = await fetch(`/api/buildings/${buildingId}/floors`, { signal: controller.signal });
@@ -220,127 +190,97 @@ export default function EditMaintenanceSchedulePage() {
           const data = await res.json();
           setFloors(data);
         } else setFloors([]);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setFloors([]);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error(err);
       } finally {
         setLoadingFloors(false);
       }
-    }
-    fetchFloors();
+    })();
     return () => controller.abort();
   }, [buildingId]);
 
-  // --- 4. تحميل الغرف عند تغيير floorId ---
+  // 4. تحميل الغرف عند تغيير floorId
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
       return;
     }
     const controller = new AbortController();
-    async function fetchRooms() {
+    (async () => {
       setLoadingRooms(true);
       try {
         const res = await fetch(`/api/floors/${floorId}/rooms`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
-          const currentBuilding = buildings.find(b => b.id === buildingId);
-          const currentFloor = floors.find(f => f.id === floorId);
-          const buildingCode = currentBuilding?.code || '';
-          const floorCode = currentFloor?.code || '';
-          const roomsWithCode = data.map((room: any) => ({
-            id: room.id,
-            name: room.name,
-            nameEn: room.nameEn,
-            code: room.code,
-            floorId,
-            buildingId,
-            fullCode: `${buildingCode}-${floorCode}-${room.code || ''}`,
-          }));
-          setRooms(roomsWithCode);
+          // يمكن إضافة fullCode هنا إذا أردت
+          setRooms(data);
         } else setRooms([]);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setRooms([]);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error(err);
       } finally {
         setLoadingRooms(false);
       }
-    }
-    fetchRooms();
+    })();
     return () => controller.abort();
-  }, [floorId, buildingId, buildings, floors]);
+  }, [floorId]);
 
-  // --- 5. تحميل الأصول عند توفر نوع الأصل والموقع المحدد ---
+  // 5. تحميل الأصول بناءً على نوع الأصل والموقع المحدد
   useEffect(() => {
-    const hasAssetType = formData.assetTypeId && formData.assetTypeId !== "";
-    if (!hasAssetType) {
+    // لا تحمل إذا لم يتم تحديد نوع الأصل أو لم يكتمل تحميل الجدول بعد
+    if (!formData.assetTypeId) {
       setAssets([]);
       return;
     }
-
-    let canFetch = false;
-    const params = new URLSearchParams();
-    params.append("typeId", formData.assetTypeId);
-    if (branchId) params.append("branchId", branchId);
-
-    if (locationLevel === 'room' && roomId) {
-      params.append("roomId", roomId);
-      canFetch = true;
-    } else if (locationLevel === 'floor' && floorId) {
-      params.append("floorId", floorId);
-      canFetch = true;
-    } else if (locationLevel === 'building' && buildingId) {
-      params.append("buildingId", buildingId);
-      canFetch = true;
-    }
-
-    if (!canFetch) {
-      setAssets([]);
-      return;
-    }
+    // يجب أن يكون الموقع محدداً على المستوى المناسب
+    let locationParam = "";
+    if (locationLevel === "room" && roomId) locationParam = `roomId=${roomId}`;
+    else if (locationLevel === "floor" && floorId) locationParam = `floorId=${floorId}`;
+    else if (locationLevel === "building" && buildingId) locationParam = `buildingId=${buildingId}`;
+    else return; // لم يتم تحديد موقع بعد
 
     const controller = new AbortController();
-    async function fetchAssets() {
+    (async () => {
       setLoadingAssets(true);
       try {
-        const res = await fetch(`/api/assets?${params.toString()}`, { signal: controller.signal });
+        const url = `/api/assets?typeId=${formData.assetTypeId}&${locationParam}&branchId=${branchId}`;
+        const res = await fetch(url, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           setAssets(data.assets || []);
         } else setAssets([]);
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        setAssets([]);
+      } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
+        console.error(err);
       } finally {
         setLoadingAssets(false);
       }
-    }
-    fetchAssets();
+    })();
     return () => controller.abort();
-  }, [buildingId, floorId, roomId, formData.assetTypeId, branchId, locationLevel]);
+  }, [formData.assetTypeId, locationLevel, buildingId, floorId, roomId, branchId]);
 
   // دوال مساعدة
-  const getSelectedLocationSummary = () => {
-    if (locationLevel === 'room' && roomId) {
-      const room = rooms.find(r => r.id === roomId);
-      return room ? `${room.name} (${room.fullCode})` : t("room");
-    }
-    if (locationLevel === 'floor' && floorId) {
-      const floor = floors.find(f => f.id === floorId);
-      return floor ? floor.name : t("floor");
-    }
-    if (locationLevel === 'building' && buildingId) {
-      const building = buildings.find(b => b.id === buildingId);
-      return building ? building.name : t("building");
-    }
-    return t("notSelected");
+  const isLocationSelected = () => {
+    if (locationLevel === "room") return !!roomId;
+    if (locationLevel === "floor") return !!floorId;
+    return !!buildingId;
   };
 
-  const isLocationSelected = () => {
-    if (locationLevel === 'room') return !!roomId;
-    if (locationLevel === 'floor') return !!floorId;
-    if (locationLevel === 'building') return !!buildingId;
-    return false;
+  const getSelectedLocationSummary = () => {
+    if (locationLevel === "room" && roomId) {
+      const room = rooms.find(r => r.id === roomId);
+      return room ? (isRtl ? room.name : room.nameEn || room.name) : t("room");
+    }
+    if (locationLevel === "floor" && floorId) {
+      const floor = floors.find(f => f.id === floorId);
+      return floor ? (isRtl ? floor.name : floor.nameEn || floor.name) : t("floor");
+    }
+    if (locationLevel === "building" && buildingId) {
+      const building = buildings.find(b => b.id === buildingId);
+      return building ? (isRtl ? building.name : building.nameEn || building.name) : t("building");
+    }
+    return t("notSelected");
   };
 
   const openAssetDialog = () => {
@@ -362,11 +302,7 @@ export default function EditMaintenanceSchedulePage() {
       toast.error(t("nameRequired"));
       return;
     }
-    let locationValid = false;
-    if (locationLevel === 'room' && roomId) locationValid = true;
-    else if (locationLevel === 'floor' && floorId) locationValid = true;
-    else if (locationLevel === 'building' && buildingId) locationValid = true;
-    if (!locationValid) {
+    if (!isLocationSelected()) {
       toast.error(t("locationRequired"));
       return;
     }
@@ -379,17 +315,12 @@ export default function EditMaintenanceSchedulePage() {
       return;
     }
 
-    let finalFrequencyDays = formData.frequencyDays;
-    if (!finalFrequencyDays || finalFrequencyDays <= 0) {
-      finalFrequencyDays = frequencyStringToDays(formData.frequency);
-    }
-
     setIsSubmitting(true);
     try {
       const payload: any = {
         name: formData.name,
         frequency: formData.frequency,
-        frequencyDays: finalFrequencyDays,
+        frequencyDays: formData.frequencyDays || frequencyToDays(formData.frequency),
         leadDays: formData.leadDays,
         startDate: formData.startDate || null,
         branchId,
@@ -398,9 +329,9 @@ export default function EditMaintenanceSchedulePage() {
         notes: formData.notes,
         isActive: formData.isActive,
       };
-      if (locationLevel === 'room' && roomId) payload.roomId = roomId;
-      else if (locationLevel === 'floor' && floorId) payload.floorId = floorId;
-      else if (locationLevel === 'building' && buildingId) payload.buildingId = buildingId;
+      if (locationLevel === "room" && roomId) payload.roomId = roomId;
+      else if (locationLevel === "floor" && floorId) payload.floorId = floorId;
+      else if (locationLevel === "building" && buildingId) payload.buildingId = buildingId;
 
       const res = await fetch(`/api/maintenance/schedules/${id}`, {
         method: "PUT",
@@ -422,8 +353,8 @@ export default function EditMaintenanceSchedulePage() {
     }
   };
 
-  // حالة التحميل الرئيسية
-  if (loading || loadingSchedule || loadingAssetTypes || loadingBuildings) {
+  // --- حالة التحميل العامة ---
+  if (loading || loadingMaster || loadingSchedule) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -438,7 +369,7 @@ export default function EditMaintenanceSchedulePage() {
       subtitle={t("editSubtitle")}
     >
       <div className="lg:col-span-2 space-y-8">
-        {/* 1. معلومات أساسية */}
+        {/* معلومات أساسية (مبسطة لكن كاملة) */}
         <FormSection icon={<AlertCircle size={16} />} title={t("basicInfo")}>
           <div className="grid md:grid-cols-2 gap-6">
             <FormField label={t("name")} required>
@@ -451,12 +382,8 @@ export default function EditMaintenanceSchedulePage() {
             </FormField>
             <FormField label={t("frequency")}>
               <Select value={formData.frequency} onValueChange={(v) => setFormData({ ...formData, frequency: v })}>
-                <SelectTrigger className="h-12 rounded-xl font-medium">
-                  {formData.frequency === "MONTHLY" ? t("monthly") :
-                   formData.frequency === "QUARTERLY" ? t("quarterly") :
-                   formData.frequency === "SEMI_ANNUAL" ? t("semiAnnual") :
-                   formData.frequency === "YEARLY" ? t("yearly") :
-                   <SelectValue placeholder={t("selectFrequency")} />}
+                <SelectTrigger className="h-12 rounded-xl">
+                  <SelectValue placeholder={t("selectFrequency")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MONTHLY">{t("monthly")}</SelectItem>
@@ -468,291 +395,111 @@ export default function EditMaintenanceSchedulePage() {
             </FormField>
           </div>
           <div className="grid md:grid-cols-3 gap-6 mt-4">
-            <FormField label={t("frequencyDays")} tooltip={isRtl ? "عدد الأيام بين كل صيانة والأخرى (يُحسب تلقائياً إذا ترك فارغاً)" : "Number of days between each maintenance (auto‑calculated if empty)"}>
-              <Input
-                type="number"
-                min={1}
-                value={formData.frequencyDays}
-                onChange={(e) => setFormData({ ...formData, frequencyDays: parseInt(e.target.value) || 0 })}
-                className="h-12 rounded-xl font-medium"
-                placeholder={isRtl ? "مثال: 30" : "e.g. 30"}
-              />
+            <FormField label={t("frequencyDays")}>
+              <Input type="number" min={1} value={formData.frequencyDays} onChange={(e) => setFormData({ ...formData, frequencyDays: parseInt(e.target.value) || 0 })} />
             </FormField>
             <FormField label={t("leadDays")}>
-              <Input
-                type="number"
-                value={formData.leadDays}
-                onChange={(e) => setFormData({ ...formData, leadDays: parseInt(e.target.value) || 0 })}
-                className="h-12 rounded-xl font-medium"
-              />
+              <Input type="number" value={formData.leadDays} onChange={(e) => setFormData({ ...formData, leadDays: parseInt(e.target.value) || 0 })} />
             </FormField>
             <FormField label={t("startDate")}>
-              <Input
-                type="date"
-                value={formData.startDate}
-                onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="h-12 rounded-xl font-medium"
-              />
-              <p className="text-xs text-muted-foreground mt-1">{t("startDateHint")}</p>
+              <Input type="date" value={formData.startDate} onChange={(e) => setFormData({ ...formData, startDate: e.target.value })} />
             </FormField>
           </div>
-          <div className="flex items-center gap-4 mt-4">
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="isActive"
-                checked={formData.isActive}
-                onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
-                className="w-4 h-4 rounded border-gray-300"
-              />
-              <Label htmlFor="isActive" className="cursor-pointer font-medium">
-                {t("active")}
-              </Label>
-            </div>
+          <div className="flex items-center gap-2 mt-4">
+            <input type="checkbox" id="isActive" checked={formData.isActive} onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })} />
+            <Label htmlFor="isActive" className="cursor-pointer">{t("active")}</Label>
           </div>
         </FormSection>
 
-        {/* 2. حاوية الموقع */}
+        {/* الموقع */}
         <div className={containerClass}>
-          <div className="space-y-3">
-            <h3 className="text-foreground font-medium text-lg uppercase tracking-widest flex items-center gap-2">
-              <MapPin size={16} /> {isRtl ? 'تفاصيل الموقع' : 'Location Details'}
-              <span className="text-red-500 text-sm">*</span>
-            </h3>
-            <div className="flex gap-4 mb-4">
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="radio"
-                  value="building"
-                  checked={locationLevel === 'building'}
-                  onChange={() => setLocationLevel('building')}
-                />
-                <span>{isRtl ? "مبنى" : "Building"}</span>
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="radio"
-                  value="floor"
-                  checked={locationLevel === 'floor'}
-                  onChange={() => setLocationLevel('floor')}
-                />
-                <span>{isRtl ? "دور" : "Floor"}</span>
-              </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="radio"
-                  value="room"
-                  checked={locationLevel === 'room'}
-                  onChange={() => setLocationLevel('room')}
-                />
-                <span>{isRtl ? "غرفة" : "Room"}</span>
-              </label>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
-                  <Building size={12} /> {isRtl ? "الفرع" : "Branch"}
-                </Label>
-                <BranchSelector value={branchId} onValueChange={(val) => { setBranchId(val); setBuildingId(""); setFloorId(""); setRoomId(""); }} />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
-                  <Building size={12} /> {isRtl ? "المبنى أو المنطقة" : "Building / Zone"}
-                </Label>
-                <div className="relative">
-                  <BuildingSelector
-                    value={buildingId}
-                    onValueChange={(val) => { setBuildingId(val); setFloorId(""); setRoomId(""); }}
-                    buildings={buildings}
-                    loading={loadingBuildings}
-                  />
-                  {!branchId && (
-                    <div className="absolute inset-0 bg-background/50 rounded-md cursor-not-allowed z-10" />
-                  )}
-                </div>
-              </div>
-              {(locationLevel === 'floor' || locationLevel === 'room') && (
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
-                    <Layers size={12} /> {isRtl ? "الدور أو المنطقة" : "Floor / Zone"}
-                  </Label>
-                  <FloorSelector
-                    value={floorId}
-                    onValueChange={(val) => { setFloorId(val); setRoomId(""); }}
-                    floors={floors}
-                    buildingId={buildingId}
-                    loading={loadingFloors}
-                  />
-                </div>
-              )}
-              {locationLevel === 'room' && (
-                <div className="space-y-2">
-                  <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
-                    <DoorOpen size={12} /> {isRtl ? "الوحدة" : "Unit"}
-                  </Label>
-                  <RoomSelector
-                    value={roomId}
-                    onValueChange={setRoomId}
-                    rooms={rooms}
-                    floorId={floorId}
-                    loading={loadingRooms}
-                  />
-                </div>
-              )}
-            </div>
-            {isLocationSelected() && (
-              <div className="mt-5 relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-lg">
-                <div className="absolute inset-0 bg-primary/20 blur-2xl opacity-30" />
-                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-foreground">
-                    {isRtl ? "الموقع المختار" : "Selected Location"}
-                  </span>
-                  <span className="text-sm font-mono font-medium text-primary tracking-wider">
-                    {getSelectedLocationSummary()}
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* 3. حاوية الأصل */}
-        <div className={containerClass}>
-          <h3 className="text-foreground font-medium text-lg uppercase tracking-widest flex items-center gap-2">
-            <FileText size={16} /> {isRtl ? 'بيانات الأصل (اختياري)' : 'Asset Details (Optional)'}
+          <h3 className="flex items-center gap-2 text-lg font-bold mb-4">
+            <MapPin size={18} /> {t("location")}
           </h3>
-          <div className="space-y-4 mt-3">
-            <AssetTypeField
-              value={formData.assetTypeId}
-              onChange={(val) => setFormData(prev => ({ ...prev, assetTypeId: val ?? "" }))}
-              assetTypes={assetTypes}
-              disabled={!isLocationSelected()}
-              placeholder={isLocationSelected() ? (isRtl ? "اختر نوع الأصل" : "Select asset type") : (isRtl ? "اختر الموقع أولاً" : "Select location first")}
-            />
-
-            <div className="space-y-2">
-              <Label className="text-sm font-medium text-muted-foreground">{t("selectAssets")}</Label>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={openAssetDialog}
-                disabled={!isLocationSelected() || !formData.assetTypeId || assets.length === 0}
-                className="w-full justify-start gap-2 font-normal"
-              >
-                <Plus size={16} />
-                {selectedAssetIds.length > 0
-                  ? `${selectedAssetIds.length} ${t("assetsSelected") || "أصل محدد"}`
-                  : t("selectAssets")}
-              </Button>
-            </div>
-
-            {selectedAssetIds.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-sm font-medium text-muted-foreground mb-2">{t("selectedAssetsList")}</h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {selectedAssetIds.map(assetId => {
-                    const asset = assets.find(a => a.id === assetId);
-                    if (!asset) return null;
-                    return (
-                      <div key={assetId} className="flex items-center justify-between p-3 rounded-xl border border-primary/20 bg-primary/5">
-                        <div>
-                          <p className="font-medium">{isRtl ? asset.name : (asset.nameEn || asset.name)}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{asset.code}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeAsset(assetId)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+          <div className="flex gap-2 mb-4">
+            <label className="flex items-center gap-1"><input type="radio" name="locLevel" checked={locationLevel === "building"} onChange={() => setLocationLevel("building")} /> مبنى</label>
+            <label className="flex items-center gap-1"><input type="radio" name="locLevel" checked={locationLevel === "floor"} onChange={() => setLocationLevel("floor")} /> دور</label>
+            <label className="flex items-center gap-1"><input type="radio" name="locLevel" checked={locationLevel === "room"} onChange={() => setLocationLevel("room")} /> غرفة</label>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <BranchSelector value={branchId} onValueChange={setBranchId} />
+            <BuildingSelector value={buildingId} onValueChange={(val) => { setBuildingId(val); setFloorId(""); setRoomId(""); }} buildings={buildings} loading={loadingMaster} />
+            {(locationLevel === "floor" || locationLevel === "room") && (
+              <FloorSelector value={floorId} onValueChange={(val) => { setFloorId(val); setRoomId(""); }} floors={floors} buildingId={buildingId} loading={loadingFloors} />
+            )}
+            {locationLevel === "room" && (
+              <RoomSelector value={roomId} onValueChange={setRoomId} rooms={rooms} floorId={floorId} loading={loadingRooms} />
             )}
           </div>
+          {isLocationSelected() && (
+            <div className="mt-5 p-3 bg-primary/10 rounded-xl border border-primary/30">
+              <span className="font-semibold">{t("selectedLocation")}:</span> {getSelectedLocationSummary()}
+            </div>
+          )}
+        </div>
+
+        {/* الأصول */}
+        <div className={containerClass}>
+          <h3 className="text-lg font-bold mb-4">{t("assets")}</h3>
+          <AssetTypeField
+            value={formData.assetTypeId}
+            onChange={(val) => setFormData(prev => ({ ...prev, assetTypeId: val || "" }))}
+            assetTypes={assetTypes}
+            disabled={!isLocationSelected()}
+          />
+          <Button type="button" variant="outline" onClick={openAssetDialog} disabled={!formData.assetTypeId || assets.length === 0} className="mt-4 w-full">
+            <Plus className="h-4 w-4 mr-2" /> {selectedAssetIds.length > 0 ? `${selectedAssetIds.length} أصل محدد` : t("selectAssets")}
+          </Button>
+          {selectedAssetIds.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {selectedAssetIds.map(assetId => {
+                const asset = assets.find(a => a.id === assetId);
+                if (!asset) return null;
+                return (
+                  <div key={assetId} className="flex justify-between items-center p-2 border rounded">
+                    <span>{isRtl ? asset.name : asset.nameEn || asset.name}</span>
+                    <button type="button" onClick={() => removeAsset(assetId)} className="text-red-500"><X size={16} /></button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* العمود الجانبي */}
-      <div className="space-y-8">
-        <FormSidebar>
-          <div className="space-y-3 pb-4 border-b border-border">
-            <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-              <FileText size={14} /> {t("notes")}
-            </Label>
-            <Textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder={t("notesPlaceholder")}
-              className="min-h-[120px] rounded-xl font-medium"
-            />
-          </div>
-
-          <div className="pt-4 flex gap-3">
-            <Button onClick={() => router.back()} variant="outline" className="flex-1 h-11 rounded-full border-red-500 text-red-500 hover:bg-red-50 font-medium">
-              {t("cancel")}
-            </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 h-11 rounded-full bg-primary hover:bg-primary/90 font-medium gap-2">
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save size={16} />}
-              {t("save")}
-            </Button>
-          </div>
-
-          <div className="mt-4 p-3 rounded-xl bg-primary/10 border border-primary/30 text-xs font-medium text-muted-foreground flex gap-2">
-            <Info size={14} className="text-primary shrink-0" />
-            {isRtl
-              ? "سيتم إنشاء أمر عمل واحد يتضمن جميع الأصول المستهدفة عند كل تنفيذ يدوي أو تلقائي."
-              : "A single work order containing all target assets will be created on each execution (manual or automatic)."}
-          </div>
-        </FormSidebar>
-      </div>
+      {/* شريط جانبي للحفظ */}
+      <FormSidebar>
+        <div className="space-y-3">
+          <Label>{t("notes")}</Label>
+          <Textarea value={formData.notes} onChange={(e) => setFormData({ ...formData, notes: e.target.value })} placeholder={t("notesPlaceholder")} rows={3} />
+        </div>
+        <div className="flex gap-3 mt-6">
+          <Button onClick={() => router.back()} variant="outline" className="flex-1">{t("cancel")}</Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 gap-2">
+            {isSubmitting ? <Loader2 className="animate-spin" /> : <Save />} {t("save")}
+          </Button>
+        </div>
+        <div className="mt-4 p-3 bg-primary/10 rounded-lg text-xs text-muted-foreground flex gap-2">
+          <Info size={14} /> {t("infoText")}
+        </div>
+      </FormSidebar>
 
       {/* حوار اختيار الأصول */}
       <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-background border-border shadow-lg">
-          <DialogHeader>
-            <DialogTitle>{t("selectAssets")}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 mt-4">
-            {loadingAssets ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
-            ) : assets.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">{t("noAssets")}</p>
-            ) : (
-              <div className="space-y-2">
-                {assets.map(asset => (
-                  <div key={asset.id} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-secondary/20">
-                    <input
-                      type="checkbox"
-                      id={`asset-${asset.id}`}
-                      checked={tempSelectedAssetIds.includes(asset.id)}
-                      onChange={(e) => {
-                        if (e.target.checked) {
-                          setTempSelectedAssetIds(prev => [...prev, asset.id]);
-                        } else {
-                          setTempSelectedAssetIds(prev => prev.filter(id => id !== asset.id));
-                        }
-                      }}
-                      className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
-                    />
-                    <Label htmlFor={`asset-${asset.id}`} className="flex-1 cursor-pointer font-medium">
-                      <div>{isRtl ? asset.name : (asset.nameEn || asset.name)}</div>
-                      <div className="text-xs text-muted-foreground font-mono">{asset.code}</div>
-                    </Label>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-            <Button variant="outline" onClick={() => setAssetDialogOpen(false)} className="font-normal">{t("cancel")}</Button>
-            <Button onClick={confirmAssetSelection} disabled={loadingAssets} className="font-normal">
-              <Check className="h-4 w-4 mr-2" /> {t("confirm") || "تأكيد"}
-            </Button>
-          </div>
+        <DialogContent className="max-w-md max-h-[80vh] overflow-auto">
+          <DialogHeader><DialogTitle>{t("selectAssets")}</DialogTitle></DialogHeader>
+          {loadingAssets ? <Loader2 className="animate-spin mx-auto" /> : (
+            assets.map(asset => (
+              <label key={asset.id} className="flex items-center gap-2">
+                <input type="checkbox" checked={tempSelectedAssetIds.includes(asset.id)} onChange={(e) => {
+                  if (e.target.checked) setTempSelectedAssetIds(prev => [...prev, asset.id]);
+                  else setTempSelectedAssetIds(prev => prev.filter(id => id !== asset.id));
+                }} />
+                <span>{isRtl ? asset.name : asset.nameEn || asset.name}</span> <span className="text-xs text-muted-foreground">({asset.code})</span>
+              </label>
+            ))
+          )}
+          <Button onClick={confirmAssetSelection} className="mt-4"><Check /> تأكيد</Button>
         </DialogContent>
       </Dialog>
     </FormPageContainer>

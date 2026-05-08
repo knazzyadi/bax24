@@ -2,232 +2,394 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useLocale } from "next-intl";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { BuildingSelector } from "@/components/shared/BuildingSelector";
+import { FloorSelector } from "@/components/shared/FloorSelector";
+import { RoomSelector } from "@/components/shared/RoomSelector";
+import { Moon, Sun, Languages, X, Send, Loader2, Info } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+interface Building {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+}
+interface Floor {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+  buildingId: string;
+}
+interface Room {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+  floorId: string;
+  fullCode?: string;
+}
+interface Branch {
+  id: string;
+  name: string;
+  nameEn?: string;
+}
 
 export default function PublicTicketPage() {
   const params = useParams();
   const router = useRouter();
-
+  const locale = useLocale();
+  const isRtl = locale === "ar";
   const slug = params.slug as string;
   const token = params.token as string;
 
-  const [loading, setLoading] = useState(false);
-  const [validating, setValidating] = useState(true);
+  // حالة تحميل الفرع والغرف
+  const [branchLoading, setBranchLoading] = useState(true);
+  const [branch, setBranch] = useState<Branch | null>(null);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [roomId, setRoomId] = useState("");
 
-  const [branchName, setBranchName] = useState("");
+  // الموقع الهرمي (لجلب الغرف عبر المبنى والدور)
+  const [buildingId, setBuildingId] = useState("");
+  const [floorId, setFloorId] = useState("");
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [floors, setFloors] = useState<Floor[]>([]);
+  const [loadingBuildings, setLoadingBuildings] = useState(true);
+  const [loadingFloors, setLoadingFloors] = useState(false);
 
+  // النموذج
   const [form, setForm] = useState({
     title: "",
     description: "",
     reporterName: "",
     reporterEmail: "",
     phone: "",
-    roomId: "",
     type: "MAINTENANCE",
   });
+  const [files, setFiles] = useState<File[]>([]);
+  const [previews, setPreviews] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [image, setImage] = useState<File | null>(null);
-  const [rooms, setRooms] = useState<any[]>([]);
-
-  // ======================
-  // 1. التحقق من الفرع أولاً
-  // ======================
+  // الوضع الليلي/النهاري
+  const [theme, setTheme] = useState<"light" | "dark">("light");
   useEffect(() => {
-    const validateBranch = async () => {
-      setValidating(true);
+    const stored = localStorage.getItem("theme") as "light" | "dark" | null;
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initial = stored ?? (prefersDark ? "dark" : "light");
+    setTheme(initial);
+    document.documentElement.classList.toggle("dark", initial === "dark");
+  }, []);
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    document.documentElement.classList.toggle("dark", newTheme === "dark");
+  };
 
+  // تبديل اللغة بدون إعادة تحميل كامل (الحفاظ على slug و token)
+  const switchLanguage = () => {
+    const newLocale = locale === "ar" ? "en" : "ar";
+    router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
+  };
+
+  // جلب الفرع والتحقق منه
+  useEffect(() => {
+    const fetchBranch = async () => {
       try {
-        const res = await fetch(
-          `/api/public/branch?slug=${slug}&token=${token}`
-        );
-
+        const res = await fetch(`/api/public/branch?slug=${slug}&token=${token}`);
         const data = await res.json();
-
         if (!res.ok) {
           toast.error(data.error || "رابط غير صالح");
           router.push("/");
           return;
         }
-
-        setBranchName(data.branch.name);
+        setBranch(data.branch);
+        fetchBuildings(); // بعد التحقق، نجلب المباني
       } catch {
-        toast.error("فشل الاتصال بالخادم");
+        toast.error("خطأ في التحقق من الرابط");
         router.push("/");
       } finally {
-        setValidating(false);
+        setBranchLoading(false);
       }
     };
+    fetchBranch();
+  }, [slug, token, router]);
 
-    validateBranch();
-  }, [slug, token]);
-
-  // ======================
-  // 2. جلب الغرف
-  // ======================
-  useEffect(() => {
-    if (!slug || !token) return;
-
-    const fetchRooms = async () => {
-      try {
-        const res = await fetch(
-          `/api/public/rooms?slug=${slug}&token=${token}`
-        );
-
-        const data = await res.json();
-
-        if (res.ok) {
-          setRooms(data.rooms || []);
-        }
-      } catch {}
-    };
-
-    fetchRooms();
-  }, [slug, token]);
-
-  // ======================
-  // 3. إرسال البلاغ
-  // ======================
-  const handleSubmit = async () => {
-    if (!form.title || !form.roomId || !form.reporterName || !form.reporterEmail) {
-      toast.error("يرجى تعبئة البيانات المطلوبة");
-      return;
-    }
-
-    setLoading(true);
-
+  const fetchBuildings = async () => {
+    setLoadingBuildings(true);
     try {
-      const fd = new FormData();
-
-      fd.append("slug", slug);
-      fd.append("token", token);
-
-      Object.entries(form).forEach(([key, value]) => {
-        fd.append(key, value);
-      });
-
-      if (image) fd.append("image", image);
-
-      const res = await fetch("/api/public/tickets", {
-        method: "POST",
-        body: fd,
-      });
-
+      const res = await fetch("/api/buildings");
       const data = await res.json();
-
-      if (!res.ok) {
-        toast.error(data.error || "فشل الإرسال");
-        return;
-      }
-
-      toast.success("تم إرسال البلاغ بنجاح 🎉");
-
-      router.push(`/${params.locale}/tickets/public/success`);
+      setBuildings(data);
     } catch {
-      toast.error("خطأ في الاتصال");
+      toast.error("فشل تحميل المباني");
     } finally {
-      setLoading(false);
+      setLoadingBuildings(false);
     }
   };
 
-  // ======================
-  // Loading
-  // ======================
-  if (validating) {
+  // جلب الأدوار
+  useEffect(() => {
+    if (!buildingId) {
+      setFloors([]);
+      return;
+    }
+    const fetchFloors = async () => {
+      setLoadingFloors(true);
+      try {
+        const res = await fetch(`/api/buildings/${buildingId}/floors`);
+        if (res.ok) setFloors(await res.json());
+        else setFloors([]);
+      } catch {
+        setFloors([]);
+      } finally {
+        setLoadingFloors(false);
+      }
+    };
+    fetchFloors();
+  }, [buildingId]);
+
+  // جلب الغرف
+  useEffect(() => {
+    if (!floorId) {
+      setRooms([]);
+      return;
+    }
+    const fetchRooms = async () => {
+      setLoadingRooms(true);
+      try {
+        const res = await fetch(`/api/floors/${floorId}/rooms`);
+        if (res.ok) {
+          const data = await res.json();
+          setRooms(data);
+        } else setRooms([]);
+      } catch {
+        setRooms([]);
+      } finally {
+        setLoadingRooms(false);
+      }
+    };
+    fetchRooms();
+  }, [floorId]);
+
+  // معاينة الصور
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = Array.from(e.target.files || []);
+    const imageFiles = selected.filter(file => file.type.startsWith("image/"));
+    setFiles(prev => [...prev, ...imageFiles]);
+    const newPreviews = imageFiles.map(file => URL.createObjectURL(file));
+    setPreviews(prev => [...prev, ...newPreviews]);
+  };
+  const removeFile = (index: number) => {
+    URL.revokeObjectURL(previews[index]);
+    setFiles(prev => prev.filter((_, i) => i !== index));
+    setPreviews(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async () => {
+    if (!form.title.trim()) {
+      toast.error(isRtl ? "عنوان البلاغ مطلوب" : "Title is required");
+      return;
+    }
+    if (!roomId) {
+      toast.error(isRtl ? "يرجى اختيار الغرفة" : "Please select a room");
+      return;
+    }
+    if (!form.reporterName.trim() || !form.reporterEmail.trim()) {
+      toast.error(isRtl ? "الاسم والبريد الإلكتروني مطلوبان" : "Name and email are required");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.reporterEmail)) {
+      toast.error(isRtl ? "البريد الإلكتروني غير صالح" : "Invalid email");
+      return;
+    }
+
+    setIsSubmitting(true);
+    const fd = new FormData();
+    fd.append("slug", slug);
+    fd.append("token", token);
+    fd.append("roomId", roomId);
+    fd.append("title", form.title);
+    fd.append("description", form.description);
+    fd.append("reporterName", form.reporterName);
+    fd.append("reporterEmail", form.reporterEmail);
+    fd.append("phone", form.phone);
+    fd.append("type", form.type);
+    files.forEach(file => fd.append("images", file));
+
+    try {
+      const res = await fetch("/api/public/tickets", { method: "POST", body: fd });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(isRtl ? "تم إرسال البلاغ بنجاح" : "Ticket submitted");
+        router.push(`/${locale}/tickets/public/success`);
+      } else {
+        toast.error(data.error || (isRtl ? "فشل الإرسال" : "Submission failed"));
+      }
+    } catch {
+      toast.error(isRtl ? "خطأ في الاتصال" : "Network error");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (branchLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        جاري التحقق من الرابط...
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground">{isRtl ? "جاري التحقق..." : "Verifying..."}</div>
       </div>
     );
   }
 
-  // ======================
-  // UI
-  // ======================
   return (
-    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      
-      <div className="w-full max-w-2xl bg-white rounded-2xl shadow p-6 space-y-4">
+    <div className="min-h-screen bg-background py-8 px-4 sm:px-6">
+      <div className="max-w-4xl mx-auto">
+        {/* أزرار التحكم العلوية */}
+        <div className="flex justify-end gap-3 mb-6">
+          <Button variant="outline" size="icon" onClick={switchLanguage} className="rounded-full">
+            <Languages size={18} />
+          </Button>
+          <Button variant="outline" size="icon" onClick={toggleTheme} className="rounded-full">
+            {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+          </Button>
+        </div>
 
-        <h1 className="text-xl font-bold text-center">
-          بلاغ إلى: {branchName}
-        </h1>
+        {/* البطاقة الرئيسية */}
+        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
+          <div className="p-6 md:p-8 space-y-6">
+            <div className="flex items-center gap-3 border-b border-border pb-4">
+              <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
+                <Send size={24} />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  {isRtl ? "بلاغ صيانة جديد" : "New Maintenance Ticket"}
+                </h1>
+                <p className="text-sm text-muted-foreground">{branch?.name}</p>
+              </div>
+            </div>
 
-        <input
-          className="w-full border p-2 rounded"
-          placeholder="عنوان البلاغ"
-          value={form.title}
-          onChange={(e) =>
-            setForm({ ...form, title: e.target.value })
-          }
-        />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* العمود الأيسر */}
+              <div className="space-y-4">
+                <div>
+                  <Label>{isRtl ? "نوع البلاغ *" : "Type *"}</Label>
+                  <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MAINTENANCE">{isRtl ? "صيانة" : "Maintenance"}</SelectItem>
+                      <SelectItem value="INCIDENT">{isRtl ? "حادث" : "Incident"}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>{isRtl ? "العنوان *" : "Title *"}</Label>
+                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                </div>
+                <div>
+                  <Label>{isRtl ? "الوصف *" : "Description *"}</Label>
+                  <Textarea rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                </div>
+                <div>
+                  <Label>{isRtl ? "الموقع *" : "Location *"}</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    <BuildingSelector
+                      value={buildingId}
+                      onValueChange={(val) => {
+                        setBuildingId(val);
+                        setFloorId("");
+                        setRoomId("");
+                      }}
+                      buildings={buildings}
+                      loading={loadingBuildings}
+                    />
+                    <FloorSelector
+                      value={floorId}
+                      onValueChange={(val) => {
+                        setFloorId(val);
+                        setRoomId("");
+                      }}
+                      floors={floors}
+                      buildingId={buildingId}
+                      loading={loadingFloors}
+                    />
+                    <RoomSelector
+                      value={roomId}
+                      onValueChange={setRoomId}
+                      rooms={rooms}
+                      floorId={floorId}
+                      loading={loadingRooms}
+                    />
+                  </div>
+                </div>
+              </div>
 
-        <textarea
-          className="w-full border p-2 rounded"
-          placeholder="الوصف"
-          rows={4}
-          value={form.description}
-          onChange={(e) =>
-            setForm({ ...form, description: e.target.value })
-          }
-        />
+              {/* العمود الأيمن */}
+              <div className="space-y-4">
+                <div>
+                  <Label>{isRtl ? "الاسم *" : "Name *"}</Label>
+                  <Input value={form.reporterName} onChange={(e) => setForm({ ...form, reporterName: e.target.value })} />
+                </div>
+                <div>
+                  <Label>{isRtl ? "البريد الإلكتروني *" : "Email *"}</Label>
+                  <Input type="email" value={form.reporterEmail} onChange={(e) => setForm({ ...form, reporterEmail: e.target.value })} />
+                </div>
+                <div>
+                  <Label>{isRtl ? "رقم الهاتف (اختياري)" : "Phone (optional)"}</Label>
+                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                </div>
+                <div>
+                  <Label>{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>
+                  <Input type="file" accept="image/*" multiple onChange={handleFileChange} />
+                  {previews.length > 0 && (
+                    <div className="grid grid-cols-3 gap-2 mt-2">
+                      {previews.map((src, idx) => (
+                        <div key={idx} className="relative group">
+                          <img src={src} alt={`preview-${idx}`} className="w-full h-20 object-cover rounded-md border" />
+                          <button
+                            type="button"
+                            onClick={() => removeFile(idx)}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
+                          >
+                            <X size={14} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
-        <select
-          className="w-full border p-2 rounded"
-          value={form.roomId}
-          onChange={(e) =>
-            setForm({ ...form, roomId: e.target.value })
-          }
-        >
-          <option value="">اختر الغرفة</option>
-          {rooms.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.name}
-            </option>
-          ))}
-        </select>
+            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border">
+              <Button onClick={() => router.back()} variant="outline" className="w-full sm:w-32">
+                {isRtl ? "إلغاء" : "Cancel"}
+              </Button>
+              <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full sm:flex-1">
+                {isSubmitting ? <Loader2 className="animate-spin mr-2" size={18} /> : <Send size={18} className="mr-2" />}
+                {isRtl ? "إرسال البلاغ" : "Submit"}
+              </Button>
+            </div>
 
-        <input
-          className="w-full border p-2 rounded"
-          placeholder="اسم المبلغ"
-          value={form.reporterName}
-          onChange={(e) =>
-            setForm({ ...form, reporterName: e.target.value })
-          }
-        />
-
-        <input
-          className="w-full border p-2 rounded"
-          placeholder="البريد الإلكتروني"
-          value={form.reporterEmail}
-          onChange={(e) =>
-            setForm({ ...form, reporterEmail: e.target.value })
-          }
-        />
-
-        <input
-          className="w-full border p-2 rounded"
-          placeholder="رقم الجوال"
-          value={form.phone}
-          onChange={(e) =>
-            setForm({ ...form, phone: e.target.value })
-          }
-        />
-
-        <input
-          type="file"
-          onChange={(e) =>
-            setImage(e.target.files?.[0] || null)
-          }
-        />
-
-        <button
-          onClick={handleSubmit}
-          disabled={loading}
-          className="w-full bg-blue-600 text-white p-3 rounded"
-        >
-          {loading ? "جاري الإرسال..." : "إرسال البلاغ"}
-        </button>
-
+            <div className="bg-primary/5 rounded-xl p-3 text-xs text-muted-foreground flex gap-2">
+              <Info size={14} className="shrink-0 mt-0.5" />
+              {isRtl
+                ? "سيتم إرسال إشعار لفريق الصيانة. يمكنك متابعة الحالة عبر البريد الإلكتروني."
+                : "Maintenance team will be notified. You can track the ticket status via email."}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

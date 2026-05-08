@@ -83,11 +83,17 @@ export default function PublicTicketPage() {
     reporterEmail: "",
     phone: "",
     type: "MAINTENANCE",
-    assetId: "none",  // ✅ تغيير القيمة الافتراضية إلى "none"
+    assetId: "none",
   });
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // خريطة لنوع البلاغ لاختيار النص المعروض
+  const ticketTypeMap: Record<string, string> = {
+    MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
+    INCIDENT: isRtl ? "حادث" : "Incident",
+  };
 
   // الوضع الليلي/النهاري
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -192,7 +198,7 @@ export default function PublicTicketPage() {
     fetchRooms();
   }, [floorId]);
 
-  // ✅ جلب الأصول باستخدام locationId (كما في النظام الداخلي)
+  // جلب الأصول (باستخدام locationId)
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
@@ -202,11 +208,9 @@ export default function PublicTicketPage() {
     const fetchAssets = async () => {
       setLoadingAssets(true);
       try {
-        // التصحيح: استخدام locationId بدلاً من roomId
         const res = await fetch(`/api/assets?locationId=${roomId}`);
         if (res.ok) {
           const data = await res.json();
-          // حماية من null
           const assetsList = Array.isArray(data.assets) ? data.assets : Array.isArray(data) ? data : [];
           setAssets(assetsList);
         } else {
@@ -266,7 +270,6 @@ export default function PublicTicketPage() {
     fd.append("reporterEmail", form.reporterEmail);
     fd.append("phone", form.phone);
     fd.append("type", form.type);
-    // ✅ إرسال assetId فقط إذا لم تكن "none"
     if (form.assetId && form.assetId !== "none") {
       fd.append("assetId", form.assetId);
     }
@@ -291,7 +294,7 @@ export default function PublicTicketPage() {
   if (branchLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground">{isRtl ? "جاري التحقق..." : "Verifying..."}</div>
+        <div className="text-muted-foreground text-lg">{isRtl ? "جاري التحقق..." : "Verifying..."}</div>
       </div>
     );
   }
@@ -299,12 +302,12 @@ export default function PublicTicketPage() {
   if (branchError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 max-w-md text-center">
-          <h2 className="text-xl font-bold text-red-700 dark:text-red-400 mb-2">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-8 max-w-md text-center">
+          <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-3">
             {isRtl ? "رابط غير صالح" : "Invalid Link"}
           </h2>
-          <p className="text-red-600 dark:text-red-300 mb-4">{branchError}</p>
-          <Button onClick={() => router.push(`/${locale}`)}>
+          <p className="text-red-600 dark:text-red-300 mb-5">{branchError}</p>
+          <Button onClick={() => router.push(`/${locale}`)} size="lg" className="px-6 py-2 text-base">
             {isRtl ? "العودة للرئيسية" : "Back to Home"}
           </Button>
         </div>
@@ -316,56 +319,56 @@ export default function PublicTicketPage() {
 
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-5xl mx-auto">
         <div className="flex justify-end gap-3 mb-6">
-          <Button variant="outline" size="icon" onClick={switchLanguage} className="rounded-full">
-            <Languages size={18} />
+          <Button variant="outline" size="icon" onClick={switchLanguage} className="rounded-full w-10 h-10">
+            <Languages size={20} />
           </Button>
-          <Button variant="outline" size="icon" onClick={toggleTheme} className="rounded-full">
-            {theme === "light" ? <Moon size={18} /> : <Sun size={18} />}
+          <Button variant="outline" size="icon" onClick={toggleTheme} className="rounded-full w-10 h-10">
+            {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
           </Button>
         </div>
 
-        <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
-          <div className="p-6 md:p-8 space-y-6">
-            <div className="flex items-center gap-3 border-b border-border pb-4">
-              <div className="h-12 w-12 bg-primary/10 rounded-xl flex items-center justify-center text-primary">
-                <Send size={24} />
+        <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
+          <div className="p-6 md:p-10 space-y-8">
+            <div className="flex items-center gap-4 border-b border-border pb-5">
+              <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
+                <Send size={28} />
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-foreground">
+                <h1 className="text-3xl font-bold text-foreground">
                   {isRtl ? "بلاغ صيانة جديد" : "New Maintenance Ticket"}
                 </h1>
-                <p className="text-sm text-muted-foreground">{branch.name}</p>
+                <p className="text-base text-muted-foreground mt-1">{branch.name}</p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* العمود الأيسر */}
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
-                  <Label>{isRtl ? "نوع البلاغ *" : "Type *"}</Label>
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع البلاغ *" : "Type *"}</Label>
                   <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })}>
-                    <SelectTrigger>
-                      <SelectValue />
+                    <SelectTrigger className="h-12 text-base">
+                      <SelectValue placeholder={isRtl ? "اختر النوع" : "Select type"} />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="MAINTENANCE">{isRtl ? "صيانة" : "Maintenance"}</SelectItem>
-                      <SelectItem value="INCIDENT">{isRtl ? "حادث" : "Incident"}</SelectItem>
+                      <SelectItem value="MAINTENANCE">{ticketTypeMap.MAINTENANCE}</SelectItem>
+                      <SelectItem value="INCIDENT">{ticketTypeMap.INCIDENT}</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <Label>{isRtl ? "العنوان *" : "Title *"}</Label>
-                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "العنوان *" : "Title *"}</Label>
+                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="h-12 text-base" />
                 </div>
                 <div>
-                  <Label>{isRtl ? "الوصف *" : "Description *"}</Label>
-                  <Textarea rows={4} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "الوصف *" : "Description *"}</Label>
+                  <Textarea rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="text-base" />
                 </div>
                 <div>
-                  <Label>{isRtl ? "الموقع *" : "Location *"}</Label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "الموقع *" : "Location *"}</Label>
+                  <div className="grid grid-cols-3 gap-3">
                     <BuildingSelector
                       value={buildingId}
                       onValueChange={(val) => {
@@ -398,56 +401,55 @@ export default function PublicTicketPage() {
                     />
                   </div>
                 </div>
-                {/* إضافة اختيار الأصل إذا كانت الغرفة محددة ويوجد أصول */}
                 {roomId && (
                   <div>
-                    <Label>{isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}</Label>
+                    <Label className="text-base font-semibold mb-2 block">{isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}</Label>
                     <Select value={form.assetId} onValueChange={(val) => setForm({ ...form, assetId: val })} disabled={loadingAssets}>
-                      <SelectTrigger>
+                      <SelectTrigger className="h-12 text-base">
                         <SelectValue placeholder={isRtl ? "اختر الأصل" : "Select asset"} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">{isRtl ? "بدون أصل" : "No asset"}</SelectItem>
                         {assets.map((asset) => (
                           <SelectItem key={asset.id} value={asset.id}>
-                            {isRtl ? asset.name : (asset.nameEn || asset.name)} ({asset.code})
+                            {isRtl ? asset.name : (asset.nameEn || asset.name)} {asset.code && `(${asset.code})`}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    {loadingAssets && <p className="text-xs text-muted-foreground mt-1">{isRtl ? "جار التحميل..." : "Loading..."}</p>}
+                    {loadingAssets && <p className="text-sm text-muted-foreground mt-2">{isRtl ? "جار التحميل..." : "Loading..."}</p>}
                   </div>
                 )}
               </div>
 
-              {/* العمود الأيمن (بيانات المبلغ والصور) */}
-              <div className="space-y-4">
+              {/* العمود الأيمن */}
+              <div className="space-y-6">
                 <div>
-                  <Label>{isRtl ? "الاسم *" : "Name *"}</Label>
-                  <Input value={form.reporterName} onChange={(e) => setForm({ ...form, reporterName: e.target.value })} />
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "الاسم *" : "Name *"}</Label>
+                  <Input value={form.reporterName} onChange={(e) => setForm({ ...form, reporterName: e.target.value })} className="h-12 text-base" />
                 </div>
                 <div>
-                  <Label>{isRtl ? "البريد الإلكتروني *" : "Email *"}</Label>
-                  <Input type="email" value={form.reporterEmail} onChange={(e) => setForm({ ...form, reporterEmail: e.target.value })} />
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "البريد الإلكتروني *" : "Email *"}</Label>
+                  <Input type="email" value={form.reporterEmail} onChange={(e) => setForm({ ...form, reporterEmail: e.target.value })} className="h-12 text-base" />
                 </div>
                 <div>
-                  <Label>{isRtl ? "رقم الهاتف (اختياري)" : "Phone (optional)"}</Label>
-                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "رقم الهاتف (اختياري)" : "Phone (optional)"}</Label>
+                  <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className="h-12 text-base" />
                 </div>
                 <div>
-                  <Label>{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>
-                  <Input type="file" accept="image/*" multiple onChange={handleFileChange} />
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>
+                  <Input type="file" accept="image/*" multiple onChange={handleFileChange} className="text-base py-2" />
                   {previews.length > 0 && (
-                    <div className="grid grid-cols-3 gap-2 mt-2">
+                    <div className="grid grid-cols-3 gap-3 mt-3">
                       {previews.map((src, idx) => (
                         <div key={idx} className="relative group">
-                          <img src={src} alt="" className="w-full h-20 object-cover rounded-md border" />
+                          <img src={src} alt="" className="w-full h-24 object-cover rounded-lg border" />
                           <button
                             type="button"
                             onClick={() => removeFile(idx)}
-                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition"
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
                           >
-                            <X size={14} />
+                            <X size={16} />
                           </button>
                         </div>
                       ))}
@@ -457,18 +459,18 @@ export default function PublicTicketPage() {
               </div>
             </div>
 
-            <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border">
-              <Button onClick={() => router.back()} variant="outline" className="w-full sm:w-32">
+            <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-border">
+              <Button onClick={() => router.back()} variant="outline" className="w-full sm:w-auto px-8 py-3 text-base rounded-full">
                 {isRtl ? "إلغاء" : "Cancel"}
               </Button>
-              <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full sm:flex-1">
-                {isSubmitting ? <Loader2 className="animate-spin mr-2" size={18} /> : <Send size={18} className="mr-2" />}
+              <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full sm:flex-1 py-3 text-base rounded-full">
+                {isSubmitting ? <Loader2 className="animate-spin mr-2" size={20} /> : <Send size={20} className="mr-2" />}
                 {isRtl ? "إرسال البلاغ" : "Submit"}
               </Button>
             </div>
 
-            <div className="bg-primary/5 rounded-xl p-3 text-xs text-muted-foreground flex gap-2">
-              <Info size={14} className="shrink-0 mt-0.5" />
+            <div className="bg-primary/5 rounded-xl p-4 text-sm text-muted-foreground flex gap-3">
+              <Info size={18} className="shrink-0 mt-0.5" />
               {isRtl
                 ? "سيتم إرسال إشعار لفريق الصيانة. يمكنك متابعة الحالة عبر البريد الإلكتروني."
                 : "Maintenance team will be notified. You can track the ticket status via email."}

@@ -13,7 +13,6 @@ import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import { Moon, Sun, Languages, X, Send, Loader2, Info } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 interface Building {
   id: string;
@@ -40,6 +39,7 @@ interface Branch {
   id: string;
   name: string;
   nameEn?: string;
+  allowPublicTickets: boolean;
 }
 
 export default function PublicTicketPage() {
@@ -50,20 +50,21 @@ export default function PublicTicketPage() {
   const slug = params.slug as string;
   const token = params.token as string;
 
-  // حالة تحميل الفرع والغرف
-  const [branchLoading, setBranchLoading] = useState(true);
+  // حالات الفرع
   const [branch, setBranch] = useState<Branch | null>(null);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingRooms, setLoadingRooms] = useState(false);
-  const [roomId, setRoomId] = useState("");
+  const [branchError, setBranchError] = useState<string | null>(null);
+  const [branchLoading, setBranchLoading] = useState(true);
 
-  // الموقع الهرمي (لجلب الغرف عبر المبنى والدور)
+  // حالات الموقع الهرمي
   const [buildingId, setBuildingId] = useState("");
   const [floorId, setFloorId] = useState("");
+  const [roomId, setRoomId] = useState("");
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
-  const [loadingBuildings, setLoadingBuildings] = useState(true);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [loadingBuildings, setLoadingBuildings] = useState(false);
   const [loadingFloors, setLoadingFloors] = useState(false);
+  const [loadingRooms, setLoadingRooms] = useState(false);
 
   // النموذج
   const [form, setForm] = useState({
@@ -94,49 +95,62 @@ export default function PublicTicketPage() {
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
-  // تبديل اللغة بدون إعادة تحميل كامل (الحفاظ على slug و token)
+  // تبديل اللغة
   const switchLanguage = () => {
     const newLocale = locale === "ar" ? "en" : "ar";
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
   };
 
-  // جلب الفرع والتحقق منه
+  // ======================
+  // 1. التحقق من صحة الفرع
+  // ======================
   useEffect(() => {
     const fetchBranch = async () => {
+      setBranchLoading(true);
+      setBranchError(null);
       try {
         const res = await fetch(`/api/public/branch?slug=${slug}&token=${token}`);
         const data = await res.json();
         if (!res.ok) {
-          toast.error(data.error || "رابط غير صالح");
-          router.push("/");
+          setBranchError(data.error || "رابط غير صالح");
+          return;
+        }
+        if (!data.branch.allowPublicTickets) {
+          setBranchError("البلاغات العامة معطلة لهذا الفرع");
           return;
         }
         setBranch(data.branch);
-        fetchBuildings(); // بعد التحقق، نجلب المباني
+        // تحميل المباني بعد التأكد من صحة الفرع
+        fetchBuildings();
       } catch {
-        toast.error("خطأ في التحقق من الرابط");
-        router.push("/");
+        setBranchError("خطأ في الاتصال بالخادم");
       } finally {
         setBranchLoading(false);
       }
     };
     fetchBranch();
-  }, [slug, token, router]);
+  }, [slug, token]);
 
+  // ======================
+  // 2. جلب المباني (عبر API محمي)
+  // ======================
   const fetchBuildings = async () => {
     setLoadingBuildings(true);
     try {
-      const res = await fetch("/api/buildings");
+      const res = await fetch(`/api/public/buildings?slug=${slug}&token=${token}`);
+      if (!res.ok) throw new Error();
       const data = await res.json();
       setBuildings(data);
     } catch {
-      toast.error("فشل تحميل المباني");
+      toast.error(isRtl ? "فشل تحميل المباني" : "Failed to load buildings");
     } finally {
       setLoadingBuildings(false);
     }
   };
 
-  // جلب الأدوار
+  // ======================
+  // 3. جلب الأدوار (عبر API محمي) عند تغيير المبنى
+  // ======================
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -145,19 +159,23 @@ export default function PublicTicketPage() {
     const fetchFloors = async () => {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/buildings/${buildingId}/floors`);
-        if (res.ok) setFloors(await res.json());
-        else setFloors([]);
+        const res = await fetch(`/api/public/floors?slug=${slug}&token=${token}&buildingId=${buildingId}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setFloors(data);
+        setFloorId("");
       } catch {
-        setFloors([]);
+        toast.error(isRtl ? "فشل تحميل الأدوار" : "Failed to load floors");
       } finally {
         setLoadingFloors(false);
       }
     };
     fetchFloors();
-  }, [buildingId]);
+  }, [buildingId, slug, token]);
 
-  // جلب الغرف
+  // ======================
+  // 4. جلب الغرف (عبر API محمي) عند تغيير الدور
+  // ======================
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -166,19 +184,19 @@ export default function PublicTicketPage() {
     const fetchRooms = async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/floors/${floorId}/rooms`);
-        if (res.ok) {
-          const data = await res.json();
-          setRooms(data);
-        } else setRooms([]);
+        const res = await fetch(`/api/public/rooms?slug=${slug}&token=${token}&floorId=${floorId}`);
+        if (!res.ok) throw new Error();
+        const data = await res.json();
+        setRooms(data);
+        setRoomId("");
       } catch {
-        setRooms([]);
+        toast.error(isRtl ? "فشل تحميل الغرف" : "Failed to load rooms");
       } finally {
         setLoadingRooms(false);
       }
     };
     fetchRooms();
-  }, [floorId]);
+  }, [floorId, slug, token]);
 
   // معاينة الصور
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,6 +212,7 @@ export default function PublicTicketPage() {
     setPreviews(prev => prev.filter((_, i) => i !== index));
   };
 
+  // إرسال البلاغ
   const handleSubmit = async () => {
     if (!form.title.trim()) {
       toast.error(isRtl ? "عنوان البلاغ مطلوب" : "Title is required");
@@ -230,8 +249,9 @@ export default function PublicTicketPage() {
       const res = await fetch("/api/public/tickets", { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok) {
+        const ticketId = data.ticketId;
         toast.success(isRtl ? "تم إرسال البلاغ بنجاح" : "Ticket submitted");
-        router.push(`/${locale}/tickets/public/success`);
+        router.push(`/${locale}/tickets/public/success?id=${ticketId}`);
       } else {
         toast.error(data.error || (isRtl ? "فشل الإرسال" : "Submission failed"));
       }
@@ -242,6 +262,9 @@ export default function PublicTicketPage() {
     }
   };
 
+  // =========================
+  // 5. حالات الخطأ أو التحميل
+  // =========================
   if (branchLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -250,6 +273,29 @@ export default function PublicTicketPage() {
     );
   }
 
+  if (branchError) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-6 max-w-md text-center">
+          <h2 className="text-xl font-bold text-red-700 dark:text-red-400 mb-2">
+            {isRtl ? "رابط غير صالح" : "Invalid Link"}
+          </h2>
+          <p className="text-red-600 dark:text-red-300 mb-4">
+            {branchError}
+          </p>
+          <Button onClick={() => router.push(`/${locale}`)}>
+            {isRtl ? "العودة للرئيسية" : "Back to Home"}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!branch) return null;
+
+  // =========================
+  // 6. الواجهة الرئيسية
+  // =========================
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
@@ -274,7 +320,7 @@ export default function PublicTicketPage() {
                 <h1 className="text-2xl font-bold text-foreground">
                   {isRtl ? "بلاغ صيانة جديد" : "New Maintenance Ticket"}
                 </h1>
-                <p className="text-sm text-muted-foreground">{branch?.name}</p>
+                <p className="text-sm text-muted-foreground">{branch.name}</p>
               </div>
             </div>
 

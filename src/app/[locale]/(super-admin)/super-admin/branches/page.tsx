@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
+import { useLocale } from 'next-intl';
+import { toast } from 'sonner';
+import { Share2 } from 'lucide-react';
 
 interface Branch {
   id: string;
@@ -12,6 +15,8 @@ interface Branch {
   companyId: string;
   company: { name: string };
   createdAt: string;
+  slug?: string;        // ⬅️ للرابط العام
+  publicToken?: string; // ⬅️ التوكن السري
 }
 
 interface Company {
@@ -22,6 +27,8 @@ interface Company {
 export default function BranchesPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
+  const locale = useLocale(); // ar أو en
+
   const [branches, setBranches] = useState<Branch[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,16 +54,12 @@ export default function BranchesPage() {
         fetch('/api/branches'),
         fetch('/api/companies'),
       ]);
-      if (!branchesRes.ok) {
-        const errText = await branchesRes.text();
-        throw new Error(`فشل جلب الفروع: ${branchesRes.status} - ${errText}`);
-      }
-      if (!companiesRes.ok) {
-        const errText = await companiesRes.text();
-        throw new Error(`فشل جلب الشركات: ${companiesRes.status} - ${errText}`);
-      }
+      if (!branchesRes.ok) throw new Error(`فشل جلب الفروع: ${branchesRes.status}`);
+      if (!companiesRes.ok) throw new Error(`فشل جلب الشركات: ${companiesRes.status}`);
+
       const branchesData = await branchesRes.json();
       const companiesData = await companiesRes.json();
+
       setBranches(branchesData || []);
       setCompanies(companiesData || []);
     } catch (err: any) {
@@ -131,6 +134,17 @@ export default function BranchesPage() {
     }
   };
 
+  // دالة نسخ الرابط العام
+  const copyPublicLink = (branch: Branch) => {
+    if (!branch.slug || !branch.publicToken) {
+      toast.error('هذا الفرع لا يدعم الروابط العامة (slug أو token مفقود)');
+      return;
+    }
+    const url = `${window.location.origin}/${locale}/tickets/public/${branch.slug}/${branch.publicToken}`;
+    navigator.clipboard.writeText(url);
+    toast.success('تم نسخ رابط تقديم البلاغات العامة');
+  };
+
   if (loading) return <div className="p-8 text-center">جاري التحميل...</div>;
 
   return (
@@ -194,7 +208,7 @@ export default function BranchesPage() {
                 className="w-full border p-2 rounded"
                 value={formData.companyId}
                 onChange={(e) => setFormData({ ...formData, companyId: e.target.value })}
-                disabled={!!editingBranch} // لا نسمح بتغيير الشركة أثناء التعديل (لتبسيط المنطق)
+                disabled={!!editingBranch}
               >
                 <option value="">اختر شركة</option>
                 {companies.map((comp) => (
@@ -233,41 +247,59 @@ export default function BranchesPage() {
               <th className="p-2 border">الكود</th>
               <th className="p-2 border">الشركة</th>
               <th className="p-2 border">تاريخ الإضافة</th>
+              <th className="p-2 border">رابط البلاغات العامة</th> {/* عمود جديد */}
               <th className="p-2 border">إجراءات</th>
             </tr>
           </thead>
           <tbody>
             {branches.length === 0 ? (
               <tr>
-                <td colSpan={7} className="text-center p-4 text-gray-500">
+                <td colSpan={8} className="text-center p-4 text-gray-500">
                   لا توجد فروع مسجلة
                 </td>
-              </tr>
+               </tr>
             ) : (
-              branches.map((branch, idx) => (
-                <tr key={branch.id} className="border-t">
-                  <td className="p-2 border text-center">{idx + 1}</td>
-                  <td className="p-2 border">{branch.name}</td>
-                  <td className="p-2 border">{branch.nameEn || '—'}</td>
-                  <td className="p-2 border">{branch.code}</td>
-                  <td className="p-2 border">{branch.company?.name || '—'}</td>
-                  <td className="p-2 border">{new Date(branch.createdAt).toLocaleDateString('ar')}</td>
-                  <td className="p-2 border text-center">
-                    <button
-                      onClick={() => handleEdit(branch)}
-                      className="bg-yellow-500 text-white px-2 py-1 rounded text-sm ml-2 hover:bg-yellow-600"
-                    >
-                      تعديل
-                    </button>
-                    <button
-                      onClick={() => handleDelete(branch.id)}
-                      className="bg-red-600 text-white px-2 py-1 rounded text-sm hover:bg-red-700"
-                    >
-                      حذف
-                    </button>
-                  </td>
-                </tr>
-              ))
+              branches.map((branch, idx) => {
+                const hasPublic = !!(branch.slug && branch.publicToken);
+                return (
+                  <tr key={branch.id} className="border-t">
+                    <td className="p-2 border text-center">{idx + 1}</td>
+                    <td className="p-2 border">{branch.name}</td>
+                    <td className="p-2 border">{branch.nameEn || '—'}</td>
+                    <td className="p-2 border">{branch.code}</td>
+                    <td className="p-2 border">{branch.company?.name || '—'}</td>
+                    <td className="p-2 border text-center">{new Date(branch.createdAt).toLocaleDateString('ar')}</td>
+                    <td className="p-2 border text-center">
+                      {hasPublic ? (
+                        <button
+                          onClick={() => copyPublicLink(branch)}
+                          className="bg-primary text-white px-3 py-1 rounded text-sm hover:bg-primary-dark transition inline-flex items-center gap-1"
+                          title="نسخ رابط تقديم البلاغات العامة"
+                        >
+                          <Share2 className="w-4 h-4" />
+                          نسخ الرابط
+                        </button>
+                      ) : (
+                        <span className="text-gray-400 text-xs">غير متوفر</span>
+                      )}
+                    </td>
+                    <td className="p-2 border text-center whitespace-nowrap">
+                      <button
+                        onClick={() => handleEdit(branch)}
+                        className="bg-yellow-500 text-white px-2 py-1 rounded text-sm ml-2 hover:bg-yellow-600"
+                      >
+                        تعديل
+                      </button>
+                      <button
+                        onClick={() => handleDelete(branch.id)}
+                        className="bg-red-600 text-white px-2 py-1 rounded text-sm hover:bg-red-700"
+                      >
+                        حذف
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

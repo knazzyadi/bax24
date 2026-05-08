@@ -2,7 +2,52 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { writeFile, mkdir, unlink } from "fs/promises";
+import path from "path";
+import { randomUUID } from "crypto";
 
+// ===========================
+// Helper: save image to disk with validation
+// ===========================
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
+async function saveImage(
+  file: File,
+  oldImageUrl?: string | null
+): Promise<string> {
+  // 1. التحقق من الحجم
+  if (file.size > MAX_FILE_SIZE) {
+    throw new Error("الصورة كبيرة جدًا (الحد الأقصى 5 ميجابايت)");
+  }
+  // 2. التحقق من نوع الملف
+  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    throw new Error("نوع الملف غير مدعوم، يرجى رفع صورة (JPEG, PNG, WebP, GIF)");
+  }
+
+  // حذف الصورة القديمة إن وجدت
+  if (oldImageUrl) {
+    const oldPath = path.join(process.cwd(), "public", oldImageUrl);
+    try {
+      await unlink(oldPath);
+    } catch {}
+  }
+
+  const buffer = Buffer.from(await file.arrayBuffer());
+  const ext = path.extname(file.name) || ".jpg";
+  const fileName = `${randomUUID()}${ext}`;
+  const relativePath = `/uploads/tickets/${fileName}`;
+  const absolutePath = path.join(process.cwd(), "public", relativePath);
+
+  await mkdir(path.dirname(absolutePath), { recursive: true });
+  await writeFile(absolutePath, buffer);
+
+  return relativePath;
+}
+
+// ===========================
+// GET - Fetch ticket
+// ===========================
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -18,10 +63,6 @@ export async function GET(
     const { id } = await params;
     const companyId = session.user.companyId;
 
-    if (!companyId) {
-      return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
-    }
-
     const ticket = await prisma.ticket.findFirst({
       where: { id, companyId, deletedAt: null },
       include: {
@@ -34,16 +75,28 @@ export async function GET(
     });
 
     if (!ticket) {
-      return NextResponse.json({ error: "التذكرة غير موجودة" }, { status: 404 });
+      return NextResponse.json(
+        { error: "التذكرة غير موجودة" },
+        { status: 404 }
+      );
     }
 
-    return NextResponse.json(ticket);
+    return NextResponse.json({
+      ...ticket,
+      imageUrl: ticket.imageUrl || null,
+    });
   } catch (error) {
-    console.error("GET /api/tickets/[id] error:", error);
-    return NextResponse.json({ error: "خطأ في جلب التذكرة" }, { status: 500 });
+    console.error(error);
+    return NextResponse.json(
+      { error: "خطأ في جلب التذكرة" },
+      { status: 500 }
+    );
   }
 }
 
+// ===========================
+// PUT - Update ticket (supports multipart/form-data and JSON)
+// ===========================
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -57,117 +110,215 @@ export async function PUT(
     await requirePermission("tickets.update", session);
 
     const { id } = await params;
-    const body = await request.json();
     const companyId = session.user.companyId;
-
-    // دعم status أو action
-    let newStatus = body.status;
-    if (!newStatus && body.action === "APPROVED") newStatus = "APPROVED";
-    if (!newStatus && body.action === "REJECTED") newStatus = "REJECTED";
-
-    const rejectionReason = body.rejectionReason || body.reason;
 
     const existingTicket = await prisma.ticket.findFirst({
       where: { id, companyId, deletedAt: null },
     });
 
     if (!existingTicket) {
-      return NextResponse.json({ error: "التذكرة غير موجودة" }, { status: 404 });
+      return NextResponse.json(
+        { error: "التذكرة غير موجودة" },
+        { status: 404 }
+      );
     }
 
-    let dataToUpdate: any = {};
+    const contentType = request.headers.get("content-type") || "";
+    let dataToUpdate: any = { updatedAt: new Date() };
+    let newImageUrl: string | null | undefined = undefined;
 
-    // ================================
-    // ✅ تحديث الحالة
-    // ================================
-    if (newStatus) {
-      dataToUpdate.status = newStatus;
+    // ===========================
+    // Case 1: multipart/form-data (with file upload)
+    // ===========================
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await request.formData();
 
-      // ❌ رفض
-      if (newStatus === "REJECTED") {
-        if (!rejectionReason) {
-          return NextResponse.json(
-            { error: "سبب الرفض مطلوب" },
-            { status: 400 }
-          );
+      const title = formData.get("title")?.toString();
+      const description = formData.get("description")?.toString();
+      const type = formData.get("type")?.toString();
+      const roomId = formData.get("roomId")?.toString();
+      const assetId = formData.get("assetId")?.toString();
+      const reporterName = formData.get("reporterName")?.toString();
+      const reporterEmail = formData.get("reporterEmail")?.toString();
+      const phone = formData.get("phone")?.toString();
+      const status = formData.get("status")?.toString();
+      const action = formData.get("action")?.toString();
+      const rejectionReason =
+        formData.get("rejectionReason")?.toString() ||
+        formData.get("reason")?.toString();
+
+      const file = formData.get("file") as File | null;
+      const removeImage = formData.get("removeImage")?.toString();
+
+      // رفع / حذف الصورة
+      if (file && file.size > 0) {
+        try {
+          newImageUrl = await saveImage(file, existingTicket.imageUrl);
+        } catch (err: any) {
+          return NextResponse.json({ error: err.message }, { status: 400 });
         }
-        dataToUpdate.rejectionReason = rejectionReason;
+      } else if (removeImage === "true") {
+        if (existingTicket.imageUrl) {
+          const oldPath = path.join(process.cwd(), "public", existingTicket.imageUrl);
+          try { await unlink(oldPath); } catch {}
+        }
+        newImageUrl = null;
       }
 
-      // ✅ قبول
-      if (newStatus === "APPROVED") {
-        // تحقق هل يوجد WorkOrder مسبق
-        const existingWorkOrder = await prisma.workOrder.findUnique({
-          where: { ticketId: existingTicket.id },
-        });
+      // الحقول النصية
+      if (title) dataToUpdate.title = title;
+      if (description) dataToUpdate.description = description;
+      if (type) dataToUpdate.type = type;
+      if (roomId) dataToUpdate.roomId = roomId;
+      if (assetId) dataToUpdate.assetId = assetId || null;
+      if (reporterName) dataToUpdate.reporterName = reporterName;
+      if (reporterEmail) dataToUpdate.reporterEmail = reporterEmail;
+      if (phone) dataToUpdate.phone = phone || null;
+      if (newImageUrl !== undefined) dataToUpdate.imageUrl = newImageUrl;
 
-        if (!existingWorkOrder) {
-          const defaultStatus = await prisma.workOrderStatus.findFirst({
-            where: { companyId, isDefault: true },
-          });
+      // معالجة الحالة والـ action (نفس المنطق الأصلي)
+      let newStatus = status;
+      if (!newStatus && action === "APPROVED") newStatus = "APPROVED";
+      if (!newStatus && action === "REJECTED") newStatus = "REJECTED";
 
-          const defaultPriority = await prisma.workOrderPriority.findFirst({
-            where: { companyId, isDefault: true },
-          });
-
-          // حماية من القيم الفارغة
-          if (!defaultStatus || !defaultPriority) {
-            return NextResponse.json(
-              {
-                error:
-                  "يجب تحديد حالة افتراضية وأولوية افتراضية لأوامر العمل",
-              },
-              { status: 400 }
-            );
+      if (newStatus) {
+        dataToUpdate.status = newStatus;
+        if (newStatus === "REJECTED") {
+          if (!rejectionReason) {
+            return NextResponse.json({ error: "سبب الرفض مطلوب" }, { status: 400 });
           }
-
-          await prisma.workOrder.create({
-            data: {
-              title: existingTicket.title,
-              description: existingTicket.description,
-              type:
-                existingTicket.type === "INCIDENT"
-                  ? "CORRECTIVE"
-                  : "MAINTENANCE",
-              priorityId: defaultPriority.id,
-              statusId: defaultStatus.id,
-              roomId: existingTicket.roomId,
-              branchId: existingTicket.branchId,
-              companyId,
-              createdBy: session.user.id,
-              ticketId: existingTicket.id, // ✅ الربط الصحيح
-            },
+          dataToUpdate.rejectionReason = rejectionReason;
+        }
+        if (newStatus === "APPROVED") {
+          const existingWorkOrder = await prisma.workOrder.findUnique({
+            where: { ticketId: existingTicket.id },
           });
+          if (!existingWorkOrder) {
+            const defaultStatus = await prisma.workOrderStatus.findFirst({
+              where: { companyId, isDefault: true },
+            });
+            const defaultPriority = await prisma.workOrderPriority.findFirst({
+              where: { companyId, isDefault: true },
+            });
+            if (!defaultStatus || !defaultPriority) {
+              return NextResponse.json(
+                { error: "Missing default work order config" },
+                { status: 400 }
+              );
+            }
+            await prisma.workOrder.create({
+              data: {
+                title: existingTicket.title,
+                description: existingTicket.description,
+                type: existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE",
+                priorityId: defaultPriority.id,
+                statusId: defaultStatus.id,
+                roomId: existingTicket.roomId,
+                branchId: existingTicket.branchId,
+                companyId,
+                createdBy: session.user.id,
+                ticketId: existingTicket.id,
+              },
+            });
+          }
+        }
+      }
+    }
+    // ===========================
+    // Case 2: application/json (no file upload)
+    // ===========================
+    else if (contentType.includes("application/json")) {
+      const body = await request.json();
+
+      // نفس الحقول ولكن لا يوجد ملف
+      if (body.title !== undefined) dataToUpdate.title = body.title;
+      if (body.description !== undefined) dataToUpdate.description = body.description;
+      if (body.type !== undefined) dataToUpdate.type = body.type;
+      if (body.roomId !== undefined) dataToUpdate.roomId = body.roomId;
+      if (body.assetId !== undefined) dataToUpdate.assetId = body.assetId || null;
+      if (body.reporterName !== undefined) dataToUpdate.reporterName = body.reporterName;
+      if (body.reporterEmail !== undefined) dataToUpdate.reporterEmail = body.reporterEmail;
+      if (body.phone !== undefined) dataToUpdate.phone = body.phone || null;
+
+      // دعم حذف الصورة عبر JSON (body.removeImage = true)
+      if (body.removeImage === true && existingTicket.imageUrl) {
+        const oldPath = path.join(process.cwd(), "public", existingTicket.imageUrl);
+        try { await unlink(oldPath); } catch {}
+        dataToUpdate.imageUrl = null;
+      }
+
+      // الحالة (status أو action)
+      let newStatus = body.status;
+      if (!newStatus && body.action === "APPROVED") newStatus = "APPROVED";
+      if (!newStatus && body.action === "REJECTED") newStatus = "REJECTED";
+
+      if (newStatus) {
+        dataToUpdate.status = newStatus;
+        if (newStatus === "REJECTED") {
+          if (!body.rejectionReason && !body.reason) {
+            return NextResponse.json({ error: "سبب الرفض مطلوب" }, { status: 400 });
+          }
+          dataToUpdate.rejectionReason = body.rejectionReason || body.reason;
+        }
+        if (newStatus === "APPROVED") {
+          const existingWorkOrder = await prisma.workOrder.findUnique({
+            where: { ticketId: existingTicket.id },
+          });
+          if (!existingWorkOrder) {
+            const defaultStatus = await prisma.workOrderStatus.findFirst({
+              where: { companyId, isDefault: true },
+            });
+            const defaultPriority = await prisma.workOrderPriority.findFirst({
+              where: { companyId, isDefault: true },
+            });
+            if (!defaultStatus || !defaultPriority) {
+              return NextResponse.json(
+                { error: "Missing default work order config" },
+                { status: 400 }
+              );
+            }
+            await prisma.workOrder.create({
+              data: {
+                title: existingTicket.title,
+                description: existingTicket.description,
+                type: existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE",
+                priorityId: defaultPriority.id,
+                statusId: defaultStatus.id,
+                roomId: existingTicket.roomId,
+                branchId: existingTicket.branchId,
+                companyId,
+                createdBy: session.user.id,
+                ticketId: existingTicket.id,
+              },
+            });
+          }
         }
       }
     } else {
-      // تحديث بيانات أخرى
-      const { title, description, ...rest } = body;
-
-      if (title !== undefined) dataToUpdate.title = title;
-      if (description !== undefined) dataToUpdate.description = description;
-
-      Object.assign(dataToUpdate, rest);
+      return NextResponse.json({ error: "Content-Type غير مدعوم" }, { status: 415 });
     }
 
     const updatedTicket = await prisma.ticket.update({
       where: { id },
-      data: { ...dataToUpdate, updatedAt: new Date() },
+      data: dataToUpdate,
     });
 
-    return NextResponse.json(updatedTicket);
+    return NextResponse.json({
+      ...updatedTicket,
+      imageUrl: updatedTicket.imageUrl || null,
+    });
   } catch (error: any) {
-    console.error("🔥 PUT /api/tickets/[id] error:", error);
-
+    console.error(error);
     return NextResponse.json(
-      {
-        error: error.message || "فشل تحديث التذكرة",
-      },
+      { error: error.message || "فشل التحديث" },
       { status: 500 }
     );
   }
 }
 
+// ===========================
+// DELETE - Soft delete
+// ===========================
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -191,14 +342,19 @@ export async function DELETE(
       return NextResponse.json({ error: "التذكرة غير موجودة" }, { status: 404 });
     }
 
+    if (existing.imageUrl) {
+      const imagePath = path.join(process.cwd(), "public", existing.imageUrl);
+      try { await unlink(imagePath); } catch {}
+    }
+
     await prisma.ticket.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ message: "تم حذف التذكرة" });
+    return NextResponse.json({ message: "تم الحذف" });
   } catch (error) {
-    console.error("DELETE error:", error);
-    return NextResponse.json({ error: "فشل حذف التذكرة" }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: "فشل الحذف" }, { status: 500 });
   }
 }

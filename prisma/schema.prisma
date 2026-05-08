@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider          = "postgresql"
+  url               = env("DATABASE_URL")
 }
 
 model Company {
@@ -407,6 +407,7 @@ model Ticket {
   createdBy       String?
   type            String
   phone           String?
+  imageUrl      String?
   reporterEmail   String
   reporterName    String
   status          String        @default("PENDING")

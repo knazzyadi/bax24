@@ -1,22 +1,58 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { useTranslations, useLocale } from "next-intl";
+import {
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+
+import {
+  useRouter,
+  useParams,
+} from "next/navigation";
+
+import {
+  useTranslations,
+  useLocale,
+} from "next-intl";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { 
-  Package, Hash, BarChart3, AlertTriangle, Banknote, 
-  FileText, Loader2, Save, Info, Settings2
+
+import {
+  Package,
+  Hash,
+  BarChart3,
+  Banknote,
+  FileText,
+  Loader2,
+  Save,
+  Info,
+  Settings2,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/shared/detail/PageContainer";
 import { DetailHeader } from "@/components/shared/detail/DetailHeader";
 import { InfoCard } from "@/components/shared/detail/InfoCard";
-import { LocationSelector } from "@/components/shared/LocationSelector";
+import {
+  LocationSelector,
+  type LocationValue,
+} from "@/components/shared/LocationSelector";
+
+type ChangeEvent = React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>;
+
+type InventoryForm = {
+  name: string;
+  sku: string;
+  quantity: string;
+  minQuantity: string;
+  unitPrice: string;
+  roomId: string;
+  notes: string;
+};
 
 export default function EditInventoryPage() {
   const router = useRouter();
@@ -28,7 +64,7 @@ export default function EditInventoryPage() {
 
   const [loading, setLoading] = useState(false);
   const [fetching, setFetching] = useState(true);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<InventoryForm>({
     name: "",
     sku: "",
     quantity: "0",
@@ -38,10 +74,17 @@ export default function EditInventoryPage() {
     notes: "",
   });
 
+  // ===== Load item (safe fetch with AbortController) =====
   useEffect(() => {
+    if (!id) return;
+
+    const controller = new AbortController();
+
     const fetchItem = async () => {
       try {
-        const res = await fetch(`/api/inventory/${id}`);
+        const res = await fetch(`/api/inventory/${id}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error();
         const data = await res.json();
         setFormData({
@@ -54,25 +97,33 @@ export default function EditInventoryPage() {
           notes: data.notes || "",
         });
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         toast.error(t("fetchError"));
         router.push(`/${locale}/inventory`);
       } finally {
         setFetching(false);
       }
     };
-    if (id) fetchItem();
-  }, [id, router, locale, t]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
-  };
+    fetchItem();
+    return () => controller.abort();
+  }, [id, locale, router, t]);
 
-  const handleLocationChange = (location: { buildingId: string; floorId: string; roomId: string }) => {
-    setFormData(prev => ({ ...prev, roomId: location.roomId }));
-  };
+  // ===== Handlers =====
+  const handleChange = useCallback((e: ChangeEvent) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }, []);
 
+  const handleLocationChange = useCallback((location: LocationValue) => {
+    setFormData((prev) => ({ ...prev, roomId: location.roomId }));
+  }, []);
+
+  // ===== Submit =====
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+
     if (!formData.name.trim() || !formData.sku.trim()) {
       toast.error(t("nameSkuRequired"));
       return;
@@ -90,9 +141,9 @@ export default function EditInventoryPage() {
         body: JSON.stringify({
           name: formData.name.trim(),
           sku: formData.sku.trim().toUpperCase(),
-          quantity: parseInt(formData.quantity) || 0,
-          minQuantity: parseInt(formData.minQuantity) || 0,
-          unitPrice: formData.unitPrice ? parseFloat(formData.unitPrice) : null,
+          quantity: Number(formData.quantity) || 0,
+          minQuantity: Number(formData.minQuantity) || 0,
+          unitPrice: formData.unitPrice ? Number(formData.unitPrice) : null,
           roomId: formData.roomId,
           notes: formData.notes || null,
         }),
@@ -130,7 +181,11 @@ export default function EditInventoryPage() {
         title={t("editTitle")}
         subtitle={t("editSubtitle")}
         actions={
-          <Button variant="outline" onClick={() => router.back()} className="rounded-full">
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+            className="rounded-full border-primary text-primary hover:bg-primary/10 font-black"
+          >
             {isRtl ? "إلغاء" : "Cancel"}
           </Button>
         }
@@ -138,11 +193,15 @@ export default function EditInventoryPage() {
 
       <form onSubmit={handleSubmit} className="space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* العمود الرئيسي */}
           <div className="lg:col-span-2 space-y-8">
             <InfoCard title={t("identity")} icon={<Package className="h-5 w-5" />}>
               <div className="space-y-6">
+                {/* الاسم */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">{t("name")} *</Label>
+                  <Label className="text-sm font-black text-muted-foreground/70">
+                    {t("name")} *
+                  </Label>
                   <Input
                     name="name"
                     value={formData.name}
@@ -153,8 +212,11 @@ export default function EditInventoryPage() {
                   />
                 </div>
 
+                {/* SKU */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">{t("sku")} *</Label>
+                  <Label className="text-sm font-black text-muted-foreground/70">
+                    {t("sku")} *
+                  </Label>
                   <div className="relative">
                     <Hash className="absolute right-4 top-4 h-5 w-5 text-muted-foreground" />
                     <Input
@@ -168,8 +230,11 @@ export default function EditInventoryPage() {
                   </div>
                 </div>
 
+                {/* الموقع */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">{t("location")}</Label>
+                  <Label className="text-sm font-black text-muted-foreground/70">
+                    {t("location")}
+                  </Label>
                   <LocationSelector
                     value={{
                       buildingId: "",
@@ -222,6 +287,7 @@ export default function EditInventoryPage() {
             </InfoCard>
           </div>
 
+          {/* العمود الجانبي */}
           <div className="space-y-8">
             <InfoCard title={t("notes")} icon={<FileText className="h-5 w-5" />}>
               <div className="space-y-4">
@@ -234,12 +300,18 @@ export default function EditInventoryPage() {
                 />
                 <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 border border-primary/10">
                   <Info className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
-                  <p className="text-[11px] font-bold text-primary/70 leading-tight italic">{t("auditNote")}</p>
+                  <p className="text-[11px] font-bold text-primary/70 leading-tight italic">
+                    {t("auditNote")}
+                  </p>
                 </div>
               </div>
             </InfoCard>
 
-            <Button type="submit" disabled={loading} className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 font-black">
+            <Button
+              type="submit"
+              disabled={loading}
+              className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 font-black"
+            >
               {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
               {t("save")}
             </Button>

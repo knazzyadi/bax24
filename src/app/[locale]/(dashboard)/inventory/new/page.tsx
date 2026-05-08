@@ -1,24 +1,48 @@
-// src/app/[locale]/(dashboard)/inventory/new/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+
 import { useRouter } from "next/navigation";
-import { useTranslations, useLocale } from "next-intl";
+
+import {
+  useTranslations,
+  useLocale,
+} from "next-intl";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { 
-  Plus, Package, Hash, BarChart3, 
-  Banknote, FileText, Loader2, Save, Info, ShieldCheck, MapPin
+
+import {
+  Plus,
+  Package,
+  Hash,
+  BarChart3,
+  Banknote,
+  FileText,
+  Loader2,
+  Save,
+  ShieldCheck,
+  MapPin,
 } from "lucide-react";
 
 import { PageContainer } from "@/components/shared/detail/PageContainer";
 import { DetailHeader } from "@/components/shared/detail/DetailHeader";
 import { InfoCard } from "@/components/shared/detail/InfoCard";
-import { LocationSelector, type LocationValue } from "@/components/shared/LocationSelector";
+import {
+  LocationSelector,
+  type LocationValue,
+} from "@/components/shared/LocationSelector";
+
 import type { Building, Floor, Room } from "@/types/assets";
+
+type ChangeEvent = React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>;
 
 export default function NewInventoryPage() {
   const router = useRouter();
@@ -44,81 +68,141 @@ export default function NewInventoryPage() {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
 
-  useEffect(() => {
-    fetch("/api/buildings")
-      .then(res => res.json())
-      .then(setBuildings);
-  }, []);
-
   const [selectedBuildingId, setSelectedBuildingId] = useState("");
   const [selectedFloorId, setSelectedFloorId] = useState("");
 
-  const handleLocationChange = (location: LocationValue) => {
-    setSelectedBuildingId(location.buildingId);
-    setSelectedFloorId(location.floorId);
-    setFormData(prev => ({ ...prev, roomId: location.roomId }));
-  };
+  const containerClass =
+    "bg-card border border-border rounded-md p-6 shadow-sm hover:shadow-md transition-all";
 
+  // ===== Load Buildings (Abort safe) =====
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const res = await fetch("/api/buildings", { signal: controller.signal });
+        if (!res.ok) return;
+        const data = await res.json();
+        setBuildings(data);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        console.error(e);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, []);
+
+  // ===== Load Floors =====
+  useEffect(() => {
+    if (!selectedBuildingId) {
+      setFloors([]);
+      return;
+    }
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/buildings/${selectedBuildingId}/floors`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setFloors(data);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        console.error(e);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [selectedBuildingId]);
+
+  // ===== Load Rooms =====
+  useEffect(() => {
+    if (!selectedFloorId) {
+      setRooms([]);
+      return;
+    }
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const res = await fetch(`/api/floors/${selectedFloorId}/rooms`, {
+          signal: controller.signal,
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setRooms(data);
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        console.error(e);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [selectedFloorId]);
+
+  // ===== Room Details (with abort and fallback) =====
   useEffect(() => {
     if (!formData.roomId) {
       setSelectedRoomFullCode("");
       setSelectedRoomName("");
       return;
     }
-    const fetchRoomDetails = async () => {
+
+    const controller = new AbortController();
+    const load = async () => {
       try {
-        const res = await fetch(`/api/rooms/${formData.roomId}`);
+        const res = await fetch(`/api/rooms/${formData.roomId}`, {
+          signal: controller.signal,
+        });
+        let roomData: any = null;
         if (res.ok) {
-          const roomData = await res.json();
-          const buildingCode = roomData.floor?.building?.code || "";
-          const floorCode = roomData.floor?.code || "";
-          const roomCode = roomData.code || "";
-          const fullCode = `${buildingCode}-${floorCode}-${roomCode}`;
-          setSelectedRoomFullCode(fullCode);
-          setSelectedRoomName(isRtl ? roomData.name : (roomData.nameEn || roomData.name));
-        } else {
-          const building = buildings.find(b => b.id === selectedBuildingId);
-          const floor = floors.find(f => f.id === selectedFloorId);
-          const room = rooms.find(r => r.id === formData.roomId);
-          const buildingCode = building?.code || "";
-          const floorCode = floor?.code || "";
-          const roomCode = room?.code || "";
-          setSelectedRoomFullCode(`${buildingCode}-${floorCode}-${roomCode}`);
-          setSelectedRoomName(isRtl ? room?.name || "" : (room?.nameEn || room?.name) || "");
+          roomData = await res.json();
         }
-      } catch (err) {
-        console.error(err);
+
+        const building = buildings.find((b) => b.id === selectedBuildingId);
+        const floor = floors.find((f) => f.id === selectedFloorId);
+        const room = rooms.find((r) => r.id === formData.roomId);
+
+        const bCode = roomData?.floor?.building?.code || building?.code || "";
+        const fCode = roomData?.floor?.code || floor?.code || "";
+        const rCode = roomData?.code || room?.code || "";
+
+        setSelectedRoomFullCode(`${bCode}-${fCode}-${rCode}`);
+
+        setSelectedRoomName(
+          isRtl
+            ? roomData?.name || room?.name || ""
+            : roomData?.nameEn ||
+                roomData?.name ||
+                room?.nameEn ||
+                room?.name ||
+                ""
+        );
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        console.error(e);
       }
     };
-    fetchRoomDetails();
+
+    load();
+    return () => controller.abort();
   }, [formData.roomId, selectedBuildingId, selectedFloorId, buildings, floors, rooms, isRtl]);
 
-  useEffect(() => {
-    if (!selectedBuildingId) {
-      setFloors([]);
-      return;
-    }
-    fetch(`/api/buildings/${selectedBuildingId}/floors`)
-      .then(res => res.ok ? res.json() : [])
-      .then(setFloors);
-  }, [selectedBuildingId]);
+  // ===== Handlers =====
+  const handleChange = useCallback((e: ChangeEvent) => {
+    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  }, []);
 
-  useEffect(() => {
-    if (!selectedFloorId) {
-      setRooms([]);
-      return;
-    }
-    fetch(`/api/floors/${selectedFloorId}/rooms`)
-      .then(res => res.ok ? res.json() : [])
-      .then(setRooms);
-  }, [selectedFloorId]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-  };
+  const handleLocationChange = useCallback((location: LocationValue) => {
+    setSelectedBuildingId(location.buildingId);
+    setSelectedFloorId(location.floorId);
+    setFormData((prev) => ({ ...prev, roomId: location.roomId }));
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+
     if (!formData.name.trim() || !formData.sku.trim()) {
       toast.error(t("nameSkuRequired"));
       return;
@@ -159,15 +243,12 @@ export default function NewInventoryPage() {
     }
   };
 
-  const containerClass = "bg-card border border-border rounded-md p-6 shadow-sm hover:shadow-md transition-all";
-
   return (
     <PageContainer>
       <DetailHeader
         icon={<Plus size={28} />}
         title={t("newTitle")}
         subtitle={t("newSubtitle")}
-        // تم إزالة زر "تراجع" من الأعلى
       />
 
       <form onSubmit={handleSubmit} className="space-y-8">
@@ -176,8 +257,11 @@ export default function NewInventoryPage() {
           <div className="lg:col-span-2 space-y-8">
             <InfoCard title={t("identity")} icon={<Package className="h-5 w-5" />}>
               <div className="space-y-6">
+                {/* الاسم */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">{t("name")} *</Label>
+                  <Label className="text-sm font-black text-muted-foreground/70">
+                    {t("name")} *
+                  </Label>
                   <Input
                     name="name"
                     value={formData.name}
@@ -188,8 +272,11 @@ export default function NewInventoryPage() {
                   />
                 </div>
 
+                {/* SKU */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">{t("sku")} *</Label>
+                  <Label className="text-sm font-black text-muted-foreground/70">
+                    {t("sku")} *
+                  </Label>
                   <div className="relative">
                     <Hash className="absolute right-4 top-4 h-5 w-5 text-muted-foreground" />
                     <Input
@@ -203,6 +290,7 @@ export default function NewInventoryPage() {
                   </div>
                 </div>
 
+                {/* الموقع */}
                 <div className={containerClass}>
                   <div className="space-y-3">
                     <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
@@ -234,6 +322,7 @@ export default function NewInventoryPage() {
               </div>
             </InfoCard>
 
+            {/* المخزون والتسعير */}
             <InfoCard title={t("stockAndPricing")} icon={<BarChart3 className="h-5 w-5" />}>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
@@ -274,7 +363,7 @@ export default function NewInventoryPage() {
             </InfoCard>
           </div>
 
-          {/* العمود الجانبي مع زر الحفظ وزر الإلغاء */}
+          {/* العمود الجانبي */}
           <div className="space-y-8">
             <InfoCard title={t("notes")} icon={<FileText className="h-5 w-5" />}>
               <div className="space-y-4">
@@ -287,13 +376,19 @@ export default function NewInventoryPage() {
                 />
                 <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 border border-primary/10">
                   <ShieldCheck className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
-                  <p className="text-[11px] font-bold text-primary/70 leading-tight italic">{t("auditNote")}</p>
+                  <p className="text-[11px] font-bold text-primary/70 leading-tight italic">
+                    {t("auditNote")}
+                  </p>
                 </div>
               </div>
             </InfoCard>
 
             <div className="flex flex-col gap-3">
-              <Button type="submit" disabled={loading} className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 font-black">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 font-black"
+              >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
                 {t("save")}
               </Button>

@@ -4,7 +4,6 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import MaintenanceClient from "./MaintenanceClient";
 
-// ✅ الواجهة الصحيحة بدون null
 interface ScheduleForClient {
   id: string;
   name: string;
@@ -15,16 +14,19 @@ interface ScheduleForClient {
   startDate?: string | null;
   createdAt: string;
   lastRunAt?: string | null;
+
   assetType: {
     id: string;
     name: string;
     nameEn?: string;
   } | null;
+
   branch: {
     id: string;
     name: string;
     nameEn?: string;
   } | null;
+
   building: {
     id: string;
     name: string;
@@ -37,6 +39,7 @@ export default async function MaintenancePage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
+
   searchParams: Promise<{
     q?: string;
     isActive?: string;
@@ -49,7 +52,10 @@ export default async function MaintenancePage({
     redirect("/login");
   }
 
-  await requirePermission("maintenance.read", session);
+  await requirePermission(
+    "maintenance.read",
+    session
+  );
 
   const { locale } = await params;
 
@@ -59,13 +65,15 @@ export default async function MaintenancePage({
     page = "1",
   } = await searchParams;
 
-  const companyId = session.user.companyId!;
+  const companyId =
+    session.user.companyId!;
 
   const isAdmin =
     session.user.role === "ADMIN" ||
     session.user.role === "SUPER_ADMIN";
 
-  const branchIds = session.user.branchIds || [];
+  const branchIds =
+    session.user.branchIds || [];
 
   const where: any = {
     companyId,
@@ -96,119 +104,136 @@ export default async function MaintenancePage({
 
   const currentPage = parseInt(page);
 
-  const skip = (currentPage - 1) * limit;
+  const skip =
+    (currentPage - 1) * limit;
 
-  const [schedules, total] = await Promise.all([
-    prisma.maintenanceSchedule.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        frequency: true,
-        frequencyDays: true,
-        leadDays: true,
-        isActive: true,
-        startDate: true,
-        createdAt: true,
-        lastRunAt: true,
+  const [schedules, total] =
+    await Promise.all([
+      prisma.maintenanceSchedule.findMany({
+        where,
 
-        assetType: {
-          select: {
-            id: true,
-            name: true,
-            nameEn: true,
+        select: {
+          id: true,
+          name: true,
+          frequency: true,
+          frequencyDays: true,
+          leadDays: true,
+          isActive: true,
+          startDate: true,
+          createdAt: true,
+          lastRunAt: true,
+
+          assetType: {
+            select: {
+              id: true,
+              name: true,
+              nameEn: true,
+            },
+          },
+
+          branch: {
+            select: {
+              id: true,
+              name: true,
+              nameEn: true,
+            },
+          },
+
+          building: {
+            select: {
+              id: true,
+              name: true,
+              nameEn: true,
+            },
           },
         },
 
-        branch: {
-          select: {
-            id: true,
-            name: true,
-            nameEn: true,
-          },
+        orderBy: {
+          createdAt: "desc",
         },
 
-        building: {
-          select: {
-            id: true,
-            name: true,
-            nameEn: true,
-          },
-        },
-      },
+        skip,
+        take: limit,
+      }),
 
-      orderBy: {
-        createdAt: "desc",
-      },
+      prisma.maintenanceSchedule.count({
+        where,
+      }),
+    ]);
 
-      skip,
-      take: limit,
-    }),
+  type MaintenanceScheduleItem =
+    (typeof schedules)[number];
 
-    prisma.maintenanceSchedule.count({
-      where,
-    }),
-  ]);
+  const transformedSchedules:
+    ScheduleForClient[] =
+    schedules.map(
+      (s: MaintenanceScheduleItem) => ({
+        id: s.id,
 
-  // ✅ تحويل null إلى undefined
-  const transformedSchedules: ScheduleForClient[] =
-    schedules.map((s) => ({
-      id: s.id,
-      name: s.name,
-      frequency: s.frequency,
+        name: s.name,
 
-      frequencyDays:
-        s.frequencyDays ?? undefined,
+        frequency: s.frequency,
 
-      leadDays: s.leadDays,
+        frequencyDays:
+          s.frequencyDays ?? undefined,
 
-      isActive: s.isActive,
+        leadDays: s.leadDays,
 
-      startDate: s.startDate
-        ? s.startDate.toISOString()
-        : null,
+        isActive: s.isActive,
 
-      createdAt:
-        s.createdAt.toISOString(),
+        startDate: s.startDate
+          ? s.startDate.toISOString()
+          : null,
 
-      lastRunAt: s.lastRunAt
-        ? s.lastRunAt.toISOString()
-        : null,
+        createdAt:
+          s.createdAt.toISOString(),
 
-      assetType: s.assetType
-        ? {
-            id: s.assetType.id,
-            name: s.assetType.name,
-            nameEn:
-              s.assetType.nameEn ?? undefined,
-          }
-        : null,
+        lastRunAt: s.lastRunAt
+          ? s.lastRunAt.toISOString()
+          : null,
 
-      branch: s.branch
-        ? {
-            id: s.branch.id,
-            name: s.branch.name,
-            nameEn:
-              s.branch.nameEn ?? undefined,
-          }
-        : null,
+        assetType: s.assetType
+          ? {
+              id: s.assetType.id,
+              name: s.assetType.name,
+              nameEn:
+                s.assetType.nameEn ??
+                undefined,
+            }
+          : null,
 
-      building: s.building
-        ? {
-            id: s.building.id,
-            name: s.building.name,
-            nameEn:
-              s.building.nameEn ?? undefined,
-          }
-        : null,
-    }));
+        branch: s.branch
+          ? {
+              id: s.branch.id,
+              name: s.branch.name,
+              nameEn:
+                s.branch.nameEn ??
+                undefined,
+            }
+          : null,
+
+        building: s.building
+          ? {
+              id: s.building.id,
+              name: s.building.name,
+              nameEn:
+                s.building.nameEn ??
+                undefined,
+            }
+          : null,
+      })
+    );
 
   return (
     <MaintenanceClient
-      initialSchedules={transformedSchedules}
+      initialSchedules={
+        transformedSchedules
+      }
       total={total}
       currentPage={currentPage}
-      totalPages={Math.ceil(total / limit)}
+      totalPages={Math.ceil(
+        total / limit
+      )}
       limit={limit}
       q={q}
       isActive={isActive}

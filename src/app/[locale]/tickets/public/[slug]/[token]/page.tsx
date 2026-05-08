@@ -39,7 +39,6 @@ interface Branch {
   id: string;
   name: string;
   nameEn?: string;
-  allowPublicTickets: boolean;
 }
 
 export default function PublicTicketPage() {
@@ -50,19 +49,19 @@ export default function PublicTicketPage() {
   const slug = params.slug as string;
   const token = params.token as string;
 
-  // حالات الفرع
+  // حالات الفرع (مبسطة مثل الكود الأول)
+  const [branchLoading, setBranchLoading] = useState(true);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [branchError, setBranchError] = useState<string | null>(null);
-  const [branchLoading, setBranchLoading] = useState(true);
 
-  // حالات الموقع الهرمي
+  // حالات الموقع (كما في الكود الأول)
   const [buildingId, setBuildingId] = useState("");
   const [floorId, setFloorId] = useState("");
   const [roomId, setRoomId] = useState("");
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingBuildings, setLoadingBuildings] = useState(false);
+  const [loadingBuildings, setLoadingBuildings] = useState(true);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
@@ -101,9 +100,7 @@ export default function PublicTicketPage() {
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
   };
 
-  // ======================
-  // 1. التحقق من صحة الفرع
-  // ======================
+  // 1. التحقق من صحة الفرع (بدون التحقق من allowPublicTickets)
   useEffect(() => {
     const fetchBranch = async () => {
       setBranchLoading(true);
@@ -115,12 +112,8 @@ export default function PublicTicketPage() {
           setBranchError(data.error || "رابط غير صالح");
           return;
         }
-        if (!data.branch.allowPublicTickets) {
-          setBranchError("البلاغات العامة معطلة لهذا الفرع");
-          return;
-        }
         setBranch(data.branch);
-        // تحميل المباني بعد التأكد من صحة الفرع
+        // بعد التحقق، نجلب المباني (باستخدام API العادي)
         fetchBuildings();
       } catch {
         setBranchError("خطأ في الاتصال بالخادم");
@@ -131,26 +124,21 @@ export default function PublicTicketPage() {
     fetchBranch();
   }, [slug, token]);
 
-  // ======================
-  // 2. جلب المباني (عبر API محمي)
-  // ======================
+  // جلب المباني (API عادي، مثل الكود الأول)
   const fetchBuildings = async () => {
     setLoadingBuildings(true);
     try {
-      const res = await fetch(`/api/public/buildings?slug=${slug}&token=${token}`);
-      if (!res.ok) throw new Error();
+      const res = await fetch("/api/buildings");
       const data = await res.json();
       setBuildings(data);
     } catch {
-      toast.error(isRtl ? "فشل تحميل المباني" : "Failed to load buildings");
+      toast.error("فشل تحميل المباني");
     } finally {
       setLoadingBuildings(false);
     }
   };
 
-  // ======================
-  // 3. جلب الأدوار (عبر API محمي) عند تغيير المبنى
-  // ======================
+  // جلب الأدوار (API عادي)
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -159,23 +147,19 @@ export default function PublicTicketPage() {
     const fetchFloors = async () => {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/public/floors?slug=${slug}&token=${token}&buildingId=${buildingId}`);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setFloors(data);
-        setFloorId("");
+        const res = await fetch(`/api/buildings/${buildingId}/floors`);
+        if (res.ok) setFloors(await res.json());
+        else setFloors([]);
       } catch {
-        toast.error(isRtl ? "فشل تحميل الأدوار" : "Failed to load floors");
+        setFloors([]);
       } finally {
         setLoadingFloors(false);
       }
     };
     fetchFloors();
-  }, [buildingId, slug, token]);
+  }, [buildingId]);
 
-  // ======================
-  // 4. جلب الغرف (عبر API محمي) عند تغيير الدور
-  // ======================
+  // جلب الغرف (API عادي)
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -184,21 +168,21 @@ export default function PublicTicketPage() {
     const fetchRooms = async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/public/rooms?slug=${slug}&token=${token}&floorId=${floorId}`);
-        if (!res.ok) throw new Error();
-        const data = await res.json();
-        setRooms(data);
-        setRoomId("");
+        const res = await fetch(`/api/floors/${floorId}/rooms`);
+        if (res.ok) {
+          const data = await res.json();
+          setRooms(data);
+        } else setRooms([]);
       } catch {
-        toast.error(isRtl ? "فشل تحميل الغرف" : "Failed to load rooms");
+        setRooms([]);
       } finally {
         setLoadingRooms(false);
       }
     };
     fetchRooms();
-  }, [floorId, slug, token]);
+  }, [floorId]);
 
-  // معاينة الصور
+  // معاينة الصور (نفس الكودين)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const imageFiles = selected.filter(file => file.type.startsWith("image/"));
@@ -249,9 +233,8 @@ export default function PublicTicketPage() {
       const res = await fetch("/api/public/tickets", { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok) {
-        const ticketId = data.ticketId;
         toast.success(isRtl ? "تم إرسال البلاغ بنجاح" : "Ticket submitted");
-        router.push(`/${locale}/tickets/public/success?id=${ticketId}`);
+        router.push(`/${locale}/tickets/public/success`);
       } else {
         toast.error(data.error || (isRtl ? "فشل الإرسال" : "Submission failed"));
       }
@@ -262,9 +245,6 @@ export default function PublicTicketPage() {
     }
   };
 
-  // =========================
-  // 5. حالات الخطأ أو التحميل
-  // =========================
   if (branchLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -280,9 +260,7 @@ export default function PublicTicketPage() {
           <h2 className="text-xl font-bold text-red-700 dark:text-red-400 mb-2">
             {isRtl ? "رابط غير صالح" : "Invalid Link"}
           </h2>
-          <p className="text-red-600 dark:text-red-300 mb-4">
-            {branchError}
-          </p>
+          <p className="text-red-600 dark:text-red-300 mb-4">{branchError}</p>
           <Button onClick={() => router.push(`/${locale}`)}>
             {isRtl ? "العودة للرئيسية" : "Back to Home"}
           </Button>
@@ -293,13 +271,9 @@ export default function PublicTicketPage() {
 
   if (!branch) return null;
 
-  // =========================
-  // 6. الواجهة الرئيسية
-  // =========================
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6">
       <div className="max-w-4xl mx-auto">
-        {/* أزرار التحكم العلوية */}
         <div className="flex justify-end gap-3 mb-6">
           <Button variant="outline" size="icon" onClick={switchLanguage} className="rounded-full">
             <Languages size={18} />
@@ -309,7 +283,6 @@ export default function PublicTicketPage() {
           </Button>
         </div>
 
-        {/* البطاقة الرئيسية */}
         <div className="bg-card rounded-2xl border border-border shadow-sm overflow-hidden">
           <div className="p-6 md:p-8 space-y-6">
             <div className="flex items-center gap-3 border-b border-border pb-4">
@@ -402,7 +375,7 @@ export default function PublicTicketPage() {
                     <div className="grid grid-cols-3 gap-2 mt-2">
                       {previews.map((src, idx) => (
                         <div key={idx} className="relative group">
-                          <img src={src} alt={`preview-${idx}`} className="w-full h-20 object-cover rounded-md border" />
+                          <img src={src} alt="" className="w-full h-20 object-cover rounded-md border" />
                           <button
                             type="button"
                             onClick={() => removeFile(idx)}

@@ -35,6 +35,12 @@ interface Room {
   floorId: string;
   fullCode?: string;
 }
+interface Asset {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code: string;
+}
 interface Branch {
   id: string;
   name: string;
@@ -49,12 +55,12 @@ export default function PublicTicketPage() {
   const slug = params.slug as string;
   const token = params.token as string;
 
-  // حالات الفرع (مبسطة مثل الكود الأول)
+  // حالات الفرع
   const [branchLoading, setBranchLoading] = useState(true);
   const [branch, setBranch] = useState<Branch | null>(null);
   const [branchError, setBranchError] = useState<string | null>(null);
 
-  // حالات الموقع (كما في الكود الأول)
+  // حالات الموقع الهرمي
   const [buildingId, setBuildingId] = useState("");
   const [floorId, setFloorId] = useState("");
   const [roomId, setRoomId] = useState("");
@@ -65,6 +71,10 @@ export default function PublicTicketPage() {
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
+  // حالات الأصول
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [loadingAssets, setLoadingAssets] = useState(false);
+
   // النموذج
   const [form, setForm] = useState({
     title: "",
@@ -73,6 +83,7 @@ export default function PublicTicketPage() {
     reporterEmail: "",
     phone: "",
     type: "MAINTENANCE",
+    assetId: "none",  // ✅ تغيير القيمة الافتراضية إلى "none"
   });
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
@@ -100,7 +111,7 @@ export default function PublicTicketPage() {
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
   };
 
-  // 1. التحقق من صحة الفرع (بدون التحقق من allowPublicTickets)
+  // 1. التحقق من صحة الفرع
   useEffect(() => {
     const fetchBranch = async () => {
       setBranchLoading(true);
@@ -113,7 +124,6 @@ export default function PublicTicketPage() {
           return;
         }
         setBranch(data.branch);
-        // بعد التحقق، نجلب المباني (باستخدام API العادي)
         fetchBuildings();
       } catch {
         setBranchError("خطأ في الاتصال بالخادم");
@@ -124,7 +134,7 @@ export default function PublicTicketPage() {
     fetchBranch();
   }, [slug, token]);
 
-  // جلب المباني (API عادي، مثل الكود الأول)
+  // جلب المباني
   const fetchBuildings = async () => {
     setLoadingBuildings(true);
     try {
@@ -138,7 +148,7 @@ export default function PublicTicketPage() {
     }
   };
 
-  // جلب الأدوار (API عادي)
+  // جلب الأدوار
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -159,7 +169,7 @@ export default function PublicTicketPage() {
     fetchFloors();
   }, [buildingId]);
 
-  // جلب الغرف (API عادي)
+  // جلب الغرف
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -182,7 +192,36 @@ export default function PublicTicketPage() {
     fetchRooms();
   }, [floorId]);
 
-  // معاينة الصور (نفس الكودين)
+  // ✅ جلب الأصول باستخدام locationId (كما في النظام الداخلي)
+  useEffect(() => {
+    if (!roomId) {
+      setAssets([]);
+      setForm(prev => ({ ...prev, assetId: "none" }));
+      return;
+    }
+    const fetchAssets = async () => {
+      setLoadingAssets(true);
+      try {
+        // التصحيح: استخدام locationId بدلاً من roomId
+        const res = await fetch(`/api/assets?locationId=${roomId}`);
+        if (res.ok) {
+          const data = await res.json();
+          // حماية من null
+          const assetsList = Array.isArray(data.assets) ? data.assets : Array.isArray(data) ? data : [];
+          setAssets(assetsList);
+        } else {
+          setAssets([]);
+        }
+      } catch {
+        setAssets([]);
+      } finally {
+        setLoadingAssets(false);
+      }
+    };
+    fetchAssets();
+  }, [roomId]);
+
+  // معاينة الصور
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const imageFiles = selected.filter(file => file.type.startsWith("image/"));
@@ -227,6 +266,10 @@ export default function PublicTicketPage() {
     fd.append("reporterEmail", form.reporterEmail);
     fd.append("phone", form.phone);
     fd.append("type", form.type);
+    // ✅ إرسال assetId فقط إذا لم تكن "none"
+    if (form.assetId && form.assetId !== "none") {
+      fd.append("assetId", form.assetId);
+    }
     files.forEach(file => fd.append("images", file));
 
     try {
@@ -345,16 +388,39 @@ export default function PublicTicketPage() {
                     />
                     <RoomSelector
                       value={roomId}
-                      onValueChange={setRoomId}
+                      onValueChange={(val) => {
+                        setRoomId(val);
+                        setForm(prev => ({ ...prev, assetId: "none" }));
+                      }}
                       rooms={rooms}
                       floorId={floorId}
                       loading={loadingRooms}
                     />
                   </div>
                 </div>
+                {/* إضافة اختيار الأصل إذا كانت الغرفة محددة ويوجد أصول */}
+                {roomId && (
+                  <div>
+                    <Label>{isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}</Label>
+                    <Select value={form.assetId} onValueChange={(val) => setForm({ ...form, assetId: val })} disabled={loadingAssets}>
+                      <SelectTrigger>
+                        <SelectValue placeholder={isRtl ? "اختر الأصل" : "Select asset"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{isRtl ? "بدون أصل" : "No asset"}</SelectItem>
+                        {assets.map((asset) => (
+                          <SelectItem key={asset.id} value={asset.id}>
+                            {isRtl ? asset.name : (asset.nameEn || asset.name)} ({asset.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {loadingAssets && <p className="text-xs text-muted-foreground mt-1">{isRtl ? "جار التحميل..." : "Loading..."}</p>}
+                  </div>
+                )}
               </div>
 
-              {/* العمود الأيمن */}
+              {/* العمود الأيمن (بيانات المبلغ والصور) */}
               <div className="space-y-4">
                 <div>
                   <Label>{isRtl ? "الاسم *" : "Name *"}</Label>

@@ -1,12 +1,15 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 بدء إضافة البيانات الأولية...');
 
-  // 1. إنشاء الأدوار الأساسية
+  // =========================
+  // 1. Roles
+  // =========================
   const roles = await Promise.all([
     prisma.role.upsert({
       where: { name: 'SUPER_ADMIN' },
@@ -29,9 +32,12 @@ async function main() {
       create: { name: 'TECH', label: 'Technician' },
     }),
   ]);
-  console.log(`✅ الأدوار: ${roles.map(r => r.name).join(', ')}`);
 
-  // 2. إنشاء شركة تجريبية
+  console.log(`✅ Roles: ${roles.map(r => r.name).join(', ')}`);
+
+  // =========================
+  // 2. Company
+  // =========================
   const company = await prisma.company.upsert({
     where: { name: 'الشركة التقنية الحديثة' },
     update: {},
@@ -40,23 +46,39 @@ async function main() {
       isActive: true,
     },
   });
-  console.log(`✅ شركة: ${company.name}`);
 
-  // 3. إنشاء فرع رئيسي
+  console.log(`✅ Company: ${company.name}`);
+
+  // =========================
+  // 3. Branch (IMPORTANT FIX)
+  // =========================
   const branch = await prisma.branch.upsert({
     where: { code: 'HQ' },
-    update: {},
+    update: {
+      // ⚠️ لا نغير publicToken إطلاقاً بعد الإنشاء
+      name: 'الفرع الرئيسي',
+      slug: 'head-office',
+      allowPublicTickets: true,
+    },
     create: {
       name: 'الفرع الرئيسي',
       code: 'HQ',
+      slug: 'head-office',
+      publicToken: randomUUID(), // يُنشأ مرة واحدة فقط
+      allowPublicTickets: true,
       companyId: company.id,
     },
   });
-  console.log(`✅ فرع: ${branch.name}`);
 
-  // 4. إنشاء مستخدم سوبر أدمن بالبريد المطلوب وكلمة المرور المطلوبة
+  console.log(`✅ Branch: ${branch.name}`);
+
+  // =========================
+  // 4. Super Admin User
+  // =========================
   const superAdminRole = roles.find(r => r.name === 'SUPER_ADMIN')!;
+
   const hashedPassword = await bcrypt.hash('Kn@240360240360', 10);
+
   const superAdmin = await prisma.user.upsert({
     where: { email: 'kn.azzyadi@gmail.com' },
     update: {
@@ -77,20 +99,24 @@ async function main() {
       status: true,
     },
   });
-  console.log(`✅ مستخدم سوبر أدمن: ${superAdmin.email} (كلمة المرور: Kn@240360240360)`);
 
-  // (اختياري) حذف مستخدم super@admin.com إذا كان موجوداً لتجنب التداخل
+  console.log(`✅ Super Admin: ${superAdmin.email}`);
+
+  // =========================
+  // 5. Clean old user (optional)
+  // =========================
   await prisma.user.deleteMany({
     where: { email: 'super@admin.com' },
   });
-  console.log('🗑️ تم حذف المستخدم القديم super@admin.com (إن وجد)');
 
-  console.log('🎉 اكتملت الإضافة.');
+  console.log('🗑️ Removed old super user if existed');
+
+  console.log('🎉 Seeding completed successfully.');
 }
 
 main()
-  .catch(e => {
-    console.error('❌ فشل الإضافة:', e);
+  .catch((e) => {
+    console.error('❌ Seeding failed:', e);
     process.exit(1);
   })
   .finally(async () => {

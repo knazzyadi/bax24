@@ -81,18 +81,31 @@ model UserBranch {
 
 model Branch {
   id                   String                @id @default(cuid())
+
+  // Basic Info
   name                 String
+  nameEn               String?
   code                 String                @unique
+
+  // Public Ticket Access
+  slug                 String                @unique
+  publicToken          String                @unique
+  allowPublicTickets   Boolean               @default(true)
+
+  // Relations
   companyId            String
+  company              Company               @relation(fields: [companyId], references: [id])
+
+  // Timestamps
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
-  nameEn               String?
+
+  // Related Models
   contracts            Contract[]
   maintenanceSchedules MaintenanceSchedule[]
   tickets              Ticket[]
   workOrders           WorkOrder[]
   assets               Asset[]
-  company              Company               @relation(fields: [companyId], references: [id])
   buildings            Building[]
   userBranches         UserBranch[]
 

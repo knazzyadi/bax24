@@ -1519,6 +1519,8 @@
     }
   },
   "MaintenanceForm": {
+    "quarterly": "Quarterly",
+    "semiAnnual": "Semi-annual",
     "newTitle": "Add New Preventive Maintenance Schedule",
     "newSubtitle": "Define frequency, scope, and target assets",
     "editTitle": "Edit Preventive Maintenance Schedule",

@@ -35,6 +35,11 @@ interface Room {
   floorId: string;
   fullCode?: string;
 }
+interface AssetType {
+  id: string;
+  name: string;
+  nameEn?: string;
+}
 interface Asset {
   id: string;
   name: string;
@@ -71,8 +76,10 @@ export default function PublicTicketPage() {
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  // حالات الأصول
+  // حالات نوع الأصل والأصل
+  const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [loadingAssetTypes, setLoadingAssetTypes] = useState(false);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
   // النموذج
@@ -83,13 +90,14 @@ export default function PublicTicketPage() {
     reporterEmail: "",
     phone: "",
     type: "MAINTENANCE",
+    assetTypeId: "",
     assetId: "none",
   });
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // خريطة لنوع البلاغ (العربية والإنجليزية)
+  // خريطة النوع (لنوع البلاغ)
   const ticketTypeMap: Record<string, string> = {
     MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
     INCIDENT: isRtl ? "حادث" : "Incident",
@@ -131,6 +139,7 @@ export default function PublicTicketPage() {
         }
         setBranch(data.branch);
         fetchBuildings();
+        fetchAssetTypes(); // جلب أنواع الأصول بعد التحقق
       } catch {
         setBranchError("خطأ في الاتصال بالخادم");
       } finally {
@@ -151,6 +160,20 @@ export default function PublicTicketPage() {
       toast.error("فشل تحميل المباني");
     } finally {
       setLoadingBuildings(false);
+    }
+  };
+
+  // جلب أنواع الأصول
+  const fetchAssetTypes = async () => {
+    setLoadingAssetTypes(true);
+    try {
+      const res = await fetch("/api/asset-types");
+      const data = await res.json();
+      setAssetTypes(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error("فشل تحميل أنواع الأصول");
+    } finally {
+      setLoadingAssetTypes(false);
     }
   };
 
@@ -198,7 +221,7 @@ export default function PublicTicketPage() {
     fetchRooms();
   }, [floorId]);
 
-  // جلب الأصول (باستخدام locationId)
+  // جلب الأصول (مع نوع الأصل)
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
@@ -208,7 +231,12 @@ export default function PublicTicketPage() {
     const fetchAssets = async () => {
       setLoadingAssets(true);
       try {
-        const res = await fetch(`/api/assets?locationId=${roomId}`);
+        const params = new URLSearchParams();
+        params.append("locationId", roomId);
+        if (form.assetTypeId && form.assetTypeId !== "all") {
+          params.append("typeId", form.assetTypeId);
+        }
+        const res = await fetch(`/api/assets?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
           const assetsList = Array.isArray(data.assets) ? data.assets : Array.isArray(data) ? data : [];
@@ -223,7 +251,7 @@ export default function PublicTicketPage() {
       }
     };
     fetchAssets();
-  }, [roomId]);
+  }, [roomId, form.assetTypeId]);
 
   // معاينة الصور
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -270,6 +298,9 @@ export default function PublicTicketPage() {
     fd.append("reporterEmail", form.reporterEmail);
     fd.append("phone", form.phone);
     fd.append("type", form.type);
+    if (form.assetTypeId && form.assetTypeId !== "all") {
+      fd.append("assetTypeId", form.assetTypeId);
+    }
     if (form.assetId && form.assetId !== "none") {
       fd.append("assetId", form.assetId);
     }
@@ -346,12 +377,12 @@ export default function PublicTicketPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* العمود الأيسر */}
               <div className="space-y-6">
-                {/* نوع البلاغ - مع SelectValue بدون children */}
+                {/* نوع البلاغ */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع البلاغ *" : "Ticket Type *"}</Label>
                   <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })}>
                     <SelectTrigger className="h-12 text-base">
-                      <SelectValue placeholder={isRtl ? "اختر نوع البلاغ" : "Select type"} />
+                      {ticketTypeMap[form.type] || (isRtl ? "اختر نوع البلاغ" : "Select type")}
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="MAINTENANCE">{ticketTypeMap.MAINTENANCE}</SelectItem>
@@ -411,7 +442,7 @@ export default function PublicTicketPage() {
                       value={roomId}
                       onValueChange={(val) => {
                         setRoomId(val);
-                        setForm(prev => ({ ...prev, assetId: "none" }));
+                        setForm(prev => ({ ...prev, assetTypeId: "", assetId: "none" }));
                       }}
                       rooms={rooms}
                       floorId={floorId}
@@ -420,13 +451,47 @@ export default function PublicTicketPage() {
                   </div>
                 </div>
 
-                {/* اختيار الأصل (يظهر فقط إذا تم اختيار الغرفة) */}
+                {/* نوع الأصل (جديد) */}
+                {roomId && (
+                  <div>
+                    <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع الأصل (اختياري)" : "Asset Type (Optional)"}</Label>
+                    <Select value={form.assetTypeId} onValueChange={(val) => setForm(prev => ({ ...prev, assetTypeId: val, assetId: "none" }))} disabled={loadingAssetTypes}>
+                      <SelectTrigger className="h-12 text-base">
+                        {form.assetTypeId
+                          ? (() => {
+                              const selected = assetTypes.find(at => at.id === form.assetTypeId);
+                              return selected ? (isRtl ? selected.name : (selected.nameEn || selected.name)) : (isRtl ? "اختر نوع الأصل" : "Select asset type");
+                            })()
+                          : (isRtl ? "اختر نوع الأصل" : "Select asset type")}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">{isRtl ? "الكل" : "All"}</SelectItem>
+                        {assetTypes.map((type) => (
+                          <SelectItem key={type.id} value={type.id}>
+                            {isRtl ? type.name : (type.nameEn || type.name)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {loadingAssetTypes && <p className="text-sm text-muted-foreground mt-2">{isRtl ? "جار التحميل..." : "Loading..."}</p>}
+                  </div>
+                )}
+
+                {/* الأصل (يظهر فقط إذا تم اختيار الغرفة) */}
                 {roomId && (
                   <div>
                     <Label className="text-base font-semibold mb-2 block">{isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}</Label>
                     <Select value={form.assetId} onValueChange={(val) => setForm({ ...form, assetId: val })} disabled={loadingAssets}>
                       <SelectTrigger className="h-12 text-base">
-                        <SelectValue placeholder={isRtl ? "اختر الأصل" : "Select asset"} />
+                        {form.assetId !== "none"
+                          ? (() => {
+                              const selected = assets.find(a => a.id === form.assetId);
+                              if (selected) {
+                                return isRtl ? selected.name : (selected.nameEn || selected.name);
+                              }
+                              return isRtl ? "اختر الأصل" : "Select asset";
+                            })()
+                          : (isRtl ? "اختر الأصل" : "Select asset")}
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">{isRtl ? "بدون أصل" : "No asset"}</SelectItem>
@@ -442,7 +507,7 @@ export default function PublicTicketPage() {
                 )}
               </div>
 
-              {/* العمود الأيمن - بيانات المراسل والصور */}
+              {/* العمود الأيمن (بيانات المراسل والصور) - نفس الكود السابق */}
               <div className="space-y-6">
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "الاسم *" : "Name *"}</Label>

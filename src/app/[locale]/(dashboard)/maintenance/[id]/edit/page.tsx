@@ -1,10 +1,9 @@
 // src/app/[locale]/(dashboard)/maintenance/[id]/edit/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { useSession } from "next-auth/react";
 import {
   Info, Loader2, MapPin, Building, Layers, DoorOpen, AlertCircle, FileText, Calendar, Save, X, Check, Plus
 } from "lucide-react";
@@ -27,7 +26,7 @@ import { RoomSelector } from "@/components/shared/RoomSelector";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
 
-// تعريف الأنواع
+// تعريف الأنواع (كما هي)
 interface Building {
   id: string;
   name: string;
@@ -58,7 +57,6 @@ interface Asset { id: string; name: string; code: string; nameEn?: string; }
 
 type LocationLevel = 'building' | 'floor' | 'room';
 
-// دالة مساعدة لتحويل التردد النصي إلى أيام (للتوافق القديم ولكن محدثة للخيارات الجديدة)
 function frequencyStringToDays(freq: string): number {
   switch (freq) {
     case 'MONTHLY': return 30;
@@ -76,40 +74,11 @@ export default function EditMaintenanceSchedulePage() {
   const locale = useLocale();
   const isRtl = locale === "ar";
   const t = useTranslations('MaintenanceForm');
-  const { data: session } = useSession();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [dataLoaded, setDataLoaded] = useState(false);
 
-  // بيانات أنواع الأصول والأصول
-  const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loadingAssets, setLoadingAssets] = useState(false);
-  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
-
-  // حالة الموقع الهرمي
-  const [branchId, setBranchId] = useState<string>("");
-  const [buildingId, setBuildingId] = useState<string>("");
-  const [floorId, setFloorId] = useState<string>("");
-  const [roomId, setRoomId] = useState<string>("");
-  
-  // مستوى التحديد (مبنى / دور / غرفة)
-  const [locationLevel, setLocationLevel] = useState<LocationLevel>('building');
-
-  // بيانات المباني والأدوار والغرف
-  const [buildings, setBuildings] = useState<Building[]>([]);
-  const [floors, setFloors] = useState<Floor[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingBuildings, setLoadingBuildings] = useState(true);
-  const [loadingFloors, setLoadingFloors] = useState(false);
-  const [loadingRooms, setLoadingRooms] = useState(false);
-
-  // حوار اختيار الأصول
-  const [assetDialogOpen, setAssetDialogOpen] = useState(false);
-  const [tempSelectedAssetIds, setTempSelectedAssetIds] = useState<string[]>([]);
-
-  // بيانات النموذج الأساسية
+  // بيانات الجدول
   const [formData, setFormData] = useState({
     name: "",
     frequency: "MONTHLY",
@@ -121,45 +90,79 @@ export default function EditMaintenanceSchedulePage() {
     isActive: true,
   });
 
+  // بيانات الموقع
+  const [branchId, setBranchId] = useState<string>("");
+  const [buildingId, setBuildingId] = useState<string>("");
+  const [floorId, setFloorId] = useState<string>("");
+  const [roomId, setRoomId] = useState<string>("");
+  const [locationLevel, setLocationLevel] = useState<LocationLevel>('building');
+
+  // قوائم الاختيار
+  const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [floors, setFloors] = useState<Floor[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
+  const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+
+  // حالات التحميل
+  const [loadingAssetTypes, setLoadingAssetTypes] = useState(true);
+  const [loadingBuildings, setLoadingBuildings] = useState(true);
+  const [loadingFloors, setLoadingFloors] = useState(false);
+  const [loadingRooms, setLoadingRooms] = useState(false);
+  const [loadingAssets, setLoadingAssets] = useState(false);
+  const [loadingSchedule, setLoadingSchedule] = useState(true);
+  const [dataFetched, setDataFetched] = useState(false);
+
+  // حوار اختيار الأصول
+  const [assetDialogOpen, setAssetDialogOpen] = useState(false);
+  const [tempSelectedAssetIds, setTempSelectedAssetIds] = useState<string[]>([]);
+
   const containerClass = "bg-card border border-border rounded-md p-6 shadow-sm hover:shadow-md transition-all";
 
-  // جلب البيانات الأولية (أنواع الأصول والمباني)
+  // --- 1. تحميل البيانات الرئيسية (أنواع الأصول والمباني) أولاً ---
   useEffect(() => {
-    async function fetchInitialData() {
+    const controller = new AbortController();
+    async function loadMasterData() {
       try {
         const [assetTypesRes, buildingsRes] = await Promise.all([
-          fetch("/api/asset-types"),
-          fetch("/api/buildings"),
+          fetch("/api/asset-types", { signal: controller.signal }),
+          fetch("/api/buildings", { signal: controller.signal }),
         ]);
         if (assetTypesRes.ok) setAssetTypes(await assetTypesRes.json());
         if (buildingsRes.ok) setBuildings(await buildingsRes.json());
       } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         console.error(error);
         toast.error(t("fetchError"));
       } finally {
+        setLoadingAssetTypes(false);
         setLoadingBuildings(false);
-        setDataLoaded(true);
       }
     }
-    fetchInitialData();
+    loadMasterData();
+    return () => controller.abort();
   }, [t]);
 
-  // جلب بيانات الجدول الحالي
+  // --- 2. تحميل بيانات الجدول (بعد توفر المباني وأنواع الأصول) ---
   useEffect(() => {
-    async function fetchSchedule() {
-      if (!id) return;
+    if (loadingAssetTypes || loadingBuildings) return; // انتظر حتى تنتهي البيانات الرئيسية
+    if (!id) return;
+
+    const controller = new AbortController();
+    async function loadSchedule() {
+      setLoadingSchedule(true);
       try {
-        const res = await fetch(`/api/maintenance/schedules/${id}`);
-        if (!res.ok) throw new Error("Failed to fetch");
+        const res = await fetch(`/api/maintenance/schedules/${id}`, { signal: controller.signal });
+        if (!res.ok) throw new Error("Failed to fetch schedule");
         const data = await res.json();
-        // حساب frequencyDays: إذا كان موجوداً استخدمه، وإلا احسبه من frequency النصي
+
+        // تعبئة بيانات النموذج
         let freqDays = data.frequencyDays;
-        if (!freqDays && data.frequency) {
-          freqDays = frequencyStringToDays(data.frequency);
-        }
+        if (!freqDays && data.frequency) freqDays = frequencyStringToDays(data.frequency);
         setFormData({
-          name: data.name,
-          frequency: data.frequency,
+          name: data.name || "",
+          frequency: data.frequency || "MONTHLY",
           frequencyDays: freqDays || 30,
           leadDays: data.leadDays || 30,
           startDate: data.startDate ? data.startDate.split('T')[0] : "",
@@ -167,7 +170,9 @@ export default function EditMaintenanceSchedulePage() {
           notes: data.notes || "",
           isActive: data.isActive !== undefined ? data.isActive : true,
         });
+
         // تعيين الموقع
+        if (data.branchId) setBranchId(data.branchId);
         if (data.buildingId) {
           setBuildingId(data.buildingId);
           setLocationLevel('building');
@@ -178,56 +183,65 @@ export default function EditMaintenanceSchedulePage() {
           setRoomId(data.roomId);
           setLocationLevel('room');
         }
-        if (data.branchId) setBranchId(data.branchId);
-        // جلب الأصول المحددة (من scheduleAssets)
+
+        // تعيين الأصول المختارة
         if (data.scheduleAssets && data.scheduleAssets.length) {
           const assetIds = data.scheduleAssets.map((sa: any) => sa.assetId);
           setSelectedAssetIds(assetIds);
         }
+
+        setDataFetched(true);
       } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         console.error(error);
         toast.error(t("fetchError"));
         router.push(`/${locale}/maintenance`);
       } finally {
-        setLoading(false);
+        setLoadingSchedule(false);
+        setLoading(false); // إنهاء حالة التحميل العامة
       }
     }
-    fetchSchedule();
-  }, [id, locale, router, t]);
+    loadSchedule();
+    return () => controller.abort();
+  }, [id, loadingAssetTypes, loadingBuildings, locale, router, t]);
 
-  // جلب الأدوار عند تغيير المبنى
+  // --- 3. تحميل الأدوار عند تغيير buildingId (بعد توفر البيانات) ---
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
       return;
     }
+    const controller = new AbortController();
     async function fetchFloors() {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/buildings/${buildingId}/floors`);
+        const res = await fetch(`/api/buildings/${buildingId}/floors`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           setFloors(data);
         } else setFloors([]);
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         setFloors([]);
       } finally {
         setLoadingFloors(false);
       }
     }
     fetchFloors();
+    return () => controller.abort();
   }, [buildingId]);
 
-  // جلب الغرف عند تغيير الدور
+  // --- 4. تحميل الغرف عند تغيير floorId ---
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
       return;
     }
+    const controller = new AbortController();
     async function fetchRooms() {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/floors/${floorId}/rooms`);
+        const res = await fetch(`/api/floors/${floorId}/rooms`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           const currentBuilding = buildings.find(b => b.id === buildingId);
@@ -245,16 +259,18 @@ export default function EditMaintenanceSchedulePage() {
           }));
           setRooms(roomsWithCode);
         } else setRooms([]);
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         setRooms([]);
       } finally {
         setLoadingRooms(false);
       }
     }
     fetchRooms();
+    return () => controller.abort();
   }, [floorId, buildingId, buildings, floors]);
 
-  // جلب الأصول بناءً على المستوى المحدد ونوع الأصل
+  // --- 5. تحميل الأصول عند توفر نوع الأصل والموقع المحدد ---
   useEffect(() => {
     const hasAssetType = formData.assetTypeId && formData.assetTypeId !== "";
     if (!hasAssetType) {
@@ -263,9 +279,9 @@ export default function EditMaintenanceSchedulePage() {
     }
 
     let canFetch = false;
-    let params = new URLSearchParams();
+    const params = new URLSearchParams();
     params.append("typeId", formData.assetTypeId);
-    params.append("branchId", branchId);
+    if (branchId) params.append("branchId", branchId);
 
     if (locationLevel === 'room' && roomId) {
       params.append("roomId", roomId);
@@ -283,24 +299,50 @@ export default function EditMaintenanceSchedulePage() {
       return;
     }
 
-    const fetchAssets = async () => {
+    const controller = new AbortController();
+    async function fetchAssets() {
       setLoadingAssets(true);
       try {
-        const res = await fetch(`/api/assets?${params.toString()}`);
+        const res = await fetch(`/api/assets?${params.toString()}`, { signal: controller.signal });
         if (res.ok) {
           const data = await res.json();
           setAssets(data.assets || []);
         } else setAssets([]);
-      } catch {
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") return;
         setAssets([]);
       } finally {
         setLoadingAssets(false);
       }
-    };
+    }
     fetchAssets();
+    return () => controller.abort();
   }, [buildingId, floorId, roomId, formData.assetTypeId, branchId, locationLevel]);
 
-  // فتح حوار اختيار الأصول
+  // دوال مساعدة
+  const getSelectedLocationSummary = () => {
+    if (locationLevel === 'room' && roomId) {
+      const room = rooms.find(r => r.id === roomId);
+      return room ? `${room.name} (${room.fullCode})` : t("room");
+    }
+    if (locationLevel === 'floor' && floorId) {
+      const floor = floors.find(f => f.id === floorId);
+      return floor ? floor.name : t("floor");
+    }
+    if (locationLevel === 'building' && buildingId) {
+      const building = buildings.find(b => b.id === buildingId);
+      return building ? building.name : t("building");
+    }
+    return t("notSelected");
+  };
+
+  const isLocationSelected = () => {
+    if (locationLevel === 'room') return !!roomId;
+    if (locationLevel === 'floor') return !!floorId;
+    if (locationLevel === 'building') return !!buildingId;
+    return false;
+  };
+
   const openAssetDialog = () => {
     setTempSelectedAssetIds([...selectedAssetIds]);
     setAssetDialogOpen(true);
@@ -324,7 +366,6 @@ export default function EditMaintenanceSchedulePage() {
     if (locationLevel === 'room' && roomId) locationValid = true;
     else if (locationLevel === 'floor' && floorId) locationValid = true;
     else if (locationLevel === 'building' && buildingId) locationValid = true;
-    
     if (!locationValid) {
       toast.error(t("locationRequired"));
       return;
@@ -338,7 +379,6 @@ export default function EditMaintenanceSchedulePage() {
       return;
     }
 
-    // تحديد frequencyDays النهائي
     let finalFrequencyDays = formData.frequencyDays;
     if (!finalFrequencyDays || finalFrequencyDays <= 0) {
       finalFrequencyDays = frequencyStringToDays(formData.frequency);
@@ -382,7 +422,8 @@ export default function EditMaintenanceSchedulePage() {
     }
   };
 
-  if (loading || !dataLoaded || loadingBuildings) {
+  // حالة التحميل الرئيسية
+  if (loading || loadingSchedule || loadingAssetTypes || loadingBuildings) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -390,36 +431,12 @@ export default function EditMaintenanceSchedulePage() {
     );
   }
 
-  const getSelectedLocationSummary = () => {
-    if (locationLevel === 'room' && roomId) {
-      const room = rooms.find(r => r.id === roomId);
-      return room ? `${room.name} (${room.fullCode})` : t("room");
-    }
-    if (locationLevel === 'floor' && floorId) {
-      const floor = floors.find(f => f.id === floorId);
-      return floor ? floor.name : t("floor");
-    }
-    if (locationLevel === 'building' && buildingId) {
-      const building = buildings.find(b => b.id === buildingId);
-      return building ? building.name : t("building");
-    }
-    return t("notSelected");
-  };
-
-  const isLocationSelected = () => {
-    if (locationLevel === 'room') return !!roomId;
-    if (locationLevel === 'floor') return !!floorId;
-    if (locationLevel === 'building') return !!buildingId;
-    return false;
-  };
-
   return (
     <FormPageContainer
       icon={<Calendar size={28} />}
       title={t("editTitle")}
       subtitle={t("editSubtitle")}
     >
-      {/* العمود الرئيسي - الأيسر */}
       <div className="lg:col-span-2 space-y-8">
         {/* 1. معلومات أساسية */}
         <FormSection icon={<AlertCircle size={16} />} title={t("basicInfo")}>
@@ -659,7 +676,7 @@ export default function EditMaintenanceSchedulePage() {
         </div>
       </div>
 
-      {/* العمود الجانبي - الأيمن */}
+      {/* العمود الجانبي */}
       <div className="space-y-8">
         <FormSidebar>
           <div className="space-y-3 pb-4 border-b border-border">
@@ -693,7 +710,7 @@ export default function EditMaintenanceSchedulePage() {
         </FormSidebar>
       </div>
 
-      {/* حوار اختيار الأصول المتعددة */}
+      {/* حوار اختيار الأصول */}
       <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-background border-border shadow-lg">
           <DialogHeader>

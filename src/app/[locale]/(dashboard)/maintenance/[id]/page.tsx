@@ -35,9 +35,9 @@ interface ScheduleDetail {
 }
 
 const FREQUENCY_MAP: Record<string, { ar: string; en: string }> = {
-  DAILY: { ar: "يومي", en: "Daily" },
-  WEEKLY: { ar: "أسبوعي", en: "Weekly" },
   MONTHLY: { ar: "شهري", en: "Monthly" },
+  QUARTERLY: { ar: "ربع سنوي", en: "Quarterly" },
+  SEMI_ANNUAL: { ar: "نصف سنوي", en: "Semi-annual" },
   YEARLY: { ar: "سنوي", en: "Yearly" },
 };
 
@@ -96,11 +96,11 @@ export default function MaintenanceScheduleDetailPage() {
     const createdAt = new Date(schedule.createdAt);
     const reference = lastRun || start || createdAt;
     switch (schedule.frequency) {
-      case "DAILY": return addDays(reference, 1);
-      case "WEEKLY": return addDays(reference, 7);
       case "MONTHLY": return addMonths(reference, 1);
+      case "QUARTERLY": return addMonths(reference, 3);
+      case "SEMI_ANNUAL": return addMonths(reference, 6);
       case "YEARLY": return addYears(reference, 1);
-      default: return addDays(reference, 30);
+      default: return addMonths(reference, 1);
     }
   };
 
@@ -114,7 +114,11 @@ export default function MaintenanceScheduleDetailPage() {
   const getFrequencyLabel = () => {
     if (!schedule) return "";
     const label = FREQUENCY_MAP[schedule.frequency];
-    return label ? (isRtl ? label.ar : label.en) : schedule.frequency;
+    if (label) return isRtl ? label.ar : label.en;
+    // Fallback للقيم القديمة (للتوافق)
+    if (schedule.frequency === "DAILY") return isRtl ? "يومي" : "Daily";
+    if (schedule.frequency === "WEEKLY") return isRtl ? "أسبوعي" : "Weekly";
+    return schedule.frequency;
   };
 
   const getLocationName = () => {
@@ -150,15 +154,15 @@ export default function MaintenanceScheduleDetailPage() {
           <InfoCard title={t("basicInfo")} icon={<FileText className="h-5 w-5" />}>
             <div className="grid md:grid-cols-2 gap-6">
               <div>
-                <div className="text-xs font-black text-muted-foreground uppercase">{t("frequency")}</div>
-                <p className="font-bold flex items-center gap-2"><Clock size={14} /> {getFrequencyLabel()}</p>
+                <div className="text-xs font-medium text-muted-foreground uppercase">{t("frequency")}</div>
+                <p className="font-medium flex items-center gap-2"><Clock size={14} /> {getFrequencyLabel()}</p>
               </div>
               <div>
-                <div className="text-xs font-black text-muted-foreground uppercase">{t("leadDays")}</div>
-                <p className="font-bold">{schedule.leadDays} {isRtl ? "يوم" : "days"}</p>
+                <div className="text-xs font-medium text-muted-foreground uppercase">{t("leadDays")}</div>
+                <p className="font-medium">{schedule.leadDays} {isRtl ? "يوم" : "days"}</p>
               </div>
               <div>
-                <div className="text-xs font-black text-muted-foreground uppercase">{t("status")}</div>
+                <div className="text-xs font-medium text-muted-foreground uppercase">{t("status")}</div>
                 {schedule.isActive ? (
                   <Badge className="bg-green-100 text-green-700 border-green-200"><CheckCircle2 size={12} className="mr-1" /> {isRtl ? "نشط" : "Active"}</Badge>
                 ) : (
@@ -166,28 +170,28 @@ export default function MaintenanceScheduleDetailPage() {
                 )}
               </div>
               <div>
-                <div className="text-xs font-black text-muted-foreground uppercase">{t("location")}</div>
-                <p className="font-bold flex items-center gap-2"><Building size={14} /> {getLocationName()}</p>
+                <div className="text-xs font-medium text-muted-foreground uppercase">{t("location")}</div>
+                <p className="font-medium flex items-center gap-2"><Building size={14} /> {getLocationName()}</p>
               </div>
               {schedule.startDate && (
                 <div>
-                  <div className="text-xs font-black text-muted-foreground uppercase">{t("startDate")}</div>
-                  <p className="font-bold">{formatLocalDate(schedule.startDate)}</p>
+                  <div className="text-xs font-medium text-muted-foreground uppercase">{t("startDate")}</div>
+                  <p className="font-medium">{formatLocalDate(schedule.startDate)}</p>
                 </div>
               )}
               {schedule.assetType && (
                 <div>
-                  <div className="text-xs font-black text-muted-foreground uppercase">{t("assetType")}</div>
-                  <p className="font-bold flex items-center gap-2"><Tag size={14} /> {isRtl ? schedule.assetType.name : (schedule.assetType.nameEn || schedule.assetType.name)}</p>
+                  <div className="text-xs font-medium text-muted-foreground uppercase">{t("assetType")}</div>
+                  <p className="font-medium flex items-center gap-2"><Tag size={14} /> {isRtl ? schedule.assetType.name : (schedule.assetType.nameEn || schedule.assetType.name)}</p>
                 </div>
               )}
               <div>
-                <div className="text-xs font-black text-muted-foreground uppercase">{t("createdAt")}</div>
-                <p className="font-mono text-sm">{formatLocalDate(schedule.createdAt)}</p>
+                <div className="text-xs font-medium text-muted-foreground uppercase">{t("createdAt")}</div>
+                <p className="font-mono text-sm font-medium">{formatLocalDate(schedule.createdAt)}</p>
               </div>
               <div>
-                <div className="text-xs font-black text-muted-foreground uppercase">{t("updatedAt")}</div>
-                <p className="font-mono text-sm">{formatLocalDate(schedule.updatedAt)}</p>
+                <div className="text-xs font-medium text-muted-foreground uppercase">{t("updatedAt")}</div>
+                <p className="font-mono text-sm font-medium">{formatLocalDate(schedule.updatedAt)}</p>
               </div>
             </div>
           </InfoCard>
@@ -195,12 +199,12 @@ export default function MaintenanceScheduleDetailPage() {
           <InfoCard title={t("executionInfo")} icon={<Clock className="h-5 w-5" />}>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("lastRun")}</span>
-                <span className="font-mono">{schedule.lastRunAt ? formatLocalDate(schedule.lastRunAt) : t("never")}</span>
+                <span className="text-muted-foreground font-medium">{t("lastRun")}</span>
+                <span className="font-mono font-medium">{schedule.lastRunAt ? formatLocalDate(schedule.lastRunAt) : t("never")}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">{t("nextDue")}</span>
-                <span className="font-mono font-bold text-primary">{nextDue ? formatLocalDate(nextDue) : t("notCalculated")}</span>
+                <span className="text-muted-foreground font-medium">{t("nextDue")}</span>
+                <span className="font-mono font-medium text-primary">{nextDue ? formatLocalDate(nextDue) : t("notCalculated")}</span>
               </div>
             </div>
           </InfoCard>
@@ -211,7 +215,7 @@ export default function MaintenanceScheduleDetailPage() {
                 {schedule.scheduleAssets.map((sa) => (
                   <div key={sa.asset.id} className="flex items-center justify-between p-3 rounded-xl border border-border bg-secondary/20">
                     <div>
-                      <p className="font-bold">{isRtl ? sa.asset.name : (sa.asset.nameEn || sa.asset.name)}</p>
+                      <p className="font-medium">{isRtl ? sa.asset.name : (sa.asset.nameEn || sa.asset.name)}</p>
                       <p className="text-xs text-muted-foreground font-mono">{sa.asset.code}</p>
                     </div>
                   </div>
@@ -221,38 +225,35 @@ export default function MaintenanceScheduleDetailPage() {
           )}
         </div>
 
-        {/* العمود الجانبي - الأيمن (الملاحظات الإضافية الآن في الأعلى) */}
+        {/* العمود الجانبي - الأيمن */}
         <div className="space-y-8">
-          {/* ✅ الملاحظات الإضافية - نقلت إلى اليمين فوق الإجراءات */}
           <SidebarCard title={t("notes")} icon={<FileText className="h-5 w-5" />}>
-            <p className="whitespace-pre-wrap">
+            <p className="whitespace-pre-wrap font-medium">
               {schedule.notes || (isRtl ? "لا توجد ملاحظات إضافية" : "No additional notes")}
             </p>
           </SidebarCard>
 
-          {/* حاوية الإجراءات (زر التشغيل) */}
           <SidebarCard title={t("actions")} icon={<Play className="h-5 w-5" />}>
             <div className="space-y-4">
               <Button
                 onClick={handleRun}
                 disabled={executing || !schedule.isActive}
-                className="w-full rounded-full bg-primary hover:bg-primary/90 font-black gap-2"
+                className="w-full rounded-full bg-primary hover:bg-primary/90 font-medium gap-2"
               >
                 {executing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play size={16} />}
                 {t("runNow")}
               </Button>
               {!schedule.isActive && (
-                <p className="text-xs text-muted-foreground text-center">{t("inactiveHint")}</p>
+                <p className="text-xs text-muted-foreground text-center font-medium">{t("inactiveHint")}</p>
               )}
             </div>
           </SidebarCard>
 
-          {/* زر العودة */}
           <div className="flex flex-col gap-3">
             <Button
               variant="outline"
               onClick={() => router.push(`/${locale}/maintenance`)}
-              className="w-full rounded-full border-primary text-primary hover:bg-primary/10 font-black h-11 gap-2"
+              className="w-full rounded-full border-primary text-primary hover:bg-primary/10 font-medium h-11 gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
               {t("backToList")}

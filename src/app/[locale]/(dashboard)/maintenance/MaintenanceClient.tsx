@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/maintenance/MaintenanceClient.tsx
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -19,10 +20,11 @@ interface Schedule {
   building: { id: string; name: string; nameEn?: string } | null;
 }
 
+// ✅ تحديث الترددات إلى الخيارات الجديدة
 const FREQUENCY_LABELS: Record<string, { ar: string; en: string }> = {
-  DAILY: { ar: "يومي", en: "Daily" },
-  WEEKLY: { ar: "أسبوعي", en: "Weekly" },
   MONTHLY: { ar: "شهري", en: "Monthly" },
+  QUARTERLY: { ar: "ربع سنوي", en: "Quarterly" },
+  SEMI_ANNUAL: { ar: "نصف سنوي", en: "Semi-annual" },
   YEARLY: { ar: "سنوي", en: "Yearly" },
 };
 
@@ -130,14 +132,16 @@ export default function MaintenanceClient({
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-lg font-black group-hover:text-primary truncate leading-none">{schedule.name}</h3>
+            <h3 className="text-lg font-medium group-hover:text-primary truncate leading-none">
+              {schedule.name}
+            </h3>
             {!schedule.isActive && (
               <span className="text-xs bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
                 {isRtl ? "غير نشط" : "Inactive"}
               </span>
             )}
           </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-bold">
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-medium">
             <div className="flex items-center gap-2"><Clock size={12} /> {frequencyLabel}</div>
             <div className="flex items-center gap-2"><Tag size={12} /> {assetTypeName}</div>
             <div className="flex items-center gap-2"><Building size={12} /> {locationName}</div>

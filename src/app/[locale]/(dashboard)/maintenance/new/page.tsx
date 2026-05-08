@@ -61,9 +61,9 @@ type LocationLevel = 'building' | 'floor' | 'room';
 // دالة مساعدة لتحويل التردد النصي إلى أيام (للتوافق القديم)
 function frequencyStringToDays(freq: string): number {
   switch (freq) {
-    case 'DAILY': return 1;
-    case 'WEEKLY': return 7;
     case 'MONTHLY': return 30;
+    case 'QUARTERLY': return 90;
+    case 'SEMI_ANNUAL': return 180;
     case 'YEARLY': return 365;
     default: return 30;
   }
@@ -109,8 +109,8 @@ export default function NewMaintenanceSchedulePage() {
   // بيانات النموذج الأساسية
   const [formData, setFormData] = useState({
     name: "",
-    frequency: "MONTHLY",
-    frequencyDays: 30,          // الحقل الجديد: عدد الأيام
+    frequency: "MONTHLY",     // شهري
+    frequencyDays: 30,
     leadDays: 30,
     startDate: "",
     assetTypeId: "",
@@ -294,8 +294,8 @@ export default function NewMaintenanceSchedulePage() {
     try {
       const payload: any = {
         name: formData.name,
-        frequency: formData.frequency,            // الاحتفاظ بالحقل النصي للتوافق
-        frequencyDays: finalFrequencyDays,        // إرسال العدد المحسوب
+        frequency: formData.frequency,
+        frequencyDays: finalFrequencyDays,
         leadDays: formData.leadDays,
         startDate: formData.startDate || null,
         branchId,
@@ -375,26 +375,22 @@ export default function NewMaintenanceSchedulePage() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder={t("namePlaceholder")}
-                className="h-12 rounded-xl"
+                className="h-12 rounded-xl font-medium"
               />
             </FormField>
             <FormField label={t("frequency")}>
               <Select value={formData.frequency} onValueChange={(v) => setFormData({ ...formData, frequency: v })}>
-                <SelectTrigger className="h-12 rounded-xl">
-                {formData.frequency ? (
-                  formData.frequency === "DAILY" ? t("daily") :
-                  formData.frequency === "WEEKLY" ? t("weekly") :
-                  formData.frequency === "MONTHLY" ? t("monthly") :
-                  formData.frequency === "YEARLY" ? t("yearly") :
-                  formData.frequency
-                ) : (
-                  <SelectValue placeholder={t("selectFrequency")} />
-                )}
-              </SelectTrigger>
+                <SelectTrigger className="h-12 rounded-xl font-medium">
+                  {formData.frequency === "MONTHLY" ? t("monthly") :
+                   formData.frequency === "QUARTERLY" ? t("quarterly") :
+                   formData.frequency === "SEMI_ANNUAL" ? t("semiAnnual") :
+                   formData.frequency === "YEARLY" ? t("yearly") :
+                   <SelectValue placeholder={t("selectFrequency")} />}
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DAILY">{t("daily")}</SelectItem>
-                  <SelectItem value="WEEKLY">{t("weekly")}</SelectItem>
                   <SelectItem value="MONTHLY">{t("monthly")}</SelectItem>
+                  <SelectItem value="QUARTERLY">{t("quarterly")}</SelectItem>
+                  <SelectItem value="SEMI_ANNUAL">{t("semiAnnual")}</SelectItem>
                   <SelectItem value="YEARLY">{t("yearly")}</SelectItem>
                 </SelectContent>
               </Select>
@@ -407,7 +403,7 @@ export default function NewMaintenanceSchedulePage() {
                 min={1}
                 value={formData.frequencyDays}
                 onChange={(e) => setFormData({ ...formData, frequencyDays: parseInt(e.target.value) || 0 })}
-                className="h-12 rounded-xl"
+                className="h-12 rounded-xl font-medium"
                 placeholder={isRtl ? "مثال: 30" : "e.g. 30"}
               />
             </FormField>
@@ -416,7 +412,7 @@ export default function NewMaintenanceSchedulePage() {
                 type="number"
                 value={formData.leadDays}
                 onChange={(e) => setFormData({ ...formData, leadDays: parseInt(e.target.value) || 0 })}
-                className="h-12 rounded-xl"
+                className="h-12 rounded-xl font-medium"
               />
             </FormField>
             <FormField label={t("startDate")}>
@@ -424,7 +420,7 @@ export default function NewMaintenanceSchedulePage() {
                 type="date"
                 value={formData.startDate}
                 onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                className="h-12 rounded-xl"
+                className="h-12 rounded-xl font-medium"
               />
               <p className="text-xs text-muted-foreground mt-1">{t("startDateHint")}</p>
             </FormField>
@@ -438,7 +434,7 @@ export default function NewMaintenanceSchedulePage() {
                 onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
                 className="w-4 h-4 rounded border-gray-300"
               />
-              <Label htmlFor="isActive" className="cursor-pointer font-black">
+              <Label htmlFor="isActive" className="cursor-pointer font-medium">
                 {t("active")}
               </Label>
             </div>
@@ -448,12 +444,12 @@ export default function NewMaintenanceSchedulePage() {
         {/* 2. حاوية الموقع */}
         <div className={containerClass}>
           <div className="space-y-3">
-            <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
+            <h3 className="text-foreground font-medium text-lg uppercase tracking-widest flex items-center gap-2">
               <MapPin size={16} /> {isRtl ? 'تفاصيل الموقع' : 'Location Details'}
               <span className="text-red-500 text-sm">*</span>
             </h3>
             <div className="flex gap-4 mb-4">
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
                 <input
                   type="radio"
                   value="building"
@@ -462,7 +458,7 @@ export default function NewMaintenanceSchedulePage() {
                 />
                 <span>{isRtl ? "مبنى" : "Building"}</span>
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
                 <input
                   type="radio"
                   value="floor"
@@ -471,7 +467,7 @@ export default function NewMaintenanceSchedulePage() {
                 />
                 <span>{isRtl ? "دور" : "Floor"}</span>
               </label>
-              <label className="flex items-center gap-2">
+              <label className="flex items-center gap-2 text-sm font-medium">
                 <input
                   type="radio"
                   value="room"
@@ -483,13 +479,13 @@ export default function NewMaintenanceSchedulePage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+                <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
                   <Building size={12} /> {isRtl ? "الفرع" : "Branch"}
                 </Label>
                 <BranchSelector value={branchId} onValueChange={(val) => { setBranchId(val); setBuildingId(""); setFloorId(""); setRoomId(""); }} />
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+                <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
                   <Building size={12} /> {isRtl ? "المبنى أو المنطقة" : "Building / Zone"}
                 </Label>
                 <div className="relative">
@@ -506,7 +502,7 @@ export default function NewMaintenanceSchedulePage() {
               </div>
               {(locationLevel === 'floor' || locationLevel === 'room') && (
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+                  <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
                     <Layers size={12} /> {isRtl ? "الدور أو المنطقة" : "Floor / Zone"}
                   </Label>
                   <FloorSelector
@@ -520,7 +516,7 @@ export default function NewMaintenanceSchedulePage() {
               )}
               {locationLevel === 'room' && (
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
+                  <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
                     <DoorOpen size={12} /> {isRtl ? "الوحدة" : "Unit"}
                   </Label>
                   <RoomSelector
@@ -537,10 +533,10 @@ export default function NewMaintenanceSchedulePage() {
               <div className="mt-5 relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-lg">
                 <div className="absolute inset-0 bg-primary/20 blur-2xl opacity-30" />
                 <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-foreground">
+                  <span className="text-sm font-medium text-foreground">
                     {isRtl ? "الموقع المختار" : "Selected Location"}
                   </span>
-                  <span className="text-sm font-mono font-black text-primary tracking-wider">
+                  <span className="text-sm font-mono font-medium text-primary tracking-wider">
                     {getSelectedLocationSummary()}
                   </span>
                 </div>
@@ -551,7 +547,7 @@ export default function NewMaintenanceSchedulePage() {
 
         {/* 3. حاوية الأصل */}
         <div className={containerClass}>
-          <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
+          <h3 className="text-foreground font-medium text-lg uppercase tracking-widest flex items-center gap-2">
             <FileText size={16} /> {isRtl ? 'بيانات الأصل (اختياري)' : 'Asset Details (Optional)'}
           </h3>
           <div className="space-y-4 mt-3">
@@ -564,13 +560,13 @@ export default function NewMaintenanceSchedulePage() {
             />
 
             <div className="space-y-2">
-              <Label className="text-sm font-black text-muted-foreground">{t("selectAssets")}</Label>
+              <Label className="text-sm font-medium text-muted-foreground">{t("selectAssets")}</Label>
               <Button
                 type="button"
                 variant="outline"
                 onClick={openAssetDialog}
                 disabled={!isLocationSelected() || !formData.assetTypeId || assets.length === 0}
-                className="w-full justify-start gap-2"
+                className="w-full justify-start gap-2 font-normal"
               >
                 <Plus size={16} />
                 {selectedAssetIds.length > 0
@@ -581,7 +577,7 @@ export default function NewMaintenanceSchedulePage() {
 
             {selectedAssetIds.length > 0 && (
               <div className="mt-4">
-                <h4 className="text-sm font-black text-muted-foreground mb-2">{t("selectedAssetsList")}</h4>
+                <h4 className="text-sm font-medium text-muted-foreground mb-2">{t("selectedAssetsList")}</h4>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {selectedAssetIds.map(assetId => {
                     const asset = assets.find(a => a.id === assetId);
@@ -589,7 +585,7 @@ export default function NewMaintenanceSchedulePage() {
                     return (
                       <div key={assetId} className="flex items-center justify-between p-3 rounded-xl border border-primary/20 bg-primary/5">
                         <div>
-                          <p className="font-bold">{isRtl ? asset.name : (asset.nameEn || asset.name)}</p>
+                          <p className="font-medium">{isRtl ? asset.name : (asset.nameEn || asset.name)}</p>
                           <p className="text-xs text-muted-foreground font-mono">{asset.code}</p>
                         </div>
                         <button
@@ -613,28 +609,28 @@ export default function NewMaintenanceSchedulePage() {
       <div className="space-y-8">
         <FormSidebar>
           <div className="space-y-3 pb-4 border-b border-border">
-            <Label className="text-sm font-black text-muted-foreground flex items-center gap-2">
+            <Label className="text-sm font-medium text-muted-foreground flex items-center gap-2">
               <FileText size={14} /> {t("notes")}
             </Label>
             <Textarea
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               placeholder={t("notesPlaceholder")}
-              className="min-h-[120px] rounded-xl"
+              className="min-h-[120px] rounded-xl font-medium"
             />
           </div>
 
           <div className="pt-4 flex gap-3">
-            <Button onClick={() => router.back()} variant="outline" className="flex-1 h-11 rounded-full border-red-500 text-red-500 hover:bg-red-50 font-black">
+            <Button onClick={() => router.back()} variant="outline" className="flex-1 h-11 rounded-full border-red-500 text-red-500 hover:bg-red-50 font-medium">
               {t("cancel")}
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 h-11 rounded-full bg-primary hover:bg-primary/90 font-black gap-2">
+            <Button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 h-11 rounded-full bg-primary hover:bg-primary/90 font-medium gap-2">
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save size={16} />}
               {t("save")}
             </Button>
           </div>
 
-          <div className="mt-4 p-3 rounded-xl bg-primary/10 border border-primary/30 text-xs font-bold text-muted-foreground flex gap-2">
+          <div className="mt-4 p-3 rounded-xl bg-primary/10 border border-primary/30 text-xs font-medium text-muted-foreground flex gap-2">
             <Info size={14} className="text-primary shrink-0" />
             {isRtl
               ? "سيتم إنشاء أمر عمل واحد يتضمن جميع الأصول المستهدفة عند كل تنفيذ يدوي أو تلقائي."
@@ -671,8 +667,8 @@ export default function NewMaintenanceSchedulePage() {
                       }}
                       className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
                     />
-                    <Label htmlFor={`asset-${asset.id}`} className="flex-1 cursor-pointer">
-                      <div className="font-bold">{isRtl ? asset.name : (asset.nameEn || asset.name)}</div>
+                    <Label htmlFor={`asset-${asset.id}`} className="flex-1 cursor-pointer font-medium">
+                      <div>{isRtl ? asset.name : (asset.nameEn || asset.name)}</div>
                       <div className="text-xs text-muted-foreground font-mono">{asset.code}</div>
                     </Label>
                   </div>
@@ -681,8 +677,8 @@ export default function NewMaintenanceSchedulePage() {
             )}
           </div>
           <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-            <Button variant="outline" onClick={() => setAssetDialogOpen(false)}>{t("cancel")}</Button>
-            <Button onClick={confirmAssetSelection} disabled={loadingAssets}>
+            <Button variant="outline" onClick={() => setAssetDialogOpen(false)} className="font-normal">{t("cancel")}</Button>
+            <Button onClick={confirmAssetSelection} disabled={loadingAssets} className="font-normal">
               <Check className="h-4 w-4 mr-2" /> {t("confirm") || "تأكيد"}
             </Button>
           </div>

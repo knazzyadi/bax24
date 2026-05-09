@@ -177,6 +177,7 @@ export default function PublicTicketPage() {
         const res = await fetch(`/api/public/branch?slug=${slug}&token=${token}`);
         const data = await res.json();
         console.log("BRANCH RESPONSE:", data);
+        console.log("STATUS: branch?.allowPublicTickets =", data?.branch?.allowPublicTickets);
 
         if (!res.ok || !data?.branch) {
           setBranchError(isRtl ? "الرابط غير صالح أو منتهي الصلاحية" : "Invalid or expired link");

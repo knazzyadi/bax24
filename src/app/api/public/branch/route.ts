@@ -19,22 +19,28 @@ export async function GET(req: Request) {
       where: {
         slug,
         publicToken: token,
-        allowPublicTickets: true,
       },
       select: {
         id: true,
         name: true,
         slug: true,
+        allowPublicTickets: true, // تمت الإضافة
       },
     });
 
     if (!branch) {
       return NextResponse.json(
-        { error: "الرابط غير صالح أو الخدمة غير مفعلة" },
-        { status: 403 }
+        { error: "الرابط غير صالح" },
+        { status: 404 }
       );
     }
 
+    if (!branch.allowPublicTickets) {
+      return NextResponse.json(
+        { error: "البلاغات العامة لهذا الفرع معطلة" },
+        { status: 403 }
+      );
+    }
     return NextResponse.json({ branch });
   } catch (error) {
     return NextResponse.json(

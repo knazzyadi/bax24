@@ -427,8 +427,14 @@ export default function PublicTicketPage() {
       <div className="max-w-5xl mx-auto">
         {/* Top controls */}
         <div className="flex justify-end gap-3 mb-6">
-          <Button variant="outline" size="icon" onClick={switchLanguage} className="rounded-full w-10 h-10" disabled={isSubmitting}>
-            <Languages size={20} />
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={switchLanguage}
+            className="rounded-full w-10 h-10 text-sm font-bold"
+            disabled={isSubmitting}
+          >
+            {locale === "ar" ? "EN" : "AR"}
           </Button>
           <Button variant="outline" size="icon" onClick={toggleTheme} className="rounded-full w-10 h-10" disabled={isSubmitting}>
             {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}

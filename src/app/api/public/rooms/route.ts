@@ -6,8 +6,9 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug");
     const token = searchParams.get("token");
+    const floorId = searchParams.get("floorId");
 
-    if (!slug || !token) {
+    if (!slug || !token || !floorId) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
@@ -20,15 +21,24 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid branch or public tickets disabled" }, { status: 403 });
     }
 
-    const assetTypes = await prisma.assetType.findMany({
-      where: { companyId: branch.companyId },
-      select: { id: true, name: true, nameEn: true, code: true },
+    const rooms = await prisma.room.findMany({
+      where: {
+        floorId,
+        floor: { building: { companyId: branch.companyId } },
+      },
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+        code: true,
+        floorId: true,
+      },
       orderBy: { name: "asc" },
     });
 
-    return NextResponse.json(assetTypes);
+    return NextResponse.json(rooms);
   } catch (error) {
-    console.error("Public asset-types API error:", error);
+    console.error("Public rooms API error:", error);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

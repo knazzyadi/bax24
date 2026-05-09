@@ -9,26 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
-import { Moon, Sun, Languages, X, Send, Loader2, Info, CheckCircle } from "lucide-react";
+import { Moon, Sun, Languages, X, Send, Loader2, Info } from "lucide-react";
 
-// Types
+// Types (as before)
 interface Building { id: string; name: string; nameEn?: string; code?: string; }
 interface Floor { id: string; name: string; nameEn?: string; code?: string; buildingId: string; }
 interface Room { id: string; name: string; nameEn?: string; code?: string; floorId: string; fullCode?: string; }
@@ -43,37 +29,6 @@ export default function PublicTicketPage() {
   const isRtl = locale === "ar";
   const slug = params.slug as string;
   const token = params.token as string;
-
-  // Mobile detection
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
-
-  // Theme
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  useEffect(() => {
-    const stored = localStorage.getItem("theme") as "light" | "dark" | null;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initial = stored ?? (prefersDark ? "dark" : "light");
-    setTheme(initial);
-    document.documentElement.classList.toggle("dark", initial === "dark");
-  }, []);
-  const toggleTheme = () => {
-    const newTheme = theme === "light" ? "dark" : "light";
-    setTheme(newTheme);
-    localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
-  };
-
-  // Language
-  const switchLanguage = () => {
-    const newLocale = locale === "ar" ? "en" : "ar";
-    router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
-  };
 
   // Branch state
   const [branch, setBranch] = useState<Branch | null>(null);
@@ -111,53 +66,33 @@ export default function PublicTicketPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  // Ticket type map (must be defined before used)
+  // Theme
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  useEffect(() => {
+    const stored = localStorage.getItem("theme") as "light" | "dark" | null;
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const initial = stored ?? (prefersDark ? "dark" : "light");
+    setTheme(initial);
+    document.documentElement.classList.toggle("dark", initial === "dark");
+  }, []);
+  const toggleTheme = () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    localStorage.setItem("theme", newTheme);
+    document.documentElement.classList.toggle("dark", newTheme === "dark");
+  };
+
+  // Language
+  const switchLanguage = () => {
+    const newLocale = locale === "ar" ? "en" : "ar";
+    router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
+  };
+
+  // Ticket type map
   const ticketTypeMap: Record<string, string> = {
     MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
     INCIDENT: isRtl ? "حادث" : "Incident",
-  };
-
-  // Helper function for mobile bottom sheet (generic)
-  const renderMobileSelect = (
-    value: string,
-    options: { value: string; label: string }[],
-    onChange: (val: string) => void,
-    placeholder: string
-  ) => {
-    const selectedLabel = options.find(opt => opt.value === value)?.label || placeholder;
-    return (
-      <Sheet>
-        <SheetTrigger asChild>
-          <Button variant="outline" className="w-full justify-between h-12 text-base font-normal" disabled={isSubmitting}>
-            {selectedLabel}
-            <span className="ml-2">▼</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="bottom" className="rounded-t-2xl">
-          <SheetHeader>
-            <SheetTitle>{placeholder}</SheetTitle>
-          </SheetHeader>
-          <div className="py-4 space-y-2">
-            {options.map(opt => (
-              <Button
-                key={opt.value}
-                variant="ghost"
-                className="w-full justify-start text-base"
-                onClick={() => {
-                  onChange(opt.value);
-                  // Close sheet by dispatching Escape key
-                  document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
-                }}
-              >
-                {opt.label}
-              </Button>
-            ))}
-          </div>
-        </SheetContent>
-      </Sheet>
-    );
   };
 
   // Data fetching functions (same as before)
@@ -347,7 +282,11 @@ export default function PublicTicketPage() {
       const res = await fetch("/api/public/tickets", { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok) {
-        setShowSuccessDialog(true);
+        toast.success(isRtl ? "تم إرسال البلاغ بنجاح" : "Ticket submitted");
+        // Optional: redirect or show a success dialog
+        // For now, just toast
+        // You can also add a simple success state
+        router.push(`/${locale}/tickets/public/success`);
       } else {
         toast.error(data.error || (isRtl ? "فشل الإرسال" : "Submission failed"));
       }
@@ -356,26 +295,6 @@ export default function PublicTicketPage() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const resetForm = () => {
-    setForm({
-      title: "",
-      description: "",
-      reporterName: "",
-      reporterEmail: "",
-      phone: "",
-      type: "MAINTENANCE",
-      assetTypeId: "",
-      assetId: "none",
-    });
-    setFiles([]);
-    setPreviews([]);
-    setBuildingId("");
-    setFloorId("");
-    setRoomId("");
-    setAssets([]);
-    setShowSuccessDialog(false);
   };
 
   const selectedAsset = useMemo(() => {
@@ -430,6 +349,7 @@ export default function PublicTicketPage() {
 
         <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
           <div className="p-6 md:p-10 space-y-8">
+            {/* Header */}
             <div className="flex items-center gap-4 border-b border-border pb-5">
               <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
                 <Send size={28} />
@@ -446,18 +366,14 @@ export default function PublicTicketPage() {
                 {/* Ticket Type */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع البلاغ *" : "Ticket Type *"}</Label>
-                  {isMobile ? (
-                    renderMobileSelect(form.type, ticketTypeOptions, (val) => setForm({ ...form, type: val }), isRtl ? "اختر نوع البلاغ" : "Select type")
-                  ) : (
-                    <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })} disabled={isSubmitting}>
-                      <SelectTrigger className="h-12 text-base">
-                        <SelectValue placeholder={isRtl ? "اختر نوع البلاغ" : "Select type"} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {ticketTypeOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
-                      </SelectContent>
-                    </Select>
-                  )}
+                  <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })} disabled={isSubmitting}>
+                    <SelectTrigger className="h-12 text-base">
+                      <SelectValue placeholder={isRtl ? "اختر نوع البلاغ" : "Select type"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ticketTypeOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Title */}
@@ -487,25 +403,19 @@ export default function PublicTicketPage() {
                   <>
                     <div>
                       <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع الأصل (اختياري)" : "Asset Type (Optional)"}</Label>
-                      {isMobile ? (
-                        renderMobileSelect(form.assetTypeId, assetTypeOptions, (val) => setForm({ ...form, assetTypeId: val, assetId: "none" }), isRtl ? "اختر نوع الأصل" : "Select asset type")
-                      ) : (
-                        <Select value={form.assetTypeId} onValueChange={(val) => setForm({ ...form, assetTypeId: val, assetId: "none" })} disabled={loadingAssetTypes || isSubmitting}>
-                          <SelectTrigger className="h-12 text-base">
-                            <SelectValue placeholder={isRtl ? "اختر نوع الأصل" : "Select asset type"} />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {assetTypeOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
-                      )}
+                      <Select value={form.assetTypeId} onValueChange={(val) => setForm({ ...form, assetTypeId: val, assetId: "none" })} disabled={loadingAssetTypes || isSubmitting}>
+                        <SelectTrigger className="h-12 text-base">
+                          <SelectValue placeholder={isRtl ? "اختر نوع الأصل" : "Select asset type"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assetTypeOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label className="text-base font-semibold mb-2 block">{isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}</Label>
                       {assets.length === 0 && !loadingAssets ? (
                         <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">{isRtl ? "لا توجد أصول مسجلة في هذه الغرفة" : "No assets found in this room"}</p>
-                      ) : isMobile ? (
-                        renderMobileSelect(form.assetId, assetOptions, (val) => setForm({ ...form, assetId: val }), isRtl ? "اختر الأصل" : "Select asset")
                       ) : (
                         <Select value={form.assetId} onValueChange={(val) => setForm({ ...form, assetId: val })} disabled={loadingAssets || isSubmitting}>
                           <SelectTrigger className="h-12 text-base">
@@ -544,7 +454,7 @@ export default function PublicTicketPage() {
               </div>
             </div>
 
-            {/* Buttons */}
+            {/* Action Buttons */}
             <div className="flex flex-col gap-4 pt-6 border-t border-border">
               <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full py-3 text-base rounded-full">
                 {isSubmitting ? <Loader2 className="animate-spin mr-2" size={20} /> : <Send size={20} className="mr-2" />}
@@ -555,6 +465,7 @@ export default function PublicTicketPage() {
               </Button>
             </div>
 
+            {/* Info Note */}
             <div className="bg-primary/5 rounded-xl p-4 text-sm text-muted-foreground flex gap-3">
               <Info size={18} className="shrink-0 mt-0.5" />
               {isRtl ? "سيتم إرسال إشعار لفريق الصيانة. يمكنك متابعة الحالة عبر البريد الإلكتروني." : "Maintenance team will be notified. You can track the ticket status via email."}
@@ -562,30 +473,6 @@ export default function PublicTicketPage() {
           </div>
         </div>
       </div>
-
-      {/* Success Dialog */}
-      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="sm:max-w-md text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-            <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
-          </div>
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold mt-2">{isRtl ? "تم إرسال البلاغ بنجاح" : "Ticket Submitted Successfully"}</DialogTitle>
-            <DialogDescription className="text-base pt-2">
-              {isRtl ? "شكراً لك. سيتم معالجة طلبك في أقرب وقت." : "Thank you. Your request will be processed shortly."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-3 mt-4">
-            <Button onClick={resetForm} className="w-full gap-2">
-              <Send size={18} />
-              {isRtl ? "تقديم بلاغ آخر" : "Submit Another Ticket"}
-            </Button>
-            <Button onClick={() => router.push(`/${locale}`)} variant="outline" className="w-full">
-              {isRtl ? "العودة للرئيسية" : "Back to Home"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

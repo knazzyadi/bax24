@@ -57,6 +57,22 @@ interface Branch {
   allowPublicTickets: boolean;
 }
 
+// Hook للكشف عن حجم الشاشة (لتجنب mismatch)
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
+
+  return isMobile;
+}
+
 // ============================================================
 // Main Component
 // ============================================================
@@ -67,6 +83,7 @@ export default function PublicTicketPage() {
   const isRtl = locale === "ar";
   const slug = params.slug as string;
   const token = params.token as string;
+  const isMobile = useIsMobile();
 
   // -------------------- Branch State --------------------
   const [branch, setBranch] = useState<Branch | null>(null);
@@ -165,7 +182,7 @@ export default function PublicTicketPage() {
   }, [slug, token, isRtl]);
 
   // ============================================================
-  // 1. Branch Validation (Improved)
+  // 1. Branch Validation
   // ============================================================
   useEffect(() => {
     if (!slug || !token) return;
@@ -190,7 +207,6 @@ export default function PublicTicketPage() {
         }
 
         setBranch(data.branch);
-        // تحميل المباني وأنواع الأصول بالتوازي
         await Promise.all([fetchBuildings(), fetchAssetTypes()]);
       } catch (error) {
         console.error("FETCH BRANCH ERROR:", error);
@@ -204,9 +220,8 @@ export default function PublicTicketPage() {
   }, [slug, token, isRtl, fetchBuildings, fetchAssetTypes]);
 
   // ============================================================
-  // 2. Fetch Floors & Rooms (with resets)
+  // 2. Fetch Floors & Rooms
   // ============================================================
-  // Fetch floors when building changes
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -228,7 +243,6 @@ export default function PublicTicketPage() {
     fetchFloors();
   }, [buildingId, slug, token, isRtl]);
 
-  // Fetch rooms when floor changes
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -251,7 +265,7 @@ export default function PublicTicketPage() {
   }, [floorId, slug, token, isRtl]);
 
   // ============================================================
-  // 3. Fetch Assets (when room or assetType change)
+  // 3. Fetch Assets
   // ============================================================
   useEffect(() => {
     if (!roomId) {
@@ -281,7 +295,7 @@ export default function PublicTicketPage() {
   }, [roomId, form.assetTypeId, slug, token]);
 
   // ============================================================
-  // 4. Event Handlers with proper reset of dependent data
+  // 4. Handlers
   // ============================================================
   const handleBuildingChange = (val: string) => {
     setBuildingId(val);
@@ -306,7 +320,7 @@ export default function PublicTicketPage() {
     setForm(prev => ({ ...prev, assetId: "none" }));
   };
 
-  // -------------------- Image Handling with cleanup --------------------
+  // --- Images ---
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const imageFiles = selected.filter(file => file.type.startsWith("image/"));
@@ -327,7 +341,7 @@ export default function PublicTicketPage() {
     };
   }, [previews]);
 
-  // -------------------- Submit Ticket --------------------
+  // --- Submit ---
   const handleSubmit = async () => {
     if (!form.title.trim()) {
       toast.error(isRtl ? "عنوان البلاغ مطلوب" : "Ticket title is required");
@@ -379,14 +393,13 @@ export default function PublicTicketPage() {
     }
   };
 
-  // -------------------- Memoized selected asset --------------------
   const selectedAsset = useMemo(() => {
     if (!form.assetId || form.assetId === "none") return null;
     return assets.find(a => a.id === form.assetId);
   }, [assets, form.assetId]);
 
   // ============================================================
-  // 5. Render states (loading, error, main form)
+  // 5. Loading / Error States
   // ============================================================
   if (branchLoading) {
     return (
@@ -420,7 +433,7 @@ export default function PublicTicketPage() {
   if (!branch) return null;
 
   // ============================================================
-  // 6. Main Form UI
+  // 6. Main Form UI (with mobile select fallback)
   // ============================================================
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6">
@@ -441,7 +454,6 @@ export default function PublicTicketPage() {
           </Button>
         </div>
 
-        {/* Main card */}
         <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
           <div className="p-6 md:p-10 space-y-8">
             {/* Header */}
@@ -463,15 +475,30 @@ export default function PublicTicketPage() {
                 {/* Ticket Type */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع البلاغ *" : "Ticket Type *"}</Label>
-                  <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })} disabled={isSubmitting}>
-                    <SelectTrigger className="h-12 text-base">
-                      {ticketTypeMap[form.type] || (isRtl ? "اختر نوع البلاغ" : "Select type")}
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="MAINTENANCE">{ticketTypeMap.MAINTENANCE}</SelectItem>
-                      <SelectItem value="INCIDENT">{ticketTypeMap.INCIDENT}</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  {isMobile ? (
+                    <select
+                      value={form.type}
+                      onChange={(e) => setForm({ ...form, type: e.target.value })}
+                      className="w-full h-12 rounded-xl border border-primary bg-background px-4 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                      disabled={isSubmitting}
+                    >
+                      {Object.entries(ticketTypeMap).map(([value, label]) => (
+                        <option key={value} value={value}>
+                          {label}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })} disabled={isSubmitting}>
+                      <SelectTrigger className="h-12 text-base">
+                        {ticketTypeMap[form.type] || (isRtl ? "اختر نوع البلاغ" : "Select type")}
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="MAINTENANCE">{ticketTypeMap.MAINTENANCE}</SelectItem>
+                        <SelectItem value="INCIDENT">{ticketTypeMap.INCIDENT}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
 
                 {/* Title */}
@@ -533,23 +560,39 @@ export default function PublicTicketPage() {
                       <Label className="text-base font-semibold mb-2 block">
                         {isRtl ? "نوع الأصل (اختياري)" : "Asset Type (Optional)"}
                       </Label>
-                      <Select
-                        value={form.assetTypeId}
-                        onValueChange={(val) => setForm({ ...form, assetTypeId: val, assetId: "none" })}
-                        disabled={loadingAssetTypes || isSubmitting}
-                      >
-                        <SelectTrigger className="h-12 text-base">
-                          <SelectValue placeholder={isRtl ? "اختر نوع الأصل" : "Select asset type"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="">{isRtl ? "جميع الأنواع" : "All types"}</SelectItem>
+                      {isMobile ? (
+                        <select
+                          value={form.assetTypeId}
+                          onChange={(e) => setForm({ ...form, assetTypeId: e.target.value, assetId: "none" })}
+                          className="w-full h-12 rounded-xl border border-primary bg-background px-4 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                          disabled={loadingAssetTypes || isSubmitting}
+                        >
+                          <option value="">{isRtl ? "جميع الأنواع" : "All types"}</option>
                           {assetTypes.map((type) => (
-                            <SelectItem key={type.id} value={type.id}>
+                            <option key={type.id} value={type.id}>
                               {isRtl ? type.name : (type.nameEn || type.name)} {type.code && `(${type.code})`}
-                            </SelectItem>
+                            </option>
                           ))}
-                        </SelectContent>
-                      </Select>
+                        </select>
+                      ) : (
+                        <Select
+                          value={form.assetTypeId}
+                          onValueChange={(val) => setForm({ ...form, assetTypeId: val, assetId: "none" })}
+                          disabled={loadingAssetTypes || isSubmitting}
+                        >
+                          <SelectTrigger className="h-12 text-base">
+                            <SelectValue placeholder={isRtl ? "اختر نوع الأصل" : "Select asset type"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">{isRtl ? "جميع الأنواع" : "All types"}</SelectItem>
+                            {assetTypes.map((type) => (
+                              <SelectItem key={type.id} value={type.id}>
+                                {isRtl ? type.name : (type.nameEn || type.name)} {type.code && `(${type.code})`}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
                     </div>
 
                     <div>
@@ -558,6 +601,20 @@ export default function PublicTicketPage() {
                         <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
                           {isRtl ? "لا توجد أصول مسجلة في هذه الغرفة" : "No assets found in this room"}
                         </p>
+                      ) : isMobile ? (
+                        <select
+                          value={form.assetId}
+                          onChange={(e) => setForm({ ...form, assetId: e.target.value })}
+                          className="w-full h-12 rounded-xl border border-primary bg-background px-4 text-base focus:outline-none focus:ring-2 focus:ring-primary"
+                          disabled={loadingAssets || isSubmitting}
+                        >
+                          <option value="none">{isRtl ? "بدون أصل" : "No asset"}</option>
+                          {assets.map((asset) => (
+                            <option key={asset.id} value={asset.id}>
+                              {isRtl ? asset.name : (asset.nameEn || asset.name)} {asset.code && `(${asset.code})`}
+                            </option>
+                          ))}
+                        </select>
                       ) : (
                         <Select
                           value={form.assetId}
@@ -619,7 +676,6 @@ export default function PublicTicketPage() {
                   />
                 </div>
 
-                {/* Image upload */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>
                   <Input
@@ -651,7 +707,7 @@ export default function PublicTicketPage() {
               </div>
             </div>
 
-            {/* Action Buttons (Submit on top, Cancel below, full width) */}
+            {/* Action Buttons */}
             <div className="flex flex-col gap-4 pt-6 border-t border-border">
               <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full py-3 text-base rounded-full">
                 {isSubmitting ? <Loader2 className="animate-spin mr-2" size={20} /> : <Send size={20} className="mr-2" />}
@@ -662,7 +718,6 @@ export default function PublicTicketPage() {
               </Button>
             </div>
 
-            {/* Info Note */}
             <div className="bg-primary/5 rounded-xl p-4 text-sm text-muted-foreground flex gap-3">
               <Info size={18} className="shrink-0 mt-0.5" />
               {isRtl

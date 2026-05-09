@@ -8,9 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { BuildingSelector } from "@/components/shared/BuildingSelector";
-import { FloorSelector } from "@/components/shared/FloorSelector";
-import { RoomSelector } from "@/components/shared/RoomSelector";
 import { AdaptiveSelect } from "@/components/shared/AdaptiveSelect";
 import { Moon, Sun, X, Send, Loader2, Info } from "lucide-react";
 
@@ -36,7 +33,6 @@ interface Room {
   nameEn?: string;
   code?: string;
   floorId: string;
-  fullCode?: string;
 }
 interface AssetType {
   id: string;
@@ -73,7 +69,7 @@ export default function PublicTicketPage() {
   const [branchError, setBranchError] = useState<string | null>(null);
   const [branchLoading, setBranchLoading] = useState(true);
 
-  // Location
+  // Location hierarchy
   const [buildingId, setBuildingId] = useState("");
   const [floorId, setFloorId] = useState("");
   const [roomId, setRoomId] = useState("");
@@ -90,7 +86,7 @@ export default function PublicTicketPage() {
   const [loadingAssetTypes, setLoadingAssetTypes] = useState(false);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
-  // Form
+  // Form state
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -128,13 +124,15 @@ export default function PublicTicketPage() {
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
-  // Language
+  // Language switch
   const switchLanguage = () => {
     const newLocale = locale === "ar" ? "en" : "ar";
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
   };
 
-  // Fetch Buildings
+  // ============================================================
+  // Data fetching
+  // ============================================================
   const fetchBuildings = useCallback(async () => {
     setLoadingBuildings(true);
     try {
@@ -148,7 +146,6 @@ export default function PublicTicketPage() {
     }
   }, [slug, token, isRtl]);
 
-  // Fetch Asset Types
   const fetchAssetTypes = useCallback(async () => {
     setLoadingAssetTypes(true);
     try {
@@ -196,7 +193,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [slug, token, isRtl, fetchBuildings, fetchAssetTypes]);
 
-  // Floors
+  // Fetch floors when building changes
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -221,7 +218,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [buildingId, slug, token]);
 
-  // Rooms
+  // Fetch rooms when floor changes
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -246,7 +243,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [floorId, slug, token]);
 
-  // Assets
+  // Fetch assets when room or asset type changes
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
@@ -275,7 +272,9 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [roomId, form.assetTypeId, slug, token]);
 
+  // ============================================================
   // Handlers
+  // ============================================================
   const handleBuildingChange = (val: string) => {
     setBuildingId(val);
     setFloorId("");
@@ -285,6 +284,7 @@ export default function PublicTicketPage() {
     setAssets([]);
     setForm(prev => ({ ...prev, assetTypeId: "", assetId: "none" }));
   };
+
   const handleFloorChange = (val: string) => {
     setFloorId(val);
     setRoomId("");
@@ -292,12 +292,15 @@ export default function PublicTicketPage() {
     setAssets([]);
     setForm(prev => ({ ...prev, assetTypeId: "", assetId: "none" }));
   };
+
   const handleRoomChange = (val: string) => {
     setRoomId(val);
     setForm(prev => ({ ...prev, assetId: "none" }));
   };
 
-  // Images
+  // ============================================================
+  // Images handling
+  // ============================================================
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const imageFiles = selected.filter(
@@ -311,14 +314,18 @@ export default function PublicTicketPage() {
     const newPreviews = imageFiles.map(file => URL.createObjectURL(file));
     setPreviews(prev => [...prev, ...newPreviews]);
   };
+
   const removeFile = (index: number) => {
     URL.revokeObjectURL(previews[index]);
     setFiles(prev => prev.filter((_, i) => i !== index));
     setPreviews(prev => prev.filter((_, i) => i !== index));
   };
+
   useEffect(() => () => previews.forEach(url => URL.revokeObjectURL(url)), [previews]);
 
+  // ============================================================
   // Submit
+  // ============================================================
   const handleSubmit = async () => {
     if (!form.title.trim()) {
       toast.error(isRtl ? "عنوان البلاغ مطلوب" : "Ticket title is required");
@@ -368,7 +375,9 @@ export default function PublicTicketPage() {
     }
   };
 
-  // Memoized options
+  // ============================================================
+  // Memoized options for selects
+  // ============================================================
   const ticketTypeOptions = useMemo(
     () => [
       { value: "MAINTENANCE", label: ticketTypeMap.MAINTENANCE },
@@ -376,6 +385,22 @@ export default function PublicTicketPage() {
     ],
     [ticketTypeMap]
   );
+
+  const buildingOptions = useMemo(
+    () => buildings.map(b => ({ value: b.id, label: isRtl ? b.name : (b.nameEn || b.name) })),
+    [buildings, isRtl]
+  );
+
+  const floorOptions = useMemo(
+    () => floors.map(f => ({ value: f.id, label: isRtl ? f.name : (f.nameEn || f.name) })),
+    [floors, isRtl]
+  );
+
+  const roomOptions = useMemo(
+    () => rooms.map(r => ({ value: r.id, label: isRtl ? r.name : (r.nameEn || r.name) })),
+    [rooms, isRtl]
+  );
+
   const assetTypeOptions = useMemo(
     () => [
       { value: "", label: isRtl ? "جميع الأنواع" : "All types" },
@@ -386,6 +411,7 @@ export default function PublicTicketPage() {
     ],
     [assetTypes, isRtl]
   );
+
   const assetOptions = useMemo(
     () => [
       { value: "none", label: isRtl ? "بدون أصل" : "No asset" },
@@ -402,12 +428,17 @@ export default function PublicTicketPage() {
     return assets.find(a => a.id === form.assetId);
   }, [assets, form.assetId]);
 
+  // ============================================================
   // Loading & error states
-  if (branchLoading) return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="text-muted-foreground text-lg">{isRtl ? "جاري التحقق..." : "Verifying..."}</div>
-    </div>
-  );
+  // ============================================================
+  if (branchLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-muted-foreground text-lg">{isRtl ? "جاري التحقق..." : "Verifying..."}</div>
+      </div>
+    );
+  }
+
   if (branchError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -417,7 +448,9 @@ export default function PublicTicketPage() {
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-3">{branchError}</h2>
           <p className="text-muted-foreground mb-6">
-            {isRtl ? "يرجى التأكد من صحة الرابط أو التواصل مع الإدارة." : "Please verify the link or contact the administrator."}
+            {isRtl
+              ? "يرجى التأكد من صحة الرابط أو التواصل مع الإدارة."
+              : "Please verify the link or contact the administrator."}
           </p>
           <Button onClick={() => router.push(`/${locale}`)} className="w-full h-11 rounded-xl text-base">
             {isRtl ? "العودة للرئيسية" : "Back to Home"}
@@ -426,17 +459,24 @@ export default function PublicTicketPage() {
       </div>
     );
   }
+
   if (!branch) return null;
 
   // ============================================================
-  // Main UI (Full Form)
+  // Main UI
   // ============================================================
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
-        {/* Top Controls */}
+        {/* Top controls */}
         <div className="flex justify-end gap-3 mb-6">
-          <Button variant="outline" size="icon" onClick={switchLanguage} className="rounded-full w-10 h-10 text-sm font-bold" disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={switchLanguage}
+            className="rounded-full w-10 h-10 text-sm font-bold"
+            disabled={isSubmitting}
+          >
             {locale === "ar" ? "EN" : "AR"}
           </Button>
           <Button variant="outline" size="icon" onClick={toggleTheme} className="rounded-full w-10 h-10" disabled={isSubmitting}>
@@ -444,7 +484,7 @@ export default function PublicTicketPage() {
           </Button>
         </div>
 
-        {/* Main Card */}
+        {/* Main card */}
         <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
           <div className="p-6 md:p-10 space-y-8">
             {/* Header */}
@@ -498,32 +538,45 @@ export default function PublicTicketPage() {
                   />
                 </div>
 
-                {/* Location */}
+                {/* Building */}
                 <div>
-                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "موقع البلاغ *" : "Location *"}</Label>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <BuildingSelector
-                      value={buildingId}
-                      onValueChange={handleBuildingChange}
-                      buildings={buildings}
-                      loading={loadingBuildings}
-                    />
-                    <FloorSelector
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "المبنى *" : "Building *"}</Label>
+                  <AdaptiveSelect
+                    value={buildingId}
+                    onChange={handleBuildingChange}
+                    options={buildingOptions}
+                    placeholder={isRtl ? "اختر المبنى" : "Select building"}
+                    disabled={loadingBuildings || isSubmitting}
+                  />
+                </div>
+
+                {/* Floor (appears after building selected) */}
+                {buildingId && (
+                  <div>
+                    <Label className="text-base font-semibold mb-2 block">{isRtl ? "الدور *" : "Floor *"}</Label>
+                    <AdaptiveSelect
                       value={floorId}
-                      onValueChange={handleFloorChange}
-                      floors={floors}
-                      buildingId={buildingId}
-                      loading={loadingFloors}
-                    />
-                    <RoomSelector
-                      value={roomId}
-                      onValueChange={handleRoomChange}
-                      rooms={rooms}
-                      floorId={floorId}
-                      loading={loadingRooms}
+                      onChange={handleFloorChange}
+                      options={floorOptions}
+                      placeholder={isRtl ? "اختر الدور" : "Select floor"}
+                      disabled={loadingFloors || isSubmitting}
                     />
                   </div>
-                </div>
+                )}
+
+                {/* Room (appears after floor selected) */}
+                {floorId && (
+                  <div>
+                    <Label className="text-base font-semibold mb-2 block">{isRtl ? "الغرفة *" : "Room *"}</Label>
+                    <AdaptiveSelect
+                      value={roomId}
+                      onChange={handleRoomChange}
+                      options={roomOptions}
+                      placeholder={isRtl ? "اختر الغرفة" : "Select room"}
+                      disabled={loadingRooms || isSubmitting}
+                    />
+                  </div>
+                )}
 
                 {/* Asset Type & Asset (only if room selected) */}
                 {roomId && (
@@ -594,7 +647,7 @@ export default function PublicTicketPage() {
                   />
                 </div>
 
-                {/* Image Upload */}
+                {/* Image upload */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>
                   <Input

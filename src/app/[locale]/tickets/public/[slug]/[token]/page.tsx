@@ -8,8 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { AdaptiveSelect } from "@/components/shared/AdaptiveSelect";
-import { Moon, Sun, X, Send, Loader2, Info } from "lucide-react";
+import { Moon, Sun, X, Send, Loader2, Info, CheckCircle } from "lucide-react";
 
 // ============================================================
 // Types
@@ -69,7 +76,7 @@ export default function PublicTicketPage() {
   const [branchError, setBranchError] = useState<string | null>(null);
   const [branchLoading, setBranchLoading] = useState(true);
 
-  // Location hierarchy
+  // Location
   const [buildingId, setBuildingId] = useState("");
   const [floorId, setFloorId] = useState("");
   const [roomId, setRoomId] = useState("");
@@ -86,7 +93,7 @@ export default function PublicTicketPage() {
   const [loadingAssetTypes, setLoadingAssetTypes] = useState(false);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
-  // Form state
+  // Form
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -102,6 +109,7 @@ export default function PublicTicketPage() {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
   const ticketTypeMap: Record<string, string> = {
     MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
@@ -124,14 +132,14 @@ export default function PublicTicketPage() {
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
-  // Language switch
+  // Language
   const switchLanguage = () => {
     const newLocale = locale === "ar" ? "en" : "ar";
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
   };
 
   // ============================================================
-  // Data fetching functions (with branch dependency)
+  // Data fetching
   // ============================================================
   const fetchBuildings = useCallback(async () => {
     if (!branch?.id) return;
@@ -183,7 +191,6 @@ export default function PublicTicketPage() {
           return;
         }
         setBranch(data.branch);
-        // بعد تعيين الفرع، نجلب المباني (تعتمد على branch.id) وأنواع الأصول
         await fetchBuildings();
         await fetchAssetTypes();
       } catch (error: any) {
@@ -198,7 +205,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [slug, token, isRtl, fetchBuildings, fetchAssetTypes]);
 
-  // Fetch floors when building changes
+  // Floors
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -208,12 +215,9 @@ export default function PublicTicketPage() {
     const fetchFloors = async () => {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/public/floors?slug=${slug}&token=${token}&buildingId=${buildingId}`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(`/api/public/floors?slug=${slug}&token=${token}&buildingId=${buildingId}`);
         if (!res.ok) throw new Error();
-        const data = await res.json();
-        setFloors(data);
+        setFloors(await res.json());
       } catch {
         setFloors([]);
       } finally {
@@ -224,7 +228,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [buildingId, slug, token]);
 
-  // Fetch rooms when floor changes
+  // Rooms
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -234,12 +238,9 @@ export default function PublicTicketPage() {
     const fetchRooms = async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/public/rooms?slug=${slug}&token=${token}&floorId=${floorId}`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(`/api/public/rooms?slug=${slug}&token=${token}&floorId=${floorId}`);
         if (!res.ok) throw new Error();
-        const data = await res.json();
-        setRooms(data);
+        setRooms(await res.json());
       } catch {
         setRooms([]);
       } finally {
@@ -250,7 +251,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [floorId, slug, token]);
 
-  // Fetch assets when room or asset type changes
+  // Assets
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
@@ -307,7 +308,7 @@ export default function PublicTicketPage() {
   };
 
   // ============================================================
-  // Images handling
+  // Images
   // ============================================================
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -332,24 +333,52 @@ export default function PublicTicketPage() {
   useEffect(() => () => previews.forEach(url => URL.revokeObjectURL(url)), [previews]);
 
   // ============================================================
-  // Submit
+  // Reset form for new ticket
+  // ============================================================
+  const resetForm = () => {
+    setForm({
+      title: "",
+      description: "",
+      reporterName: "",
+      reporterEmail: "",
+      phone: "",
+      type: "MAINTENANCE",
+      assetTypeId: "",
+      assetId: "none",
+    });
+    setFiles([]);
+    setPreviews([]);
+    setBuildingId("");
+    setFloorId("");
+    setRoomId("");
+    setAssets([]);
+    setShowSuccessDialog(false);
+  };
+
+  // ============================================================
+  // Submit with friendly validation
   // ============================================================
   const handleSubmit = async () => {
+    // تحقق ودود من الحقول الإجبارية
     if (!form.title.trim()) {
-      toast.error(isRtl ? "عنوان البلاغ مطلوب" : "Ticket title is required");
+      toast.error(isRtl ? "يرجى كتابة عنوان البلاغ" : "Please enter ticket title");
       return;
     }
     if (!roomId) {
-      toast.error(isRtl ? "يرجى اختيار موقع البلاغ" : "Please select a location");
+      toast.error(isRtl ? "يرجى اختيار موقع البلاغ" : "Please select ticket location");
       return;
     }
-    if (!form.reporterName.trim() || !form.reporterEmail.trim()) {
-      toast.error(isRtl ? "الاسم والبريد الإلكتروني مطلوبان" : "Name and email are required");
+    if (!form.reporterName.trim()) {
+      toast.error(isRtl ? "يرجى إدخال اسمك" : "Please enter your name");
+      return;
+    }
+    if (!form.reporterEmail.trim()) {
+      toast.error(isRtl ? "يرجى إدخال بريدك الإلكتروني" : "Please enter your email");
       return;
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(form.reporterEmail)) {
-      toast.error(isRtl ? "البريد الإلكتروني غير صالح" : "Invalid email");
+      toast.error(isRtl ? "البريد الإلكتروني غير صالح" : "Invalid email address");
       return;
     }
 
@@ -371,8 +400,7 @@ export default function PublicTicketPage() {
       const res = await fetch("/api/public/tickets", { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok) {
-        toast.success(isRtl ? "تم إرسال البلاغ بنجاح" : "Ticket submitted");
-        router.push(`/${locale}/tickets/public/success`);
+        setShowSuccessDialog(true);
       } else {
         toast.error(data.error || (isRtl ? "فشل الإرسال" : "Submission failed"));
       }
@@ -384,7 +412,7 @@ export default function PublicTicketPage() {
   };
 
   // ============================================================
-  // Memoized options for selects
+  // Memoized options
   // ============================================================
   const ticketTypeOptions = useMemo(
     () => [
@@ -525,6 +553,7 @@ export default function PublicTicketPage() {
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
                     className="h-12 text-base"
+                    placeholder={isRtl ? "مثال: عطل في التكييف" : "e.g., AC malfunction"}
                     disabled={isSubmitting}
                   />
                 </div>
@@ -537,6 +566,7 @@ export default function PublicTicketPage() {
                     value={form.description}
                     onChange={(e) => setForm({ ...form, description: e.target.value })}
                     className="text-base"
+                    placeholder={isRtl ? "تفاصيل المشكلة" : "Problem details"}
                     disabled={isSubmitting}
                   />
                 </div>
@@ -554,7 +584,7 @@ export default function PublicTicketPage() {
                   {loadingBuildings && <p className="text-sm text-muted-foreground mt-1">جار تحميل المباني...</p>}
                 </div>
 
-                {/* Floor (appears after building selected) */}
+                {/* Floor */}
                 {buildingId && (
                   <div>
                     <Label className="text-base font-semibold mb-2 block">{isRtl ? "الدور *" : "Floor *"}</Label>
@@ -569,7 +599,7 @@ export default function PublicTicketPage() {
                   </div>
                 )}
 
-                {/* Room (appears after floor selected) */}
+                {/* Room */}
                 {floorId && (
                   <div>
                     <Label className="text-base font-semibold mb-2 block">{isRtl ? "الغرفة *" : "Room *"}</Label>
@@ -584,7 +614,7 @@ export default function PublicTicketPage() {
                   </div>
                 )}
 
-                {/* Asset Type & Asset (only if room selected) */}
+                {/* Asset Type & Asset */}
                 {roomId && (
                   <>
                     <div>
@@ -622,7 +652,7 @@ export default function PublicTicketPage() {
                 )}
               </div>
 
-              {/* RIGHT COLUMN - Reporter & Images */}
+              {/* RIGHT COLUMN */}
               <div className="space-y-6">
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "الاسم *" : "Name *"}</Label>
@@ -630,6 +660,7 @@ export default function PublicTicketPage() {
                     value={form.reporterName}
                     onChange={(e) => setForm({ ...form, reporterName: e.target.value })}
                     className="h-12 text-base"
+                    placeholder={isRtl ? "الاسم الكامل" : "Full name"}
                     disabled={isSubmitting}
                   />
                 </div>
@@ -640,6 +671,7 @@ export default function PublicTicketPage() {
                     value={form.reporterEmail}
                     onChange={(e) => setForm({ ...form, reporterEmail: e.target.value })}
                     className="h-12 text-base"
+                    placeholder="example@domain.com"
                     disabled={isSubmitting}
                   />
                 </div>
@@ -649,11 +681,12 @@ export default function PublicTicketPage() {
                     value={form.phone}
                     onChange={(e) => setForm({ ...form, phone: e.target.value })}
                     className="h-12 text-base"
+                    placeholder={isRtl ? "05xxxxxxxx" : "+9665xxxxxxxx"}
                     disabled={isSubmitting}
                   />
                 </div>
 
-                {/* Image upload */}
+                {/* Images */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>
                   <Input
@@ -685,7 +718,7 @@ export default function PublicTicketPage() {
               </div>
             </div>
 
-            {/* Action Buttons */}
+            {/* Buttons */}
             <div className="flex flex-col gap-4 pt-6 border-t border-border">
               <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full py-3 text-base rounded-full">
                 {isSubmitting ? <Loader2 className="animate-spin mr-2" size={20} /> : <Send size={20} className="mr-2" />}
@@ -696,7 +729,7 @@ export default function PublicTicketPage() {
               </Button>
             </div>
 
-            {/* Info Note */}
+            {/* Info note */}
             <div className="bg-primary/5 rounded-xl p-4 text-sm text-muted-foreground flex gap-3">
               <Info size={18} className="shrink-0 mt-0.5" />
               {isRtl
@@ -706,6 +739,31 @@ export default function PublicTicketPage() {
           </div>
         </div>
       </div>
+
+      {/* Success Dialog */}
+      <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <DialogContent className="sm:max-w-md text-center">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
+            <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+          </div>
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold mt-2">
+              {isRtl ? "تم إرسال البلاغ بنجاح" : "Ticket Submitted Successfully"}
+            </DialogTitle>
+            <DialogDescription className="text-base pt-2">
+              {isRtl
+                ? "شكراً لك. سيتم معالجة طلبك في أقرب وقت."
+                : "Thank you. Your request will be processed shortly."}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-3 mt-4">
+            <Button onClick={resetForm} className="w-full gap-2">
+              <Send size={18} />
+              {isRtl ? "تقديم بلاغ آخر" : "Submit Another Ticket"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

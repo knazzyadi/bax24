@@ -8,20 +8,58 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
-import { Moon, Sun, Languages, X, Send, Loader2, Info } from "lucide-react";
+import { AdaptiveSelect } from "@/components/shared/AdaptiveSelect";
+import { Moon, Sun, X, Send, Loader2, Info } from "lucide-react";
 
-// Types (as before)
-interface Building { id: string; name: string; nameEn?: string; code?: string; }
-interface Floor { id: string; name: string; nameEn?: string; code?: string; buildingId: string; }
-interface Room { id: string; name: string; nameEn?: string; code?: string; floorId: string; fullCode?: string; }
-interface AssetType { id: string; name: string; nameEn?: string; code?: string; }
-interface Asset { id: string; name: string; nameEn?: string; code: string; }
-interface Branch { id: string; name: string; nameEn?: string; allowPublicTickets: boolean; }
+// ============================================================
+// Types
+// ============================================================
+interface Building {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+}
+interface Floor {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+  buildingId: string;
+}
+interface Room {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+  floorId: string;
+  fullCode?: string;
+}
+interface AssetType {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+}
+interface Asset {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code: string;
+}
+interface Branch {
+  id: string;
+  name: string;
+  nameEn?: string;
+  allowPublicTickets: boolean;
+}
 
+// ============================================================
+// Main Component
+// ============================================================
 export default function PublicTicketPage() {
   const params = useParams();
   const router = useRouter();
@@ -30,12 +68,12 @@ export default function PublicTicketPage() {
   const slug = params.slug as string;
   const token = params.token as string;
 
-  // Branch state
+  // Branch
   const [branch, setBranch] = useState<Branch | null>(null);
   const [branchError, setBranchError] = useState<string | null>(null);
   const [branchLoading, setBranchLoading] = useState(true);
 
-  // Location hierarchy
+  // Location
   const [buildingId, setBuildingId] = useState("");
   const [floorId, setFloorId] = useState("");
   const [roomId, setRoomId] = useState("");
@@ -63,9 +101,16 @@ export default function PublicTicketPage() {
     assetTypeId: "",
     assetId: "none",
   });
+
+  // Images
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const ticketTypeMap: Record<string, string> = {
+    MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
+    INCIDENT: isRtl ? "حادث" : "Incident",
+  };
 
   // Theme
   const [theme, setTheme] = useState<"light" | "dark">("light");
@@ -89,13 +134,7 @@ export default function PublicTicketPage() {
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
   };
 
-  // Ticket type map
-  const ticketTypeMap: Record<string, string> = {
-    MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
-    INCIDENT: isRtl ? "حادث" : "Incident",
-  };
-
-  // Data fetching functions (same as before)
+  // Fetch Buildings
   const fetchBuildings = useCallback(async () => {
     setLoadingBuildings(true);
     try {
@@ -109,6 +148,7 @@ export default function PublicTicketPage() {
     }
   }, [slug, token, isRtl]);
 
+  // Fetch Asset Types
   const fetchAssetTypes = useCallback(async () => {
     setLoadingAssetTypes(true);
     try {
@@ -125,11 +165,14 @@ export default function PublicTicketPage() {
   // Branch validation
   useEffect(() => {
     if (!slug || !token) return;
+    const controller = new AbortController();
     const fetchBranch = async () => {
       setBranchLoading(true);
       setBranchError(null);
       try {
-        const res = await fetch(`/api/public/branch?slug=${slug}&token=${token}`);
+        const res = await fetch(`/api/public/branch?slug=${slug}&token=${token}`, {
+          signal: controller.signal,
+        });
         const data = await res.json();
         if (!res.ok || !data?.branch) {
           setBranchError(isRtl ? "الرابط غير صالح أو منتهي الصلاحية" : "Invalid or expired link");
@@ -141,60 +184,84 @@ export default function PublicTicketPage() {
         }
         setBranch(data.branch);
         await Promise.all([fetchBuildings(), fetchAssetTypes()]);
-      } catch {
-        setBranchError(isRtl ? "حدث خطأ أثناء الاتصال بالخادم" : "Server connection error");
+      } catch (error: any) {
+        if (error?.name !== "AbortError") {
+          setBranchError(isRtl ? "حدث خطأ أثناء الاتصال بالخادم" : "Server connection error");
+        }
       } finally {
         setBranchLoading(false);
       }
     };
     fetchBranch();
+    return () => controller.abort();
   }, [slug, token, isRtl, fetchBuildings, fetchAssetTypes]);
 
   // Floors
   useEffect(() => {
-    if (!buildingId) { setFloors([]); return; }
+    if (!buildingId) {
+      setFloors([]);
+      return;
+    }
+    const controller = new AbortController();
     const fetchFloors = async () => {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/public/floors?slug=${slug}&token=${token}&buildingId=${buildingId}`);
+        const res = await fetch(`/api/public/floors?slug=${slug}&token=${token}&buildingId=${buildingId}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error();
         setFloors(await res.json());
       } catch {
-        toast.error(isRtl ? "فشل تحميل الأدوار" : "Failed to load floors");
+        setFloors([]);
       } finally {
         setLoadingFloors(false);
       }
     };
     fetchFloors();
-  }, [buildingId, slug, token, isRtl]);
+    return () => controller.abort();
+  }, [buildingId, slug, token]);
 
   // Rooms
   useEffect(() => {
-    if (!floorId) { setRooms([]); return; }
+    if (!floorId) {
+      setRooms([]);
+      return;
+    }
+    const controller = new AbortController();
     const fetchRooms = async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/public/rooms?slug=${slug}&token=${token}&floorId=${floorId}`);
+        const res = await fetch(`/api/public/rooms?slug=${slug}&token=${token}&floorId=${floorId}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error();
         setRooms(await res.json());
       } catch {
-        toast.error(isRtl ? "فشل تحميل الغرف" : "Failed to load rooms");
+        setRooms([]);
       } finally {
         setLoadingRooms(false);
       }
     };
     fetchRooms();
-  }, [floorId, slug, token, isRtl]);
+    return () => controller.abort();
+  }, [floorId, slug, token]);
 
   // Assets
   useEffect(() => {
-    if (!roomId) { setAssets([]); setForm(prev => ({ ...prev, assetId: "none" })); return; }
+    if (!roomId) {
+      setAssets([]);
+      setForm(prev => ({ ...prev, assetId: "none" }));
+      return;
+    }
+    const controller = new AbortController();
     const fetchAssets = async () => {
       setLoadingAssets(true);
       try {
         let url = `/api/public/assets?slug=${slug}&token=${token}&roomId=${roomId}`;
-        if (form.assetTypeId && form.assetTypeId !== "none") url += `&typeId=${form.assetTypeId}`;
-        const res = await fetch(url);
+        if (form.assetTypeId && form.assetTypeId !== "none") {
+          url += `&typeId=${form.assetTypeId}`;
+        }
+        const res = await fetch(url, { signal: controller.signal });
         if (!res.ok) throw new Error();
         setAssets(await res.json());
         setForm(prev => ({ ...prev, assetId: "none" }));
@@ -205,6 +272,7 @@ export default function PublicTicketPage() {
       }
     };
     fetchAssets();
+    return () => controller.abort();
   }, [roomId, form.assetTypeId, slug, token]);
 
   // Handlers
@@ -229,10 +297,16 @@ export default function PublicTicketPage() {
     setForm(prev => ({ ...prev, assetId: "none" }));
   };
 
-  // Image handling
+  // Images
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    const imageFiles = selected.filter(file => file.type.startsWith("image/"));
+    const imageFiles = selected.filter(
+      file => file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024
+    );
+    if (selected.length > 5) {
+      toast.error(isRtl ? "الحد الأقصى 5 صور" : "Maximum 5 images");
+      return;
+    }
     setFiles(prev => [...prev, ...imageFiles]);
     const newPreviews = imageFiles.map(file => URL.createObjectURL(file));
     setPreviews(prev => [...prev, ...newPreviews]);
@@ -283,9 +357,6 @@ export default function PublicTicketPage() {
       const data = await res.json();
       if (res.ok) {
         toast.success(isRtl ? "تم إرسال البلاغ بنجاح" : "Ticket submitted");
-        // Optional: redirect or show a success dialog
-        // For now, just toast
-        // You can also add a simple success state
         router.push(`/${locale}/tickets/public/success`);
       } else {
         toast.error(data.error || (isRtl ? "فشل الإرسال" : "Submission failed"));
@@ -297,27 +368,46 @@ export default function PublicTicketPage() {
     }
   };
 
+  // Memoized options
+  const ticketTypeOptions = useMemo(
+    () => [
+      { value: "MAINTENANCE", label: ticketTypeMap.MAINTENANCE },
+      { value: "INCIDENT", label: ticketTypeMap.INCIDENT },
+    ],
+    [ticketTypeMap]
+  );
+  const assetTypeOptions = useMemo(
+    () => [
+      { value: "", label: isRtl ? "جميع الأنواع" : "All types" },
+      ...assetTypes.map(type => ({
+        value: type.id,
+        label: `${isRtl ? type.name : type.nameEn || type.name} ${type.code ? `(${type.code})` : ""}`,
+      })),
+    ],
+    [assetTypes, isRtl]
+  );
+  const assetOptions = useMemo(
+    () => [
+      { value: "none", label: isRtl ? "بدون أصل" : "No asset" },
+      ...assets.map(asset => ({
+        value: asset.id,
+        label: `${isRtl ? asset.name : asset.nameEn || asset.name} ${asset.code ? `(${asset.code})` : ""}`,
+      })),
+    ],
+    [assets, isRtl]
+  );
+
   const selectedAsset = useMemo(() => {
     if (!form.assetId || form.assetId === "none") return null;
     return assets.find(a => a.id === form.assetId);
   }, [assets, form.assetId]);
 
-  // Options for selects
-  const ticketTypeOptions = [
-    { value: "MAINTENANCE", label: ticketTypeMap.MAINTENANCE },
-    { value: "INCIDENT", label: ticketTypeMap.INCIDENT },
-  ];
-  const assetTypeOptions = [
-    { value: "", label: isRtl ? "جميع الأنواع" : "All types" },
-    ...assetTypes.map(t => ({ value: t.id, label: (isRtl ? t.name : (t.nameEn || t.name)) + (t.code ? ` (${t.code})` : '') })),
-  ];
-  const assetOptions = [
-    { value: "none", label: isRtl ? "بدون أصل" : "No asset" },
-    ...assets.map(a => ({ value: a.id, label: (isRtl ? a.name : (a.nameEn || a.name)) + (a.code ? ` (${a.code})` : '') })),
-  ];
-
   // Loading & error states
-  if (branchLoading) return <div className="min-h-screen flex items-center justify-center"><div className="text-muted-foreground text-lg">{isRtl ? "جاري التحقق..." : "Verifying..."}</div></div>;
+  if (branchLoading) return (
+    <div className="min-h-screen flex items-center justify-center">
+      <div className="text-muted-foreground text-lg">{isRtl ? "جاري التحقق..." : "Verifying..."}</div>
+    </div>
+  );
   if (branchError) {
     return (
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
@@ -326,18 +416,25 @@ export default function PublicTicketPage() {
             <X className="h-8 w-8 text-red-600 dark:text-red-400" />
           </div>
           <h2 className="text-2xl font-bold text-foreground mb-3">{branchError}</h2>
-          <p className="text-muted-foreground mb-6">{isRtl ? "يرجى التأكد من صحة الرابط أو التواصل مع الإدارة." : "Please verify the link or contact the administrator."}</p>
-          <Button onClick={() => router.push(`/${locale}`)} className="w-full h-11 rounded-xl text-base">{isRtl ? "العودة للرئيسية" : "Back to Home"}</Button>
+          <p className="text-muted-foreground mb-6">
+            {isRtl ? "يرجى التأكد من صحة الرابط أو التواصل مع الإدارة." : "Please verify the link or contact the administrator."}
+          </p>
+          <Button onClick={() => router.push(`/${locale}`)} className="w-full h-11 rounded-xl text-base">
+            {isRtl ? "العودة للرئيسية" : "Back to Home"}
+          </Button>
         </div>
       </div>
     );
   }
   if (!branch) return null;
 
+  // ============================================================
+  // Main UI (Full Form)
+  // ============================================================
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
-        {/* Top controls */}
+        {/* Top Controls */}
         <div className="flex justify-end gap-3 mb-6">
           <Button variant="outline" size="icon" onClick={switchLanguage} className="rounded-full w-10 h-10 text-sm font-bold" disabled={isSubmitting}>
             {locale === "ar" ? "EN" : "AR"}
@@ -347,6 +444,7 @@ export default function PublicTicketPage() {
           </Button>
         </div>
 
+        {/* Main Card */}
         <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
           <div className="p-6 md:p-10 space-y-8">
             {/* Header */}
@@ -355,7 +453,9 @@ export default function PublicTicketPage() {
                 <Send size={28} />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-foreground">{isRtl ? "بلاغ صيانة جديد" : "New Maintenance Ticket"}</h1>
+                <h1 className="text-3xl font-bold text-foreground">
+                  {isRtl ? "بلاغ صيانة جديد" : "New Maintenance Ticket"}
+                </h1>
                 <p className="text-base text-muted-foreground mt-1">{branch.name}</p>
               </div>
             </div>
@@ -366,65 +466,96 @@ export default function PublicTicketPage() {
                 {/* Ticket Type */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع البلاغ *" : "Ticket Type *"}</Label>
-                  <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })} disabled={isSubmitting}>
-                    <SelectTrigger className="h-12 text-base">
-                      <SelectValue placeholder={isRtl ? "اختر نوع البلاغ" : "Select type"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {ticketTypeOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
-                    </SelectContent>
-                  </Select>
+                  <AdaptiveSelect
+                    value={form.type}
+                    onChange={(val) => setForm({ ...form, type: val })}
+                    options={ticketTypeOptions}
+                    placeholder={isRtl ? "اختر نوع البلاغ" : "Select type"}
+                    disabled={isSubmitting}
+                  />
                 </div>
 
                 {/* Title */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "عنوان البلاغ *" : "Ticket Title *"}</Label>
-                  <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} className="h-12 text-base" disabled={isSubmitting} />
+                  <Input
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                    className="h-12 text-base"
+                    disabled={isSubmitting}
+                  />
                 </div>
 
                 {/* Description */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "وصف البلاغ *" : "Description *"}</Label>
-                  <Textarea rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} className="text-base" disabled={isSubmitting} />
+                  <Textarea
+                    rows={5}
+                    value={form.description}
+                    onChange={(e) => setForm({ ...form, description: e.target.value })}
+                    className="text-base"
+                    disabled={isSubmitting}
+                  />
                 </div>
 
                 {/* Location */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "موقع البلاغ *" : "Location *"}</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    <BuildingSelector value={buildingId} onValueChange={handleBuildingChange} buildings={buildings} loading={loadingBuildings} />
-                    <FloorSelector value={floorId} onValueChange={handleFloorChange} floors={floors} buildingId={buildingId} loading={loadingFloors} />
-                    <RoomSelector value={roomId} onValueChange={handleRoomChange} rooms={rooms} floorId={floorId} loading={loadingRooms} />
+                    <BuildingSelector
+                      value={buildingId}
+                      onValueChange={handleBuildingChange}
+                      buildings={buildings}
+                      loading={loadingBuildings}
+                    />
+                    <FloorSelector
+                      value={floorId}
+                      onValueChange={handleFloorChange}
+                      floors={floors}
+                      buildingId={buildingId}
+                      loading={loadingFloors}
+                    />
+                    <RoomSelector
+                      value={roomId}
+                      onValueChange={handleRoomChange}
+                      rooms={rooms}
+                      floorId={floorId}
+                      loading={loadingRooms}
+                    />
                   </div>
                 </div>
 
-                {/* Asset Type & Asset (if room selected) */}
+                {/* Asset Type & Asset (only if room selected) */}
                 {roomId && (
                   <>
                     <div>
-                      <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع الأصل (اختياري)" : "Asset Type (Optional)"}</Label>
-                      <Select value={form.assetTypeId} onValueChange={(val) => setForm({ ...form, assetTypeId: val, assetId: "none" })} disabled={loadingAssetTypes || isSubmitting}>
-                        <SelectTrigger className="h-12 text-base">
-                          <SelectValue placeholder={isRtl ? "اختر نوع الأصل" : "Select asset type"} />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {assetTypeOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
-                        </SelectContent>
-                      </Select>
+                      <Label className="text-base font-semibold mb-2 block">
+                        {isRtl ? "نوع الأصل (اختياري)" : "Asset Type (Optional)"}
+                      </Label>
+                      <AdaptiveSelect
+                        value={form.assetTypeId}
+                        onChange={(val) => setForm({ ...form, assetTypeId: val, assetId: "none" })}
+                        options={assetTypeOptions}
+                        placeholder={isRtl ? "اختر نوع الأصل" : "Select asset type"}
+                        disabled={loadingAssetTypes || isSubmitting}
+                      />
                     </div>
                     <div>
-                      <Label className="text-base font-semibold mb-2 block">{isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}</Label>
+                      <Label className="text-base font-semibold mb-2 block">
+                        {isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}
+                      </Label>
                       {assets.length === 0 && !loadingAssets ? (
-                        <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">{isRtl ? "لا توجد أصول مسجلة في هذه الغرفة" : "No assets found in this room"}</p>
+                        <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                          {isRtl ? "لا توجد أصول مسجلة في هذه الغرفة" : "No assets found in this room"}
+                        </p>
                       ) : (
-                        <Select value={form.assetId} onValueChange={(val) => setForm({ ...form, assetId: val })} disabled={loadingAssets || isSubmitting}>
-                          <SelectTrigger className="h-12 text-base">
-                            {selectedAsset ? (isRtl ? selectedAsset.name : (selectedAsset.nameEn || selectedAsset.name)) : (isRtl ? "اختر الأصل" : "Select asset")}
-                          </SelectTrigger>
-                          <SelectContent>
-                            {assetOptions.map(opt => (<SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>))}
-                          </SelectContent>
-                        </Select>
+                        <AdaptiveSelect
+                          value={form.assetId}
+                          onChange={(val) => setForm({ ...form, assetId: val })}
+                          options={assetOptions}
+                          placeholder={isRtl ? "اختر الأصل" : "Select asset"}
+                          disabled={loadingAssets || isSubmitting}
+                        />
                       )}
                       {loadingAssets && <p className="text-sm text-muted-foreground mt-2">{isRtl ? "جار التحميل..." : "Loading..."}</p>}
                     </div>
@@ -432,20 +563,61 @@ export default function PublicTicketPage() {
                 )}
               </div>
 
-              {/* RIGHT COLUMN */}
+              {/* RIGHT COLUMN - Reporter & Images */}
               <div className="space-y-6">
-                <div><Label className="text-base font-semibold mb-2 block">{isRtl ? "الاسم *" : "Name *"}</Label><Input value={form.reporterName} onChange={(e) => setForm({ ...form, reporterName: e.target.value })} disabled={isSubmitting} className="h-12 text-base" /></div>
-                <div><Label className="text-base font-semibold mb-2 block">{isRtl ? "البريد الإلكتروني *" : "Email *"}</Label><Input type="email" value={form.reporterEmail} onChange={(e) => setForm({ ...form, reporterEmail: e.target.value })} disabled={isSubmitting} className="h-12 text-base" /></div>
-                <div><Label className="text-base font-semibold mb-2 block">{isRtl ? "رقم الهاتف (اختياري)" : "Phone (optional)"}</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} disabled={isSubmitting} className="h-12 text-base" /></div>
+                <div>
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "الاسم *" : "Name *"}</Label>
+                  <Input
+                    value={form.reporterName}
+                    onChange={(e) => setForm({ ...form, reporterName: e.target.value })}
+                    className="h-12 text-base"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "البريد الإلكتروني *" : "Email *"}</Label>
+                  <Input
+                    type="email"
+                    value={form.reporterEmail}
+                    onChange={(e) => setForm({ ...form, reporterEmail: e.target.value })}
+                    className="h-12 text-base"
+                    disabled={isSubmitting}
+                  />
+                </div>
+                <div>
+                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "رقم الهاتف (اختياري)" : "Phone (optional)"}</Label>
+                  <Input
+                    value={form.phone}
+                    onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                    className="h-12 text-base"
+                    disabled={isSubmitting}
+                  />
+                </div>
+
+                {/* Image Upload */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>
-                  <Input type="file" accept="image/*" multiple onChange={handleFileChange} disabled={isSubmitting} className="text-base py-2" />
+                  <Input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleFileChange}
+                    className="text-base py-2"
+                    disabled={isSubmitting}
+                  />
                   {previews.length > 0 && (
                     <div className="grid grid-cols-3 gap-3 mt-3">
                       {previews.map((src, idx) => (
                         <div key={idx} className="relative group">
                           <img src={src} alt="" className="w-full h-24 object-cover rounded-lg border" />
-                          <button type="button" onClick={() => removeFile(idx)} className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition" disabled={isSubmitting}><X size={16} /></button>
+                          <button
+                            type="button"
+                            onClick={() => removeFile(idx)}
+                            className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition"
+                            disabled={isSubmitting}
+                          >
+                            <X size={16} />
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -468,7 +640,9 @@ export default function PublicTicketPage() {
             {/* Info Note */}
             <div className="bg-primary/5 rounded-xl p-4 text-sm text-muted-foreground flex gap-3">
               <Info size={18} className="shrink-0 mt-0.5" />
-              {isRtl ? "سيتم إرسال إشعار لفريق الصيانة. يمكنك متابعة الحالة عبر البريد الإلكتروني." : "Maintenance team will be notified. You can track the ticket status via email."}
+              {isRtl
+                ? "سيتم إرسال إشعار لفريق الصيانة. يمكنك متابعة الحالة عبر البريد الإلكتروني."
+                : "Maintenance team will be notified. You can track the ticket status via email."}
             </div>
           </div>
         </div>

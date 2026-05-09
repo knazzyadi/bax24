@@ -6,23 +6,36 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const slug = searchParams.get("slug");
     const token = searchParams.get("token");
+    const branchId = searchParams.get("branchId"); // 🔑 نضيف branchId
 
-    if (!slug || !token) {
+    if (!slug || !token || !branchId) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
+    // التحقق من صحة الفرع
     const branch = await prisma.branch.findFirst({
       where: { slug, publicToken: token, allowPublicTickets: true },
-      select: { companyId: true },
+      select: { id: true, companyId: true },
     });
 
     if (!branch) {
       return NextResponse.json({ error: "Invalid branch" }, { status: 403 });
     }
 
+    // ✅ التأكد أن الفرع المطلوب هو نفسه الفرع المستخرج (أمان إضافي)
+    if (branch.id !== branchId) {
+      return NextResponse.json({ error: "Branch mismatch" }, { status: 403 });
+    }
+
+    // 🔥 جلب المباني التابعة لهذا الفرع فقط
     const buildings = await prisma.building.findMany({
-      where: { companyId: branch.companyId },
-      select: { id: true, name: true, nameEn: true, code: true },
+      where: { branchId: branch.id },
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+        code: true,
+      },
       orderBy: { name: "asc" },
     });
 

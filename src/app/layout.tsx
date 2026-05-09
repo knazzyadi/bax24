@@ -3,6 +3,7 @@
 //والإعدادات العامة (الثيم، الجلسة، الخطوط).
 import { ThemeProvider } from '@/components/theme-provider';
 import { SessionProvider } from 'next-auth/react';
+import { Toaster } from 'sonner';
 import { Inter, IBM_Plex_Sans_Arabic } from 'next/font/google';
 import '@/app/globals.css';
 
@@ -23,6 +24,20 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </SessionProvider>
         </ThemeProvider>
+        {/* Toaster واحد فقط في أعلى التسلسل - إعدادات صلبة غير زجاجية */}
+        <Toaster
+          position="top-center"
+          richColors
+          toastOptions={{
+            style: {
+              background: 'var(--background)',
+              color: 'var(--foreground)',
+              border: '1px solid var(--border)',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+              backdropFilter: 'none',
+            },
+          }}
+        />
       </body>
     </html>
   );

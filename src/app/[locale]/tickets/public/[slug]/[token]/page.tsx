@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { toast } from "sonner";
@@ -14,7 +14,9 @@ import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import { Moon, Sun, Languages, X, Send, Loader2, Info } from "lucide-react";
 
-// Types remain same as previous
+// ============================================================
+// Types
+// ============================================================
 interface Building {
   id: string;
   name: string;
@@ -52,8 +54,12 @@ interface Branch {
   id: string;
   name: string;
   nameEn?: string;
+  allowPublicTickets: boolean;
 }
 
+// ============================================================
+// Main Component
+// ============================================================
 export default function PublicTicketPage() {
   const params = useParams();
   const router = useRouter();
@@ -62,29 +68,29 @@ export default function PublicTicketPage() {
   const slug = params.slug as string;
   const token = params.token as string;
 
-  // Branch
+  // -------------------- Branch State --------------------
   const [branch, setBranch] = useState<Branch | null>(null);
   const [branchError, setBranchError] = useState<string | null>(null);
   const [branchLoading, setBranchLoading] = useState(true);
 
-  // Location
+  // -------------------- Location Hierarchy --------------------
   const [buildingId, setBuildingId] = useState("");
   const [floorId, setFloorId] = useState("");
   const [roomId, setRoomId] = useState("");
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingBuildings, setLoadingBuildings] = useState(true);
+  const [loadingBuildings, setLoadingBuildings] = useState(false);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  // Assets
+  // -------------------- Asset Types & Assets --------------------
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [loadingAssetTypes, setLoadingAssetTypes] = useState(true);
+  const [loadingAssetTypes, setLoadingAssetTypes] = useState(false);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
-  // Form
+  // -------------------- Form Data --------------------
   const [form, setForm] = useState({
     title: "",
     description: "",
@@ -99,12 +105,13 @@ export default function PublicTicketPage() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // -------------------- UI Helpers --------------------
   const ticketTypeMap: Record<string, string> = {
     MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
     INCIDENT: isRtl ? "حادث" : "Incident",
   };
 
-  // Theme
+  // -------------------- Theme (Dark/Light) --------------------
   const [theme, setTheme] = useState<"light" | "dark">("light");
   useEffect(() => {
     const stored = localStorage.getItem("theme") as "light" | "dark" | null;
@@ -120,40 +127,16 @@ export default function PublicTicketPage() {
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
+  // -------------------- Language Switch --------------------
   const switchLanguage = () => {
     const newLocale = locale === "ar" ? "en" : "ar";
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
   };
 
-  // Fetch branch
-  useEffect(() => {
-    const fetchBranch = async () => {
-      setBranchLoading(true);
-      setBranchError(null);
-      try {
-        const res = await fetch(`/api/public/branch?slug=${slug}&token=${token}`);
-        const data = await res.json();
-        if (!res.ok) {
-          setBranchError(data.error || "رابط غير صالح");
-          return;
-        }
-        if (!data.branch.allowPublicTickets) {
-          setBranchError("البلاغات العامة معطلة لهذا الفرع");
-          return;
-        }
-        setBranch(data.branch);
-        fetchBuildings();
-        fetchAssetTypes();
-      } catch {
-        setBranchError("خطأ في الاتصال بالخادم");
-      } finally {
-        setBranchLoading(false);
-      }
-    };
-    fetchBranch();
-  }, [slug, token]);
-
-  const fetchBuildings = async () => {
+  // ============================================================
+  // Data Fetching Functions (with parallel loading)
+  // ============================================================
+  const fetchBuildings = useCallback(async () => {
     setLoadingBuildings(true);
     try {
       const res = await fetch(`/api/public/buildings?slug=${slug}&token=${token}`);
@@ -165,9 +148,9 @@ export default function PublicTicketPage() {
     } finally {
       setLoadingBuildings(false);
     }
-  };
+  }, [slug, token, isRtl]);
 
-  const fetchAssetTypes = async () => {
+  const fetchAssetTypes = useCallback(async () => {
     setLoadingAssetTypes(true);
     try {
       const res = await fetch(`/api/public/asset-types?slug=${slug}&token=${token}`);
@@ -179,8 +162,49 @@ export default function PublicTicketPage() {
     } finally {
       setLoadingAssetTypes(false);
     }
-  };
+  }, [slug, token, isRtl]);
 
+  // ============================================================
+  // 1. Branch Validation (Improved)
+  // ============================================================
+  useEffect(() => {
+    if (!slug || !token) return;
+
+    const fetchBranch = async () => {
+      setBranchLoading(true);
+      setBranchError(null);
+      try {
+        const res = await fetch(`/api/public/branch?slug=${slug}&token=${token}`);
+        const data = await res.json();
+        console.log("BRANCH RESPONSE:", data);
+
+        if (!res.ok || !data?.branch) {
+          setBranchError(isRtl ? "الرابط غير صالح أو منتهي الصلاحية" : "Invalid or expired link");
+          return;
+        }
+
+        if (data.branch.allowPublicTickets !== true) {
+          setBranchError(isRtl ? "البلاغات العامة لهذا الفرع معطلة" : "Public tickets are disabled for this branch");
+          return;
+        }
+
+        setBranch(data.branch);
+        // تحميل المباني وأنواع الأصول بالتوازي
+        await Promise.all([fetchBuildings(), fetchAssetTypes()]);
+      } catch (error) {
+        console.error("FETCH BRANCH ERROR:", error);
+        setBranchError(isRtl ? "حدث خطأ أثناء الاتصال بالخادم" : "Server connection error");
+      } finally {
+        setBranchLoading(false);
+      }
+    };
+
+    fetchBranch();
+  }, [slug, token, isRtl, fetchBuildings, fetchAssetTypes]);
+
+  // ============================================================
+  // 2. Fetch Floors & Rooms (with resets)
+  // ============================================================
   // Fetch floors when building changes
   useEffect(() => {
     if (!buildingId) {
@@ -201,7 +225,7 @@ export default function PublicTicketPage() {
       }
     };
     fetchFloors();
-  }, [buildingId, slug, token]);
+  }, [buildingId, slug, token, isRtl]);
 
   // Fetch rooms when floor changes
   useEffect(() => {
@@ -223,9 +247,11 @@ export default function PublicTicketPage() {
       }
     };
     fetchRooms();
-  }, [floorId, slug, token]);
+  }, [floorId, slug, token, isRtl]);
 
-  // Fetch assets when room or assetType changes
+  // ============================================================
+  // 3. Fetch Assets (when room or assetType change)
+  // ============================================================
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
@@ -253,7 +279,9 @@ export default function PublicTicketPage() {
     fetchAssets();
   }, [roomId, form.assetTypeId, slug, token]);
 
-  // Handlers with proper resets
+  // ============================================================
+  // 4. Event Handlers with proper reset of dependent data
+  // ============================================================
   const handleBuildingChange = (val: string) => {
     setBuildingId(val);
     setFloorId("");
@@ -277,7 +305,7 @@ export default function PublicTicketPage() {
     setForm(prev => ({ ...prev, assetId: "none" }));
   };
 
-  // Image handling with cleanup
+  // -------------------- Image Handling with cleanup --------------------
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const imageFiles = selected.filter(file => file.type.startsWith("image/"));
@@ -298,7 +326,7 @@ export default function PublicTicketPage() {
     };
   }, [previews]);
 
-  // Submit
+  // -------------------- Submit Ticket --------------------
   const handleSubmit = async () => {
     if (!form.title.trim()) {
       toast.error(isRtl ? "عنوان البلاغ مطلوب" : "Ticket title is required");
@@ -350,11 +378,15 @@ export default function PublicTicketPage() {
     }
   };
 
+  // -------------------- Memoized selected asset --------------------
   const selectedAsset = useMemo(() => {
     if (!form.assetId || form.assetId === "none") return null;
     return assets.find(a => a.id === form.assetId);
   }, [assets, form.assetId]);
 
+  // ============================================================
+  // 5. Render states (loading, error, main form)
+  // ============================================================
   if (branchLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -365,13 +397,18 @@ export default function PublicTicketPage() {
 
   if (branchError) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4">
-        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-8 max-w-md text-center">
-          <h2 className="text-2xl font-bold text-red-700 dark:text-red-400 mb-3">
-            {isRtl ? "رابط غير صالح" : "Invalid Link"}
-          </h2>
-          <p className="text-red-600 dark:text-red-300 mb-5">{branchError}</p>
-          <Button onClick={() => router.push(`/${locale}`)} size="lg" className="px-6 py-2 text-base">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-xl p-8 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+            <X className="h-8 w-8 text-red-600 dark:text-red-400" />
+          </div>
+          <h2 className="text-2xl font-bold text-foreground mb-3">{branchError}</h2>
+          <p className="text-muted-foreground mb-6">
+            {isRtl
+              ? "يرجى التأكد من صحة الرابط أو التواصل مع الإدارة."
+              : "Please verify the link or contact the administrator."}
+          </p>
+          <Button onClick={() => router.push(`/${locale}`)} className="w-full h-11 rounded-xl text-base">
             {isRtl ? "العودة للرئيسية" : "Back to Home"}
           </Button>
         </div>
@@ -381,9 +418,13 @@ export default function PublicTicketPage() {
 
   if (!branch) return null;
 
+  // ============================================================
+  // 6. Main Form UI
+  // ============================================================
   return (
     <div className="min-h-screen bg-background py-8 px-4 sm:px-6">
       <div className="max-w-5xl mx-auto">
+        {/* Top controls */}
         <div className="flex justify-end gap-3 mb-6">
           <Button variant="outline" size="icon" onClick={switchLanguage} className="rounded-full w-10 h-10" disabled={isSubmitting}>
             <Languages size={20} />
@@ -393,8 +434,10 @@ export default function PublicTicketPage() {
           </Button>
         </div>
 
+        {/* Main card */}
         <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
           <div className="p-6 md:p-10 space-y-8">
+            {/* Header */}
             <div className="flex items-center gap-4 border-b border-border pb-5">
               <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
                 <Send size={28} />
@@ -408,8 +451,9 @@ export default function PublicTicketPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* Left column */}
+              {/* LEFT COLUMN */}
               <div className="space-y-6">
+                {/* Ticket Type */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع البلاغ *" : "Ticket Type *"}</Label>
                   <Select value={form.type} onValueChange={(val) => setForm({ ...form, type: val })} disabled={isSubmitting}>
@@ -423,6 +467,7 @@ export default function PublicTicketPage() {
                   </Select>
                 </div>
 
+                {/* Title */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "عنوان البلاغ *" : "Ticket Title *"}</Label>
                   <Input
@@ -434,6 +479,7 @@ export default function PublicTicketPage() {
                   />
                 </div>
 
+                {/* Description */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "وصف البلاغ *" : "Description *"}</Label>
                   <Textarea
@@ -446,6 +492,7 @@ export default function PublicTicketPage() {
                   />
                 </div>
 
+                {/* Location */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "موقع البلاغ *" : "Location *"}</Label>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -472,10 +519,13 @@ export default function PublicTicketPage() {
                   </div>
                 </div>
 
+                {/* Asset Type & Asset (only if room selected) */}
                 {roomId && (
                   <>
                     <div>
-                      <Label className="text-base font-semibold mb-2 block">{isRtl ? "نوع الأصل (اختياري)" : "Asset Type (Optional)"}</Label>
+                      <Label className="text-base font-semibold mb-2 block">
+                        {isRtl ? "نوع الأصل (اختياري)" : "Asset Type (Optional)"}
+                      </Label>
                       <Select
                         value={form.assetTypeId}
                         onValueChange={(val) => setForm({ ...form, assetTypeId: val, assetId: "none" })}
@@ -528,7 +578,7 @@ export default function PublicTicketPage() {
                 )}
               </div>
 
-              {/* Right column */}
+              {/* RIGHT COLUMN - Reporter & Attachments */}
               <div className="space-y-6">
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "الاسم *" : "Name *"}</Label>
@@ -562,6 +612,7 @@ export default function PublicTicketPage() {
                   />
                 </div>
 
+                {/* Image upload */}
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>
                   <Input
@@ -593,7 +644,8 @@ export default function PublicTicketPage() {
               </div>
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row-reverse gap-4 pt-6 border-t border-border">
+            {/* Action Buttons (Submit on top, Cancel below, full width) */}
+            <div className="flex flex-col gap-4 pt-6 border-t border-border">
               <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full py-3 text-base rounded-full">
                 {isSubmitting ? <Loader2 className="animate-spin mr-2" size={20} /> : <Send size={20} className="mr-2" />}
                 {isRtl ? "إرسال البلاغ" : "Submit"}
@@ -603,6 +655,7 @@ export default function PublicTicketPage() {
               </Button>
             </div>
 
+            {/* Info Note */}
             <div className="bg-primary/5 rounded-xl p-4 text-sm text-muted-foreground flex gap-3">
               <Info size={18} className="shrink-0 mt-0.5" />
               {isRtl

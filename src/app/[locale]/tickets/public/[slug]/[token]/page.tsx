@@ -134,19 +134,14 @@ export default function PublicTicketPage() {
   // Data fetching functions (with branch dependency)
   // ============================================================
   const fetchBuildings = useCallback(async () => {
-    if (!branch?.id) {
-      console.log("No branch.id yet, skipping fetchBuildings");
-      return;
-    }
+    if (!branch?.id) return;
     setLoadingBuildings(true);
     try {
       const res = await fetch(`/api/public/buildings?slug=${slug}&token=${token}&branchId=${branch.id}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
-      console.log("Buildings received:", data);
       setBuildings(data);
-    } catch (err) {
-      console.error("Fetch buildings error:", err);
+    } catch {
       toast.error(isRtl ? "فشل تحميل المباني" : "Failed to load buildings");
     } finally {
       setLoadingBuildings(false);
@@ -179,7 +174,6 @@ export default function PublicTicketPage() {
           signal: controller.signal,
         });
         const data = await res.json();
-        console.log("Branch response:", data);
         if (!res.ok || !data?.branch) {
           setBranchError(isRtl ? "الرابط غير صالح أو منتهي الصلاحية" : "Invalid or expired link");
           return;
@@ -189,8 +183,7 @@ export default function PublicTicketPage() {
           return;
         }
         setBranch(data.branch);
-        // after branch is set, fetch buildings and asset types
-        // note: fetchBuildings depends on branch.id, so we call it after setting branch
+        // بعد تعيين الفرع، نجلب المباني (تعتمد على branch.id) وأنواع الأصول
         await fetchBuildings();
         await fetchAssetTypes();
       } catch (error: any) {

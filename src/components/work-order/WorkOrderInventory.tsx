@@ -223,7 +223,10 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
                   <SelectContent>
                     {availableItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
-                        {item.name} ({item.sku}) - {t("availableQuantity")}: {item.quantity} {item.unit || ""}
+                        {item.name} {/* فقط الاسم، بدون الرمز */}
+                        <span className="text-xs text-muted-foreground block">
+                          {t("availableQuantity")}: {item.quantity} {item.unit || ""}
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>

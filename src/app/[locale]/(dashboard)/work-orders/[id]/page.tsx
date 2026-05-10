@@ -32,7 +32,7 @@ import Link from "next/link";
 import { WorkOrderInventory } from "@/components/work-order/WorkOrderInventory";
 
 interface WorkOrderAsset {
-  id?: string; // معرف السجل في WorkOrderAsset
+  id?: string;
   assetId: string;
   asset: {
     id: string;
@@ -86,7 +86,6 @@ export default function WorkOrderDetailPage() {
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [completionNote, setCompletionNote] = useState("");
 
-  // جلب البيانات
   useEffect(() => {
     const fetchWorkOrder = async () => {
       try {
@@ -105,7 +104,6 @@ export default function WorkOrderDetailPage() {
     if (id) fetchWorkOrder();
   }, [id, locale, router, t]);
 
-  // تنسيق التاريخ حسب اللغة
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "—";
     const date = new Date(dateStr);
@@ -113,7 +111,6 @@ export default function WorkOrderDetailPage() {
     return format(date, "PPP", { locale: localeObj });
   };
 
-  // الحصول على تسمية نوع الطلب
   const getTypeLabel = (type: string) => {
     switch (type) {
       case "MAINTENANCE": return t("type_maintenance");
@@ -124,13 +121,11 @@ export default function WorkOrderDetailPage() {
     }
   };
 
-  // الحصول على لون الخلفية للحالة أو الأولوية
   const getStatusColor = (color?: string) => {
     if (color) return color;
     return "#6b7280";
   };
 
-  // تسجيل إنجاز أصل فردي
   const handleCompleteAsset = async () => {
     if (!selectedAsset) return;
     setActionLoading(true);
@@ -145,7 +140,6 @@ export default function WorkOrderDetailPage() {
       });
       if (!res.ok) throw new Error("Failed to complete");
       toast.success(t("assetCompleted"));
-      // تحديث البيانات المحلية
       setWorkOrder(prev => {
         if (!prev) return prev;
         const updatedAssets = prev.workOrderAssets.map(woa =>
@@ -166,7 +160,6 @@ export default function WorkOrderDetailPage() {
     }
   };
 
-  // إنجاز جميع الأصول غير المكتملة دفعة واحدة
   const handleCompleteAll = async () => {
     const pendingAssets = workOrder?.workOrderAssets.filter(woa => !woa.completedAt) || [];
     if (pendingAssets.length === 0) {
@@ -185,7 +178,6 @@ export default function WorkOrderDetailPage() {
       });
       if (!res.ok) throw new Error("Failed to complete all");
       toast.success(t("allCompleted"));
-      // تحديث جميع الأصول
       setWorkOrder(prev => {
         if (!prev) return prev;
         const updatedAssets = prev.workOrderAssets.map(woa =>
@@ -214,7 +206,6 @@ export default function WorkOrderDetailPage() {
   }
   if (!workOrder) return null;
 
-  const isPending = workOrder.status?.name !== "COMPLETED"; // حسب تعريف الحالة
   const hasAssets = workOrder.workOrderAssets.length > 0;
   const pendingAssetsCount = workOrder.workOrderAssets.filter(woa => !woa.completedAt).length;
 
@@ -222,8 +213,15 @@ export default function WorkOrderDetailPage() {
     <PageContainer>
       <DetailHeader
         icon={<Wrench size={28} />}
-        title={`${t("workOrder")} ${workOrder.code}`}
-        subtitle={workOrder.title}
+        title={
+          <div className="flex flex-wrap items-center gap-2">
+            <span>{workOrder.title}</span>
+            <span className="text-sm font-mono bg-primary/10 text-primary px-2 py-1 rounded-full">
+              {workOrder.code || workOrder.id.slice(-6)}
+            </span>
+          </div>
+        }
+        subtitle={t("workOrder")}
         actions={
           <Link
             href={`/${locale}/work-orders`}
@@ -365,7 +363,7 @@ export default function WorkOrderDetailPage() {
             )}
           </InfoCard>
 
-          {/* 🧰 قطع الغيار المستخدمة في أمر العمل */}
+          {/* قطع الغيار المستخدمة */}
           <InfoCard title={t("spareParts")} icon={<Package className="h-5 w-5" />}>
             <WorkOrderInventory workOrderId={workOrder.id} locale={locale} />
           </InfoCard>
@@ -418,7 +416,6 @@ export default function WorkOrderDetailPage() {
             </SidebarCard>
           )}
 
-          {/* زر العودة */}
           <div className="flex flex-col gap-3">
             <Button
               variant="outline"
@@ -432,7 +429,6 @@ export default function WorkOrderDetailPage() {
         </div>
       </div>
 
-      {/* حوار تأكيد إكمال الأصل/جميع الأصول */}
       <AlertDialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
         <AlertDialogContent className="rounded-2xl p-0 max-w-md w-[95%] overflow-hidden shadow-lg bg-card border border-border" dir={isRtl ? "rtl" : "ltr"}>
           <div className="p-5 border-b border-border">

@@ -2,7 +2,6 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "@/components/theme-provider";
@@ -12,68 +11,36 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useOutsideClick } from "@/hooks/useOutsideClick";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  LayoutDashboard,
-  Package,
-  ClipboardList,
-  Box,
-  Calendar,
-  FileText,
-  FileSpreadsheet,
-  Building2,
   Sun,
   Moon,
   PanelRightClose,
   PanelRightOpen,
-  Car,
   Globe,
   LogOut,
-  ChevronDown,
   Layers,
   Building,
   Home,
-  Users,
-  KeyRound,
-  ShieldCheck,
-  BookOpen,
-  Settings,
-  Tag,
-  TrendingUp,
   Truck,
   UserRound,
+  BookOpen,
+  Tag,
+  ClipboardList,
+  Package,
+  Users,
+  KeyRound,
+  Settings,
+  TrendingUp,
 } from "lucide-react";
-import type { LucideIcon } from "lucide-react";
 
-// قائمة العناصر الرئيسية
-const MAIN_MENU_ITEMS = [
-  { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
-  { href: "/work-orders", labelKey: "nav.workOrders", icon: ClipboardList },
-  { href: "/tickets", labelKey: "nav.tickets", icon: FileText },
-  { href: "/maintenance", labelKey: "nav.maintenance", icon: Calendar },
-  { href: "/vehicle-requests", labelKey: "nav.vehicles", icon: Car },
-  { href: "/contracts", labelKey: "nav.contracts", icon: FileSpreadsheet },
-  { href: "/assets", labelKey: "nav.assets", icon: Package },
-  { href: "/inventory", labelKey: "nav.inventory", icon: Box },
-];
-
-// قائمة عناصر السوبر أدمن
-const SUPER_ADMIN_ITEMS = [
-  { href: "/super-admin", labelKey: "nav.superDashboard", icon: ShieldCheck },
-  { href: "/super-admin/companies", labelKey: "nav.companies", icon: Building2 },
-  { href: "/super-admin/branches", labelKey: "nav.branches", icon: Building },
-  { href: "/super-admin/users", labelKey: "nav.users", icon: Users },
-  { href: "/super-admin/settings", labelKey: "nav.settings", icon: Settings },
-];
+import { SidebarNavItem } from "./SidebarNavItem";
+import { SidebarSection } from "./SidebarSection";
+import { MAIN_MENU_ITEMS, SUPER_ADMIN_ITEMS } from "./sidebar-data";
 
 export default function Sidebar() {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
   const router = useRouter();
-  const locale = useLocale(); // ✅ أفضل من pathname.split
+  const locale = useLocale();
   const { theme, setTheme } = useTheme();
   const { data: session } = useSession();
 
@@ -86,19 +53,17 @@ export default function Sidebar() {
   const [dictionariesOpen, setDictionariesOpen] = useState(false);
   const [pendingTicketsCount, setPendingTicketsCount] = useState<number>(0);
 
-  // Refs للقوائم
   const settingsRef = useRef<HTMLDivElement>(null);
   const locationsRef = useRef<HTMLDivElement>(null);
   const vehiclesRef = useRef<HTMLDivElement>(null);
   const dictionariesRef = useRef<HTMLDivElement>(null);
 
-  // ✅ استخدام الـ Hook الموحد بدلاً من useEffect المكررة
   useOutsideClick(settingsRef, () => setSettingsOpen(false), settingsOpen);
   useOutsideClick(locationsRef, () => setLocationsOpen(false), locationsOpen);
   useOutsideClick(vehiclesRef, () => setVehiclesSettingsOpen(false), vehiclesSettingsOpen);
   useOutsideClick(dictionariesRef, () => setDictionariesOpen(false), dictionariesOpen);
 
-  // ✅ جلب عدد البلاغات المعلقة
+  // جلب عدد البلاغات المعلقة
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
@@ -119,7 +84,6 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
-  // إغلاق القوائم عند تغيير المسار
   useEffect(() => {
     setSettingsOpen(false);
     setLocationsOpen(false);
@@ -131,13 +95,11 @@ export default function Sidebar() {
   if (!mounted) return null;
 
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
-
   const getLabel = (key: string, fallback: string) => {
     const translated = t(key);
     return translated === key ? fallback : translated;
   };
 
-  // ✅ استخدام router.push بدلاً من window.location.href
   const switchLocale = () => {
     const newLocale = locale === "ar" ? "en" : "ar";
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`);
@@ -149,37 +111,19 @@ export default function Sidebar() {
   };
 
   const getThemeIcon = () => {
-    return theme === "light" ? (
-      <Sun className="h-4 w-4 text-amber-500" />
-    ) : (
-      <Moon className="h-4 w-4 text-primary" />
-    );
+    return theme === "light" ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-primary" />;
   };
 
-  const renderNavItem = (item: typeof MAIN_MENU_ITEMS[0]) => {
-    let badgeCount: number | undefined;
-    if (item.href === "/tickets" && pendingTicketsCount > 0) {
-      badgeCount = pendingTicketsCount;
-    }
-    return (
-      <SidebarNavItem
-        key={item.href}
-        href={item.href}
-        label={getLabel(item.labelKey, item.labelKey)}
-        icon={item.icon}
-        isOpen={sidebarOpen}
-        isActive={pathname.startsWith(`/${locale}${item.href}`)} // ✅ استخدام startsWith
-        locale={locale}
-        badgeCount={badgeCount}
-      />
-    );
+  const commonNavProps = {
+    isOpen: sidebarOpen,
+    locale,
   };
 
   return (
     <aside
       dir={isRTL ? "rtl" : "ltr"}
       className={cn(
-        "sticky top-0 h-screen bg-card border-e border-border flex flex-col transition-all duration-300", // ✅ إضافة transition
+        "sticky top-0 h-screen bg-card border-e border-border flex flex-col transition-all duration-300",
         sidebarOpen ? "w-72" : "w-20"
       )}
     >
@@ -251,202 +195,164 @@ export default function Sidebar() {
               href={item.href}
               label={getLabel(item.labelKey, item.labelKey)}
               icon={item.icon}
-              isOpen={sidebarOpen}
               isActive={pathname.startsWith(`/${locale}${item.href}`)}
-              locale={locale}
+              {...commonNavProps}
             />
           ))}
 
-        {!isSuperAdmin && MAIN_MENU_ITEMS.map((item) => renderNavItem(item))}
+        {!isSuperAdmin &&
+          MAIN_MENU_ITEMS.map((item) => {
+            let badgeCount: number | undefined;
+            if (item.href === "/tickets" && pendingTicketsCount > 0) {
+              badgeCount = pendingTicketsCount;
+            }
+            return (
+              <SidebarNavItem
+                key={item.href}
+                href={item.href}
+                label={getLabel(item.labelKey, item.labelKey)}
+                icon={item.icon}
+                isActive={pathname.startsWith(`/${locale}${item.href}`)}
+                badgeCount={badgeCount}
+                {...commonNavProps}
+              />
+            );
+          })}
 
         {!isSuperAdmin && (
-          <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className="space-y-1">
-            <CollapsibleTrigger
+          <SidebarSection
+            isOpen={settingsOpen}
+            onOpenChange={setSettingsOpen}
+            triggerIcon={<Settings className="h-5 w-5" />}
+            triggerLabel={getLabel("settings", "الإعدادات")}
+            sidebarOpen={sidebarOpen}
+          >
+            {/* إعداد المواقع */}
+            <div ref={locationsRef}>
+              <SidebarSection
+                isOpen={locationsOpen}
+                onOpenChange={setLocationsOpen}
+                triggerIcon={<Layers className="h-4 w-4" />}
+                triggerLabel={getLabel("locationsSettings", "إعداد المواقع")}
+                sidebarOpen={sidebarOpen}
+              >
+                <SidebarNavItem
+                  href="/locations/buildings"
+                  label={getLabel("nav.buildings", "المباني")}
+                  icon={Building}
+                  subItem
+                  {...commonNavProps}
+                />
+                <SidebarNavItem
+                  href="/locations/floors"
+                  label={getLabel("nav.floors", "الأدوار")}
+                  icon={Layers}
+                  subItem
+                  {...commonNavProps}
+                />
+                <SidebarNavItem
+                  href="/locations/rooms"
+                  label={getLabel("nav.rooms", "الغرف")}
+                  icon={Home}
+                  subItem
+                  {...commonNavProps}
+                />
+              </SidebarSection>
+            </div>
+
+            {/* إعداد المركبات */}
+            <div ref={vehiclesRef}>
+              <SidebarSection
+                isOpen={vehiclesSettingsOpen}
+                onOpenChange={setVehiclesSettingsOpen}
+                triggerIcon={<Truck className="h-4 w-4" />}
+                triggerLabel={getLabel("vehiclesSettings", "إعداد المركبات")}
+                sidebarOpen={sidebarOpen}
+              >
+                <SidebarNavItem
+                  href="/admin/drivers"
+                  label={getLabel("nav.drivers", "السائقين")}
+                  icon={UserRound}
+                  subItem
+                  {...commonNavProps}
+                />
+                <SidebarNavItem
+                  href="/admin/vehicles"
+                  label={getLabel("nav.vehiclesList", "المركبات")}
+                  icon={Truck}
+                  subItem
+                  {...commonNavProps}
+                />
+              </SidebarSection>
+            </div>
+
+            {/* إعداد المعجم */}
+            <div ref={dictionariesRef}>
+              <SidebarSection
+                isOpen={dictionariesOpen}
+                onOpenChange={setDictionariesOpen}
+                triggerIcon={<BookOpen className="h-4 w-4" />}
+                triggerLabel={getLabel("dictionariesSettings", "إعداد المعجم")}
+                sidebarOpen={sidebarOpen}
+              >
+                <SidebarNavItem
+                  href="/settings/asset-types"
+                  label={getLabel("nav.assetTypes", "أنواع الأصول")}
+                  icon={Tag}
+                  subItem
+                  {...commonNavProps}
+                />
+                <SidebarNavItem
+                  href="/settings/work-order-statuses"
+                  label={getLabel("nav.workOrderStatuses", "حالات أوامر العمل")}
+                  icon={ClipboardList}
+                  subItem
+                  {...commonNavProps}
+                />
+                <SidebarNavItem
+                  href="/settings/asset-statuses"
+                  label={getLabel("nav.assetStatuses", "حالات الأصول")}
+                  icon={Package}
+                  subItem
+                  {...commonNavProps}
+                />
+                <SidebarNavItem
+                  href="/settings/work-order-priorities"
+                  label={getLabel("nav.workOrderPriorities", "أولويات أوامر العمل")}
+                  icon={TrendingUp}
+                  subItem
+                  {...commonNavProps}
+                />
+              </SidebarSection>
+            </div>
+
+            {/* إعداد الصلاحيات */}
+            <SidebarNavItem
+              href="/users"
+              label={getLabel("nav.users", "المستخدمون")}
+              icon={Users}
+              subItem
+              {...commonNavProps}
+            />
+            <SidebarNavItem
+              href="/admin/roles-permissions"
+              label={getLabel("nav.permissions", "الصلاحيات")}
+              icon={KeyRound}
+              subItem
+              {...commonNavProps}
+            />
+
+            <button
+              onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
               className={cn(
-                "w-full flex items-center justify-between px-4 py-3.5 text-muted-foreground font-bold text-[15px] rounded-2xl hover:bg-primary/10 hover:text-primary transition-all",
+                "w-full flex items-center gap-4 py-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl mt-2",
                 !sidebarOpen && "justify-center px-0"
               )}
             >
-              <div className="flex items-center gap-4">
-                <Settings className="h-5 w-5" />
-                {sidebarOpen && <span>{getLabel("settings", "الإعدادات")}</span>}
-              </div>
-              {sidebarOpen && (
-                <ChevronDown
-                  size={16}
-                  className={cn("transition-transform duration-300", settingsOpen && "rotate-180")}
-                />
-              )}
-            </CollapsibleTrigger>
-            <CollapsibleContent className="space-y-1 pr-6 border-r-2 border-primary/10 mr-4 animate-in slide-in-from-top-2">
-              {/* إعداد المواقع */}
-              <div ref={locationsRef}>
-                <Collapsible open={locationsOpen} onOpenChange={setLocationsOpen} className="space-y-1">
-                  <CollapsibleTrigger
-                    className="w-full flex items-center justify-between px-4 py-2 text-muted-foreground font-bold text-[13px] rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4" />
-                      {sidebarOpen && <span>{getLabel("locationsSettings", "إعداد المواقع")}</span>}
-                    </div>
-                    {sidebarOpen && (
-                      <ChevronDown
-                        size={14}
-                        className={cn("transition-transform", locationsOpen && "rotate-180")}
-                      />
-                    )}
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-1 pr-4">
-                    <SidebarNavItem
-                      href="/locations/buildings"
-                      label={getLabel("nav.buildings", "المباني")}
-                      icon={Building}
-                      isOpen={sidebarOpen}
-                      subItem
-                      locale={locale}
-                    />
-                    <SidebarNavItem
-                      href="/locations/floors"
-                      label={getLabel("nav.floors", "الأدوار")}
-                      icon={Layers}
-                      isOpen={sidebarOpen}
-                      subItem
-                      locale={locale}
-                    />
-                    <SidebarNavItem
-                      href="/locations/rooms"
-                      label={getLabel("nav.rooms", "الغرف")}
-                      icon={Home}
-                      isOpen={sidebarOpen}
-                      subItem
-                      locale={locale}
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-
-              {/* إعداد المركبات */}
-              <div ref={vehiclesRef}>
-                <Collapsible open={vehiclesSettingsOpen} onOpenChange={setVehiclesSettingsOpen} className="space-y-1">
-                  <CollapsibleTrigger
-                    className="w-full flex items-center justify-between px-4 py-2 text-muted-foreground font-bold text-[13px] rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
-                  >
-                    <div className="flex items-center gap-2">
-                      <Truck className="h-4 w-4" />
-                      {sidebarOpen && <span>{getLabel("vehiclesSettings", "إعداد المركبات")}</span>}
-                    </div>
-                    {sidebarOpen && (
-                      <ChevronDown
-                        size={14}
-                        className={cn("transition-transform", vehiclesSettingsOpen && "rotate-180")}
-                      />
-                    )}
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-1 pr-4">
-                    <SidebarNavItem
-                      href="/admin/drivers"
-                      label={getLabel("nav.drivers", "السائقين")}
-                      icon={UserRound}
-                      isOpen={sidebarOpen}
-                      subItem
-                      locale={locale}
-                    />
-                    <SidebarNavItem
-                      href="/admin/vehicles"
-                      label={getLabel("nav.vehiclesList", "المركبات")}
-                      icon={Truck}
-                      isOpen={sidebarOpen}
-                      subItem
-                      locale={locale}
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-
-              {/* إعداد المعجم */}
-              <div ref={dictionariesRef}>
-                <Collapsible open={dictionariesOpen} onOpenChange={setDictionariesOpen} className="space-y-1">
-                  <CollapsibleTrigger
-                    className="w-full flex items-center justify-between px-4 py-2 text-muted-foreground font-bold text-[13px] rounded-xl hover:bg-primary/10 hover:text-primary transition-all"
-                  >
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" />
-                      {sidebarOpen && <span>{getLabel("dictionariesSettings", "إعداد المعجم")}</span>}
-                    </div>
-                    {sidebarOpen && (
-                      <ChevronDown
-                        size={14}
-                        className={cn("transition-transform", dictionariesOpen && "rotate-180")}
-                      />
-                    )}
-                  </CollapsibleTrigger>
-                  <CollapsibleContent className="space-y-1 pr-4">
-                    <SidebarNavItem
-                      href="/settings/asset-types"
-                      label={getLabel("nav.assetTypes", "أنواع الأصول")}
-                      icon={Tag}
-                      isOpen={sidebarOpen}
-                      subItem
-                      locale={locale}
-                    />
-                    <SidebarNavItem
-                      href="/settings/work-order-statuses"
-                      label={getLabel("nav.workOrderStatuses", "حالات أوامر العمل")}
-                      icon={ClipboardList}
-                      isOpen={sidebarOpen}
-                      subItem
-                      locale={locale}
-                    />
-                    <SidebarNavItem
-                      href="/settings/asset-statuses"
-                      label={getLabel("nav.assetStatuses", "حالات الأصول")}
-                      icon={Package}
-                      isOpen={sidebarOpen}
-                      subItem
-                      locale={locale}
-                    />
-                    <SidebarNavItem
-                      href="/settings/work-order-priorities"
-                      label={getLabel("nav.workOrderPriorities", "أولويات أوامر العمل")}
-                      icon={TrendingUp}
-                      isOpen={sidebarOpen}
-                      subItem
-                      locale={locale}
-                    />
-                  </CollapsibleContent>
-                </Collapsible>
-              </div>
-
-              {/* إعداد الصلاحيات */}
-              <SidebarNavItem
-                href="/users"
-                label={getLabel("nav.users", "المستخدمون")}
-                icon={Users}
-                isOpen={sidebarOpen}
-                subItem
-                locale={locale}
-              />
-              <SidebarNavItem
-                href="/admin/roles-permissions"
-                label={getLabel("nav.permissions", "الصلاحيات")}
-                icon={KeyRound}
-                isOpen={sidebarOpen}
-                subItem
-                locale={locale}
-              />
-
-              <button
-                onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
-                className={cn(
-                  "w-full flex items-center gap-4 py-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl mt-2",
-                  !sidebarOpen && "justify-center px-0"
-                )}
-              >
-                <LogOut className="h-5 w-5 shrink-0" />
-                {sidebarOpen && <span className="text-[15px] font-bold">{getLabel("logout", "تسجيل الخروج")}</span>}
-              </button>
-            </CollapsibleContent>
-          </Collapsible>
+              <LogOut className="h-5 w-5 shrink-0" />
+              {sidebarOpen && <span className="text-[15px] font-bold">{getLabel("logout", "تسجيل الخروج")}</span>}
+            </button>
+          </SidebarSection>
         )}
 
         {!isSuperAdmin && !sidebarOpen && (
@@ -473,72 +379,5 @@ export default function Sidebar() {
       </nav>
       <div className="p-2 shrink-0" />
     </aside>
-  );
-}
-
-// مكون عنصر التنقل مع دعم الإشعارات
-function SidebarNavItem({
-  href,
-  label,
-  icon: Icon,
-  isOpen,
-  isActive,
-  subItem,
-  locale,
-  badgeCount,
-}: {
-  href: string;
-  label: string;
-  icon: LucideIcon; // ✅ تحسين Type Safety
-  isOpen: boolean;
-  isActive?: boolean;
-  subItem?: boolean;
-  locale: string;
-  badgeCount?: number;
-}) {
-  const finalHref = `/${locale}${href}`;
-  return (
-    <Link
-      href={finalHref}
-      className={cn(
-        "flex items-center gap-4 transition-all duration-200 group relative rounded-2xl",
-        !isOpen ? "justify-center px-0" : "px-4",
-        isActive
-          ? "bg-black text-white dark:bg-white dark:text-black shadow-lg"
-          : "text-muted-foreground hover:bg-primary/10 hover:text-primary",
-        subItem ? "py-2 pl-6" : "py-3.5"
-      )}
-    >
-      <Icon
-        className={cn(
-          "shrink-0 transition-transform duration-300",
-          subItem ? "h-4 w-4" : "h-5 w-5",
-          isOpen && "group-hover:scale-110"
-        )}
-      />
-      {isOpen ? (
-        <span className="flex-1 flex items-center justify-between truncate tracking-tight">
-          <span
-            className={cn(
-              subItem ? "text-[13px] font-medium" : "text-[15px] font-bold",
-              isActive && "font-black"
-            )}
-          >
-            {label}
-          </span>
-          {badgeCount !== undefined && badgeCount > 0 && (
-            <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 min-w-[20px] px-1.5 flex items-center justify-center">
-              {badgeCount > 99 ? "99+" : badgeCount}
-            </span>
-          )}
-        </span>
-      ) : (
-        badgeCount !== undefined && badgeCount > 0 && (
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center">
-            {badgeCount > 9 ? "9+" : badgeCount}
-          </span>
-        )
-      )}
-    </Link>
   );
 }

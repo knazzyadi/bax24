@@ -4,13 +4,13 @@
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "@/components/theme-provider";
 import { useSession, signOut } from "next-auth/react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge"; // ✅ أضفنا Badge للإشعار
+import { useOutsideClick } from "@/hooks/useOutsideClick";
 import {
   Collapsible,
   CollapsibleContent,
@@ -39,7 +39,6 @@ import {
   Users,
   KeyRound,
   ShieldCheck,
-  AlertCircle,
   BookOpen,
   Settings,
   Tag,
@@ -47,8 +46,9 @@ import {
   Truck,
   UserRound,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-// قائمة العناصر الرئيسية (بالترتيب المطلوب)
+// قائمة العناصر الرئيسية
 const MAIN_MENU_ITEMS = [
   { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
   { href: "/work-orders", labelKey: "nav.workOrders", icon: ClipboardList },
@@ -72,36 +72,39 @@ const SUPER_ADMIN_ITEMS = [
 export default function Sidebar() {
   const t = useTranslations("Sidebar");
   const pathname = usePathname();
+  const router = useRouter();
+  const locale = useLocale(); // ✅ أفضل من pathname.split
   const { theme, setTheme } = useTheme();
-  const { data: session, status } = useSession();
+  const { data: session } = useSession();
 
-  const locale = pathname.split("/")[1] || "ar";
   const isRTL = locale === "ar";
-
   const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [locationsOpen, setLocationsOpen] = useState(false);
   const [vehiclesSettingsOpen, setVehiclesSettingsOpen] = useState(false);
   const [dictionariesOpen, setDictionariesOpen] = useState(false);
-
-  // ✅ حالة عدد البلاغات المعلقة
   const [pendingTicketsCount, setPendingTicketsCount] = useState<number>(0);
 
-  // Refs للقوائم القابلة للطي
+  // Refs للقوائم
   const settingsRef = useRef<HTMLDivElement>(null);
   const locationsRef = useRef<HTMLDivElement>(null);
   const vehiclesRef = useRef<HTMLDivElement>(null);
   const dictionariesRef = useRef<HTMLDivElement>(null);
 
-  // ✅ جلب عدد البلاغات المعلقة (PENDING)
+  // ✅ استخدام الـ Hook الموحد بدلاً من useEffect المكررة
+  useOutsideClick(settingsRef, () => setSettingsOpen(false), settingsOpen);
+  useOutsideClick(locationsRef, () => setLocationsOpen(false), locationsOpen);
+  useOutsideClick(vehiclesRef, () => setVehiclesSettingsOpen(false), vehiclesSettingsOpen);
+  useOutsideClick(dictionariesRef, () => setDictionariesOpen(false), dictionariesOpen);
+
+  // ✅ جلب عدد البلاغات المعلقة
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
-        const res = await fetch(`/api/tickets/count?status=PENDING`);
+        const res = await fetch("/api/tickets/count?status=PENDING");
         if (res.ok) {
           const data = await res.json();
-          console.log("Pending count response:", data);
           setPendingTicketsCount(data.count || 0);
         } else {
           setPendingTicketsCount(0);
@@ -111,71 +114,12 @@ export default function Sidebar() {
         setPendingTicketsCount(0);
       }
     };
-
     fetchPendingCount();
-
-    // تحديث كل 30 ثانية
     const interval = setInterval(fetchPendingCount, 30000);
     return () => clearInterval(interval);
-  }, [locale]);
+  }, []);
 
-  // إغلاق القوائم عند الضغط خارجها
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (settingsRef.current && !settingsRef.current.contains(event.target as Node)) {
-        setSettingsOpen(false);
-      }
-    };
-    if (settingsOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    } else {
-      document.removeEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [settingsOpen]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (locationsRef.current && !locationsRef.current.contains(event.target as Node)) {
-        setLocationsOpen(false);
-      }
-    };
-    if (locationsOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    } else {
-      document.removeEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [locationsOpen]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (vehiclesRef.current && !vehiclesRef.current.contains(event.target as Node)) {
-        setVehiclesSettingsOpen(false);
-      }
-    };
-    if (vehiclesSettingsOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    } else {
-      document.removeEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [vehiclesSettingsOpen]);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dictionariesRef.current && !dictionariesRef.current.contains(event.target as Node)) {
-        setDictionariesOpen(false);
-      }
-    };
-    if (dictionariesOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    } else {
-      document.removeEventListener("mousedown", handleClickOutside);
-    }
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [dictionariesOpen]);
-
+  // إغلاق القوائم عند تغيير المسار
   useEffect(() => {
     setSettingsOpen(false);
     setLocationsOpen(false);
@@ -193,10 +137,11 @@ export default function Sidebar() {
     return translated === key ? fallback : translated;
   };
 
+  // ✅ استخدام router.push بدلاً من window.location.href
   const switchLocale = () => {
     const newLocale = locale === "ar" ? "en" : "ar";
     const newPath = pathname.replace(`/${locale}`, `/${newLocale}`);
-    window.location.href = newPath;
+    router.push(newPath);
   };
 
   const toggleTheme = () => {
@@ -211,7 +156,6 @@ export default function Sidebar() {
     );
   };
 
-  // ✅ دالة مساعدة لعرض عنصر التنقل مع إشعار للبلاغات
   const renderNavItem = (item: typeof MAIN_MENU_ITEMS[0]) => {
     let badgeCount: number | undefined;
     if (item.href === "/tickets" && pendingTicketsCount > 0) {
@@ -224,7 +168,7 @@ export default function Sidebar() {
         label={getLabel(item.labelKey, item.labelKey)}
         icon={item.icon}
         isOpen={sidebarOpen}
-        isActive={pathname === `/${locale}${item.href}`}
+        isActive={pathname.startsWith(`/${locale}${item.href}`)} // ✅ استخدام startsWith
         locale={locale}
         badgeCount={badgeCount}
       />
@@ -235,7 +179,7 @@ export default function Sidebar() {
     <aside
       dir={isRTL ? "rtl" : "ltr"}
       className={cn(
-        "sticky top-0 h-screen bg-card border-e border-border flex flex-col",
+        "sticky top-0 h-screen bg-card border-e border-border flex flex-col transition-all duration-300", // ✅ إضافة transition
         sidebarOpen ? "w-72" : "w-20"
       )}
     >
@@ -266,7 +210,7 @@ export default function Sidebar() {
               size="icon"
               onClick={switchLocale}
               className="h-7 w-7 rounded-full"
-              title={locale === "ar" ? "English" : "العربية"}
+              aria-label={locale === "ar" ? "English" : "العربية"}
             >
               <Globe size={14} />
             </Button>
@@ -275,6 +219,7 @@ export default function Sidebar() {
               size="icon"
               onClick={toggleTheme}
               className="h-7 w-7 rounded-full"
+              aria-label="Toggle theme"
             >
               {getThemeIcon()}
             </Button>
@@ -283,6 +228,7 @@ export default function Sidebar() {
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="h-7 w-7 rounded-full shrink-0"
+              aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               {sidebarOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
             </Button>
@@ -306,13 +252,12 @@ export default function Sidebar() {
               label={getLabel(item.labelKey, item.labelKey)}
               icon={item.icon}
               isOpen={sidebarOpen}
-              isActive={pathname === `/${locale}${item.href}`}
+              isActive={pathname.startsWith(`/${locale}${item.href}`)}
               locale={locale}
             />
           ))}
 
-        {!isSuperAdmin &&
-          MAIN_MENU_ITEMS.map((item) => renderNavItem(item))}
+        {!isSuperAdmin && MAIN_MENU_ITEMS.map((item) => renderNavItem(item))}
 
         {!isSuperAdmin && (
           <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className="space-y-1">
@@ -323,7 +268,7 @@ export default function Sidebar() {
               )}
             >
               <div className="flex items-center gap-4">
-                <Settings className="h-5 w-5 group-hover:text-primary transition-colors" />
+                <Settings className="h-5 w-5" />
                 {sidebarOpen && <span>{getLabel("settings", "الإعدادات")}</span>}
               </div>
               {sidebarOpen && (
@@ -490,7 +435,6 @@ export default function Sidebar() {
                 locale={locale}
               />
 
-              {/* زر تسجيل الخروج */}
               <button
                 onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
                 className={cn(
@@ -545,7 +489,7 @@ function SidebarNavItem({
 }: {
   href: string;
   label: string;
-  icon: any;
+  icon: LucideIcon; // ✅ تحسين Type Safety
   isOpen: boolean;
   isActive?: boolean;
   subItem?: boolean;

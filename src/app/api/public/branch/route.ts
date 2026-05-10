@@ -23,6 +23,7 @@ export async function GET(req: Request) {
       select: {
         id: true,
         name: true,
+        nameEn: true,
         slug: true,
         allowPublicTickets: true, // تمت الإضافة
       },

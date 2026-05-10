@@ -140,13 +140,13 @@ export default function PublicTicketPage() {
   };
 
   // ============================================================
-  // Data fetching
+  // Data fetching (with proper abort signals and branchId passing)
   // ============================================================
-  const fetchBuildings = useCallback(async () => {
-    if (!branch?.id) return;
+  const fetchBuildings = useCallback(async (branchId: string) => {
+    if (!branchId) return;
     setLoadingBuildings(true);
     try {
-      const res = await fetch(`/api/public/buildings?slug=${slug}&token=${token}&branchId=${branch.id}`);
+      const res = await fetch(`/api/public/buildings?slug=${slug}&token=${token}&branchId=${branchId}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       setBuildings(data);
@@ -155,7 +155,7 @@ export default function PublicTicketPage() {
     } finally {
       setLoadingBuildings(false);
     }
-  }, [slug, token, branch?.id, isRtl]);
+  }, [slug, token, isRtl]);
 
   const fetchAssetTypes = useCallback(async () => {
     setLoadingAssetTypes(true);
@@ -191,8 +191,10 @@ export default function PublicTicketPage() {
           setBranchError(isRtl ? "البلاغات العامة لهذا الفرع معطلة" : "Public tickets are disabled for this branch");
           return;
         }
+        // تعيين الفرع أولاً
         setBranch(data.branch);
-        await fetchBuildings();
+        // ثم جلب المباني باستخدام ID الفرع الجديد
+        await fetchBuildings(data.branch.id);
         await fetchAssetTypes();
       } catch (error: any) {
         if (error?.name !== "AbortError") {
@@ -206,7 +208,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [slug, token, isRtl, fetchBuildings, fetchAssetTypes]);
 
-  // Floors
+  // Floors (with abort signal properly passed)
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -216,7 +218,9 @@ export default function PublicTicketPage() {
     const fetchFloors = async () => {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/public/floors?slug=${slug}&token=${token}&buildingId=${buildingId}`);
+        const res = await fetch(`/api/public/floors?slug=${slug}&token=${token}&buildingId=${buildingId}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error();
         setFloors(await res.json());
       } catch {
@@ -229,7 +233,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [buildingId, slug, token]);
 
-  // Rooms
+  // Rooms (with abort signal properly passed)
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -239,7 +243,9 @@ export default function PublicTicketPage() {
     const fetchRooms = async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/public/rooms?slug=${slug}&token=${token}&floorId=${floorId}`);
+        const res = await fetch(`/api/public/rooms?slug=${slug}&token=${token}&floorId=${floorId}`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error();
         setRooms(await res.json());
       } catch {
@@ -252,7 +258,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [floorId, slug, token]);
 
-  // Assets
+  // Assets (with abort signal already correct)
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
@@ -309,14 +315,15 @@ export default function PublicTicketPage() {
   };
 
   // ============================================================
-  // Images handling with custom button
+  // Images handling with cumulative limit and memory cleanup
   // ============================================================
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
     const imageFiles = selected.filter(
       file => file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024
     );
-    if (selected.length > 5) {
+    // التحقق التراكمي: files.length + imageFiles.length <= 5
+    if (files.length + imageFiles.length > 5) {
       toast.error(isRtl ? "الحد الأقصى 5 صور" : "Maximum 5 images");
       return;
     }
@@ -334,9 +341,13 @@ export default function PublicTicketPage() {
   useEffect(() => () => previews.forEach(url => URL.revokeObjectURL(url)), [previews]);
 
   // ============================================================
-  // Reset form for new ticket
+  // Reset form with proper memory cleanup
   // ============================================================
   const resetForm = () => {
+    // تنظيف جميع المعاينات من الذاكرة
+    previews.forEach(url => URL.revokeObjectURL(url));
+    setPreviews([]);
+    setFiles([]);
     setForm({
       title: "",
       description: "",
@@ -347,8 +358,6 @@ export default function PublicTicketPage() {
       assetTypeId: "",
       assetId: "none",
     });
-    setFiles([]);
-    setPreviews([]);
     setBuildingId("");
     setFloorId("");
     setRoomId("");
@@ -527,7 +536,6 @@ export default function PublicTicketPage() {
                 <h1 className="text-3xl font-bold text-foreground">
                   {isRtl ? "بلاغ صيانة جديد" : "New Maintenance Ticket"}
                 </h1>
-                {/* عرض اسم الفرع باللغة المناسبة */}
                 <p className="text-base text-muted-foreground mt-1">
                   {isRtl ? branch.name : (branch.nameEn || branch.name)}
                 </p>
@@ -558,6 +566,7 @@ export default function PublicTicketPage() {
                     className="h-12 text-base"
                     placeholder={isRtl ? "مثال: عطل في التكييف" : "e.g., AC malfunction"}
                     disabled={isSubmitting}
+                    autoComplete="off"
                   />
                 </div>
 
@@ -571,6 +580,7 @@ export default function PublicTicketPage() {
                     className="text-base"
                     placeholder={isRtl ? "تفاصيل المشكلة" : "Problem details"}
                     disabled={isSubmitting}
+                    autoComplete="off"
                   />
                 </div>
 
@@ -665,6 +675,7 @@ export default function PublicTicketPage() {
                     className="h-12 text-base"
                     placeholder={isRtl ? "الاسم الكامل" : "Full name"}
                     disabled={isSubmitting}
+                    autoComplete="name"
                   />
                 </div>
                 <div>
@@ -676,6 +687,7 @@ export default function PublicTicketPage() {
                     className="h-12 text-base"
                     placeholder="example@domain.com"
                     disabled={isSubmitting}
+                    autoComplete="email"
                   />
                 </div>
                 <div>
@@ -686,6 +698,7 @@ export default function PublicTicketPage() {
                     className="h-12 text-base"
                     placeholder={isRtl ? "05xxxxxxxx" : "+9665xxxxxxxx"}
                     disabled={isSubmitting}
+                    autoComplete="tel"
                   />
                 </div>
 

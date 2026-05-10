@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { generateWorkOrderCode } from "@/lib/generateCode"; // ✅ استيراد الدالة
 
 // ========== GET: جلب أوامر العمل مع دعم الفلترة والفروع ==========
 export async function GET(request: NextRequest) {
@@ -54,7 +55,6 @@ export async function GET(request: NextRequest) {
       ];
     }
     if (assetId) {
-      // البحث عن أوامر عمل تحتوي على أصل معين عبر WorkOrderAsset
       where.workOrderAssets = { some: { assetId } };
     }
 
@@ -78,7 +78,6 @@ export async function GET(request: NextRequest) {
       prisma.workOrder.count({ where }),
     ]);
 
-    // ✅ إضافة نوع صريح للمعامل wo
     const serialized = workOrders.map((wo: any) => ({
       ...wo,
       createdAt: wo.createdAt.toISOString(),
@@ -135,18 +134,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // توليد كود فريد
-    const lastOrder = await prisma.workOrder.findFirst({
-      where: { companyId },
-      orderBy: { createdAt: "desc" },
-      select: { code: true },
-    });
-    let nextNumber = 1;
-    if (lastOrder?.code) {
-      const match = lastOrder.code.match(/\d+$/);
-      if (match) nextNumber = parseInt(match[0]) + 1;
-    }
-    const code = `WO-${nextNumber.toString().padStart(4, "0")}`;
+    // ✅ استخدام الدالة المركزية لتوليد كود فريد لأمر العمل
+    const code = await generateWorkOrderCode(companyId, branchId);
 
     // ========== التحقق من صحة priorityId و statusId ==========
     let validPriorityId = null;

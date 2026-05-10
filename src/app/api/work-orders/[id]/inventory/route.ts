@@ -33,7 +33,7 @@ export async function GET(
       where: { workOrderId: id },
       include: { inventoryItem: true },
     });
-    return NextResponse.json(items);
+    return NextResponse.json(items || []);
   } catch (error) {
     console.error("GET /api/work-orders/[id]/inventory error:", error);
     return NextResponse.json({ error: "خطأ في جلب القطع" }, { status: 500 });

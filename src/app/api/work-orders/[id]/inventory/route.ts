@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
+import { Prisma } from "@prisma/client";
 
 // GET: جلب جميع قطع الغيار المرتبطة بأمر العمل
 export async function GET(
@@ -10,17 +11,23 @@ export async function GET(
 ) {
   try {
     const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
     await requirePermission("work_orders.read", session);
 
     const { id } = await params;
     const companyId = session.user.companyId;
-    if (!companyId) return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
+    if (!companyId) {
+      return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
+    }
 
     const workOrder = await prisma.workOrder.findFirst({
       where: { id, companyId, deletedAt: null },
     });
-    if (!workOrder) return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
+    if (!workOrder) {
+      return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
+    }
 
     const items = await prisma.workOrderInventory.findMany({
       where: { workOrderId: id },
@@ -28,7 +35,7 @@ export async function GET(
     });
     return NextResponse.json(items);
   } catch (error) {
-    console.error(error);
+    console.error("GET /api/work-orders/[id]/inventory error:", error);
     return NextResponse.json({ error: "خطأ في جلب القطع" }, { status: 500 });
   }
 }
@@ -40,7 +47,9 @@ export async function POST(
 ) {
   try {
     const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
     await requirePermission("work_orders.update", session);
 
     const { id } = await params;
@@ -52,29 +61,28 @@ export async function POST(
     }
 
     const companyId = session.user.companyId;
-    // التحقق من صلاحية أمر العمل
     const workOrder = await prisma.workOrder.findFirst({
       where: { id, companyId, deletedAt: null },
     });
-    if (!workOrder) return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
+    if (!workOrder) {
+      return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
+    }
 
-    // جلب الصنف من المخزون مع التحقق من الشركة
     const inventoryItem = await prisma.inventoryItem.findFirst({
       where: { id: inventoryItemId, companyId, deletedAt: null },
     });
-    if (!inventoryItem) return NextResponse.json({ error: "الصنف غير موجود" }, { status: 404 });
+    if (!inventoryItem) {
+      return NextResponse.json({ error: "الصنف غير موجود" }, { status: 404 });
+    }
     if (inventoryItem.quantity < quantity) {
       return NextResponse.json({ error: "الكمية المطلوبة أكبر من المتوفر" }, { status: 400 });
     }
 
-    // استخدام transaction لتحديث المخزون وإنشاء السجل
-    const result = await prisma.$transaction(async (tx) => {
-      // خصم الكمية
+    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.inventoryItem.update({
         where: { id: inventoryItemId },
         data: { quantity: { decrement: quantity } },
       });
-      // إنشاء سجل الربط
       const workOrderInventory = await tx.workOrderInventory.create({
         data: {
           workOrderId: id,
@@ -89,7 +97,7 @@ export async function POST(
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    console.error(error);
+    console.error("POST /api/work-orders/[id]/inventory error:", error);
     return NextResponse.json({ error: "فشل إضافة القطعة" }, { status: 500 });
   }
 }
@@ -101,24 +109,28 @@ export async function DELETE(
 ) {
   try {
     const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
     await requirePermission("work_orders.update", session);
 
     const { id } = await params;
     const { searchParams } = new URL(req.url);
     const inventoryItemId = searchParams.get("inventoryItemId");
-    if (!inventoryItemId) return NextResponse.json({ error: "معرف الصنف مطلوب" }, { status: 400 });
+    if (!inventoryItemId) {
+      return NextResponse.json({ error: "معرف الصنف مطلوب" }, { status: 400 });
+    }
 
     const companyId = session.user.companyId;
 
-    // التحقق من وجود السجل
     const record = await prisma.workOrderInventory.findFirst({
       where: { workOrderId: id, inventoryItemId },
     });
-    if (!record) return NextResponse.json({ error: "السجل غير موجود" }, { status: 404 });
+    if (!record) {
+      return NextResponse.json({ error: "السجل غير موجود" }, { status: 404 });
+    }
 
-    // حذف وإعادة الكمية إلى المخزون
-    await prisma.$transaction(async (tx) => {
+    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
       await tx.inventoryItem.update({
         where: { id: inventoryItemId },
         data: { quantity: { increment: record.quantity } },
@@ -130,7 +142,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: "تم حذف القطعة وإعادة الكمية" });
   } catch (error) {
-    console.error(error);
+    console.error("DELETE /api/work-orders/[id]/inventory error:", error);
     return NextResponse.json({ error: "فشل حذف القطعة" }, { status: 500 });
   }
 }

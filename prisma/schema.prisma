@@ -3,8 +3,8 @@ generator client {
 }
 
 datasource db {
-  provider          = "postgresql"
-  url               = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 model Company {
@@ -81,31 +81,21 @@ model UserBranch {
 
 model Branch {
   id                   String                @id @default(cuid())
-
-  // Basic Info
   name                 String
-  nameEn               String?
   code                 String                @unique
-
-  // Public Ticket Access
-  slug                 String                @unique
-  publicToken          String                @unique
-  allowPublicTickets   Boolean               @default(true)
-
-  // Relations
   companyId            String
-  company              Company               @relation(fields: [companyId], references: [id])
-
-  // Timestamps
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
-
-  // Related Models
+  nameEn               String?
+  allowPublicTickets   Boolean               @default(true)
+  publicToken          String                @unique
+  slug                 String                @unique
   contracts            Contract[]
   maintenanceSchedules MaintenanceSchedule[]
   tickets              Ticket[]
   workOrders           WorkOrder[]
   assets               Asset[]
+  company              Company               @relation(fields: [companyId], references: [id])
   buildings            Building[]
   userBranches         UserBranch[]
 
@@ -249,25 +239,41 @@ model Asset {
 }
 
 model InventoryItem {
-  id          String    @id @default(cuid())
-  sku         String?   @unique
-  name        String
-  nameEn      String?
-  quantity    Int       @default(0)
-  minQuantity Int       @default(0)
-  unit        String?   @default("قطعة")
-  notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  deletedAt   DateTime?
-  roomId      String
-  companyId   String
-  company     Company   @relation(fields: [companyId], references: [id])
-  room        Room      @relation(fields: [roomId], references: [id])
+  id                 String               @id @default(cuid())
+  sku                String?              @unique
+  name               String
+  nameEn             String?
+  quantity           Int                  @default(0)
+  minQuantity        Int                  @default(0)
+  unit               String?              @default("قطعة")
+  notes              String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  deletedAt          DateTime?
+  roomId             String
+  companyId          String
+  company            Company              @relation(fields: [companyId], references: [id])
+  room               Room                 @relation(fields: [roomId], references: [id])
+  workOrderInventory WorkOrderInventory[]
 
   @@index([companyId])
   @@index([roomId])
   @@index([sku])
+}
+
+model WorkOrderInventory {
+  id              String        @id @default(cuid())
+  workOrderId     String
+  inventoryItemId String
+  quantity        Int
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  inventoryItem   InventoryItem @relation(fields: [inventoryItemId], references: [id], onDelete: Cascade)
+  workOrder       WorkOrder     @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@unique([workOrderId, inventoryItemId])
+  @@map("work_order_inventory")
 }
 
 model Contract {
@@ -300,31 +306,32 @@ model Contract {
 }
 
 model WorkOrder {
-  id              String             @id @default(cuid())
-  code            String?            @unique
-  title           String
-  description     String?
-  type            WorkOrderType      @default(MAINTENANCE)
-  priorityId      String?
-  statusId        String?
-  roomId          String?
-  notes           String?
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  deletedAt       DateTime?
-  companyId       String
-  branchId        String?
-  createdBy       String?
-  assetTypeId     String?
-  ticketId        String?            @unique
-  assetType       AssetType?         @relation(fields: [assetTypeId], references: [id])
-  branch          Branch?            @relation(fields: [branchId], references: [id])
-  company         Company            @relation(fields: [companyId], references: [id])
-  priority        WorkOrderPriority? @relation(fields: [priorityId], references: [id])
-  room            Room?              @relation(fields: [roomId], references: [id])
-  status          WorkOrderStatus?   @relation(fields: [statusId], references: [id])
-  ticket          Ticket?            @relation(fields: [ticketId], references: [id])
-  workOrderAssets WorkOrderAsset[]
+  id                 String               @id @default(cuid())
+  code               String?              @unique
+  title              String
+  description        String?
+  type               WorkOrderType        @default(MAINTENANCE)
+  priorityId         String?
+  statusId           String?
+  roomId             String?
+  notes              String?
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
+  deletedAt          DateTime?
+  companyId          String
+  branchId           String?
+  createdBy          String?
+  assetTypeId        String?
+  ticketId           String?              @unique
+  assetType          AssetType?           @relation(fields: [assetTypeId], references: [id])
+  branch             Branch?              @relation(fields: [branchId], references: [id])
+  company            Company              @relation(fields: [companyId], references: [id])
+  priority           WorkOrderPriority?   @relation(fields: [priorityId], references: [id])
+  room               Room?                @relation(fields: [roomId], references: [id])
+  status             WorkOrderStatus?     @relation(fields: [statusId], references: [id])
+  ticket             Ticket?              @relation(fields: [ticketId], references: [id])
+  workOrderAssets    WorkOrderAsset[]
+  workOrderInventory WorkOrderInventory[]
 
   @@index([companyId])
   @@index([branchId])
@@ -347,7 +354,6 @@ model MaintenanceSchedule {
   id             String          @id @default(cuid())
   name           String
   frequency      String
-  frequencyDays Int?
   leadDays       Int             @default(30)
   branchId       String?
   buildingId     String?
@@ -359,6 +365,7 @@ model MaintenanceSchedule {
   lastRunAt      DateTime?
   notes          String?
   startDate      DateTime?
+  frequencyDays  Int?
   assetType      AssetType?      @relation(fields: [assetTypeId], references: [id])
   branch         Branch?         @relation(fields: [branchId], references: [id])
   building       Building?       @relation(fields: [buildingId], references: [id])
@@ -420,11 +427,11 @@ model Ticket {
   createdBy       String?
   type            String
   phone           String?
-  imageUrl      String?
   reporterEmail   String
   reporterName    String
   status          String        @default("PENDING")
   rejectionReason String?
+  imageUrl        String?
   asset           Asset?        @relation(fields: [assetId], references: [id])
   branch          Branch?       @relation(fields: [branchId], references: [id])
   company         Company       @relation(fields: [companyId], references: [id])

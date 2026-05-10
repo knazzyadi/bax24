@@ -1001,6 +1001,8 @@
     "saving": "Saving..."
   },
   "WorkOrders": {
+    "itemAdded": "Part added successfully",
+    "noItemsAvailable": "No spare parts available",
      "spareParts": "Spare Parts",
     "addPart": "Add Part",
     "itemName": "Item Name",

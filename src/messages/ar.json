@@ -1005,6 +1005,8 @@
     "saving": "جاري الحفظ..."
   },
   "WorkOrders": {
+    "itemAdded": "تم إضافة القطعة بنجاح",
+    "noItemsAvailable": "لا توجد قطع غيار متاحة",
     "spareParts": "قطع الغيار",
     "addPart": "إضافة قطعة",
     "itemName": "اسم القطعة",

@@ -39,6 +39,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [availableItems, setAvailableItems] = useState<InventoryItem[]>([]);
+  const [loadingAvailable, setLoadingAvailable] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState("");
@@ -49,7 +50,6 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     try {
       const res = await fetch(`/api/work-orders/${workOrderId}/inventory`);
       const data = await res.json();
-      // تأكد من أن البيانات مصفوفة
       if (Array.isArray(data)) {
         setItems(data);
       } else {
@@ -67,17 +67,24 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
   };
 
   const fetchAvailableItems = async () => {
+    setLoadingAvailable(true);
     try {
       const res = await fetch("/api/inventory?inStock=true");
       const data = await res.json();
+      // ✅ API الآن يعيد مصفوفة مباشرة عند inStock=true
       if (Array.isArray(data)) {
         setAvailableItems(data);
       } else {
+        console.error("Expected array, got", data);
         setAvailableItems([]);
+        toast.error(t("fetchInventoryError"));
       }
     } catch (error) {
       console.error(error);
       setAvailableItems([]);
+      toast.error(t("fetchInventoryError"));
+    } finally {
+      setLoadingAvailable(false);
     }
   };
 
@@ -193,18 +200,24 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
           <div className="space-y-4 py-2">
             <div>
               <Label>{t("item")}</Label>
-              <Select value={selectedItemId} onValueChange={setSelectedItemId}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t("selectItem")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {availableItems.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.name} ({item.sku}) - متوفر: {item.quantity} {item.unit}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {loadingAvailable ? (
+                <div className="flex justify-center py-4"><Loader2 className="animate-spin h-5 w-5" /></div>
+              ) : availableItems.length === 0 ? (
+                <p className="text-sm text-muted-foreground">{t("noItemsAvailable")}</p>
+              ) : (
+                <Select value={selectedItemId} onValueChange={setSelectedItemId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder={t("selectItem")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableItems.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.name} ({item.sku}) - {t("availableQuantity")}: {item.quantity} {item.unit || ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
             <div>
               <Label>{t("quantity")}</Label>
@@ -217,7 +230,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>{t("cancel")}</Button>
-            <Button onClick={handleAdd} disabled={submitting}>
+            <Button onClick={handleAdd} disabled={submitting || !selectedItemId}>
               {submitting && <Loader2 className="animate-spin mr-2 h-4 w-4" />}
               {t("add")}
             </Button>

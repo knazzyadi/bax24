@@ -45,7 +45,6 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  // جلب قطع الغيار المرتبطة بأمر العمل
   const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
@@ -67,7 +66,6 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     }
   }, [workOrderId, t]);
 
-  // جلب جميع قطع الغيار المتاحة في المخزون (الكمية > 0)
   const fetchAvailableItems = useCallback(async () => {
     setLoadingAvailable(true);
     try {
@@ -89,7 +87,6 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     }
   }, [t]);
 
-  // تحميل العناصر عند تحميل المكون أو تغيير workOrderId
   useEffect(() => {
     fetchItems();
   }, [fetchItems]);
@@ -124,7 +121,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
       }
       toast.success(t("itemAdded"));
       setDialogOpen(false);
-      await fetchItems(); // انتظار التحديث
+      await fetchItems();
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -140,7 +137,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
       });
       if (!res.ok) throw new Error();
       toast.success(t("itemRemoved"));
-      await fetchItems(); // انتظار التحديث
+      await fetchItems();
     } catch {
       toast.error(t("deleteError"));
     }
@@ -217,16 +214,21 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
                 <p className="text-sm text-muted-foreground">{t("noItemsAvailable")}</p>
               ) : (
                 <Select value={selectedItemId} onValueChange={setSelectedItemId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t("selectItem")} />
+                  <SelectTrigger className="w-full">
+                    {/* ✅ عرض الاسم العربي فقط بعد الاختيار */}
+                    {selectedItemId
+                      ? availableItems.find((item) => item.id === selectedItemId)?.name
+                      : t("selectItem")}
                   </SelectTrigger>
                   <SelectContent>
                     {availableItems.map((item) => (
                       <SelectItem key={item.id} value={item.id}>
-                        {item.name} {/* فقط الاسم، بدون الرمز */}
-                        <span className="text-xs text-muted-foreground block">
-                          {t("availableQuantity")}: {item.quantity} {item.unit || ""}
-                        </span>
+                        <div className="flex flex-col items-start">
+                          <span>{item.name}</span>
+                          <span className="text-xs text-muted-foreground">
+                            {item.sku} - {t("availableQuantity")}: {item.quantity} {item.unit || ""}
+                          </span>
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>

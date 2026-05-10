@@ -16,6 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { AdaptiveSelect } from "@/components/shared/AdaptiveSelect";
+import { useFileUpload } from "@/hooks/useFileUpload";
 import { Moon, Sun, X, Send, Loader2, Info, CheckCircle, Upload } from "lucide-react";
 
 // ============================================================
@@ -105,9 +106,13 @@ export default function PublicTicketPage() {
     assetId: "none",
   });
 
-  // Images
-  const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  // Image upload hook
+  const { files, previews, addFiles, removeFile, resetFiles } = useFileUpload({
+    maxFiles: 5,
+    maxFileSizeMB: 5,
+    isRtl,
+  });
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -191,9 +196,7 @@ export default function PublicTicketPage() {
           setBranchError(isRtl ? "البلاغات العامة لهذا الفرع معطلة" : "Public tickets are disabled for this branch");
           return;
         }
-        // تعيين الفرع أولاً
         setBranch(data.branch);
-        // ثم جلب المباني باستخدام ID الفرع الجديد
         await fetchBuildings(data.branch.id);
         await fetchAssetTypes();
       } catch (error: any) {
@@ -208,7 +211,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [slug, token, isRtl, fetchBuildings, fetchAssetTypes]);
 
-  // Floors (with abort signal properly passed)
+  // Floors
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -233,7 +236,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [buildingId, slug, token]);
 
-  // Rooms (with abort signal properly passed)
+  // Rooms
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -258,7 +261,7 @@ export default function PublicTicketPage() {
     return () => controller.abort();
   }, [floorId, slug, token]);
 
-  // Assets (with abort signal already correct)
+  // Assets
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
@@ -315,39 +318,10 @@ export default function PublicTicketPage() {
   };
 
   // ============================================================
-  // Images handling with cumulative limit and memory cleanup
-  // ============================================================
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selected = Array.from(e.target.files || []);
-    const imageFiles = selected.filter(
-      file => file.type.startsWith("image/") && file.size <= 5 * 1024 * 1024
-    );
-    // التحقق التراكمي: files.length + imageFiles.length <= 5
-    if (files.length + imageFiles.length > 5) {
-      toast.error(isRtl ? "الحد الأقصى 5 صور" : "Maximum 5 images");
-      return;
-    }
-    setFiles(prev => [...prev, ...imageFiles]);
-    const newPreviews = imageFiles.map(file => URL.createObjectURL(file));
-    setPreviews(prev => [...prev, ...newPreviews]);
-  };
-
-  const removeFile = (index: number) => {
-    URL.revokeObjectURL(previews[index]);
-    setFiles(prev => prev.filter((_, i) => i !== index));
-    setPreviews(prev => prev.filter((_, i) => i !== index));
-  };
-
-  useEffect(() => () => previews.forEach(url => URL.revokeObjectURL(url)), [previews]);
-
-  // ============================================================
   // Reset form with proper memory cleanup
   // ============================================================
   const resetForm = () => {
-    // تنظيف جميع المعاينات من الذاكرة
-    previews.forEach(url => URL.revokeObjectURL(url));
-    setPreviews([]);
-    setFiles([]);
+    resetFiles(); // تنظيف الملفات والمعاينات من الذاكرة
     setForm({
       title: "",
       description: "",
@@ -366,7 +340,7 @@ export default function PublicTicketPage() {
   };
 
   // ============================================================
-  // Submit with friendly validation
+  // Submit
   // ============================================================
   const handleSubmit = async () => {
     if (!form.title.trim()) {
@@ -712,7 +686,11 @@ export default function PublicTicketPage() {
                     type="file"
                     accept="image/*"
                     multiple
-                    onChange={handleFileChange}
+                    onChange={(e) => {
+                      const selected = Array.from(e.target.files || []);
+                      if (selected.length) addFiles(selected);
+                      e.target.value = ''; // reset input
+                    }}
                     className="hidden"
                     disabled={isSubmitting}
                   />

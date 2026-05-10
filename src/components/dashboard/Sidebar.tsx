@@ -572,10 +572,14 @@ function SidebarNavItem({
           isOpen && "group-hover:scale-110"
         )}
       />
-      // داخل SidebarNavItem، استبدل الجزء الخاص بالـ Badge بـ:
-      {isOpen && (
+      {isOpen ? (
         <span className="flex-1 flex items-center justify-between truncate tracking-tight">
-          <span className={cn(subItem ? "text-[13px] font-medium" : "text-[15px] font-bold", isActive && "font-black")}>
+          <span
+            className={cn(
+              subItem ? "text-[13px] font-medium" : "text-[15px] font-bold",
+              isActive && "font-black"
+            )}
+          >
             {label}
           </span>
           {badgeCount !== undefined && badgeCount > 0 && (
@@ -584,11 +588,12 @@ function SidebarNavItem({
             </span>
           )}
         </span>
-      )}
-      {!isOpen && badgeCount !== undefined && badgeCount > 0 && (
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center">
-          {badgeCount > 9 ? "9+" : badgeCount}
-        </span>
+      ) : (
+        badgeCount !== undefined && badgeCount > 0 && (
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center">
+            {badgeCount > 9 ? "9+" : badgeCount}
+          </span>
+        )
       )}
     </Link>
   );

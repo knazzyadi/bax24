@@ -1,5 +1,4 @@
 // src/components/dashboard/Sidebar.tsx
-//القائمة الجانبية
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -11,6 +10,7 @@ import { useSession, signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge"; // ✅ أضفنا Badge للإشعار
 import {
   Collapsible,
   CollapsibleContent,
@@ -48,7 +48,7 @@ import {
   UserRound,
 } from "lucide-react";
 
-// قائمة العناصر الرئيسية (بالترتيب المطلوب - تم نقل المركبات تحت الصيانة الدورية)
+// قائمة العناصر الرئيسية (بالترتيب المطلوب)
 const MAIN_MENU_ITEMS = [
   { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
   { href: "/work-orders", labelKey: "nav.workOrders", icon: ClipboardList },
@@ -60,11 +60,11 @@ const MAIN_MENU_ITEMS = [
   { href: "/inventory", labelKey: "nav.inventory", icon: Box },
 ];
 
-// قائمة عناصر السوبر أدمن (تم إضافة الفروع)
+// قائمة عناصر السوبر أدمن
 const SUPER_ADMIN_ITEMS = [
   { href: "/super-admin", labelKey: "nav.superDashboard", icon: ShieldCheck },
   { href: "/super-admin/companies", labelKey: "nav.companies", icon: Building2 },
-  { href: "/super-admin/branches", labelKey: "nav.branches", icon: Building }, // ✅ تمت الإضافة
+  { href: "/super-admin/branches", labelKey: "nav.branches", icon: Building },
   { href: "/super-admin/users", labelKey: "nav.users", icon: Users },
   { href: "/super-admin/settings", labelKey: "nav.settings", icon: Settings },
 ];
@@ -85,11 +85,38 @@ export default function Sidebar() {
   const [vehiclesSettingsOpen, setVehiclesSettingsOpen] = useState(false);
   const [dictionariesOpen, setDictionariesOpen] = useState(false);
 
+  // ✅ حالة عدد البلاغات المعلقة
+  const [pendingTicketsCount, setPendingTicketsCount] = useState<number>(0);
+
   // Refs للقوائم القابلة للطي
   const settingsRef = useRef<HTMLDivElement>(null);
   const locationsRef = useRef<HTMLDivElement>(null);
   const vehiclesRef = useRef<HTMLDivElement>(null);
   const dictionariesRef = useRef<HTMLDivElement>(null);
+
+  // ✅ جلب عدد البلاغات المعلقة (PENDING)
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      try {
+        const res = await fetch(`/${locale}/api/tickets/count?status=PENDING`);
+        if (res.ok) {
+          const data = await res.json();
+          setPendingTicketsCount(data.count || 0);
+        } else {
+          setPendingTicketsCount(0);
+        }
+      } catch (error) {
+        console.error("Failed to fetch pending tickets count", error);
+        setPendingTicketsCount(0);
+      }
+    };
+
+    fetchPendingCount();
+
+    // تحديث كل 30 ثانية
+    const interval = setInterval(fetchPendingCount, 30000);
+    return () => clearInterval(interval);
+  }, [locale]);
 
   // إغلاق القوائم عند الضغط خارجها
   useEffect(() => {
@@ -183,6 +210,26 @@ export default function Sidebar() {
     );
   };
 
+  // ✅ دالة مساعدة لعرض عنصر التنقل مع إشعار للبلاغات
+  const renderNavItem = (item: typeof MAIN_MENU_ITEMS[0]) => {
+    let badgeCount: number | undefined;
+    if (item.href === "/tickets" && pendingTicketsCount > 0) {
+      badgeCount = pendingTicketsCount;
+    }
+    return (
+      <SidebarNavItem
+        key={item.href}
+        href={item.href}
+        label={getLabel(item.labelKey, item.labelKey)}
+        icon={item.icon}
+        isOpen={sidebarOpen}
+        isActive={pathname === `/${locale}${item.href}`}
+        locale={locale}
+        badgeCount={badgeCount}
+      />
+    );
+  };
+
   return (
     <aside
       dir={isRTL ? "rtl" : "ltr"}
@@ -264,17 +311,7 @@ export default function Sidebar() {
           ))}
 
         {!isSuperAdmin &&
-          MAIN_MENU_ITEMS.map((item) => (
-            <SidebarNavItem
-              key={item.href}
-              href={item.href}
-              label={getLabel(item.labelKey, item.labelKey)}
-              icon={item.icon}
-              isOpen={sidebarOpen}
-              isActive={pathname === `/${locale}${item.href}`}
-              locale={locale}
-            />
-          ))}
+          MAIN_MENU_ITEMS.map((item) => renderNavItem(item))}
 
         {!isSuperAdmin && (
           <Collapsible open={settingsOpen} onOpenChange={setSettingsOpen} className="space-y-1">
@@ -425,7 +462,7 @@ export default function Sidebar() {
                     <SidebarNavItem
                       href="/settings/work-order-priorities"
                       label={getLabel("nav.workOrderPriorities", "أولويات أوامر العمل")}
-                      icon={TrendingUp} // أو أي أيقونة مناسبة مثل Flag, AlertCircle
+                      icon={TrendingUp}
                       isOpen={sidebarOpen}
                       subItem
                       locale={locale}
@@ -494,7 +531,7 @@ export default function Sidebar() {
   );
 }
 
-// مكون عنصر التنقل المساعد - تم تعديل الألوان النشطة
+// مكون عنصر التنقل مع دعم الإشعارات
 function SidebarNavItem({
   href,
   label,
@@ -503,6 +540,7 @@ function SidebarNavItem({
   isActive,
   subItem,
   locale,
+  badgeCount,
 }: {
   href: string;
   label: string;
@@ -511,6 +549,7 @@ function SidebarNavItem({
   isActive?: boolean;
   subItem?: boolean;
   locale: string;
+  badgeCount?: number;
 }) {
   const finalHref = `/${locale}${href}`;
   return (
@@ -533,14 +572,20 @@ function SidebarNavItem({
         )}
       />
       {isOpen && (
-        <span
-          className={cn(
-            "truncate tracking-tight",
-            subItem ? "text-[13px] font-medium" : "text-[15px] font-bold",
-            isActive && "font-black"
+        <span className="flex-1 flex items-center justify-between truncate tracking-tight">
+          <span className={cn(subItem ? "text-[13px] font-medium" : "text-[15px] font-bold", isActive && "font-black")}>
+            {label}
+          </span>
+          {badgeCount !== undefined && badgeCount > 0 && (
+            <Badge variant="destructive" className="h-5 px-1.5 text-xs font-bold">
+              {badgeCount > 99 ? "99+" : badgeCount}
+            </Badge>
           )}
-        >
-          {label}
+        </span>
+      )}
+      {!isOpen && badgeCount !== undefined && badgeCount > 0 && (
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+          {badgeCount > 9 ? "9+" : badgeCount}
         </span>
       )}
     </Link>

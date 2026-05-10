@@ -17,31 +17,12 @@ import {
 } from "@/components/ui/dialog";
 import { AdaptiveSelect } from "@/components/shared/AdaptiveSelect";
 import { useFileUpload } from "@/hooks/useFileUpload";
+import { useLocationHierarchy } from "@/hooks/useLocationHierarchy";
 import { Moon, Sun, X, Send, Loader2, Info, CheckCircle, Upload } from "lucide-react";
 
 // ============================================================
 // Types
 // ============================================================
-interface Building {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-}
-interface Floor {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-  buildingId: string;
-}
-interface Room {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-  floorId: string;
-}
 interface AssetType {
   id: string;
   name: string;
@@ -77,17 +58,6 @@ export default function PublicTicketPage() {
   const [branchError, setBranchError] = useState<string | null>(null);
   const [branchLoading, setBranchLoading] = useState(true);
 
-  // Location
-  const [buildingId, setBuildingId] = useState("");
-  const [floorId, setFloorId] = useState("");
-  const [roomId, setRoomId] = useState("");
-  const [buildings, setBuildings] = useState<Building[]>([]);
-  const [floors, setFloors] = useState<Floor[]>([]);
-  const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingBuildings, setLoadingBuildings] = useState(false);
-  const [loadingFloors, setLoadingFloors] = useState(false);
-  const [loadingRooms, setLoadingRooms] = useState(false);
-
   // Assets
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -110,6 +80,14 @@ export default function PublicTicketPage() {
   const { files, previews, addFiles, removeFile, resetFiles } = useFileUpload({
     maxFiles: 5,
     maxFileSizeMB: 5,
+    isRtl,
+  });
+
+  // Location hierarchy hook
+  const location = useLocationHierarchy({
+    slug,
+    token,
+    branchId: branch?.id,
     isRtl,
   });
 
@@ -145,23 +123,8 @@ export default function PublicTicketPage() {
   };
 
   // ============================================================
-  // Data fetching (with proper abort signals and branchId passing)
+  // Data fetching (asset types and branch)
   // ============================================================
-  const fetchBuildings = useCallback(async (branchId: string) => {
-    if (!branchId) return;
-    setLoadingBuildings(true);
-    try {
-      const res = await fetch(`/api/public/buildings?slug=${slug}&token=${token}&branchId=${branchId}`);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setBuildings(data);
-    } catch {
-      toast.error(isRtl ? "فشل تحميل المباني" : "Failed to load buildings");
-    } finally {
-      setLoadingBuildings(false);
-    }
-  }, [slug, token, isRtl]);
-
   const fetchAssetTypes = useCallback(async () => {
     setLoadingAssetTypes(true);
     try {
@@ -197,7 +160,6 @@ export default function PublicTicketPage() {
           return;
         }
         setBranch(data.branch);
-        await fetchBuildings(data.branch.id);
         await fetchAssetTypes();
       } catch (error: any) {
         if (error?.name !== "AbortError") {
@@ -209,61 +171,11 @@ export default function PublicTicketPage() {
     };
     fetchBranch();
     return () => controller.abort();
-  }, [slug, token, isRtl, fetchBuildings, fetchAssetTypes]);
+  }, [slug, token, isRtl, fetchAssetTypes]);
 
-  // Floors
+  // Assets (depends on roomId and assetTypeId)
   useEffect(() => {
-    if (!buildingId) {
-      setFloors([]);
-      return;
-    }
-    const controller = new AbortController();
-    const fetchFloors = async () => {
-      setLoadingFloors(true);
-      try {
-        const res = await fetch(`/api/public/floors?slug=${slug}&token=${token}&buildingId=${buildingId}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error();
-        setFloors(await res.json());
-      } catch {
-        setFloors([]);
-      } finally {
-        setLoadingFloors(false);
-      }
-    };
-    fetchFloors();
-    return () => controller.abort();
-  }, [buildingId, slug, token]);
-
-  // Rooms
-  useEffect(() => {
-    if (!floorId) {
-      setRooms([]);
-      return;
-    }
-    const controller = new AbortController();
-    const fetchRooms = async () => {
-      setLoadingRooms(true);
-      try {
-        const res = await fetch(`/api/public/rooms?slug=${slug}&token=${token}&floorId=${floorId}`, {
-          signal: controller.signal,
-        });
-        if (!res.ok) throw new Error();
-        setRooms(await res.json());
-      } catch {
-        setRooms([]);
-      } finally {
-        setLoadingRooms(false);
-      }
-    };
-    fetchRooms();
-    return () => controller.abort();
-  }, [floorId, slug, token]);
-
-  // Assets
-  useEffect(() => {
-    if (!roomId) {
+    if (!location.roomId) {
       setAssets([]);
       setForm(prev => ({ ...prev, assetId: "none" }));
       return;
@@ -272,7 +184,7 @@ export default function PublicTicketPage() {
     const fetchAssets = async () => {
       setLoadingAssets(true);
       try {
-        let url = `/api/public/assets?slug=${slug}&token=${token}&roomId=${roomId}`;
+        let url = `/api/public/assets?slug=${slug}&token=${token}&roomId=${location.roomId}`;
         if (form.assetTypeId && form.assetTypeId !== "none") {
           url += `&typeId=${form.assetTypeId}`;
         }
@@ -289,65 +201,36 @@ export default function PublicTicketPage() {
     };
     fetchAssets();
     return () => controller.abort();
-  }, [roomId, form.assetTypeId, slug, token]);
+  }, [location.roomId, form.assetTypeId, slug, token]);
 
-  // ============================================================
-  // Handlers
-  // ============================================================
-  const handleBuildingChange = (val: string) => {
-    setBuildingId(val);
-    setFloorId("");
-    setRoomId("");
-    setFloors([]);
-    setRooms([]);
-    setAssets([]);
-    setForm(prev => ({ ...prev, assetTypeId: "", assetId: "none" }));
-  };
-
-  const handleFloorChange = (val: string) => {
-    setFloorId(val);
-    setRoomId("");
-    setRooms([]);
-    setAssets([]);
-    setForm(prev => ({ ...prev, assetTypeId: "", assetId: "none" }));
-  };
-
-  const handleRoomChange = (val: string) => {
-    setRoomId(val);
-    setForm(prev => ({ ...prev, assetId: "none" }));
-  };
-
-  // ============================================================
-  // Reset form with proper memory cleanup
-  // ============================================================
+  // Reset form
   const resetForm = () => {
-    resetFiles(); // تنظيف الملفات والمعاينات من الذاكرة
-    setForm({
-      title: "",
-      description: "",
-      reporterName: "",
-      reporterEmail: "",
-      phone: "",
-      type: "MAINTENANCE",
-      assetTypeId: "",
-      assetId: "none",
-    });
-    setBuildingId("");
-    setFloorId("");
-    setRoomId("");
-    setAssets([]);
-    setShowSuccessDialog(false);
-  };
+  resetFiles();
+  setForm({
+    title: "",
+    description: "",
+    reporterName: "",
+    reporterEmail: "",
+    phone: "",
+    type: "MAINTENANCE",
+    assetTypeId: "",
+    assetId: "none",
+  });
+  // إعادة تعيين الموقع
+  location.handleBuildingChange("");
+  location.handleFloorChange("");
+  location.handleRoomChange("");
+  setAssets([]);
+  setShowSuccessDialog(false);
+};
 
-  // ============================================================
   // Submit
-  // ============================================================
   const handleSubmit = async () => {
     if (!form.title.trim()) {
       toast.error(isRtl ? "يرجى كتابة عنوان البلاغ" : "Please enter ticket title");
       return;
     }
-    if (!roomId) {
+    if (!location.roomId) {
       toast.error(isRtl ? "يرجى اختيار موقع البلاغ" : "Please select ticket location");
       return;
     }
@@ -369,7 +252,7 @@ export default function PublicTicketPage() {
     const fd = new FormData();
     fd.append("slug", slug);
     fd.append("token", token);
-    fd.append("roomId", roomId);
+    fd.append("roomId", location.roomId);
     fd.append("title", form.title);
     fd.append("description", form.description);
     fd.append("reporterName", form.reporterName);
@@ -394,9 +277,7 @@ export default function PublicTicketPage() {
     }
   };
 
-  // ============================================================
   // Memoized options
-  // ============================================================
   const ticketTypeOptions = useMemo(
     () => [
       { value: "MAINTENANCE", label: ticketTypeMap.MAINTENANCE },
@@ -406,18 +287,18 @@ export default function PublicTicketPage() {
   );
 
   const buildingOptions = useMemo(
-    () => buildings.map(b => ({ value: b.id, label: isRtl ? b.name : (b.nameEn || b.name) })),
-    [buildings, isRtl]
+    () => location.buildings.map(b => ({ value: b.id, label: isRtl ? b.name : (b.nameEn || b.name) })),
+    [location.buildings, isRtl]
   );
 
   const floorOptions = useMemo(
-    () => floors.map(f => ({ value: f.id, label: isRtl ? f.name : (f.nameEn || f.name) })),
-    [floors, isRtl]
+    () => location.floors.map(f => ({ value: f.id, label: isRtl ? f.name : (f.nameEn || f.name) })),
+    [location.floors, isRtl]
   );
 
   const roomOptions = useMemo(
-    () => rooms.map(r => ({ value: r.id, label: isRtl ? r.name : (r.nameEn || r.name) })),
-    [rooms, isRtl]
+    () => location.rooms.map(r => ({ value: r.id, label: isRtl ? r.name : (r.nameEn || r.name) })),
+    [location.rooms, isRtl]
   );
 
   const assetTypeOptions = useMemo(
@@ -442,9 +323,7 @@ export default function PublicTicketPage() {
     [assets, isRtl]
   );
 
-  // ============================================================
   // Loading & error states
-  // ============================================================
   if (branchLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -562,47 +441,47 @@ export default function PublicTicketPage() {
                 <div>
                   <Label className="text-base font-semibold mb-2 block">{isRtl ? "المبنى *" : "Building *"}</Label>
                   <AdaptiveSelect
-                    value={buildingId}
-                    onChange={handleBuildingChange}
+                    value={location.buildingId}
+                    onChange={location.handleBuildingChange}
                     options={buildingOptions}
                     placeholder={isRtl ? "اختر المبنى" : "Select building"}
-                    disabled={loadingBuildings || isSubmitting}
+                    disabled={location.loadingBuildings || isSubmitting}
                   />
-                  {loadingBuildings && <p className="text-sm text-muted-foreground mt-1">جار تحميل المباني...</p>}
+                  {location.loadingBuildings && <p className="text-sm text-muted-foreground mt-1">جار تحميل المباني...</p>}
                 </div>
 
                 {/* Floor */}
-                {buildingId && (
+                {location.buildingId && (
                   <div>
                     <Label className="text-base font-semibold mb-2 block">{isRtl ? "الدور *" : "Floor *"}</Label>
                     <AdaptiveSelect
-                      value={floorId}
-                      onChange={handleFloorChange}
+                      value={location.floorId}
+                      onChange={location.handleFloorChange}
                       options={floorOptions}
                       placeholder={isRtl ? "اختر الدور" : "Select floor"}
-                      disabled={loadingFloors || isSubmitting}
+                      disabled={location.loadingFloors || isSubmitting}
                     />
-                    {loadingFloors && <p className="text-sm text-muted-foreground mt-1">جار تحميل الأدوار...</p>}
+                    {location.loadingFloors && <p className="text-sm text-muted-foreground mt-1">جار تحميل الأدوار...</p>}
                   </div>
                 )}
 
                 {/* Room */}
-                {floorId && (
+                {location.floorId && (
                   <div>
                     <Label className="text-base font-semibold mb-2 block">{isRtl ? "الغرفة *" : "Room *"}</Label>
                     <AdaptiveSelect
-                      value={roomId}
-                      onChange={handleRoomChange}
+                      value={location.roomId}
+                      onChange={location.handleRoomChange}
                       options={roomOptions}
                       placeholder={isRtl ? "اختر الغرفة" : "Select room"}
-                      disabled={loadingRooms || isSubmitting}
+                      disabled={location.loadingRooms || isSubmitting}
                     />
-                    {loadingRooms && <p className="text-sm text-muted-foreground mt-1">جار تحميل الغرف...</p>}
+                    {location.loadingRooms && <p className="text-sm text-muted-foreground mt-1">جار تحميل الغرف...</p>}
                   </div>
                 )}
 
                 {/* Asset Type & Asset */}
-                {roomId && (
+                {location.roomId && (
                   <>
                     <div>
                       <Label className="text-base font-semibold mb-2 block">
@@ -689,7 +568,7 @@ export default function PublicTicketPage() {
                     onChange={(e) => {
                       const selected = Array.from(e.target.files || []);
                       if (selected.length) addFiles(selected);
-                      e.target.value = ''; // reset input
+                      e.target.value = '';
                     }}
                     className="hidden"
                     disabled={isSubmitting}

@@ -1,10 +1,10 @@
 // src/components/shared/detail/DetailHeader.tsx
-//إنشاء “هيدر موحد لصفحات التفاصيل” (Detail Page Header) يُستخدم في صفحات عرض البيانات داخل النظام.
+// إنشاء “هيدر موحد لصفحات التفاصيل” (Detail Page Header) يُستخدم في صفحات عرض البيانات داخل النظام.
 import { ReactNode } from "react";
 
 interface DetailHeaderProps {
   icon: ReactNode;
-  title: string;
+  title: ReactNode;   // ✅ تغيير من string إلى ReactNode
   subtitle?: string;
   actions?: ReactNode;
 }

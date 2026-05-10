@@ -98,9 +98,10 @@ export default function Sidebar() {
   useEffect(() => {
     const fetchPendingCount = async () => {
       try {
-        const res = await fetch(`/${locale}/api/tickets/count?status=PENDING`);
+        const res = await fetch(`/api/tickets/count?status=PENDING`);
         if (res.ok) {
           const data = await res.json();
+          console.log("Pending count response:", data);
           setPendingTicketsCount(data.count || 0);
         } else {
           setPendingTicketsCount(0);
@@ -571,20 +572,21 @@ function SidebarNavItem({
           isOpen && "group-hover:scale-110"
         )}
       />
+      // داخل SidebarNavItem، استبدل الجزء الخاص بالـ Badge بـ:
       {isOpen && (
         <span className="flex-1 flex items-center justify-between truncate tracking-tight">
           <span className={cn(subItem ? "text-[13px] font-medium" : "text-[15px] font-bold", isActive && "font-black")}>
             {label}
           </span>
           {badgeCount !== undefined && badgeCount > 0 && (
-            <Badge variant="destructive" className="h-5 px-1.5 text-xs font-bold">
+            <span className="bg-red-500 text-white text-xs font-bold rounded-full h-5 min-w-[20px] px-1.5 flex items-center justify-center">
               {badgeCount > 99 ? "99+" : badgeCount}
-            </Badge>
+            </span>
           )}
         </span>
       )}
       {!isOpen && badgeCount !== undefined && badgeCount > 0 && (
-        <span className="absolute right-2 top-1/2 -translate-y-1/2 h-5 w-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold">
+        <span className="absolute right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-bold rounded-full h-5 w-5 flex items-center justify-center">
           {badgeCount > 9 ? "9+" : badgeCount}
         </span>
       )}

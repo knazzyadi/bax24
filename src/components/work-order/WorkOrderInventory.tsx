@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -45,7 +45,8 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchItems = async () => {
+  // جلب قطع الغيار المرتبطة بأمر العمل
+  const fetchItems = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch(`/api/work-orders/${workOrderId}/inventory`);
@@ -64,9 +65,10 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [workOrderId, t]);
 
-  const fetchAvailableItems = async () => {
+  // جلب جميع قطع الغيار المتاحة في المخزون (الكمية > 0)
+  const fetchAvailableItems = useCallback(async () => {
     setLoadingAvailable(true);
     try {
       const res = await fetch("/api/inventory?inStock=true");
@@ -85,11 +87,12 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     } finally {
       setLoadingAvailable(false);
     }
-  };
+  }, [t]);
 
+  // تحميل العناصر عند تحميل المكون أو تغيير workOrderId
   useEffect(() => {
     fetchItems();
-  }, []);
+  }, [fetchItems]);
 
   const openAddDialog = async () => {
     await fetchAvailableItems();
@@ -121,7 +124,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
       }
       toast.success(t("itemAdded"));
       setDialogOpen(false);
-      fetchItems();
+      await fetchItems(); // انتظار التحديث
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -129,18 +132,23 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     }
   };
 
-  const handleDelete = async (inventoryItemId: string) => {
+  const handleDelete = async (recordId: string) => {
     if (!confirm(isRtl ? "هل أنت متأكد من حذف هذه القطعة؟" : "Are you sure you want to remove this item?")) return;
     try {
-      const res = await fetch(`/api/work-orders/${workOrderId}/inventory?inventoryItemId=${inventoryItemId}`, {
+      const res = await fetch(`/api/work-orders/${workOrderId}/inventory?recordId=${recordId}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
       toast.success(t("itemRemoved"));
-      fetchItems();
+      await fetchItems(); // انتظار التحديث
     } catch {
       toast.error(t("deleteError"));
     }
+  };
+
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = Number(e.target.value);
+    setQuantity(value > 0 ? value : 1);
   };
 
   if (loading) return <div className="py-4 text-center"><Loader2 className="animate-spin h-6 w-6 inline" /></div>;
@@ -172,7 +180,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
               {items.map((item) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium text-center">
-                    {isRtl ? item.inventoryItem.name : item.inventoryItem.name}
+                    {item.inventoryItem.name}
                   </TableCell>
                   <TableCell className="font-mono text-sm text-center">
                     {item.inventoryItem.sku}
@@ -184,7 +192,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
                     {item.notes || "—"}
                   </TableCell>
                   <TableCell className="text-center">
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(item.inventoryItem.id)}>
+                    <Button variant="ghost" size="icon" onClick={() => handleDelete(item.id)}>
                       <Trash2 size={16} className="text-red-500" />
                     </Button>
                   </TableCell>
@@ -224,7 +232,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
             </div>
             <div>
               <Label>{t("quantity")}</Label>
-              <Input type="number" min={1} value={quantity} onChange={(e) => setQuantity(parseInt(e.target.value) || 1)} />
+              <Input type="number" min={1} value={quantity} onChange={handleQuantityChange} />
             </div>
             <div>
               <Label>{t("notes")}</Label>

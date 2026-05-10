@@ -71,7 +71,6 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     try {
       const res = await fetch("/api/inventory?inStock=true");
       const data = await res.json();
-      // ✅ API الآن يعيد مصفوفة مباشرة عند inStock=true
       if (Array.isArray(data)) {
         setAvailableItems(data);
       } else {
@@ -158,29 +157,33 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
       {items.length === 0 ? (
         <p className="text-muted-foreground text-sm">{t("noPartsUsed")}</p>
       ) : (
-        <div className="border rounded-xl overflow-hidden">
+        <div className="border rounded-xl overflow-x-auto">
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>{t("itemName")}</TableHead>
-                <TableHead>{t("sku")}</TableHead>
+                <TableHead className="text-center">{t("itemName")}</TableHead>
+                <TableHead className="text-center">{t("sku")}</TableHead>
                 <TableHead className="text-center">{t("quantity")}</TableHead>
-                <TableHead>{t("notes")}</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="text-center">{t("notes")}</TableHead>
+                <TableHead className="text-center w-12"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {items.map((item) => (
                 <TableRow key={item.id}>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-medium text-center">
                     {isRtl ? item.inventoryItem.name : item.inventoryItem.name}
                   </TableCell>
-                  <TableCell className="font-mono text-xs">{item.inventoryItem.sku}</TableCell>
+                  <TableCell className="font-mono text-sm text-center">
+                    {item.inventoryItem.sku}
+                  </TableCell>
                   <TableCell className="text-center">
                     {item.quantity} {item.inventoryItem.unit || ""}
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{item.notes || "—"}</TableCell>
-                  <TableCell>
+                  <TableCell className="text-muted-foreground text-center">
+                    {item.notes || "—"}
+                  </TableCell>
+                  <TableCell className="text-center">
                     <Button variant="ghost" size="icon" onClick={() => handleDelete(item.inventoryItem.id)}>
                       <Trash2 size={16} className="text-red-500" />
                     </Button>

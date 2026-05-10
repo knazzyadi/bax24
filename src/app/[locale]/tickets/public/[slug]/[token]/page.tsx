@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { toast } from "sonner";
@@ -16,7 +16,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { AdaptiveSelect } from "@/components/shared/AdaptiveSelect";
-import { Moon, Sun, X, Send, Loader2, Info, CheckCircle } from "lucide-react";
+import { Moon, Sun, X, Send, Loader2, Info, CheckCircle, Upload } from "lucide-react";
 
 // ============================================================
 // Types
@@ -110,6 +110,7 @@ export default function PublicTicketPage() {
   const [previews, setPreviews] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const ticketTypeMap: Record<string, string> = {
     MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
@@ -308,7 +309,7 @@ export default function PublicTicketPage() {
   };
 
   // ============================================================
-  // Images
+  // Images handling with custom button
   // ============================================================
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -359,7 +360,6 @@ export default function PublicTicketPage() {
   // Submit with friendly validation
   // ============================================================
   const handleSubmit = async () => {
-    // تحقق ودود من الحقول الإجبارية
     if (!form.title.trim()) {
       toast.error(isRtl ? "يرجى كتابة عنوان البلاغ" : "Please enter ticket title");
       return;
@@ -527,7 +527,10 @@ export default function PublicTicketPage() {
                 <h1 className="text-3xl font-bold text-foreground">
                   {isRtl ? "بلاغ صيانة جديد" : "New Maintenance Ticket"}
                 </h1>
-                <p className="text-base text-muted-foreground mt-1">{branch.name}</p>
+                {/* عرض اسم الفرع باللغة المناسبة */}
+                <p className="text-base text-muted-foreground mt-1">
+                  {isRtl ? branch.name : (branch.nameEn || branch.name)}
+                </p>
               </div>
             </div>
 
@@ -686,17 +689,35 @@ export default function PublicTicketPage() {
                   />
                 </div>
 
-                {/* Images */}
+                {/* Custom Image Upload */}
                 <div>
-                  <Label className="text-base font-semibold mb-2 block">{isRtl ? "صور توضيحية (اختياري)" : "Images (optional)"}</Label>
-                  <Input
+                  <Label className="text-base font-semibold mb-2 block">
+                    {isRtl ? "صور توضيحية (اختياري)" : "Images (Optional)"}
+                  </Label>
+                  <input
+                    ref={fileInputRef}
                     type="file"
                     accept="image/*"
                     multiple
                     onChange={handleFileChange}
-                    className="text-base py-2"
+                    className="hidden"
                     disabled={isSubmitting}
                   />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isSubmitting}
+                    className="w-full justify-center gap-2 rounded-full border-primary text-primary hover:bg-primary/10 font-medium"
+                  >
+                    <Upload size={18} />
+                    {isRtl ? "اختر الصور" : "Choose Images"}
+                  </Button>
+                  {files.length > 0 && (
+                    <p className="text-sm text-muted-foreground mt-2">
+                      {isRtl ? `تم اختيار ${files.length} صورة` : `${files.length} image(s) selected`}
+                    </p>
+                  )}
                   {previews.length > 0 && (
                     <div className="grid grid-cols-3 gap-3 mt-3">
                       {previews.map((src, idx) => (
@@ -718,7 +739,7 @@ export default function PublicTicketPage() {
               </div>
             </div>
 
-            {/* Buttons */}
+            {/* Action Buttons */}
             <div className="flex flex-col gap-4 pt-6 border-t border-border">
               <Button onClick={handleSubmit} disabled={isSubmitting} className="w-full py-3 text-base rounded-full">
                 {isSubmitting ? <Loader2 className="animate-spin mr-2" size={20} /> : <Send size={20} className="mr-2" />}

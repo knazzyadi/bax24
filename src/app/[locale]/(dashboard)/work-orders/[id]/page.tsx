@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
+import { WorkOrderInventory } from "@/components/work-order/WorkOrderInventory";
 
 interface WorkOrderAsset {
   id?: string; // معرف السجل في WorkOrderAsset
@@ -282,7 +283,6 @@ export default function WorkOrderDetailPage() {
           <InfoCard title={t("assets")} icon={<Package className="h-5 w-5" />}>
             {hasAssets ? (
               <>
-                {/* ملخص وزر إنجاز الكل */}
                 <div className="flex justify-between items-center mb-4">
                   <span className="text-sm">
                     {t("assetsCount", { count: workOrder.workOrderAssets.length })}
@@ -307,7 +307,6 @@ export default function WorkOrderDetailPage() {
                     </Button>
                   )}
                 </div>
-
                 <div className="border rounded-xl overflow-hidden">
                   <Table>
                     <TableHeader className="bg-muted/50">
@@ -364,6 +363,11 @@ export default function WorkOrderDetailPage() {
             ) : (
               <p className="text-muted-foreground">{t("noAssets")}</p>
             )}
+          </InfoCard>
+
+          {/* 🧰 قطع الغيار المستخدمة في أمر العمل */}
+          <InfoCard title={t("spareParts")} icon={<Package className="h-5 w-5" />}>
+            <WorkOrderInventory workOrderId={workOrder.id} locale={locale} />
           </InfoCard>
 
           <InfoCard title={t("location")} icon={<MapPin className="h-5 w-5" />}>

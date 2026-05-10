@@ -45,12 +45,22 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   const fetchItems = async () => {
+    setLoading(true);
     try {
       const res = await fetch(`/api/work-orders/${workOrderId}/inventory`);
       const data = await res.json();
-      setItems(data);
+      // تأكد من أن البيانات مصفوفة
+      if (Array.isArray(data)) {
+        setItems(data);
+      } else {
+        console.error("Expected array, got", data);
+        setItems([]);
+        toast.error(t("fetchInventoryError"));
+      }
     } catch (error) {
+      console.error(error);
       toast.error(t("fetchInventoryError"));
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -60,9 +70,14 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     try {
       const res = await fetch("/api/inventory?inStock=true");
       const data = await res.json();
-      setAvailableItems(data);
+      if (Array.isArray(data)) {
+        setAvailableItems(data);
+      } else {
+        setAvailableItems([]);
+      }
     } catch (error) {
-      toast.error(t("fetchInventoryError"));
+      console.error(error);
+      setAvailableItems([]);
     }
   };
 

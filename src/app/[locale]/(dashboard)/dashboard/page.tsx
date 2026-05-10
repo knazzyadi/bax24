@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useTranslations } from 'next-intl';
 import { useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
@@ -16,11 +16,15 @@ import {
   ShieldCheck,
   Zap,
   Loader2,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import Link from 'next/link';
 import { Badge } from '@/components/ui/badge';
 
+// ============================================================
+// أنواع البيانات
+// ============================================================
 interface DashboardData {
   assets: number;
   workOrders: number;
@@ -33,20 +37,191 @@ interface StatsResponse {
   error?: string;
 }
 
-export default function DashboardPage() {
-  const { data: session, status } = useSession();
-  const params = useParams();
-  const locale = params?.locale as string;
-  const isRTL = locale === 'ar';
-  const t = useTranslations('Dashboard');
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+// ============================================================
+// Hook مخصص لجلب إحصائيات لوحة التحكم
+// ============================================================
+function useDashboardStats() {
   const [data, setData] = useState<DashboardData>({
     assets: 0,
     workOrders: 0,
     lowInventory: 0,
     pendingRequests: 0,
   });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchStats = useCallback(async () => {
+    const controller = new AbortController();
+    const signal = controller.signal;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      // تعريف نقاط النهاية (نستخدم 4 طلبات فقط)
+      const endpoints = [
+        { url: '/api/stats/assets-count', key: 'assets' },
+        { url: '/api/stats/work-orders-count', key: 'workOrders' },
+        { url: '/api/stats/low-inventory-count', key: 'lowInventory' },
+        { url: '/api/stats/pending-requests-count', key: 'pendingRequests' },
+      ];
+
+      const results = await Promise.allSettled(
+        endpoints.map(async ({ url, key }) => {
+          const res = await fetch(url, { signal });
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          const json: StatsResponse = await res.json();
+          return { key, count: json.count ?? 0 };
+        })
+      );
+
+      const newData: DashboardData = {
+        assets: 0,
+        workOrders: 0,
+        lowInventory: 0,
+        pendingRequests: 0,
+      };
+
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          const { key, count } = result.value;
+          newData[key as keyof DashboardData] = count;
+        } else {
+          console.error('Failed to fetch endpoint:', result.reason);
+        }
+      }
+
+      setData(newData);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        console.log('Fetch aborted');
+        return;
+      }
+      console.error('Dashboard error:', err);
+      setError(err.message || 'حدث خطأ في تحميل البيانات');
+    } finally {
+      setLoading(false);
+    }
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchStats();
+    return () => controller.abort();
+  }, [fetchStats]);
+
+  return { data, loading, error };
+}
+
+// ============================================================
+// مكون البطاقة الإحصائية (قابل لإعادة الاستخدام)
+// ============================================================
+function StatsCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+  bg,
+  description,
+  loading,
+  isRTL,
+}: {
+  title: string;
+  value: number;
+  icon: React.ElementType;
+  color: string;
+  bg: string;
+  description: string;
+  loading: boolean;
+  isRTL: boolean;
+}) {
+  return (
+    <Card className="relative overflow-hidden transition-all hover:shadow-md group">
+      <CardHeader
+        className={cn(
+          'flex flex-row items-center justify-between pb-2',
+          isRTL ? 'flex-row-reverse' : ''
+        )}
+      >
+        <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+          {title}
+        </CardTitle>
+        <div className={cn('p-2 rounded-lg transition-transform group-hover:scale-110', bg)}>
+          <Icon className={cn('h-5 w-5', color)} />
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className={cn('flex items-baseline gap-2', isRTL ? 'flex-row-reverse justify-end' : '')}>
+          <span className="text-3xl font-bold tracking-tight">
+            {loading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : value.toLocaleString()}
+          </span>
+          {!loading && (
+            <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-none text-[10px] font-bold">
+              <TrendingUp className="h-3 w-3 mr-1" /> Live
+            </Badge>
+          )}
+        </div>
+        <p className="text-xs text-muted-foreground mt-3 line-clamp-1">{description}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ============================================================
+// مكون رابط الوصول السريع
+// ============================================================
+function QuickActionLink({
+  href,
+  title,
+  icon: Icon,
+  description,
+  variant,
+  isRTL,
+}: {
+  href: string;
+  title: string;
+  icon: React.ElementType;
+  description: string;
+  variant: 'blue' | 'emerald';
+  isRTL: boolean;
+}) {
+  const variants = {
+    blue: 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100',
+    emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100 hover:bg-emerald-100',
+  };
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        'flex items-center gap-4 p-4 rounded-xl border transition-all group hover:shadow-sm active:scale-[0.98]',
+        isRTL ? 'flex-row-reverse' : ''
+      )}
+    >
+      <div className={cn('p-3 rounded-lg transition-transform group-hover:scale-110 group-hover:-rotate-3', variants[variant])}>
+        <Icon className="h-5 w-5" />
+      </div>
+      <div className="flex-1">
+        <h4 className="font-bold text-foreground text-sm">{title}</h4>
+        <p className="text-xs text-muted-foreground line-clamp-1">{description}</p>
+      </div>
+      <ArrowUpRight className={cn('h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform', isRTL && 'rotate-180')} />
+    </Link>
+  );
+}
+
+// ============================================================
+// المكون الرئيسي للوحة التحكم
+// ============================================================
+export default function DashboardPage() {
+  const { data: session, status } = useSession();
+  const params = useParams();
+  const locale = params?.locale as string;
+  const isRTL = locale === 'ar';
+  const t = useTranslations('Dashboard');
+  const { data, loading, error } = useDashboardStats();
 
   const isSessionLoading = status === 'loading';
 
@@ -59,97 +234,65 @@ export default function DashboardPage() {
     }
   }
 
-  const fetchStats = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const endpoints = [
-        '/api/stats/assets-count',
-        '/api/stats/work-orders-count',
-        '/api/stats/low-inventory-count',
-        '/api/stats/pending-requests-count',  // نجمع طلبات الزيت والحوادث هنا أو نهاية منفصلة
-        '/api/stats/pending-oil-requests',
-        '/api/stats/pending-accident-requests',
-      ];
-
-      // استخدام Promise.allSettled بدلاً من all لتجنب فشل واحد يؤدي إلى إسقاط الكل
-      const results = await Promise.allSettled(
-        endpoints.map(async (url) => {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const json: StatsResponse = await res.json();
-          // بعض الـ APIs ترجع العدد مباشرة، والبعض ترجع { count: number }
-          if (typeof json === 'number') return json;
-          return json.count ?? 0;
-        })
-      );
-
-      // استخراج القيم الناجحة فقط، واستخدام 0 للقيم الفاشلة
-      const values = results.map((result) => (result.status === 'fulfilled' ? result.value : 0));
-
-      // الترتيب: assets, workOrders, lowInventory, pendingRequests, oil, accident
-      const [assets, workOrders, lowInventory, pendingRequests, oil, accident] = values;
-      
-      setData({
-        assets: assets ?? 0,
-        workOrders: workOrders ?? 0,
-        lowInventory: lowInventory ?? 0,
-        pendingRequests: (oil ?? 0) + (accident ?? 0),
-      });
-    } catch (err) {
-      console.error('Dashboard error:', err);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
-
-  const statsCards = useMemo(
-    () => [
-      {
-        title: t('stats.assets.title'),
-        value: data.assets,
-        icon: Package,
-        color: 'text-blue-500',
-        bg: 'bg-blue-500/10',
-        description: t('stats.assets.description'),
-      },
-      {
-        title: t('stats.workOrders.title'),
-        value: data.workOrders,
-        icon: ClipboardList,
-        color: 'text-emerald-500',
-        bg: 'bg-emerald-500/10',
-        description: t('stats.workOrders.description'),
-      },
-      {
-        title: t('stats.lowInventory.title'),
-        value: data.lowInventory,
-        icon: AlertTriangle,
-        color: 'text-amber-500',
-        bg: 'bg-amber-500/10',
-        description: t('stats.lowInventory.description'),
-      },
-      {
-        title: t('stats.pendingRequests.title'),
-        value: data.pendingRequests,
-        icon: Activity,
-        color: 'text-pink-500',
-        bg: 'bg-pink-500/10',
-        description: t('stats.pendingRequests.description'),
-      },
-    ],
-    [data, t]
-  );
+  // إعدادات بطاقات الإحصائيات
+  const statsCards = [
+    {
+      title: t('stats.assets.title'),
+      value: data.assets,
+      icon: Package,
+      color: 'text-blue-500',
+      bg: 'bg-blue-500/10',
+      description: t('stats.assets.description'),
+    },
+    {
+      title: t('stats.workOrders.title'),
+      value: data.workOrders,
+      icon: ClipboardList,
+      color: 'text-emerald-500',
+      bg: 'bg-emerald-500/10',
+      description: t('stats.workOrders.description'),
+    },
+    {
+      title: t('stats.lowInventory.title'),
+      value: data.lowInventory,
+      icon: AlertTriangle,
+      color: 'text-amber-500',
+      bg: 'bg-amber-500/10',
+      description: t('stats.lowInventory.description'),
+    },
+    {
+      title: t('stats.pendingRequests.title'),
+      value: data.pendingRequests,
+      icon: Activity,
+      color: 'text-pink-500',
+      bg: 'bg-pink-500/10',
+      description: t('stats.pendingRequests.description'),
+    },
+  ];
 
   if (isSessionLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // حالة الخطأ
+  if (error) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-6">
+        <div className="bg-destructive/10 text-destructive rounded-full p-4 mb-4">
+          <AlertCircle className="h-8 w-8" />
+        </div>
+        <h2 className="text-xl font-bold mb-2">حدث خطأ في تحميل البيانات</h2>
+        <p className="text-muted-foreground text-center max-w-md mb-6">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
+        >
+          إعادة المحاولة
+        </button>
       </div>
     );
   }
@@ -173,34 +316,17 @@ export default function DashboardPage() {
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {statsCards.map((stat, i) => (
-          <Card key={i} className="relative overflow-hidden transition-all hover:shadow-md group">
-            <CardHeader
-              className={cn(
-                'flex flex-row items-center justify-between pb-2',
-                isRTL ? 'flex-row-reverse' : ''
-              )}
-            >
-              <CardTitle className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                {stat.title}
-              </CardTitle>
-              <div className={cn('p-2 rounded-lg transition-transform group-hover:scale-110', stat.bg)}>
-                <stat.icon className={cn('h-5 w-5', stat.color)} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className={cn('flex items-baseline gap-2', isRTL ? 'flex-row-reverse justify-end' : '')}>
-                <span className="text-3xl font-bold tracking-tight">
-                  {loading ? <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /> : stat.value.toLocaleString()}
-                </span>
-                {!loading && (
-                  <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 border-none text-[10px] font-bold">
-                    <TrendingUp className="h-3 w-3 mr-1" /> {t('stats.live')}
-                  </Badge>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mt-3 line-clamp-1">{stat.description}</p>
-            </CardContent>
-          </Card>
+          <StatsCard
+            key={i}
+            title={stat.title}
+            value={stat.value}
+            icon={stat.icon}
+            color={stat.color}
+            bg={stat.bg}
+            description={stat.description}
+            loading={loading}
+            isRTL={isRTL}
+          />
         ))}
       </div>
 
@@ -257,45 +383,5 @@ export default function DashboardPage() {
         </Card>
       </div>
     </div>
-  );
-}
-
-function QuickActionLink({
-  href,
-  title,
-  icon: Icon,
-  description,
-  variant,
-  isRTL,
-}: {
-  href: string;
-  title: string;
-  icon: any;
-  description: string;
-  variant: 'blue' | 'emerald';
-  isRTL: boolean;
-}) {
-  const variants = {
-    blue: 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100',
-    emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100 hover:bg-emerald-100',
-  };
-
-  return (
-    <Link
-      href={href}
-      className={cn(
-        'flex items-center gap-4 p-4 rounded-xl border transition-all group hover:shadow-sm active:scale-[0.98]',
-        isRTL ? 'flex-row-reverse' : ''
-      )}
-    >
-      <div className={cn('p-3 rounded-lg transition-transform group-hover:scale-110 group-hover:-rotate-3', variants[variant])}>
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="flex-1">
-        <h4 className="font-bold text-foreground text-sm">{title}</h4>
-        <p className="text-xs text-muted-foreground line-clamp-1">{description}</p>
-      </div>
-      <ArrowUpRight className={cn('h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-transform', isRTL && 'rotate-180')} />
-    </Link>
   );
 }

@@ -1001,6 +1001,8 @@
     "saving": "Saving..."
   },
   "WorkOrders": {
+    "attachedImages": "Attached Images",
+    "noImages": "No images attached",
     "availableQuantity": "Available",
     "add": "Add",
     "itemAdded": "Part added successfully",

@@ -1005,6 +1005,8 @@
     "saving": "جاري الحفظ..."
   },
   "WorkOrders": {
+    "attachedImages": "الصور المرفقة",
+    "noImages": "لا توجد صور مرفقة",
     "availableQuantity": "متوفر",
     "add": "إضافة",
     "itemAdded": "تم إضافة القطعة بنجاح",

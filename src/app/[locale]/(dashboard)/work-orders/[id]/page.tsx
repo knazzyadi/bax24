@@ -69,6 +69,12 @@ interface WorkOrderDetail {
   updatedAt: string;
   workOrderAssets: WorkOrderAsset[];
   createdBy?: string;
+  ticketId?: string; // إضافة خاصية ticketId
+}
+
+interface TicketImage {
+  id: string;
+  url: string;
 }
 
 export default function WorkOrderDetailPage() {
@@ -85,6 +91,8 @@ export default function WorkOrderDetailPage() {
   const [selectedAsset, setSelectedAsset] = useState<WorkOrderAsset | null>(null);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [completionNote, setCompletionNote] = useState("");
+  const [ticketImages, setTicketImages] = useState<TicketImage[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
 
   useEffect(() => {
     const fetchWorkOrder = async () => {
@@ -103,6 +111,29 @@ export default function WorkOrderDetailPage() {
     };
     if (id) fetchWorkOrder();
   }, [id, locale, router, t]);
+
+  // جلب صور التذكرة إذا كان أمر العمل ناتجاً عن تذكرة
+  useEffect(() => {
+    const fetchTicketImages = async () => {
+      if (!workOrder?.ticketId) return;
+      setLoadingImages(true);
+      try {
+        const res = await fetch(`/api/tickets/${workOrder.ticketId}/images`);
+        if (res.ok) {
+          const data = await res.json();
+          setTicketImages(data);
+        } else {
+          setTicketImages([]);
+        }
+      } catch (error) {
+        console.error("Failed to fetch ticket images", error);
+        setTicketImages([]);
+      } finally {
+        setLoadingImages(false);
+      }
+    };
+    fetchTicketImages();
+  }, [workOrder?.ticketId]);
 
   const formatDate = (dateStr: string) => {
     if (!dateStr) return "—";
@@ -391,6 +422,35 @@ export default function WorkOrderDetailPage() {
           {workOrder.notes && (
             <InfoCard title={t("notes")} icon={<FileText className="h-5 w-5" />}>
               <p className="whitespace-pre-wrap">{workOrder.notes}</p>
+            </InfoCard>
+          )}
+
+          {/* الصور المرفقة من التذكرة (إذا وجدت) */}
+          {workOrder.ticketId && (
+            <InfoCard title={t("attachedImages")} icon={<FileText className="h-5 w-5" />}>
+              {loadingImages ? (
+                <div className="text-center py-4"><Loader2 className="animate-spin h-6 w-6 inline" /></div>
+              ) : ticketImages.length === 0 ? (
+                <p className="text-muted-foreground">{t("noImages")}</p>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {ticketImages.map((img) => (
+                    <a
+                      key={img.id}
+                      href={img.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block overflow-hidden rounded-xl border border-primary/20 hover:shadow-md transition-shadow"
+                    >
+                      <img
+                        src={img.url}
+                        alt="Ticket attachment"
+                        className="w-full h-32 object-cover hover:scale-105 transition-transform duration-200"
+                      />
+                    </a>
+                  ))}
+                </div>
+              )}
             </InfoCard>
           )}
         </div>

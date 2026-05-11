@@ -33,7 +33,7 @@ export async function uploadFileToR2(file: File, folder: string = "tickets") {
     })
   );
 
-  const url = `https://${R2_BUCKET_NAME}.${R2_ACCOUNT_ID}.r2.cloudflarestorage.com/${key}`;
+  const url = `https://pub-ad2845fd562b46fda7396d82ccbbeb0a.r2.dev/${key}`;
 
   return {
     key,

@@ -84,6 +84,27 @@ async function saveImage(file: File): Promise<string> {
 }
 
 // ======================
+// Generate unique ticket code (same as internal API)
+// ======================
+async function generateTicketCode(companyId: string): Promise<string> {
+  const prefix = "TCK";
+  const lastTicket = await prisma.ticket.findFirst({
+    where: { companyId },
+    orderBy: { code: "desc" },
+    select: { code: true },
+  });
+
+  let nextNumber = 1;
+  if (lastTicket?.code) {
+    const match = lastTicket.code.match(/\d+$/);
+    if (match) {
+      nextNumber = parseInt(match[0], 10) + 1;
+    }
+  }
+  return `${prefix}-${nextNumber.toString().padStart(4, "0")}`;
+}
+
+// ======================
 // POST - Public Ticket
 // ======================
 export async function POST(req: Request) {
@@ -221,10 +242,16 @@ export async function POST(req: Request) {
     }
 
     // ======================
+    // Generate unique code
+    // ======================
+    const code = await generateTicketCode(branch.companyId);
+
+    // ======================
     // Create Ticket
     // ======================
     const ticket = await prisma.ticket.create({
       data: {
+        code,                     // ✅ الكود الفريد
         title,
         description: description || null,
         type: type as any,
@@ -233,7 +260,7 @@ export async function POST(req: Request) {
         reporterName,
         reporterEmail,
         phone: phone || null,
-        imageUrl, // قد يكون null إذا لم ترفع أو فشلت
+        imageUrl,
         companyId: branch.companyId,
         branchId: branch.id,
         status: "PENDING",
@@ -243,7 +270,7 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       ticketId: ticket.id,
-      imageUrl, // نعيد الرابط للاستخدام في الواجهة (اختياري)
+      imageUrl,
     });
   } catch (error: any) {
     console.error("PUBLIC_TICKET_ERROR:", error);

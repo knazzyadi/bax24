@@ -1,6 +1,5 @@
-// src/types/tickets.ts
+// src/app/[locale]/(dashboard)/tickets/types.ts (أو src/types/tickets.ts)
 
-// أنواع مساعدة (إذا لم تكن موجودة في assets.ts)
 export interface BuildingSimple {
   id: string;
   name: string;
@@ -32,14 +31,19 @@ export interface AssetSimple {
   id: string;
   name: string;
   code: string;
-  typeId?: string | null;      // ✅ إضافة معرف نوع الأصل
-  statusId?: string | null;    // ✅ إضافة معرف حالة الأصل
+  typeId?: string | null;
+  statusId?: string | null;
 }
 
-export interface TicketImage {
+// تعريف نوع المرفق الجديد (TicketAttachment)
+export interface TicketAttachment {
   id: string;
   url: string;
-  createdAt: string;
+  key?: string;
+  mimeType?: string;
+  size?: number;
+  originalName?: string;
+  createdAt?: string;
 }
 
 export interface Ticket {
@@ -50,10 +54,10 @@ export interface Ticket {
   reporterName: string;
   reporterEmail: string;
   phone: string | null;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+  status: "PENDING" | "APPROVED" | "REJECTED"; // تأكد من تطابق القيم مع الـ enum في schema
   createdAt: string;
   room?: RoomSimple | null;
   branch?: BranchSimple | null;
   asset?: AssetSimple | null;
-  ticketImages?: TicketImage[];   // ✅ تحسين النوع
+  attachments?: TicketAttachment[];   // ✅ استبدال ticketImages بـ attachments
 }

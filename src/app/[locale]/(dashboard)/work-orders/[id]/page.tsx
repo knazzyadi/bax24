@@ -31,6 +31,14 @@ import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { WorkOrderInventory } from "@/components/work-order/WorkOrderInventory";
 
+// تعريف نوع المرفق (مطابق لـ TicketAttachment)
+interface Attachment {
+  id: string;
+  url: string;
+  mimeType?: string;
+  originalName?: string;
+}
+
 interface WorkOrderAsset {
   id?: string;
   assetId: string;
@@ -69,12 +77,7 @@ interface WorkOrderDetail {
   updatedAt: string;
   workOrderAssets: WorkOrderAsset[];
   createdBy?: string;
-  ticketId?: string; // إضافة خاصية ticketId
-}
-
-interface TicketImage {
-  id: string;
-  url: string;
+  ticketId?: string;
 }
 
 export default function WorkOrderDetailPage() {
@@ -91,8 +94,8 @@ export default function WorkOrderDetailPage() {
   const [selectedAsset, setSelectedAsset] = useState<WorkOrderAsset | null>(null);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [completionNote, setCompletionNote] = useState("");
-  const [ticketImages, setTicketImages] = useState<TicketImage[]>([]);
-  const [loadingImages, setLoadingImages] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [loadingAttachments, setLoadingAttachments] = useState(false);
 
   useEffect(() => {
     const fetchWorkOrder = async () => {
@@ -112,27 +115,27 @@ export default function WorkOrderDetailPage() {
     if (id) fetchWorkOrder();
   }, [id, locale, router, t]);
 
-  // جلب صور التذكرة إذا كان أمر العمل ناتجاً عن تذكرة
+  // جلب مرفقات التذكرة (بدلاً من الصور القديمة)
   useEffect(() => {
-    const fetchTicketImages = async () => {
+    const fetchTicketAttachments = async () => {
       if (!workOrder?.ticketId) return;
-      setLoadingImages(true);
+      setLoadingAttachments(true);
       try {
-        const res = await fetch(`/api/tickets/${workOrder.ticketId}/images`);
+        const res = await fetch(`/api/tickets/${workOrder.ticketId}`);
         if (res.ok) {
-          const data = await res.json();
-          setTicketImages(data);
+          const ticketData = await res.json();
+          setAttachments(ticketData.attachments || []);
         } else {
-          setTicketImages([]);
+          setAttachments([]);
         }
       } catch (error) {
-        console.error("Failed to fetch ticket images", error);
-        setTicketImages([]);
+        console.error("Failed to fetch ticket attachments", error);
+        setAttachments([]);
       } finally {
-        setLoadingImages(false);
+        setLoadingAttachments(false);
       }
     };
-    fetchTicketImages();
+    fetchTicketAttachments();
   }, [workOrder?.ticketId]);
 
   const formatDate = (dateStr: string) => {
@@ -425,26 +428,26 @@ export default function WorkOrderDetailPage() {
             </InfoCard>
           )}
 
-          {/* الصور المرفقة من التذكرة (إذا وجدت) */}
+          {/* المرفقات من التذكرة (باستخدام attachments بدلاً من ticketImages) */}
           {workOrder.ticketId && (
             <InfoCard title={t("attachedImages")} icon={<FileText className="h-5 w-5" />}>
-              {loadingImages ? (
+              {loadingAttachments ? (
                 <div className="text-center py-4"><Loader2 className="animate-spin h-6 w-6 inline" /></div>
-              ) : ticketImages.length === 0 ? (
+              ) : attachments.length === 0 ? (
                 <p className="text-muted-foreground">{t("noImages")}</p>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {ticketImages.map((img) => (
+                  {attachments.map((att) => (
                     <a
-                      key={img.id}
-                      href={img.url}
+                      key={att.id}
+                      href={att.url}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="block overflow-hidden rounded-xl border border-primary/20 hover:shadow-md transition-shadow"
                     >
                       <img
-                        src={img.url}
-                        alt="Ticket attachment"
+                        src={att.url}
+                        alt={att.originalName || "Attachment"}
                         className="w-full h-32 object-cover hover:scale-105 transition-transform duration-200"
                       />
                     </a>

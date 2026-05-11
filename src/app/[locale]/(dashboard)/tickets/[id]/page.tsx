@@ -35,7 +35,6 @@ interface TicketDetailsPageProps {
   params: Promise<{ id: string }>;
 }
 
-// دالة مساعدة لعرض الموقع كامل
 function getFullLocation(room: any, isRtl: boolean): string {
   if (!room) return "—";
   const floor = room.floor;
@@ -107,8 +106,8 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
       ? isRtl ? "تذكرة حادث" : "Incident Ticket"
       : ticket.type || (isRtl ? "غير محدد" : "Not specified");
 
-  // بعد جلب بيانات التذكرة
-const images = ticket.imageUrl ? [{ id: ticket.id, url: ticket.imageUrl }] : ticket.ticketImages || [];
+  // ✅ استخدام attachments بدلاً من ticketImages و imageUrl
+  const images = ticket.attachments || [];
   const hasImages = Array.isArray(images) && images.length > 0;
 
   return (
@@ -158,7 +157,7 @@ const images = ticket.imageUrl ? [{ id: ticket.id, url: ticket.imageUrl }] : tic
                 <div className="flex items-center gap-2 mb-3 text-muted-foreground">
                   <ImageIcon className="h-4 w-4 text-primary" />
                   <span className="font-black text-xs uppercase tracking-widest">
-                    {isRtl ? "الصور المرفقة" : "Attached Images"}
+                    {isRtl ? "المرفقات" : "Attachments"}
                   </span>
                 </div>
                 {hasImages ? (
@@ -173,7 +172,7 @@ const images = ticket.imageUrl ? [{ id: ticket.id, url: ticket.imageUrl }] : tic
                       >
                         <img
                           src={img.url}
-                          alt={isRtl ? "صورة التذكرة" : "Ticket image"}
+                          alt={img.originalName || (isRtl ? "مرفق" : "Attachment")}
                           className="w-full h-32 object-cover hover:scale-105 transition-transform duration-200"
                         />
                       </a>
@@ -181,7 +180,7 @@ const images = ticket.imageUrl ? [{ id: ticket.id, url: ticket.imageUrl }] : tic
                   </div>
                 ) : (
                   <div className="bg-secondary/20 rounded-xl p-4 text-center text-muted-foreground text-sm font-medium">
-                    {isRtl ? "لا توجد صور مرفقة بهذه التذكرة" : "No images attached to this ticket"}
+                    {isRtl ? "لا توجد مرفقات لهذه التذكرة" : "No attachments for this ticket"}
                   </div>
                 )}
               </div>
@@ -283,7 +282,6 @@ const images = ticket.imageUrl ? [{ id: ticket.id, url: ticket.imageUrl }] : tic
                 </div>
               )}
 
-              {/* أزرار القبول والرفض: تم نقلها إلى مكون TicketActions */}
               <TicketActions ticketId={ticket.id} currentStatus={ticket.status} />
 
               {ticket.status !== "PENDING" && (

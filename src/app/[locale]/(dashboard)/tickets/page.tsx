@@ -30,7 +30,6 @@ export default async function TicketsPage({
     if (branchIds.length > 0) {
       where.branchId = { in: branchIds };
     } else {
-      // لا فروع -> قائمة فارغة
       return (
         <TicketsClient
           initialTickets={[]}
@@ -63,12 +62,11 @@ export default async function TicketsPage({
         }
       },
       branch: true,
-      ticketImages: true,
+      attachments: true,   // ✅ تم التغيير من ticketImages إلى attachments
     },
     orderBy: { createdAt: 'desc' },
   });
 
-  // تحويل التواريخ إلى سلاسل
   const serializedTickets: Ticket[] = tickets.map((t: any) => ({
     ...t,
     createdAt: t.createdAt.toISOString(),

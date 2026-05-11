@@ -117,8 +117,7 @@ export async function GET(request: NextRequest) {
             },
           },
           branch: true,
-          attachments: true,     // ✅ جلب المرفقات الجديدة
-          ticketImages: true,     // لا يزال للتوافق الخلفي (يمكن إزالته لاحقاً)
+          attachments: true,   // بدلاً من ticketImages
         },
         orderBy: { createdAt: "desc" },
         skip,

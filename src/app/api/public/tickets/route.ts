@@ -73,7 +73,7 @@ async function createTicketWithRetry(data: any, maxRetries = 3) {
 }
 
 // ======================
-// POST - Public Ticket Endpoint
+// POST - Public Ticket Endpoint (يدعم صور متعددة)
 // ======================
 export async function POST(req: Request) {
   try {
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
 
     const typeRaw = formData.get("type")?.toString();
     const assetId = formData.get("assetId")?.toString();
-    const imageFile = formData.get("image") as File | null;
+    const imageFiles = formData.getAll("images") as File[];   // ✅ تغيير جوهري: استقبال عدة صور
 
     // ======================
     // Validation أساسي
@@ -210,18 +210,15 @@ export async function POST(req: Request) {
     });
 
     // ======================
-    // رفع الصورة (اختياري)
+    // رفع الصور (عدة صور) إلى R2 وحفظها في TicketAttachment
     // ======================
-    let attachment = null;
+    const attachments = [];
 
-    if (imageFile && imageFile.size > 0 && imageFile.type.startsWith("image/")) {
+    for (const file of imageFiles) {
+      if (!file.type.startsWith("image/")) continue;
       try {
-        const uploaded = await uploadFileToR2(
-          imageFile,
-          `tickets/${ticket.id}`
-        );
-
-        attachment = await prisma.ticketAttachment.create({
+        const uploaded = await uploadFileToR2(file, `tickets/${ticket.id}`);
+        const attachment = await prisma.ticketAttachment.create({
           data: {
             ticketId: ticket.id,
             url: uploaded.url,
@@ -236,6 +233,7 @@ export async function POST(req: Request) {
             url: true,
           },
         });
+        attachments.push(attachment);
       } catch (err) {
         console.error("R2 Upload Failed:", err);
       }
@@ -248,7 +246,7 @@ export async function POST(req: Request) {
       success: true,
       ticketId: ticket.id,
       code: ticket.code,
-      attachment,
+      attachments,   // ✅ مصفوفة المرفقات
     });
   } catch (error: any) {
     console.error("PUBLIC_TICKET_ERROR:", error);

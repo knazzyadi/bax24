@@ -442,15 +442,23 @@ model WorkOrderStatus {
   @@unique([companyId, name])
 }
 
-model TicketImage {
-  id        String   @id @default(cuid())
-  url       String
-  ticketId  String
-  createdAt DateTime @default(now())
-  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+// ========== نموذج المرفقات الجديد ==========
+model TicketAttachment {
+  id          String   @id @default(cuid())
+  ticketId    String
+  url         String   // رابط الملف الكامل (مثل URL من R2)
+  key         String   // المفتاح الفريد للتخزين (مثل "tickets/abc-123.jpg")
+  provider    String   @default("CLOUDFLARE_R2") // R2 أو S3 أو CLOUDINARY
+  mimeType    String   // نوع الملف (image/jpeg, application/pdf)
+  size        Int      // الحجم بالبايت
+  originalName String  // اسم الملف الأصلي
+  createdAt   DateTime @default(now())
+  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+
+  @@index([ticketId])
 }
 
-// ========== نموذج Ticket المعدل بالكامل (يستخدم enums و branchSeqNum) ==========
+// ========== نموذج Ticket المعدل بالكامل (يستخدم enums و branchSeqNum و attachments) ==========
 model Ticket {
   id              String        @id @default(cuid())
   code            String        @unique
@@ -466,13 +474,12 @@ model Ticket {
   companyId       String
   branchId        String
   createdBy       String?
-  type            TicketType    @default(MAINTENANCE)      // ✅ enum
+  type            TicketType    @default(MAINTENANCE)
   phone           String?
   reporterEmail   String
   reporterName    String
-  status          TicketStatus  @default(PENDING)           // ✅ enum
+  status          TicketStatus  @default(PENDING)
   rejectionReason String?
-  imageUrl        String?
 
   // علاقات مفردة (N:1)
   asset           Asset?        @relation(fields: [assetId], references: [id])
@@ -480,9 +487,9 @@ model Ticket {
   company         Company       @relation(fields: [companyId], references: [id])
   room            Room?         @relation(fields: [roomId], references: [id])
 
-  // علاقات جمع (1:N) - مع اتباع قاعدة الجمع في الطرف الواحد
-  ticketImages    TicketImage[]
-  workOrder       WorkOrder?     // 1:1 (يمكن إضافة اسم علاقة مستقبلاً)
+  // علاقات جمع (1:N)
+  workOrder       WorkOrder?                    // 1:1
+  attachments     TicketAttachment[]            // ✅ نظام المرفقات الجديد (R2)
 
   // فهارس وقيد فريد مركب
   @@unique([branchId, branchSeqNum])

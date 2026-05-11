@@ -3,48 +3,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { writeFile, mkdir, unlink } from "fs/promises";
-import path from "path";
-import { randomUUID } from "crypto";
+import { uploadFileToR2, deleteFileFromR2 } from "@/lib/storage";
 
 // ========== أنواع الـ Enums المسموحة (لضمان السلامة) ==========
 const allowedTicketTypes = ["MAINTENANCE", "INCIDENT"];
 const allowedTicketStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED", "REJECTED", "CANCELLED"];
 
-// ========== Helper: حفظ الصورة ==========
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-
-async function saveImage(
-  file: File,
-  oldImageUrl?: string | null
-): Promise<string> {
-  if (file.size > MAX_FILE_SIZE) {
-    throw new Error("الصورة كبيرة جدًا (الحد الأقصى 5 ميجابايت)");
-  }
-  if (!ALLOWED_MIME_TYPES.includes(file.type)) {
-    throw new Error("نوع الملف غير مدعوم، يرجى رفع صورة (JPEG, PNG, WebP, GIF)");
-  }
-
-  if (oldImageUrl) {
-    const oldPath = path.join(process.cwd(), "public", oldImageUrl);
-    try { await unlink(oldPath); } catch {}
-  }
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const ext = path.extname(file.name) || ".jpg";
-  const fileName = `${randomUUID()}${ext}`;
-  const relativePath = `/uploads/tickets/${fileName}`;
-  const absolutePath = path.join(process.cwd(), "public", relativePath);
-
-  await mkdir(path.dirname(absolutePath), { recursive: true });
-  await writeFile(absolutePath, buffer);
-
-  return relativePath;
-}
-
 // ===========================
-// GET - Fetch single ticket
+// GET - Fetch single ticket with attachments
 // ===========================
 export async function GET(
   request: Request,
@@ -67,8 +33,9 @@ export async function GET(
         asset: { include: { type: true } },
         room: { include: { floor: { include: { building: true } } } },
         branch: true,
-        ticketImages: true,
+        attachments: true,        // ✅ استخدام المرفقات الجديدة
         workOrder: true,
+        // ticketImages: true,    // يمكن إزالته لاحقاً بعد ترحيل البيانات
       },
     });
 
@@ -79,10 +46,7 @@ export async function GET(
       );
     }
 
-    return NextResponse.json({
-      ...ticket,
-      imageUrl: ticket.imageUrl || null,
-    });
+    return NextResponse.json(ticket);
   } catch (error) {
     console.error(error);
     return NextResponse.json(
@@ -112,6 +76,7 @@ export async function PUT(
 
     const existingTicket = await prisma.ticket.findFirst({
       where: { id, companyId, deletedAt: null },
+      include: { attachments: true }, // لجلب المرفقات الحالية
     });
 
     if (!existingTicket) {
@@ -123,7 +88,7 @@ export async function PUT(
 
     const contentType = request.headers.get("content-type") || "";
     let dataToUpdate: any = { updatedAt: new Date() };
-    let newImageUrl: string | null | undefined = undefined;
+    let newAttachmentIdToKeep: string | null = null; // لتحديد المرفق الجديد إن وجد
 
     // ========== Case 1: multipart/form-data (with file upload) ==========
     if (contentType.includes("multipart/form-data")) {
@@ -144,29 +109,52 @@ export async function PUT(
       const file = formData.get("file") as File | null;
       const removeImage = formData.get("removeImage")?.toString();
 
-      // رفع / حذف الصورة
+      // معالجة الملف الجديد أو حذف المرفق
       if (file && file.size > 0) {
+        // رفع الملف الجديد إلى R2
         try {
-          newImageUrl = await saveImage(file, existingTicket.imageUrl);
+          const uploaded = await uploadFileToR2(file, `tickets/${existingTicket.id}`);
+          const newAttachment = await prisma.ticketAttachment.create({
+            data: {
+              ticketId: existingTicket.id,
+              url: uploaded.url,
+              key: uploaded.key,
+              provider: "CLOUDFLARE_R2",
+              mimeType: uploaded.mimeType,
+              size: uploaded.size,
+              originalName: uploaded.originalName,
+            },
+          });
+          newAttachmentIdToKeep = newAttachment.id;
+          
+          // حذف المرفقات القديمة (إذا أردنا استبدال الكل)
+          for (const oldAtt of existingTicket.attachments) {
+            await deleteFileFromR2(oldAtt.key);
+            await prisma.ticketAttachment.delete({ where: { id: oldAtt.id } });
+          }
         } catch (err: any) {
           return NextResponse.json({ error: err.message }, { status: 400 });
         }
       } else if (removeImage === "true") {
-        if (existingTicket.imageUrl) {
-          const oldPath = path.join(process.cwd(), "public", existingTicket.imageUrl);
-          try { await unlink(oldPath); } catch {}
+        // حذف جميع المرفقات الحالية
+        for (const att of existingTicket.attachments) {
+          await deleteFileFromR2(att.key);
+          await prisma.ticketAttachment.delete({ where: { id: att.id } });
         }
-        newImageUrl = null;
+        newAttachmentIdToKeep = null;
+      } else {
+        // الاحتفاظ بالمرفقات الحالية (لا تغيير)
+        newAttachmentIdToKeep = existingTicket.attachments.length > 0 ? existingTicket.attachments[0].id : null;
       }
 
-      // التحقق من صحة الـ type (يجب أن يكون من ضمن TicketType)
+      // التحقق من صحة type و status
       if (type) {
         if (!allowedTicketTypes.includes(type)) {
           return NextResponse.json({ error: "نوع التذكرة غير صالح" }, { status: 400 });
         }
         dataToUpdate.type = type;
       }
-      // التحقق من صحة الـ status قبل التحديث
+
       let newStatus = status;
       if (!newStatus && action === "APPROVED") newStatus = "APPROVED";
       if (!newStatus && action === "REJECTED") newStatus = "REJECTED";
@@ -201,7 +189,6 @@ export async function PUT(
                 { status: 400 }
               );
             }
-            // تحديد نوع أمر العمل بناءً على نوع التذكرة (enum)
             const workOrderType = existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE";
             await prisma.workOrder.create({
               data: {
@@ -221,7 +208,7 @@ export async function PUT(
         }
       }
 
-      // الحقول النصية العادية
+      // تحديث الحقول النصية
       if (title) dataToUpdate.title = title;
       if (description) dataToUpdate.description = description;
       if (roomId) dataToUpdate.roomId = roomId;
@@ -229,7 +216,6 @@ export async function PUT(
       if (reporterName) dataToUpdate.reporterName = reporterName;
       if (reporterEmail) dataToUpdate.reporterEmail = reporterEmail;
       if (phone) dataToUpdate.phone = phone || null;
-      if (newImageUrl !== undefined) dataToUpdate.imageUrl = newImageUrl;
     }
     // ========== Case 2: application/json (no file upload) ==========
     else if (contentType.includes("application/json")) {
@@ -249,11 +235,12 @@ export async function PUT(
       if (body.reporterEmail !== undefined) dataToUpdate.reporterEmail = body.reporterEmail;
       if (body.phone !== undefined) dataToUpdate.phone = body.phone || null;
 
-      // دعم حذف الصورة
-      if (body.removeImage === true && existingTicket.imageUrl) {
-        const oldPath = path.join(process.cwd(), "public", existingTicket.imageUrl);
-        try { await unlink(oldPath); } catch {}
-        dataToUpdate.imageUrl = null;
+      // دعم حذف جميع المرفقات عبر JSON
+      if (body.removeAllAttachments === true && existingTicket.attachments.length > 0) {
+        for (const att of existingTicket.attachments) {
+          await deleteFileFromR2(att.key);
+          await prisma.ticketAttachment.delete({ where: { id: att.id } });
+        }
       }
 
       // معالجة الحالة (status أو action)
@@ -316,12 +303,10 @@ export async function PUT(
     const updatedTicket = await prisma.ticket.update({
       where: { id },
       data: dataToUpdate,
+      include: { attachments: true },
     });
 
-    return NextResponse.json({
-      ...updatedTicket,
-      imageUrl: updatedTicket.imageUrl || null,
-    });
+    return NextResponse.json(updatedTicket);
   } catch (error: any) {
     console.error(error);
     return NextResponse.json(
@@ -332,7 +317,7 @@ export async function PUT(
 }
 
 // ===========================
-// DELETE - Soft delete
+// DELETE - Soft delete ticket and its attachments from R2
 // ===========================
 export async function DELETE(
   request: Request,
@@ -349,25 +334,29 @@ export async function DELETE(
     const { id } = await params;
     const companyId = session.user.companyId;
 
-    const existing = await prisma.ticket.findFirst({
+    const existingTicket = await prisma.ticket.findFirst({
       where: { id, companyId, deletedAt: null },
+      include: { attachments: true },
     });
 
-    if (!existing) {
+    if (!existingTicket) {
       return NextResponse.json({ error: "التذكرة غير موجودة" }, { status: 404 });
     }
 
-    if (existing.imageUrl) {
-      const imagePath = path.join(process.cwd(), "public", existing.imageUrl);
-      try { await unlink(imagePath); } catch {}
+    // حذف جميع المرفقات من R2
+    for (const att of existingTicket.attachments) {
+      await deleteFileFromR2(att.key);
     }
+    // حذف سجلات المرفقات من قاعدة البيانات (ستحذف تلقائياً بسبب onDelete: Cascade، لكن يمكن حذفها صراحةً)
+    await prisma.ticketAttachment.deleteMany({ where: { ticketId: id } });
 
+    // حذف التذكرة (soft delete)
     await prisma.ticket.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ message: "تم الحذف" });
+    return NextResponse.json({ message: "تم حذف التذكرة وجميع مرفقاتها" });
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "فشل الحذف" }, { status: 500 });

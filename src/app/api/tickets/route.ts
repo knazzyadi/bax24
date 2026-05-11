@@ -3,12 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { writeFile, mkdir } from "fs/promises";
-import path from "path";
+import { uploadFileToR2 } from "@/lib/storage";
 
 // ========== دالة توليد كود فريد لكل فرع ==========
 async function generateTicketCode(branchId: string): Promise<{ code: string; branchSeqNum: number }> {
-  // الحصول على آخر رقم تسلسلي مستخدم في هذا الفرع
   const lastTicket = await prisma.ticket.findFirst({
     where: { branchId },
     orderBy: { branchSeqNum: "desc" },
@@ -17,7 +15,6 @@ async function generateTicketCode(branchId: string): Promise<{ code: string; bra
 
   const nextNumber = (lastTicket?.branchSeqNum ?? 0) + 1;
 
-  // الحصول على بادئة الفرع (اختصار مخزن في model Branch)
   const branch = await prisma.branch.findUnique({
     where: { id: branchId },
     select: { code: true },
@@ -103,9 +100,7 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    // تحويل status من string إلى enum إذا كان موجوداً
     if (status && status !== "all") {
-      // Prisma يقبل السلسلة النصية المطابقة لأعضاء الـ enum
       where.status = status;
     }
 
@@ -122,7 +117,8 @@ export async function GET(request: NextRequest) {
             },
           },
           branch: true,
-          ticketImages: true,
+          attachments: true,     // ✅ جلب المرفقات الجديدة
+          ticketImages: true,     // لا يزال للتوافق الخلفي (يمكن إزالته لاحقاً)
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -150,7 +146,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ========== POST: إنشاء تذكرة جديدة مع رفع الصور ==========
+// ========== POST: إنشاء تذكرة جديدة مع رفع الصور إلى R2 ==========
 export async function POST(request: Request) {
   try {
     const session = await auth();
@@ -182,7 +178,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة بالمستخدم" }, { status: 400 });
     }
 
-    // التحقق من وجود الغرفة والفرع
     const room = await prisma.room.findFirst({
       where: { id: roomId },
       include: { floor: { include: { building: true } } },
@@ -198,15 +193,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "الفرع غير موجود أو لا يتبع شركتك" }, { status: 400 });
     }
 
-    // تحويل `type` إلى قيمة enum المتوقعة
     let ticketType: "MAINTENANCE" | "INCIDENT" = "MAINTENANCE";
-    if (type === "INCIDENT") {
-      ticketType = "INCIDENT";
-    } else {
-      ticketType = "MAINTENANCE";
-    }
+    if (type === "INCIDENT") ticketType = "INCIDENT";
 
-    // تحضير بيانات التذكرة (بدون code و branchSeqNum)
     const ticketData = {
       type: ticketType,
       title,
@@ -219,34 +208,37 @@ export async function POST(request: Request) {
       branchId,
       assetId: assetId && assetId !== "none" && assetId !== "" ? assetId : null,
       createdBy: session.user.id,
-      status: "PENDING",   // Prisma سيقبلها كـ string وتتحول تلقائياً إلى enum
+      status: "PENDING",
     };
 
-    // إنشاء التذكرة مع إعادة المحاولة (يضيف code و branchSeqNum)
+    // إنشاء التذكرة
     const ticket = await createTicketWithRetry(ticketData);
 
-    // رفع الصور
-    const uploadDir = path.join(process.cwd(), "public/uploads/tickets");
-    await mkdir(uploadDir, { recursive: true });
-    const savedImages = [];
-
+    // رفع الصور إلى R2 وحفظها في TicketAttachment
+    const attachments = [];
     for (const file of imageFiles) {
       if (!file.type.startsWith("image/")) continue;
-      const bytes = await file.arrayBuffer();
-      const buffer = Buffer.from(bytes);
-      const ext = path.extname(file.name);
-      const uniqueName = `${Date.now()}-${Math.random().toString(36).substring(2)}${ext}`;
-      const filePath = path.join(uploadDir, uniqueName);
-      await writeFile(filePath, buffer);
-      const imageUrl = `/uploads/tickets/${uniqueName}`;
-      const saved = await prisma.ticketImage.create({
-        data: { ticketId: ticket.id, url: imageUrl },
-      });
-      savedImages.push(saved);
+      try {
+        const uploaded = await uploadFileToR2(file, `tickets/${ticket.id}`);
+        const attachment = await prisma.ticketAttachment.create({
+          data: {
+            ticketId: ticket.id,
+            url: uploaded.url,
+            key: uploaded.key,
+            provider: "CLOUDFLARE_R2",
+            mimeType: uploaded.mimeType,
+            size: uploaded.size,
+            originalName: uploaded.originalName,
+          },
+        });
+        attachments.push(attachment);
+      } catch (err) {
+        console.error(`❌ فشل رفع الصورة ${file.name}:`, err);
+      }
     }
 
     return NextResponse.json(
-      { ...ticket, images: savedImages },
+      { ...ticket, attachments },
       { status: 201 }
     );
   } catch (error) {

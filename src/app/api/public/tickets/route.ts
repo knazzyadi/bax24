@@ -1,8 +1,7 @@
 // src/app/api/public/tickets/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir, access } from "fs/promises";
-import path from "path";
+import { uploadFileToR2 } from "@/lib/storage";
 import { randomUUID } from "crypto";
 
 // ======================
@@ -16,48 +15,17 @@ function isRateLimited(ip: string): boolean {
   const limit = 5;
 
   const timestamps = ipRequests.get(ip) || [];
-
   const recent = timestamps.filter((t) => now - t < windowMs);
 
   if (recent.length >= limit) return true;
 
   recent.push(now);
   ipRequests.set(ip, recent);
-
   return false;
-}
-
-// ======================
-// Image Validation & Saving
-// ======================
-const MAX_FILE_SIZE = 5 * 1024 * 1024;
-const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp"];
-
-async function saveImage(file: File): Promise<string> {
-  if (file.size > MAX_FILE_SIZE) throw new Error("حجم الصورة أكبر من 5MB");
-  if (!ALLOWED_TYPES.includes(file.type)) throw new Error("نوع الصورة غير مدعوم");
-  if (file.name.includes(".php") || file.name.includes(".exe") || file.name.includes(".js"))
-    throw new Error("اسم ملف غير مسموح");
-
-  const buffer = Buffer.from(await file.arrayBuffer());
-  const ext = path.extname(file.name) || ".jpg";
-  const fileName = `${randomUUID()}${ext}`;
-  const relativePath = `/uploads/tickets/${fileName}`;
-  const absolutePath = path.join(process.cwd(), "public", relativePath);
-
-  const dir = path.dirname(absolutePath);
-  try {
-    await access(dir);
-  } catch {
-    await mkdir(dir, { recursive: true });
-  }
-  await writeFile(absolutePath, buffer);
-  return relativePath;
 }
 
 // ========== دالة توليد كود فريد لكل فرع ==========
 async function generateTicketCode(branchId: string): Promise<{ code: string; branchSeqNum: number }> {
-  // الحصول على آخر رقم تسلسلي مستخدم في هذا الفرع
   const lastTicket = await prisma.ticket.findFirst({
     where: { branchId },
     orderBy: { branchSeqNum: "desc" },
@@ -66,7 +34,6 @@ async function generateTicketCode(branchId: string): Promise<{ code: string; bra
 
   const nextNumber = (lastTicket?.branchSeqNum ?? 0) + 1;
 
-  // الحصول على بادئة الفرع (اختصار مخزن في model Branch)
   const branch = await prisma.branch.findUnique({
     where: { id: branchId },
     select: { code: true },
@@ -74,7 +41,6 @@ async function generateTicketCode(branchId: string): Promise<{ code: string; bra
   const prefix = branch?.code || "BR";
 
   const code = `${prefix}-${nextNumber.toString().padStart(4, "0")}`;
-
   return { code, branchSeqNum: nextNumber };
 }
 
@@ -84,11 +50,7 @@ async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
     try {
       const { code, branchSeqNum } = await generateTicketCode(data.branchId);
       const ticket = await prisma.ticket.create({
-        data: {
-          ...data,
-          code,
-          branchSeqNum,
-        },
+        data: { ...data, code, branchSeqNum },
       });
       return ticket;
     } catch (error: any) {
@@ -124,6 +86,7 @@ export async function POST(req: Request) {
     const phone = formData.get("phone")?.toString()?.trim();
     const type = formData.get("type")?.toString() || "MAINTENANCE";
     const assetId = formData.get("assetId")?.toString();
+    const imageFile = formData.get("image") as File | null; // صورة واحدة فقط للعامة
 
     // Validation
     if (!slug || !token) return NextResponse.json({ error: "رابط غير صالح" }, { status: 400 });
@@ -145,47 +108,55 @@ export async function POST(req: Request) {
     });
     if (!room) return NextResponse.json({ error: "الغرفة غير تابعة لهذا الفرع" }, { status: 400 });
 
-    // Validate type (يجب أن يكون من قيم TicketType)
+    // Validate type
     const allowedTypes = ["MAINTENANCE", "INCIDENT"];
     if (!allowedTypes.includes(type)) {
       return NextResponse.json({ error: "نوع البلاغ غير مسموح" }, { status: 400 });
     }
 
-    // Image Upload
-    let imageUrl: string | null = null;
-    const image = formData.get("image") as File | null;
-    if (image && image.size > 0) {
-      try {
-        imageUrl = await saveImage(image);
-        console.log("✅ Image saved:", imageUrl);
-      } catch (err: any) {
-        console.error("❌ Image upload error:", err.message);
-      }
-    }
-
-    // Prepare ticket data (without code and branchSeqNum)
+    // Prepare ticket data
     const ticketData = {
       title,
       description: description || null,
-      type,  // سيتم تمريره كسلسلة نصية - Prisma يستقبلها لأنها تطابق enum
+      type,
       roomId,
       assetId: assetId || null,
       reporterName,
       reporterEmail,
       phone: phone || null,
-      imageUrl,
       companyId: branch.companyId,
       branchId: branch.id,
-      status: "PENDING",  // قيمة من TicketStatus enum
+      status: "PENDING",
     };
 
-    // ✅ Create ticket with retry (يضيف code و branchSeqNum)
+    // Create ticket (adds code, branchSeqNum)
     const ticket = await createTicketWithRetry(ticketData);
+
+    // Upload image to R2 if provided
+    let attachment = null;
+    if (imageFile && imageFile.size > 0) {
+      try {
+        const uploaded = await uploadFileToR2(imageFile, `tickets/${ticket.id}`);
+        attachment = await prisma.ticketAttachment.create({
+          data: {
+            ticketId: ticket.id,
+            url: uploaded.url,
+            key: uploaded.key,
+            provider: "CLOUDFLARE_R2",
+            mimeType: uploaded.mimeType,
+            size: uploaded.size,
+            originalName: uploaded.originalName,
+          },
+        });
+      } catch (err: any) {
+        console.error("❌ Image upload error:", err.message);
+      }
+    }
 
     return NextResponse.json({
       success: true,
       ticketId: ticket.id,
-      imageUrl,
+      attachment: attachment ? { url: attachment.url, id: attachment.id } : null,
     });
   } catch (error: any) {
     console.error("PUBLIC_TICKET_ERROR:", error);

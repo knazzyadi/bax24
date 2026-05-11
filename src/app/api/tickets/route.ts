@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
             },
           },
           branch: true,
-          attachments: true,   // بدلاً من ticketImages
+          attachments: true,
         },
         orderBy: { createdAt: "desc" },
         skip,

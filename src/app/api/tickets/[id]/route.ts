@@ -33,7 +33,7 @@ export async function GET(
         asset: { include: { type: true } },
         room: { include: { floor: { include: { building: true } } } },
         branch: true,
-        attachments: true,        // ✅ استخدام المرفقات الجديدة
+        attachments: true,
         workOrder: true,
       },
     });

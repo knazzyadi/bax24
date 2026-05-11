@@ -107,7 +107,8 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
       ? isRtl ? "تذكرة حادث" : "Incident Ticket"
       : ticket.type || (isRtl ? "غير محدد" : "Not specified");
 
-  const images = ticket.images || ticket.ticketImages || [];
+  // بعد جلب بيانات التذكرة
+const images = ticket.imageUrl ? [{ id: ticket.id, url: ticket.imageUrl }] : ticket.ticketImages || [];
   const hasImages = Array.isArray(images) && images.length > 0;
 
   return (

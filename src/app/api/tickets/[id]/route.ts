@@ -35,7 +35,6 @@ export async function GET(
         branch: true,
         attachments: true,        // ✅ استخدام المرفقات الجديدة
         workOrder: true,
-        // ticketImages: true,    // يمكن إزالته لاحقاً بعد ترحيل البيانات
       },
     });
 

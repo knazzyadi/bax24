@@ -2,10 +2,9 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { uploadFileToR2 } from "@/lib/storage";
-import { randomUUID } from "crypto";
 
 // ======================
-// Rate Limit (Simple In-Memory)
+// Rate Limit (بسيط - مناسب كبداية، لاحقًا يفضل Redis)
 // ======================
 const ipRequests = new Map<string, number[]>();
 
@@ -24,7 +23,9 @@ function isRateLimited(ip: string): boolean {
   return false;
 }
 
-// ========== دالة توليد كود فريد لكل فرع ==========
+// ======================
+// توليد كود التذكرة (لكل فرع على حدة)
+// ======================
 async function generateTicketCode(branchId: string): Promise<{ code: string; branchSeqNum: number }> {
   const lastTicket = await prisma.ticket.findFirst({
     where: { branchId },
@@ -38,84 +39,163 @@ async function generateTicketCode(branchId: string): Promise<{ code: string; bra
     where: { id: branchId },
     select: { code: true },
   });
-  const prefix = branch?.code || "BR";
 
+  const prefix = branch?.code || "BR";
   const code = `${prefix}-${nextNumber.toString().padStart(4, "0")}`;
+
   return { code, branchSeqNum: nextNumber };
 }
 
-// ========== دالة إنشاء التذكرة مع إعادة المحاولة ==========
-async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
+// ======================
+// إنشاء التذكرة مع إعادة المحاولة (لتجنب تضارب الأكواد)
+// ======================
+async function createTicketWithRetry(data: any, maxRetries = 3) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const { code, branchSeqNum } = await generateTicketCode(data.branchId);
-      const ticket = await prisma.ticket.create({
-        data: { ...data, code, branchSeqNum },
+
+      return await prisma.ticket.create({
+        data: {
+          ...data,
+          code,
+          branchSeqNum,
+        },
       });
-      return ticket;
     } catch (error: any) {
-      if (error.code === 'P2002' && attempt < maxRetries) {
-        console.log(`⚠️ Duplicate code in public API, retrying (attempt ${attempt + 1})...`);
+      if (error.code === "P2002" && attempt < maxRetries) {
         continue;
       }
       throw error;
     }
   }
+
   throw new Error("فشل إنشاء التذكرة بعد عدة محاولات");
 }
 
 // ======================
-// POST - Public Ticket
+// POST - Public Ticket Endpoint
 // ======================
 export async function POST(req: Request) {
   try {
-    const forwarded = req.headers.get("x-forwarded-for");
-    const ip = forwarded ? forwarded.split(",")[0].trim() : "unknown";
-    if (isRateLimited(ip)) {
-      return NextResponse.json({ error: "تم تجاوز الحد المسموح من الطلبات" }, { status: 429 });
+    // ========== IP Rate Limit ==========
+    const ip =
+      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+
+    if (ip !== "unknown" && isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: "تم تجاوز الحد المسموح من الطلبات" },
+        { status: 429 }
+      );
     }
 
     const formData = await req.formData();
+
     const slug = formData.get("slug")?.toString()?.trim();
     const token = formData.get("token")?.toString()?.trim();
+
     const roomId = formData.get("roomId")?.toString();
     const title = formData.get("title")?.toString()?.trim();
     const description = formData.get("description")?.toString()?.trim();
+
     const reporterName = formData.get("reporterName")?.toString()?.trim();
     const reporterEmail = formData.get("reporterEmail")?.toString()?.trim();
     const phone = formData.get("phone")?.toString()?.trim();
-    const type = formData.get("type")?.toString() || "MAINTENANCE";
+
+    const typeRaw = formData.get("type")?.toString();
     const assetId = formData.get("assetId")?.toString();
-    const imageFile = formData.get("image") as File | null; // صورة واحدة فقط للعامة
+    const imageFile = formData.get("image") as File | null;
 
-    // Validation
-    if (!slug || !token) return NextResponse.json({ error: "رابط غير صالح" }, { status: 400 });
-    if (!title || !roomId || !reporterName || !reporterEmail)
-      return NextResponse.json({ error: "البيانات الأساسية ناقصة" }, { status: 400 });
-    if (title.length < 5) return NextResponse.json({ error: "عنوان البلاغ قصير جدًا" }, { status: 400 });
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(reporterEmail)) return NextResponse.json({ error: "البريد الإلكتروني غير صالح" }, { status: 400 });
-
-    // Validate Branch
-    const branch = await prisma.branch.findFirst({
-      where: { slug, publicToken: token, allowPublicTickets: true },
-    });
-    if (!branch) return NextResponse.json({ error: "الرابط غير صالح أو غير مفعل" }, { status: 403 });
-
-    // Validate Room
-    const room = await prisma.room.findFirst({
-      where: { id: roomId, floor: { building: { branchId: branch.id } } },
-    });
-    if (!room) return NextResponse.json({ error: "الغرفة غير تابعة لهذا الفرع" }, { status: 400 });
-
-    // Validate type
-    const allowedTypes = ["MAINTENANCE", "INCIDENT"];
-    if (!allowedTypes.includes(type)) {
-      return NextResponse.json({ error: "نوع البلاغ غير مسموح" }, { status: 400 });
+    // ======================
+    // Validation أساسي
+    // ======================
+    if (!slug || !token) {
+      return NextResponse.json({ error: "رابط غير صالح" }, { status: 400 });
     }
 
-    // Prepare ticket data
-    const ticketData = {
+    if (!title || !roomId || !reporterName || !reporterEmail) {
+      return NextResponse.json(
+        { error: "البيانات الأساسية ناقصة" },
+        { status: 400 }
+      );
+    }
+
+    if (title.length < 5) {
+      return NextResponse.json(
+        { error: "عنوان البلاغ قصير جداً" },
+        { status: 400 }
+      );
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(reporterEmail)) {
+      return NextResponse.json(
+        { error: "البريد الإلكتروني غير صالح" },
+        { status: 400 }
+      );
+    }
+
+    // ======================
+    // Branch validation (مع select للأداء)
+    // ======================
+    const branch = await prisma.branch.findFirst({
+      where: {
+        slug,
+        publicToken: token,
+        allowPublicTickets: true,
+      },
+      select: {
+        id: true,
+        companyId: true,
+      },
+    });
+
+    if (!branch) {
+      return NextResponse.json(
+        { error: "الرابط غير صالح أو غير مفعل" },
+        { status: 403 }
+      );
+    }
+
+    // ======================
+    // Room validation (أكثر أماناً + select للأداء)
+    // ======================
+    const room = await prisma.room.findFirst({
+      where: { id: roomId },
+      select: {
+        id: true,
+        floor: {
+          select: {
+            building: {
+              select: {
+                branchId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // التحقق من صحة الغرفة وتبعيتها للفرع
+    if (!room || room.floor.building.branchId !== branch.id) {
+      return NextResponse.json(
+        { error: "الغرفة غير تابعة لهذا الفرع" },
+        { status: 400 }
+      );
+    }
+
+    // ======================
+    // Type validation
+    // ======================
+    const allowedTypes = ["MAINTENANCE", "INCIDENT"] as const;
+    const type =
+      typeRaw && allowedTypes.includes(typeRaw as any)
+        ? typeRaw
+        : "MAINTENANCE";
+
+    // ======================
+    // إنشاء التذكرة
+    // ======================
+    const ticket = await createTicketWithRetry({
       title,
       description: description || null,
       type,
@@ -127,16 +207,20 @@ export async function POST(req: Request) {
       companyId: branch.companyId,
       branchId: branch.id,
       status: "PENDING",
-    };
+    });
 
-    // Create ticket (adds code, branchSeqNum)
-    const ticket = await createTicketWithRetry(ticketData);
-
-    // Upload image to R2 if provided
+    // ======================
+    // رفع الصورة (اختياري)
+    // ======================
     let attachment = null;
-    if (imageFile && imageFile.size > 0) {
+
+    if (imageFile && imageFile.size > 0 && imageFile.type.startsWith("image/")) {
       try {
-        const uploaded = await uploadFileToR2(imageFile, `tickets/${ticket.id}`);
+        const uploaded = await uploadFileToR2(
+          imageFile,
+          `tickets/${ticket.id}`
+        );
+
         attachment = await prisma.ticketAttachment.create({
           data: {
             ticketId: ticket.id,
@@ -147,21 +231,30 @@ export async function POST(req: Request) {
             size: uploaded.size,
             originalName: uploaded.originalName,
           },
+          select: {
+            id: true,
+            url: true,
+          },
         });
-      } catch (err: any) {
-        console.error("❌ Image upload error:", err.message);
+      } catch (err) {
+        console.error("R2 Upload Failed:", err);
       }
     }
 
+    // ======================
+    // Response نظيف للجمهور
+    // ======================
     return NextResponse.json({
       success: true,
       ticketId: ticket.id,
-      attachment: attachment ? { url: attachment.url, id: attachment.id } : null,
+      code: ticket.code,
+      attachment,
     });
   } catch (error: any) {
     console.error("PUBLIC_TICKET_ERROR:", error);
+
     return NextResponse.json(
-      { error: error.message || "فشل إنشاء البلاغ" },
+      { error: "فشل إنشاء البلاغ" },
       { status: 500 }
     );
   }

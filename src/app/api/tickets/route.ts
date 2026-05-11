@@ -1,3 +1,4 @@
+// src/app/api/tickets/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -10,7 +11,7 @@ async function generateTicketCode(branchId: string): Promise<{ code: string; bra
   // الحصول على آخر رقم تسلسلي مستخدم في هذا الفرع
   const lastTicket = await prisma.ticket.findFirst({
     where: { branchId },
-    orderBy: { branchSeqNum: "desc" }, // ترتيب رقمي صحيح
+    orderBy: { branchSeqNum: "desc" },
     select: { branchSeqNum: true },
   });
 
@@ -19,9 +20,9 @@ async function generateTicketCode(branchId: string): Promise<{ code: string; bra
   // الحصول على بادئة الفرع (اختصار مخزن في model Branch)
   const branch = await prisma.branch.findUnique({
     where: { id: branchId },
-    select: { code: true }, // استخدم الحقل code من Branch
+    select: { code: true },
   });
-  const prefix = branch?.code || "BR"; // في حال عدم وجود code، استخدم "BR"
+  const prefix = branch?.code || "BR";
 
   const code = `${prefix}-${nextNumber.toString().padStart(4, "0")}`;
 
@@ -42,7 +43,6 @@ async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
       });
       return ticket;
     } catch (error: any) {
-      // تعارض في الكود (P2002) أو تعارض في القيد الفريد (branchId, branchSeqNum)
       if (error.code === 'P2002' && attempt < maxRetries) {
         console.log(`⚠️ تعارض في الترقيم، إعادة المحاولة ${attempt + 1}...`);
         continue;
@@ -103,7 +103,9 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // تحويل status من string إلى enum إذا كان موجوداً
     if (status && status !== "all") {
+      // Prisma يقبل السلسلة النصية المطابقة لأعضاء الـ enum
       where.status = status;
     }
 
@@ -156,9 +158,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
-    // يمكن تفعيل صلاحية الإنشاء لاحقاً:
-    // await requirePermission("tickets.create", session);
-
     const formData = await request.formData();
     const type = formData.get("type") as string;
     const title = formData.get("title") as string;
@@ -173,7 +172,7 @@ export async function POST(request: Request) {
 
     if (!title || !description || !reporterName || !reporterEmail || !roomId || !branchId) {
       return NextResponse.json(
-        { error: "بيانات ناقصة (العنوان، الوصف، المبلغ، الغرفة، الفرع)" },
+        { error: "بيانات ناقصة (العنوان، الوصف، اسم المبلغ، البريد، الغرفة، الفرع)" },
         { status: 400 }
       );
     }
@@ -183,6 +182,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة بالمستخدم" }, { status: 400 });
     }
 
+    // التحقق من وجود الغرفة والفرع
     const room = await prisma.room.findFirst({
       where: { id: roomId },
       include: { floor: { include: { building: true } } },
@@ -198,9 +198,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "الفرع غير موجود أو لا يتبع شركتك" }, { status: 400 });
     }
 
+    // تحويل `type` إلى قيمة enum المتوقعة
+    let ticketType: "MAINTENANCE" | "INCIDENT" = "MAINTENANCE";
+    if (type === "INCIDENT") {
+      ticketType = "INCIDENT";
+    } else {
+      ticketType = "MAINTENANCE";
+    }
+
     // تحضير بيانات التذكرة (بدون code و branchSeqNum)
     const ticketData = {
-      type: type === "INCIDENT" ? "INCIDENT" : "MAINTENANCE",
+      type: ticketType,
       title,
       description,
       reporterName,
@@ -211,10 +219,10 @@ export async function POST(request: Request) {
       branchId,
       assetId: assetId && assetId !== "none" && assetId !== "" ? assetId : null,
       createdBy: session.user.id,
-      status: "PENDING",
+      status: "PENDING",   // Prisma سيقبلها كـ string وتتحول تلقائياً إلى enum
     };
 
-    // ✅ إنشاء التذكرة مع إعادة المحاولة التلقائية
+    // إنشاء التذكرة مع إعادة المحاولة (يضيف code و branchSeqNum)
     const ticket = await createTicketWithRetry(ticketData);
 
     // رفع الصور

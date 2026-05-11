@@ -1,3 +1,4 @@
+// src/app/api/tickets/[id]/images/route.ts
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -14,19 +15,24 @@ export async function GET(
     }
     await requirePermission("tickets.read", session);
 
-    const { id } = await params;
+    const { id: ticketId } = await params;
     const companyId = session.user.companyId;
 
+    // التأكد من أن التذكرة موجودة وتنتمي للشركة (ولم تحذف)
     const ticket = await prisma.ticket.findFirst({
-      where: { id, companyId, deletedAt: null },
+      where: { id: ticketId, companyId, deletedAt: null },
+      select: { id: true }, // نحتاج فقط للتأكد من الوجود
     });
+
     if (!ticket) {
       return NextResponse.json({ error: "التذكرة غير موجودة" }, { status: 404 });
     }
 
+    // جلب الصور المرتبطة بالتذكرة
     const images = await prisma.ticketImage.findMany({
-      where: { ticketId: id },
-      select: { id: true, url: true },
+      where: { ticketId },
+      select: { id: true, url: true, createdAt: true }, // إضافة createdAt إن أردت الترتيب
+      orderBy: { createdAt: "asc" }, // اختياري: ترتيب تصاعدي
     });
 
     return NextResponse.json(images);

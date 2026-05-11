@@ -7,6 +7,37 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ========== ENUMS الجديدة ==========
+enum TicketType {
+  MAINTENANCE
+  INCIDENT
+}
+
+enum TicketStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+// ========== باقي الـ ENUMS كما هي ==========
+enum ContractStatus {
+  PENDING_REVIEW
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum WorkOrderType {
+  MAINTENANCE
+  CORRECTIVE
+  EMERGENCY
+  BULK_PREVENTIVE
+}
+
+// ========== MODELS ==========
+
 model Company {
   id                    String                @id @default(cuid())
   name                  String                @unique
@@ -22,7 +53,7 @@ model Company {
   contracts             Contract[]
   inventoryItems        InventoryItem[]
   maintenanceSchedules  MaintenanceSchedule[]
-  Ticket                Ticket[]
+  tickets               Ticket[]              // ✅ تم التصحيح (جمع)
   workOrders            WorkOrder[]
   workOrderPriorities   WorkOrderPriority[]
   workOrderStatuses     WorkOrderStatus[]
@@ -43,7 +74,7 @@ model User {
   password          String?
   status            Boolean      @default(true)
   companyId         String?
-  branchId          String?
+  // ❌ تم حذف branchId لأنه مخزن في UserBranch
   roleId            String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
@@ -92,7 +123,7 @@ model Branch {
   slug                 String                @unique
   contracts            Contract[]
   maintenanceSchedules MaintenanceSchedule[]
-  Ticket               Ticket[]
+  tickets              Ticket[]              // ✅ تم التصحيح (جمع)
   workOrders           WorkOrder[]
   assets               Asset[]
   company              Company               @relation(fields: [companyId], references: [id])
@@ -151,7 +182,7 @@ model Room {
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
   inventoryItems InventoryItem[]
-  Ticket         Ticket[]
+  tickets        Ticket[]        // ✅ تم التصحيح (جمع)
   workOrders     WorkOrder[]
   assets         Asset[]
   building       Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
@@ -219,7 +250,7 @@ model Asset {
   deletedAt       DateTime?
   branchId        String?          @map("branch_id")
   scheduleAssets  ScheduleAsset[]
-  Ticket          Ticket[]
+  tickets         Ticket[]         // ✅ تم التصحيح (جمع)
   workOrderAssets WorkOrderAsset[]
   branch          Branch?          @relation(fields: [branchId], references: [id])
   building        Building         @relation(fields: [buildingId], references: [id])
@@ -419,51 +450,46 @@ model TicketImage {
   ticket    Ticket   @relation(fields: [ticketId], references: [id])
 }
 
+// ========== نموذج Ticket المعدل بالكامل (يستخدم enums و branchSeqNum) ==========
 model Ticket {
-  id              String        @id
-  code            String?       @unique
+  id              String        @id @default(cuid())
+  code            String        @unique
+  branchSeqNum    Int
   title           String
   description     String?
   assetId         String?
   roomId          String?
   notes           String?
   createdAt       DateTime      @default(now())
-  updatedAt       DateTime
+  updatedAt       DateTime      @updatedAt
   deletedAt       DateTime?
   companyId       String
-  branchId        String?
+  branchId        String
   createdBy       String?
-  type            String
+  type            TicketType    @default(MAINTENANCE)      // ✅ enum
   phone           String?
   reporterEmail   String
   reporterName    String
-  status          String        @default("PENDING")
+  status          TicketStatus  @default(PENDING)           // ✅ enum
   rejectionReason String?
   imageUrl        String?
-  assets          Asset?        @relation(fields: [assetId], references: [id])
-  branches        Branch?       @relation(fields: [branchId], references: [id])
-  companies       Company       @relation(fields: [companyId], references: [id])
-  rooms           Room?         @relation(fields: [roomId], references: [id])
-  ticketImages    TicketImage[]
-  workOrder       WorkOrder?
 
-  @@index([assetId])
-  @@index([branchId])
+  // علاقات مفردة (N:1)
+  asset           Asset?        @relation(fields: [assetId], references: [id])
+  branch          Branch        @relation(fields: [branchId], references: [id])
+  company         Company       @relation(fields: [companyId], references: [id])
+  room            Room?         @relation(fields: [roomId], references: [id])
+
+  // علاقات جمع (1:N) - مع اتباع قاعدة الجمع في الطرف الواحد
+  ticketImages    TicketImage[]
+  workOrder       WorkOrder?     // 1:1 (يمكن إضافة اسم علاقة مستقبلاً)
+
+  // فهارس وقيد فريد مركب
+  @@unique([branchId, branchSeqNum])
   @@index([companyId])
+  @@index([branchId])
+  @@index([assetId])
   @@index([roomId])
   @@index([status])
-}
-
-enum ContractStatus {
-  PENDING_REVIEW
-  ACTIVE
-  EXPIRED
-  CANCELLED
-}
-
-enum WorkOrderType {
-  MAINTENANCE
-  CORRECTIVE
-  EMERGENCY
-  BULK_PREVENTIVE
+  @@index([branchSeqNum])
 }

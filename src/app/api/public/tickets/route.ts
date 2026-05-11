@@ -55,33 +55,44 @@ async function saveImage(file: File): Promise<string> {
   return relativePath;
 }
 
-// ========== دالة توليد كود فريد ==========
-async function generateTicketCode(companyId: string): Promise<string> {
-  const prefix = "TCK";
+// ========== دالة توليد كود فريد لكل فرع ==========
+async function generateTicketCode(branchId: string): Promise<{ code: string; branchSeqNum: number }> {
+  // الحصول على آخر رقم تسلسلي مستخدم في هذا الفرع
   const lastTicket = await prisma.ticket.findFirst({
-    where: { companyId },
-    orderBy: { code: "desc" },
+    where: { branchId },
+    orderBy: { branchSeqNum: "desc" },
+    select: { branchSeqNum: true },
+  });
+
+  const nextNumber = (lastTicket?.branchSeqNum ?? 0) + 1;
+
+  // الحصول على بادئة الفرع (اختصار مخزن في model Branch)
+  const branch = await prisma.branch.findUnique({
+    where: { id: branchId },
     select: { code: true },
   });
-  let nextNumber = 1;
-  if (lastTicket?.code) {
-    const match = lastTicket.code.match(/\d+$/);
-    if (match) nextNumber = parseInt(match[0], 10) + 1;
-  }
-  return `${prefix}-${nextNumber.toString().padStart(4, "0")}`;
+  const prefix = branch?.code || "BR";
+
+  const code = `${prefix}-${nextNumber.toString().padStart(4, "0")}`;
+
+  return { code, branchSeqNum: nextNumber };
 }
 
 // ========== دالة إنشاء التذكرة مع إعادة المحاولة ==========
 async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const code = await generateTicketCode(data.companyId);
+      const { code, branchSeqNum } = await generateTicketCode(data.branchId);
       const ticket = await prisma.ticket.create({
-        data: { ...data, code },
+        data: {
+          ...data,
+          code,
+          branchSeqNum,
+        },
       });
       return ticket;
     } catch (error: any) {
-      if (error.code === 'P2002' && error.meta?.target?.includes('code') && attempt < maxRetries) {
+      if (error.code === 'P2002' && attempt < maxRetries) {
         console.log(`⚠️ Duplicate code in public API, retrying (attempt ${attempt + 1})...`);
         continue;
       }
@@ -134,9 +145,11 @@ export async function POST(req: Request) {
     });
     if (!room) return NextResponse.json({ error: "الغرفة غير تابعة لهذا الفرع" }, { status: 400 });
 
-    // Validate type
-    if (!["MAINTENANCE", "INCIDENT"].includes(type))
+    // Validate type (يجب أن يكون من قيم TicketType)
+    const allowedTypes = ["MAINTENANCE", "INCIDENT"];
+    if (!allowedTypes.includes(type)) {
       return NextResponse.json({ error: "نوع البلاغ غير مسموح" }, { status: 400 });
+    }
 
     // Image Upload
     let imageUrl: string | null = null;
@@ -150,11 +163,11 @@ export async function POST(req: Request) {
       }
     }
 
-    // Prepare ticket data (without code)
+    // Prepare ticket data (without code and branchSeqNum)
     const ticketData = {
       title,
       description: description || null,
-      type: type as any,
+      type,  // سيتم تمريره كسلسلة نصية - Prisma يستقبلها لأنها تطابق enum
       roomId,
       assetId: assetId || null,
       reporterName,
@@ -163,10 +176,10 @@ export async function POST(req: Request) {
       imageUrl,
       companyId: branch.companyId,
       branchId: branch.id,
-      status: "PENDING",
+      status: "PENDING",  // قيمة من TicketStatus enum
     };
 
-    // ✅ Create ticket with retry
+    // ✅ Create ticket with retry (يضيف code و branchSeqNum)
     const ticket = await createTicketWithRetry(ticketData);
 
     return NextResponse.json({

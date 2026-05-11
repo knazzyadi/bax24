@@ -22,7 +22,7 @@ model Company {
   contracts             Contract[]
   inventoryItems        InventoryItem[]
   maintenanceSchedules  MaintenanceSchedule[]
-  tickets               Ticket[]
+  Ticket                Ticket[]
   workOrders            WorkOrder[]
   workOrderPriorities   WorkOrderPriority[]
   workOrderStatuses     WorkOrderStatus[]
@@ -92,7 +92,7 @@ model Branch {
   slug                 String                @unique
   contracts            Contract[]
   maintenanceSchedules MaintenanceSchedule[]
-  tickets              Ticket[]
+  Ticket               Ticket[]
   workOrders           WorkOrder[]
   assets               Asset[]
   company              Company               @relation(fields: [companyId], references: [id])
@@ -151,7 +151,7 @@ model Room {
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
   inventoryItems InventoryItem[]
-  tickets        Ticket[]
+  Ticket         Ticket[]
   workOrders     WorkOrder[]
   assets         Asset[]
   building       Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
@@ -219,7 +219,7 @@ model Asset {
   deletedAt       DateTime?
   branchId        String?          @map("branch_id")
   scheduleAssets  ScheduleAsset[]
-  tickets         Ticket[]
+  Ticket          Ticket[]
   workOrderAssets WorkOrderAsset[]
   branch          Branch?          @relation(fields: [branchId], references: [id])
   building        Building         @relation(fields: [buildingId], references: [id])
@@ -411,8 +411,16 @@ model WorkOrderStatus {
   @@unique([companyId, name])
 }
 
+model TicketImage {
+  id        String   @id @default(cuid())
+  url       String
+  ticketId  String
+  createdAt DateTime @default(now())
+  ticket    Ticket   @relation(fields: [ticketId], references: [id])
+}
+
 model Ticket {
-  id              String        @id @default(cuid())
+  id              String        @id
   code            String?       @unique
   title           String
   description     String?
@@ -420,7 +428,7 @@ model Ticket {
   roomId          String?
   notes           String?
   createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  updatedAt       DateTime
   deletedAt       DateTime?
   companyId       String
   branchId        String?
@@ -432,26 +440,18 @@ model Ticket {
   status          String        @default("PENDING")
   rejectionReason String?
   imageUrl        String?
-  asset           Asset?        @relation(fields: [assetId], references: [id])
-  branch          Branch?       @relation(fields: [branchId], references: [id])
-  company         Company       @relation(fields: [companyId], references: [id])
-  room            Room?         @relation(fields: [roomId], references: [id])
+  assets          Asset?        @relation(fields: [assetId], references: [id])
+  branches        Branch?       @relation(fields: [branchId], references: [id])
+  companies       Company       @relation(fields: [companyId], references: [id])
+  rooms           Room?         @relation(fields: [roomId], references: [id])
   ticketImages    TicketImage[]
   workOrder       WorkOrder?
 
-  @@index([companyId])
-  @@index([branchId])
   @@index([assetId])
+  @@index([branchId])
+  @@index([companyId])
   @@index([roomId])
   @@index([status])
-}
-
-model TicketImage {
-  id        String   @id @default(cuid())
-  url       String
-  ticketId  String
-  createdAt DateTime @default(now())
-  ticket    Ticket   @relation(fields: [ticketId], references: [id])
 }
 
 enum ContractStatus {

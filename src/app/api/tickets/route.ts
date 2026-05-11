@@ -1,4 +1,3 @@
-// src/app/api/tickets/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
@@ -6,35 +5,46 @@ import { requirePermission } from "@/lib/permissions";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 
-// ========== دالة توليد كود فريد ==========
-async function generateTicketCode(companyId: string): Promise<string> {
-  const prefix = "TCK";
+// ========== دالة توليد كود فريد لكل فرع ==========
+async function generateTicketCode(branchId: string): Promise<{ code: string; branchSeqNum: number }> {
+  // الحصول على آخر رقم تسلسلي مستخدم في هذا الفرع
   const lastTicket = await prisma.ticket.findFirst({
-    where: { companyId },
-    orderBy: { code: "desc" }, // ✅ الأفضل استخدام code بدلاً من createdAt
-    select: { code: true },
+    where: { branchId },
+    orderBy: { branchSeqNum: "desc" }, // ترتيب رقمي صحيح
+    select: { branchSeqNum: true },
   });
-  let nextNumber = 1;
-  if (lastTicket?.code) {
-    const match = lastTicket.code.match(/\d+$/);
-    if (match) nextNumber = parseInt(match[0]) + 1;
-  }
-  return `${prefix}-${nextNumber.toString().padStart(4, "0")}`;
+
+  const nextNumber = (lastTicket?.branchSeqNum ?? 0) + 1;
+
+  // الحصول على بادئة الفرع (اختصار مخزن في model Branch)
+  const branch = await prisma.branch.findUnique({
+    where: { id: branchId },
+    select: { code: true }, // استخدم الحقل code من Branch
+  });
+  const prefix = branch?.code || "BR"; // في حال عدم وجود code، استخدم "BR"
+
+  const code = `${prefix}-${nextNumber.toString().padStart(4, "0")}`;
+
+  return { code, branchSeqNum: nextNumber };
 }
 
 // ========== دالة إنشاء التذكرة مع إعادة المحاولة ==========
 async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
-      const code = await generateTicketCode(data.companyId);
+      const { code, branchSeqNum } = await generateTicketCode(data.branchId);
       const ticket = await prisma.ticket.create({
-        data: { ...data, code },
+        data: {
+          ...data,
+          code,
+          branchSeqNum,
+        },
       });
       return ticket;
     } catch (error: any) {
-      // إذا كان الخطأ بسبب تكرار الكود (P2002) ولم نصل لأقصى محاولات، أعد المحاولة
-      if (error.code === 'P2002' && error.meta?.target?.includes('code') && attempt < maxRetries) {
-        console.log(`⚠️ Duplicate code, retrying (attempt ${attempt + 1})...`);
+      // تعارض في الكود (P2002) أو تعارض في القيد الفريد (branchId, branchSeqNum)
+      if (error.code === 'P2002' && attempt < maxRetries) {
+        console.log(`⚠️ تعارض في الترقيم، إعادة المحاولة ${attempt + 1}...`);
         continue;
       }
       throw error;
@@ -43,18 +53,111 @@ async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
   throw new Error("فشل إنشاء التذكرة بعد عدة محاولات");
 }
 
-// ========== GET: جلب التذاكر ==========
+// ========== GET: جلب التذاكر مع دعم الفلترة والترقيم والفروع ==========
 export async function GET(request: NextRequest) {
-  // ... (نفس الكود الأصلي، لا تغيير)
+  try {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+    await requirePermission("tickets.read", session);
+
+    const searchParams = request.nextUrl.searchParams;
+    const q = searchParams.get("q") || "";
+    const status = searchParams.get("status");
+    const page = parseInt(searchParams.get("page") || "1");
+    const limit = parseInt(searchParams.get("limit") || "10");
+    const skip = (page - 1) * limit;
+
+    const companyId = session.user.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: "لا توجد شركة مرتبطة بالمستخدم" }, { status: 400 });
+    }
+
+    const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
+    const branchIds = session.user.branchIds || [];
+
+    const where: any = {
+      companyId,
+      deletedAt: null,
+    };
+
+    if (!isAdmin) {
+      if (branchIds.length > 0) {
+        where.branchId = { in: branchIds };
+      } else {
+        return NextResponse.json({
+          items: [],
+          total: 0,
+          currentPage: page,
+          totalPages: 0,
+          limit,
+        });
+      }
+    }
+
+    if (q) {
+      where.OR = [
+        { title: { contains: q, mode: "insensitive" } },
+        { code: { contains: q, mode: "insensitive" } },
+      ];
+    }
+
+    if (status && status !== "all") {
+      where.status = status;
+    }
+
+    const [tickets, total] = await Promise.all([
+      prisma.ticket.findMany({
+        where,
+        include: {
+          asset: { select: { id: true, name: true, code: true } },
+          room: {
+            include: {
+              floor: {
+                include: { building: true },
+              },
+            },
+          },
+          branch: true,
+          ticketImages: true,
+        },
+        orderBy: { createdAt: "desc" },
+        skip,
+        take: limit,
+      }),
+      prisma.ticket.count({ where }),
+    ]);
+
+    const serializedTickets = tickets.map((ticket: any) => ({
+      ...ticket,
+      createdAt: ticket.createdAt.toISOString(),
+      updatedAt: ticket.updatedAt?.toISOString(),
+    }));
+
+    return NextResponse.json({
+      items: serializedTickets,
+      total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      limit,
+    });
+  } catch (error: any) {
+    console.error("GET /api/tickets error:", error);
+    return NextResponse.json({ error: "خطأ في جلب التذاكر" }, { status: 500 });
+  }
 }
 
-// ========== POST: إنشاء تذكرة جديدة ==========
+// ========== POST: إنشاء تذكرة جديدة مع رفع الصور ==========
 export async function POST(request: Request) {
   try {
     const session = await auth();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
+
+    // يمكن تفعيل صلاحية الإنشاء لاحقاً:
+    // await requirePermission("tickets.create", session);
 
     const formData = await request.formData();
     const type = formData.get("type") as string;
@@ -95,7 +198,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "الفرع غير موجود أو لا يتبع شركتك" }, { status: 400 });
     }
 
-    // تحضير بيانات التذكرة (بدون code)
+    // تحضير بيانات التذكرة (بدون code و branchSeqNum)
     const ticketData = {
       type: type === "INCIDENT" ? "INCIDENT" : "MAINTENANCE",
       title,

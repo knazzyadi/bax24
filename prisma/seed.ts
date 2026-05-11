@@ -50,15 +50,15 @@ async function main() {
   console.log(`✅ Company: ${company.name}`);
 
   // =========================
-  // 3. Branch (IMPORTANT FIX)
+  // 3. Branch (بدون publicToken ثابت - يُنشأ مرة واحدة)
   // =========================
   const branch = await prisma.branch.upsert({
     where: { code: 'HQ' },
     update: {
-      // ⚠️ لا نغير publicToken إطلاقاً بعد الإنشاء
       name: 'الفرع الرئيسي',
       slug: 'head-office',
       allowPublicTickets: true,
+      // لا نغير publicToken هنا
     },
     create: {
       name: 'الفرع الرئيسي',
@@ -73,10 +73,9 @@ async function main() {
   console.log(`✅ Branch: ${branch.name}`);
 
   // =========================
-  // 4. Super Admin User
+  // 4. Super Admin User (بدون branchId في create/update)
   // =========================
   const superAdminRole = roles.find(r => r.name === 'SUPER_ADMIN')!;
-
   const hashedPassword = await bcrypt.hash('Kn@240360240360', 10);
 
   const superAdmin = await prisma.user.upsert({
@@ -86,8 +85,8 @@ async function main() {
       name: 'Super Admin',
       roleId: superAdminRole.id,
       companyId: company.id,
-      branchId: branch.id,
       status: true,
+      // ❌ لا تضع branchId هنا
     },
     create: {
       email: 'kn.azzyadi@gmail.com',
@@ -95,15 +94,40 @@ async function main() {
       password: hashedPassword,
       roleId: superAdminRole.id,
       companyId: company.id,
-      branchId: branch.id,
       status: true,
+      // ❌ لا تضع branchId هنا
     },
   });
 
   console.log(`✅ Super Admin: ${superAdmin.email}`);
 
   // =========================
-  // 5. Clean old user (optional)
+  // 5. ربط المستخدم بالفرع عبر UserBranch
+  // =========================
+  // نتأكد من عدم وجود ربط مسبق (لتجنب تكرار unique constraint)
+  const existingUserBranch = await prisma.userBranch.findUnique({
+    where: {
+      userId_branchId: {
+        userId: superAdmin.id,
+        branchId: branch.id,
+      },
+    },
+  });
+
+  if (!existingUserBranch) {
+    await prisma.userBranch.create({
+      data: {
+        userId: superAdmin.id,
+        branchId: branch.id,
+      },
+    });
+    console.log(`✅ Linked Super Admin to branch: ${branch.name}`);
+  } else {
+    console.log(`ℹ️ Super Admin already linked to branch: ${branch.name}`);
+  }
+
+  // =========================
+  // 6. تنظيف مستخدم قديم (اختياري)
   // =========================
   await prisma.user.deleteMany({
     where: { email: 'super@admin.com' },

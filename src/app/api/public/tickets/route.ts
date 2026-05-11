@@ -1,8 +1,7 @@
 // src/app/api/public/tickets/route.ts
-
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { writeFile, mkdir } from "fs/promises";
+import { writeFile, mkdir, access } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
 
@@ -29,7 +28,7 @@ function isRateLimited(ip: string): boolean {
 }
 
 // ======================
-// Image Validation
+// Image Validation & Saving
 // ======================
 const MAX_FILE_SIZE = 5 * 1024 * 1024;
 
@@ -71,9 +70,13 @@ async function saveImage(file: File): Promise<string> {
     relativePath
   );
 
-  await mkdir(path.dirname(absolutePath), {
-    recursive: true,
-  });
+  // التأكد من وجود المجلد (إنشاء إذا لم يكن موجوداً)
+  const dir = path.dirname(absolutePath);
+  try {
+    await access(dir);
+  } catch {
+    await mkdir(dir, { recursive: true });
+  }
 
   await writeFile(absolutePath, buffer);
 
@@ -107,15 +110,12 @@ export async function POST(req: Request) {
     // ======================
     const slug = formData.get("slug")?.toString()?.trim();
     const token = formData.get("token")?.toString()?.trim();
-
     const roomId = formData.get("roomId")?.toString();
     const title = formData.get("title")?.toString()?.trim();
     const description = formData.get("description")?.toString()?.trim();
-
     const reporterName = formData.get("reporterName")?.toString()?.trim();
     const reporterEmail = formData.get("reporterEmail")?.toString()?.trim();
     const phone = formData.get("phone")?.toString()?.trim();
-
     const type = formData.get("type")?.toString() || "MAINTENANCE";
     const assetId = formData.get("assetId")?.toString();
 
@@ -147,7 +147,6 @@ export async function POST(req: Request) {
     // Email validation
     // ======================
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-
     if (!emailRegex.test(reporterEmail)) {
       return NextResponse.json(
         { error: "البريد الإلكتروني غير صالح" },
@@ -198,7 +197,6 @@ export async function POST(req: Request) {
     // Validate type
     // ======================
     const allowedTypes = ["MAINTENANCE", "INCIDENT"];
-
     if (!allowedTypes.includes(type)) {
       return NextResponse.json(
         { error: "نوع البلاغ غير مسموح" },
@@ -210,11 +208,16 @@ export async function POST(req: Request) {
     // Image Upload
     // ======================
     let imageUrl: string | null = null;
-
     const image = formData.get("image") as File | null;
 
     if (image && image.size > 0) {
-      imageUrl = await saveImage(image);
+      try {
+        imageUrl = await saveImage(image);
+        console.log("✅ Image saved:", imageUrl);
+      } catch (err: any) {
+        console.error("❌ Image upload error:", err.message);
+        // لا نمنع إنشاء التذكرة إذا فشلت الصورة، نكمل بدونها
+      }
     }
 
     // ======================
@@ -225,19 +228,14 @@ export async function POST(req: Request) {
         title,
         description: description || null,
         type: type as any,
-
         roomId,
         assetId: assetId || null,
-
         reporterName,
         reporterEmail,
         phone: phone || null,
-
-        imageUrl,
-
+        imageUrl, // قد يكون null إذا لم ترفع أو فشلت
         companyId: branch.companyId,
         branchId: branch.id,
-
         status: "PENDING",
       },
     });
@@ -245,10 +243,10 @@ export async function POST(req: Request) {
     return NextResponse.json({
       success: true,
       ticketId: ticket.id,
+      imageUrl, // نعيد الرابط للاستخدام في الواجهة (اختياري)
     });
   } catch (error: any) {
     console.error("PUBLIC_TICKET_ERROR:", error);
-
     return NextResponse.json(
       {
         error: error.message || "فشل إنشاء البلاغ",

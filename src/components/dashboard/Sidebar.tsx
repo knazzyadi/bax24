@@ -87,7 +87,7 @@ export default function Sidebar() {
   useEffect(() => {
     setSettingsOpen(false);
     setLocationsOpen(false);
-    setVehiclesSettingsOpen(false);
+    // setVehiclesSettingsOpen(false);
     setDictionariesOpen(false);
   }, [pathname]);
 

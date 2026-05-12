@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
 import { uploadFileToR2, deleteFileFromR2 } from "@/lib/storage";
+import { generateWorkOrderCode } from "@/lib/generateCode"; // ✅ استيراد دالة توليد الكود
 
 const allowedTicketTypes = ["MAINTENANCE", "INCIDENT"];
 const allowedTicketStatuses = ["PENDING", "APPROVED", "REJECTED"];
@@ -161,8 +162,11 @@ export async function PUT(
               return NextResponse.json({ error: "Missing default work order config" }, { status: 400 });
             }
             const workOrderType = existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE";
+            // ✅ توليد كود تسلسلي جديد لأمر العمل
+            const workOrderCode = await generateWorkOrderCode(companyId);
             await prisma.workOrder.create({
               data: {
+                code: workOrderCode, // إضافة الكود التسلسلي
                 title: existingTicket.title,
                 description: existingTicket.description,
                 type: workOrderType,
@@ -242,8 +246,11 @@ export async function PUT(
               return NextResponse.json({ error: "Missing default work order config" }, { status: 400 });
             }
             const workOrderType = existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE";
+            // ✅ توليد كود تسلسلي جديد لأمر العمل
+            const workOrderCode = await generateWorkOrderCode(companyId);
             await prisma.workOrder.create({
               data: {
+                code: workOrderCode, // إضافة الكود التسلسلي
                 title: existingTicket.title,
                 description: existingTicket.description,
                 type: workOrderType,

@@ -7,12 +7,11 @@ import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { 
   Plus, Trash2, Upload, FileUp, Loader2, Calendar, Wrench, ShieldCheck, 
-  Building as BuildingIcon, Layers, DoorOpen, Save, X, Info
+  Building as BuildingIcon, Layers, DoorOpen, Save, X, Info, FileText
 } from "lucide-react";
 import {
   Table,
@@ -32,7 +31,7 @@ import { RoomSelector } from "@/components/shared/RoomSelector";
 import type { AssetStatus, AssetType, Building, Floor, Room } from '@/types/assets';
 
 interface BulkAssetRow {
-  id: string; // temporary id for rendering
+  id: string;
   name: string;
   purchaseDate: string;
   warrantyEnd: string;
@@ -59,7 +58,6 @@ export default function BulkImportAssetsPage() {
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
   const [types, setTypes] = useState<AssetType[]>([]);
   
-  // Common fields for all assets
   const [commonTypeId, setCommonTypeId] = useState<string>("");
   const [commonStatusId, setCommonStatusId] = useState<string>("");
   const [commonBuildingId, setCommonBuildingId] = useState<string>("");
@@ -68,12 +66,10 @@ export default function BulkImportAssetsPage() {
   const [commonRoomFullCode, setCommonRoomFullCode] = useState<string>("");
   const [commonRoomName, setCommonRoomName] = useState<string>("");
 
-  // Dynamic rows
   const [rows, setRows] = useState<BulkAssetRow[]>([
     { id: crypto.randomUUID(), name: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" }
   ]);
 
-  // Hierarchical data
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -84,7 +80,20 @@ export default function BulkImportAssetsPage() {
   const normalizeFloor = (f: Floor) => ({ ...f, nameEn: f.nameEn ?? undefined });
   const normalizeRoom = (r: Room) => ({ ...r, nameEn: r.nameEn ?? undefined });
 
-  // Fetch statuses and types on mount
+  // دالتان للحصول على اسم النوع والحالة من المعرف
+  const getTypeName = (typeId: string) => {
+    if (!typeId) return t('selectType');
+    const type = types.find(t => t.id === typeId);
+    return type ? (isRtl ? type.name : (type.nameEn || type.name)) : t('selectType');
+  };
+
+  const getStatusName = (statusId: string) => {
+    if (!statusId) return t('selectStatus');
+    const status = statuses.find(s => s.id === statusId);
+    return status ? (isRtl ? status.name : (status.nameEn || status.name)) : t('selectStatus');
+  };
+
+  // Fetch data
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -103,7 +112,6 @@ export default function BulkImportAssetsPage() {
     fetchData();
   }, [locale, t]);
 
-  // Fetch floors when building changes
   useEffect(() => {
     if (!commonBuildingId) {
       setFloors([]);
@@ -124,7 +132,6 @@ export default function BulkImportAssetsPage() {
     fetchFloors();
   }, [commonBuildingId]);
 
-  // Fetch rooms when floor changes
   useEffect(() => {
     if (!commonFloorId) {
       setRooms([]);
@@ -187,7 +194,6 @@ export default function BulkImportAssetsPage() {
     setCommonRoomName(selectedRoom ? (isRtl ? selectedRoom.name : selectedRoom.nameEn || selectedRoom.name) : "");
   };
 
-  // Row management
   const addRow = () => {
     setRows(prev => [...prev, { id: crypto.randomUUID(), name: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" }]);
   };
@@ -206,7 +212,6 @@ export default function BulkImportAssetsPage() {
     setRows(updated);
   };
 
-  // CSV handling
   const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -326,14 +331,14 @@ export default function BulkImportAssetsPage() {
 
       <div className="space-y-8">
         {/* Common fields card */}
-        <InfoCard title={isRtl ? "القيم المشتركة لجميع الأصول" : "Common values for all assets"} icon={<FileUp className="h-5 w-5" />}>
+        <InfoCard title={isRtl ? "القيم المشتركة لجميع الأصول" : "Common values for all assets"} icon={<FileText className="h-5 w-5" />}>
           <div className="space-y-6">
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <Label>{t('type')} *</Label>
                 <Select value={commonTypeId} onValueChange={setCommonTypeId}>
                   <SelectTrigger className="h-12 rounded-xl">
-                    <SelectValue placeholder={t('selectType')} />
+                    <span>{getTypeName(commonTypeId)}</span>
                   </SelectTrigger>
                   <SelectContent>
                     {types.map(t => (
@@ -348,7 +353,7 @@ export default function BulkImportAssetsPage() {
                 <Label>{t('status')}</Label>
                 <Select value={commonStatusId} onValueChange={setCommonStatusId}>
                   <SelectTrigger className="h-12 rounded-xl">
-                    <SelectValue placeholder={t('selectStatus')} />
+                    <span>{getStatusName(commonStatusId)}</span>
                   </SelectTrigger>
                   <SelectContent>
                     {statuses.map(s => (

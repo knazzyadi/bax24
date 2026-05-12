@@ -1,15 +1,10 @@
 // src/lib/generateCode.ts
 import { prisma } from "@/lib/prisma";
 
-/**
- * توليد كود تسلسلي لأمر العمل (Work Order)
- * @param companyId معرف الشركة
- * @returns كود فريد مثل WO-0001, WO-0002
- */
-export async function generateWorkOrderCode(companyId: string): Promise<string> {
-  // الحصول على آخر أمر عمل في نفس الشركة (حسب الكود تنازلياً)
+export async function generateWorkOrderCode(branchId: string): Promise<string> {
+  // 1. جلب آخر رقم تسلسلي لأمر عمل في نفس الفرع
   const lastWorkOrder = await prisma.workOrder.findFirst({
-    where: { companyId, deletedAt: null },
+    where: { branchId, deletedAt: null },
     orderBy: { code: "desc" },
     select: { code: true },
   });
@@ -20,5 +15,13 @@ export async function generateWorkOrderCode(companyId: string): Promise<string> 
     if (match) nextNumber = parseInt(match[0], 10) + 1;
   }
 
-  return `WO-${nextNumber.toString().padStart(4, "0")}`;
+  // 2. جلب اختصار الفرع (code) من جدول Branch
+  const branch = await prisma.branch.findUnique({
+    where: { id: branchId },
+    select: { code: true },
+  });
+  const branchPrefix = branch?.code || "BR"; // احتياطي: "BR" إذا لم يوجد code
+
+  // 3. إعادة الكود بالصيغة المطلوبة
+  return `${branchPrefix}-WO-${nextNumber.toString().padStart(4, "0")}`;
 }

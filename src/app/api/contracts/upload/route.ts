@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'لا يوجد ملف مرفق' }, { status: 400 });
     }
 
-    // التحقق من نوع الملف (يمكنك توسيع القائمة)
+    // التحقق من نوع الملف
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({ error: 'نوع الملف غير مدعوم' }, { status: 400 });
@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'حجم الملف يتجاوز 10 ميجابايت' }, { status: 400 });
     }
 
-    // رفع الملف إلى R2 (مجلد contracts بدلاً من tickets)
+    // رفع الملف إلى R2 (مجلد contracts)
     const uploaded = await uploadFileToR2(file, 'contracts');
 
-    // إنشاء سجل في ContractAttachment (بدون contractId في البداية، سيتم ربطه لاحقاً)
+    // إنشاء سجل ContractAttachment بدون contractId (سيرتبط لاحقاً)
     const attachment = await prisma.contractAttachment.create({
       data: {
         url: uploaded.url,
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         mimeType: uploaded.mimeType,
         size: uploaded.size,
         originalName: uploaded.originalName,
-        // contractId سيتم تعيينه عند ربطه بالعقد (يمكن تمريره عبر formData)
+        contractId: null, // يبقى null حتى يرتبط بعقد
       },
       select: { id: true, url: true, originalName: true },
     });
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       id: attachment.id,
       url: attachment.url,
-      originalName: attachment.originalName,
+      name: attachment.originalName,
     });
   } catch (error: any) {
     console.error('Upload error:', error);

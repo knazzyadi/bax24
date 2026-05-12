@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import {
   FileText, Building, DollarSign, Calendar, AlertCircle, Clock,
-  CheckCircle2, X, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Tag
+  CheckCircle2, X, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Tag,
+  Paperclip // ✅ أيقونة المرفقات
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ interface Contract {
   notes: string | null;
   branchId: string | null;
   branch?: { id: string; name: string; nameEn?: string } | null;
+  attachmentsCount?: number; // ✅ حقل جديد
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any; hex: string }> = {
@@ -159,6 +161,13 @@ export default function ContractsClient({
               {isRtl ? "ينتهي:" : "Ends:"}
               <span className="font-mono">{format(new Date(contract.endDate), "yyyy/MM/dd")}</span>
             </div>
+            {/* ✅ عرض عدد المرفقات */}
+            {(contract.attachmentsCount ?? 0) > 0 && (
+              <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Paperclip size={12} />
+                <span>{contract.attachmentsCount}</span>
+              </div>
+            )}
           </div>
           {contract.type && (
             <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">

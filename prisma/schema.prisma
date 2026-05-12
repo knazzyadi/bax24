@@ -305,6 +305,21 @@ model WorkOrderInventory {
   @@map("work_order_inventory")
 }
 
+model ContractAttachment {
+  id          String   @id @default(cuid())
+  contractId  String
+  url         String
+  key         String
+  provider    String   @default("CLOUDFLARE_R2")
+  mimeType    String
+  size        Int
+  originalName String
+  createdAt   DateTime @default(now())
+  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  @@index([contractId])
+}
+
 model Contract {
   id                 String         @id @default(cuid())
   code               String?        @unique
@@ -317,7 +332,6 @@ model Contract {
   status             ContractStatus @default(PENDING_REVIEW)
   cancellationReason String?
   notes              String?
-  attachments        Json?
   createdAt          DateTime       @default(now())
   updatedAt          DateTime       @updatedAt
   deletedAt          DateTime?
@@ -326,6 +340,7 @@ model Contract {
   createdBy          String?
   branch             Branch?        @relation(fields: [branchId], references: [id])
   company            Company        @relation(fields: [companyId], references: [id])
+  attachments ContractAttachment[]
 
   @@index([companyId])
   @@index([branchId])

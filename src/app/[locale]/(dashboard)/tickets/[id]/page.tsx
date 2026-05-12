@@ -31,6 +31,13 @@ import { SidebarCard } from "@/components/shared/detail/SidebarCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TicketActions } from "./TicketActions";
 
+/**
+ * ملاحظة: حالات التذكرة وفقاً للنظام المعدل:
+ * - PENDING   : معلق (افتراضي عند الإنشاء)
+ * - APPROVED  : مقبول (يتم تحويله إلى أمر عمل)
+ * - REJECTED  : ملغي/مرفوض (لا يتم تحويله إلى أمر عمل)
+ */
+
 interface TicketDetailsPageProps {
   params: Promise<{ id: string }>;
 }
@@ -106,7 +113,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
       ? isRtl ? "تذكرة حادث" : "Incident Ticket"
       : ticket.type || (isRtl ? "غير محدد" : "Not specified");
 
-  // ✅ استخدام attachments بدلاً من ticketImages و imageUrl
+  // استخدام attachments بدلاً من ticketImages و imageUrl
   const images = ticket.attachments || [];
   const hasImages = Array.isArray(images) && images.length > 0;
 

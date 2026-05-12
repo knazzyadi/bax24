@@ -1,9 +1,9 @@
+// src/app/api/contracts/upload/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { writeFile, mkdir } from 'fs/promises';
-import path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { auth } from '@/auth';
 import { requirePermission } from '@/lib/permissions';
+import { uploadFileToR2 } from '@/lib/storage';
+import { prisma } from '@/lib/prisma';
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,35 +19,39 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'لا يوجد ملف مرفق' }, { status: 400 });
     }
 
-    // التحقق من نوع الملف (اختياري، نسمح بأنواع متعددة)
+    // التحقق من نوع الملف (يمكنك توسيع القائمة)
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({ error: 'نوع الملف غير مدعوم' }, { status: 400 });
     }
 
-    // الحد الأقصى 10 ميجابايت
-    const maxSize = 10 * 1024 * 1024;
+    const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       return NextResponse.json({ error: 'حجم الملف يتجاوز 10 ميجابايت' }, { status: 400 });
     }
 
-    // إنشاء اسم ملف فريد
-    const extension = path.extname(file.name);
-    const fileName = `${uuidv4()}${extension}`;
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'contracts');
-    const filePath = path.join(uploadDir, fileName);
+    // رفع الملف إلى R2 (مجلد contracts بدلاً من tickets)
+    const uploaded = await uploadFileToR2(file, 'contracts');
 
-    // التأكد من وجود المجلد
-    await mkdir(uploadDir, { recursive: true });
+    // إنشاء سجل في ContractAttachment (بدون contractId في البداية، سيتم ربطه لاحقاً)
+    const attachment = await prisma.contractAttachment.create({
+      data: {
+        url: uploaded.url,
+        key: uploaded.key,
+        provider: 'CLOUDFLARE_R2',
+        mimeType: uploaded.mimeType,
+        size: uploaded.size,
+        originalName: uploaded.originalName,
+        // contractId سيتم تعيينه عند ربطه بالعقد (يمكن تمريره عبر formData)
+      },
+      select: { id: true, url: true, originalName: true },
+    });
 
-    // تحويل الملف إلى Buffer وحفظه
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
-    await writeFile(filePath, buffer);
-
-    // إرجاع رابط الملف (يمكن جعله مسارًا نسبيًا أو مطلقًا)
-    const fileUrl = `/uploads/contracts/${fileName}`;
-    return NextResponse.json({ url: fileUrl });
+    return NextResponse.json({
+      id: attachment.id,
+      url: attachment.url,
+      originalName: attachment.originalName,
+    });
   } catch (error: any) {
     console.error('Upload error:', error);
     return NextResponse.json({ error: 'حدث خطأ في رفع الملف' }, { status: 500 });

@@ -19,7 +19,7 @@ export default async function ContractsPage({
   await requirePermission('contracts.read', session);
 
   const { locale } = await params;
-  const { q, status } = await searchParams; // no longer need page for server-side pagination
+  const { q, status } = await searchParams;
 
   const companyId = session.user.companyId!;
   const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
@@ -31,7 +31,6 @@ export default async function ContractsPage({
     if (branchIds.length > 0) {
       where.branchId = { in: branchIds };
     } else {
-      // لا فروع مسموحة → قائمة فارغة
       return (
         <ContractsClient
           initialContracts={[]}
@@ -52,16 +51,20 @@ export default async function ContractsPage({
   }
   if (status && status !== 'all') where.status = status;
 
-  // جلب جميع العقود المطابقة للفلترة
+  // ✅ جلب العقود مع المرفقات لحساب عددها
   let allContracts = await prisma.contract.findMany({
     where,
+    include: {
+      branch: true,
+      attachments: { select: { id: true } }, // نجلب فقط المعرفات لتقليل البيانات
+    },
     orderBy: { createdAt: 'desc' },
   });
 
-  // تحديث الحالات تلقائياً (كما في الكود الأصلي)
+  // تحديث الحالات تلقائياً
   const today = startOfDay(new Date());
   let updated = false;
-  const updatedContracts = allContracts.map((contract: Contract) => {
+  const updatedContracts = allContracts.map((contract: any) => {
     let newStatus = contract.status;
     if (contract.status === 'PENDING_REVIEW' && isBefore(startOfDay(contract.startDate), today)) {
       newStatus = 'ACTIVE';
@@ -75,8 +78,8 @@ export default async function ContractsPage({
 
   if (updated) {
     await Promise.all(
-      updatedContracts.map((contract: Contract) => {
-        const original = allContracts.find((c: Contract) => c.id === contract.id);
+      updatedContracts.map((contract: any) => {
+        const original = allContracts.find((c: any) => c.id === contract.id);
         if (original && contract.status !== original.status) {
           return prisma.contract.update({
             where: { id: contract.id },
@@ -89,10 +92,16 @@ export default async function ContractsPage({
     allContracts = updatedContracts;
   }
 
-  // تمرير جميع العقود (الترقيم والفلترة ستدار في العميل)
+  // ✅ إضافة عدد المرفقات لكل عقد وإزالة `attachments` (نحتفظ فقط بالعدد)
+  const contractsWithCount = allContracts.map((contract: any) => ({
+    ...contract,
+    attachmentsCount: contract.attachments.length,
+    attachments: undefined, // نزيل المصفوفة لتخفيف الحجم
+  }));
+
   return (
     <ContractsClient
-      initialContracts={allContracts}
+      initialContracts={contractsWithCount}
       initialQ={q || ''}
       initialStatus={status || 'all'}
       locale={locale}

@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     const contracts = await prisma.contract.findMany({
       where,
-      include: { branch: true }, // ✅ جلب بيانات الفرع مع العقد
+      include: { branch: true, attachments: true }, // ✅ إضافة attachments
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit,
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     await requirePermission('contracts.create', session);
 
     const body = await request.json();
-    const { code, title, supplier, value, startDate, endDate, description, branchId, attachments, notes } = body;
+    const { code, title, supplier, value, startDate, endDate, description, branchId, attachmentIds, notes } = body;
 
     if (!title || !supplier || !startDate || !endDate) {
       return NextResponse.json({ error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة' }, { status: 400 });
@@ -73,7 +73,6 @@ export async function POST(request: NextRequest) {
     const companyId = session.user.companyId!;
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
 
-    // التحقق من صلاحية الفرع للمستخدمين غير الأدمن
     if (!isAdmin) {
       const userBranchIds = session.user.branchIds || [];
       if (!userBranchIds.includes(branchId)) {
@@ -81,6 +80,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // إنشاء العقد
     const contract = await prisma.contract.create({
       data: {
         code: code || null,
@@ -91,7 +91,6 @@ export async function POST(request: NextRequest) {
         endDate: new Date(endDate),
         description: description || null,
         status: 'PENDING_REVIEW',
-        attachments: attachments || [],
         notes: notes || null,
         companyId,
         branchId,
@@ -99,7 +98,21 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(contract, { status: 201 });
+    // ربط المرفقات إذا وُجدت attachmentIds
+    if (attachmentIds && Array.isArray(attachmentIds) && attachmentIds.length > 0) {
+      await prisma.contractAttachment.updateMany({
+        where: { id: { in: attachmentIds } },
+        data: { contractId: contract.id },
+      });
+    }
+
+    // إعادة العقد مع المرفقات (اختياري)
+    const contractWithAttachments = await prisma.contract.findUnique({
+      where: { id: contract.id },
+      include: { attachments: true },
+    });
+
+    return NextResponse.json(contractWithAttachments, { status: 201 });
   } catch (error: any) {
     console.error('POST /api/contracts error:', error);
     return NextResponse.json({ error: 'خطأ في إنشاء العقد' }, { status: 500 });

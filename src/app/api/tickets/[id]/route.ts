@@ -247,7 +247,7 @@ export async function PUT(
             }
             const workOrderType = existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE";
             // ✅ توليد كود تسلسلي جديد لأمر العمل
-            const workOrderCode = await generateWorkOrderCode(companyId);
+            const workOrderCode = await generateWorkOrderCode(existingTicket.branchId);
             await prisma.workOrder.create({
               data: {
                 code: workOrderCode, // إضافة الكود التسلسلي

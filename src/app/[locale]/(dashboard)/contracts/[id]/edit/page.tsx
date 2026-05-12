@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/contracts/[id]/edit/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -13,6 +14,10 @@ import { PageContainer } from "@/components/shared/detail/PageContainer";
 import { DetailHeader } from "@/components/shared/detail/DetailHeader";
 import { InfoCard } from "@/components/shared/detail/InfoCard";
 import { BranchSelector } from "@/components/shared/BranchSelector";
+
+interface Attachment {
+  id: string;
+}
 
 export default function EditContractPage() {
   const params = useParams();
@@ -35,6 +40,7 @@ export default function EditContractPage() {
     notes: "",
     code: "",
   });
+  const [attachmentIds, setAttachmentIds] = useState<string[]>([]);
 
   useEffect(() => {
     const fetchContract = async () => {
@@ -53,6 +59,10 @@ export default function EditContractPage() {
           notes: data.notes || "",
           code: data.code || "",
         });
+        // ✅ حفظ معرفات المرفقات الحالية
+        if (data.attachments && Array.isArray(data.attachments)) {
+          setAttachmentIds(data.attachments.map((att: { id: string }) => att.id));
+        }
       } catch (error) {
         console.error(error);
         toast.error(t("fetchError"));
@@ -82,6 +92,7 @@ export default function EditContractPage() {
         branchId: formData.branchId || null,
         notes: formData.notes || null,
         code: formData.code || null,
+        attachmentIds: attachmentIds, // ✅ إرسال معرفات المرفقات الحالية للحفاظ عليها
       };
       const res = await fetch(`/api/contracts/${id}`, {
         method: "PUT",

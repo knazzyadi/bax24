@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/permissions';
-import { deleteFileFromR2 } from '@/lib/storage'; // ✅ استيراد دالة الحذف من R2
+import { deleteFileFromR2 } from '@/lib/storage';
 
 // GET: جلب عقد واحد مع مرفقاته
 export async function GET(
@@ -23,7 +23,7 @@ export async function GET(
       where: { id, companyId, deletedAt: null },
       include: {
         branch: true,
-        attachments: true, // ✅ جلب المرفقات
+        attachments: true,
       },
     });
 
@@ -39,7 +39,6 @@ export async function GET(
       }
     }
 
-    // تحويل التواريخ
     const serialized = {
       ...contract,
       startDate: contract.startDate.toISOString().split('T')[0],
@@ -76,7 +75,7 @@ export async function PUT(
     const companyId = session.user.companyId!;
     const existing = await prisma.contract.findFirst({
       where: { id, companyId, deletedAt: null },
-      select: { branchId: true, attachments: true }, // ✅ نأتي بالمرفقات الحالية لمعالجتها
+      select: { branchId: true, attachments: true },
     });
     if (!existing) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
 
@@ -105,29 +104,36 @@ export async function PUT(
     }
 
     // معالجة المرفقات إذا تم إرسال attachmentIds جديدة
-    if (attachmentIds && Array.isArray(attachmentIds)) {
-      // الحصول على المرفقات الحالية للعقد
-      const currentAttachments = existing.attachments;
-      // المرفقات التي سيتم الاحتفاظ بها (الجديدة + القديمة التي لم تُحذف)
-      const toKeepIds = attachmentIds.filter(id => 
-        currentAttachments.some(a => a.id === id)
+    if (attachmentIds && Array.isArray(attachmentIds) && attachmentIds.length > 0) {
+      const currentAttachments = existing.attachments as { id: string; key: string }[];
+
+      // المرفقات التي سيتم الاحتفاظ بها (التي موجودة في attachmentIds وتنتمي أصلاً للعقد)
+      const toKeepIds = attachmentIds.filter((id: string) =>
+        currentAttachments.some((a: { id: string }) => a.id === id)
       );
       // المرفقات التي سيتم إزالتها من العقد (ليست في القائمة الجديدة)
-      const toRemove = currentAttachments.filter(a => !attachmentIds.includes(a.id));
+      const toRemove = currentAttachments.filter((a: { id: string }) => !attachmentIds.includes(a.id));
 
-      // حذف المرفقات التي تم إزالتها من R2 (وسجلاتها)
+      // حذف المرفقات التي تم إزالتها من R2 وسجلاتها
       for (const att of toRemove) {
         await deleteFileFromR2(att.key);
         await prisma.contractAttachment.delete({ where: { id: att.id } });
       }
 
-      // ربط المرفقات الجديدة التي تم رفعها مسبقاً (لا تزال بدون contractId)
-      const newAttachmentIds = attachmentIds.filter(id => !toKeepIds.includes(id));
+      // ربط المرفقات الجديدة التي تم رفعها مسبقاً (بدون contractId)
+      const newAttachmentIds = attachmentIds.filter((id: string) => !toKeepIds.includes(id));
       if (newAttachmentIds.length > 0) {
         await prisma.contractAttachment.updateMany({
           where: { id: { in: newAttachmentIds } },
           data: { contractId: id },
         });
+      }
+    } else if (attachmentIds !== undefined && attachmentIds.length === 0) {
+      // إذا أرسل attachmentIds = []، يعني حذف جميع المرفقات الحالية
+      const currentAttachments = existing.attachments as { id: string; key: string }[];
+      for (const att of currentAttachments) {
+        await deleteFileFromR2(att.key);
+        await prisma.contractAttachment.delete({ where: { id: att.id } });
       }
     }
 
@@ -144,7 +150,7 @@ export async function PUT(
         notes: notes ?? null,
         branchId,
       },
-      include: { attachments: true }, // إعادة العقد مع المرفقات
+      include: { attachments: true },
     });
 
     return NextResponse.json(updated);
@@ -169,7 +175,7 @@ export async function DELETE(
 
     const existing = await prisma.contract.findFirst({
       where: { id, companyId, deletedAt: null },
-      include: { attachments: true }, // ✅ جلب المرفقات
+      include: { attachments: true },
     });
     if (!existing) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
 

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter }from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { 
   Plus, Trash2, Upload, FileUp, Loader2, Calendar, Wrench, ShieldCheck, 
-  Building as BuildingIcon, Layers, DoorOpen, Save, X, Info, FileText
+  Building as BuildingIcon, Layers, DoorOpen, Save, X, Info, FileText, Globe
 } from "lucide-react";
 import {
   Table,
@@ -33,6 +33,7 @@ import type { AssetStatus, AssetType, Building, Floor, Room } from '@/types/asse
 interface BulkAssetRow {
   id: string;
   name: string;
+  nameEn: string;        // ✅ إضافة حقل الاسم بالإنجليزية
   purchaseDate: string;
   warrantyEnd: string;
   lastMaintenanceDate: string;
@@ -67,7 +68,7 @@ export default function BulkImportAssetsPage() {
   const [commonRoomName, setCommonRoomName] = useState<string>("");
 
   const [rows, setRows] = useState<BulkAssetRow[]>([
-    { id: crypto.randomUUID(), name: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" }
+    { id: crypto.randomUUID(), name: "", nameEn: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" }
   ]);
 
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -80,7 +81,6 @@ export default function BulkImportAssetsPage() {
   const normalizeFloor = (f: Floor) => ({ ...f, nameEn: f.nameEn ?? undefined });
   const normalizeRoom = (r: Room) => ({ ...r, nameEn: r.nameEn ?? undefined });
 
-  // دالتان للحصول على اسم النوع والحالة من المعرف
   const getTypeName = (typeId: string) => {
     if (!typeId) return t('selectType');
     const type = types.find(t => t.id === typeId);
@@ -195,7 +195,7 @@ export default function BulkImportAssetsPage() {
   };
 
   const addRow = () => {
-    setRows(prev => [...prev, { id: crypto.randomUUID(), name: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" }]);
+    setRows(prev => [...prev, { id: crypto.randomUUID(), name: "", nameEn: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" }]);
   };
 
   const removeRow = (index: number) => {
@@ -223,6 +223,7 @@ export default function BulkImportAssetsPage() {
         const newRows: BulkAssetRow[] = parsed.map((row, idx) => ({
           id: crypto.randomUUID(),
           name: row.name || "",
+          nameEn: row.nameEn || "",
           purchaseDate: row.purchaseDate || "",
           warrantyEnd: row.warrantyEnd || "",
           lastMaintenanceDate: row.lastMaintenanceDate || "",
@@ -239,8 +240,8 @@ export default function BulkImportAssetsPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = ["name", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
-    const csvContent = headers.join(",") + "\n" + "Example Asset,2025-01-01,2026-01-01,2025-06-01,Some notes\n";
+    const headers = ["name", "nameEn", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
+    const csvContent = headers.join(",") + "\n" + "Example Asset,Example Asset EN,2025-01-01,2026-01-01,2025-06-01,Some notes\n";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -281,7 +282,7 @@ export default function BulkImportAssetsPage() {
         const code = await generateSequentialCode(commonTypeId);
         const payload = {
           name: row.name.trim(),
-          nameEn: null,
+          nameEn: row.nameEn.trim() || null,
           code,
           typeId: commonTypeId,
           statusId: commonStatusId || null,
@@ -432,6 +433,7 @@ export default function BulkImportAssetsPage() {
                 <TableHeader className="bg-muted/30">
                   <TableRow>
                     <TableHead className="min-w-[180px]">{t('tableName')} *</TableHead>
+                    <TableHead className="min-w-[180px]">{t('nameEn')}</TableHead>
                     <TableHead className="min-w-[140px]">{t('tablePurchaseDate')}</TableHead>
                     <TableHead className="min-w-[140px]">{t('tableWarrantyEnd')}</TableHead>
                     <TableHead className="min-w-[140px]">{t('lastMaintenance')}</TableHead>
@@ -447,6 +449,14 @@ export default function BulkImportAssetsPage() {
                           value={row.name}
                           onChange={(e) => updateRow(idx, "name", e.target.value)}
                           placeholder={t('namePlaceholder')}
+                          className="min-w-[160px]"
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Input
+                          value={row.nameEn}
+                          onChange={(e) => updateRow(idx, "nameEn", e.target.value)}
+                          placeholder={t('nameEnPlaceholder')}
                           className="min-w-[160px]"
                         />
                       </TableCell>

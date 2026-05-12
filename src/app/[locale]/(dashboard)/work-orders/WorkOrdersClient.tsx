@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { useLocale } from "next-intl";
 import {
@@ -16,7 +16,7 @@ interface WorkOrder {
   code: string;
   title: string;
   description: string | null;
-  type: string;
+  type: string; // ✅ نوع أمر العمل
   priority: { id: string; name: string; nameEn?: string; color?: string } | null;
   status: { id: string; name: string; nameEn?: string; color?: string } | null;
   branch: { id: string; name: string; nameEn?: string } | null;
@@ -47,7 +47,19 @@ interface WorkOrdersClientProps {
   locale: string;
 }
 
-// دوال مساعدة
+// دالة لترجمة نوع أمر العمل
+function getWorkOrderTypeLabel(type: string, isRtl: boolean): string {
+  const types: Record<string, { ar: string; en: string }> = {
+    MAINTENANCE: { ar: "صيانة", en: "Maintenance" },
+    CORRECTIVE: { ar: "تصحيحية", en: "Corrective" },
+    EMERGENCY: { ar: "طارئة", en: "Emergency" },
+    BULK_PREVENTIVE: { ar: "وقائية شاملة", en: "Bulk Preventive" },
+  };
+  const t = types[type];
+  if (!t) return type;
+  return isRtl ? t.ar : t.en;
+}
+
 function getStatusDisplay(status: WorkOrder['status'], isRtl: boolean) {
   if (!status) return { label: isRtl ? "بدون حالة" : "No status", color: "#6b7280", icon: AlertCircle, hex: "#6b7280" };
   const name = isRtl ? status.name : (status.nameEn || status.name);
@@ -99,13 +111,11 @@ export default function WorkOrdersClient({
   const pathname = usePathname();
   const isRtl = locale === "ar";
 
-  // حالات محلية لإدارة التفاعلات (تحديث URL يؤدي إلى إعادة جلب من الخادم)
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [selectedStatusId, setSelectedStatusId] = useState(initialStatusId || "all");
   const [selectedPriorityId, setSelectedPriorityId] = useState(initialPriorityId || "all");
   const [currentPage, setCurrentPage] = useState(initialPage);
 
-  // دوال لتحديث URL وإعادة التوجيه (سيؤدي إلى جلب بيانات جديدة من الخادم)
   const updateUrl = useCallback(() => {
     const params = new URLSearchParams();
     if (searchTerm) params.set("q", searchTerm);
@@ -115,10 +125,9 @@ export default function WorkOrdersClient({
     router.push(`${pathname}?${params.toString()}`);
   }, [searchTerm, selectedStatusId, selectedPriorityId, currentPage, router, pathname]);
 
-  // استدعاء عند تغيير أي فلتر أو صفحة
-  React.useEffect(() => {
+  useEffect(() => {
     updateUrl();
-  }, [searchTerm, selectedStatusId, selectedPriorityId, currentPage]);
+  }, [searchTerm, selectedStatusId, selectedPriorityId, currentPage, updateUrl]);
 
   const handleDelete = async (id: string, title: string) => {
     const res = await fetch(`/api/work-orders/${id}`, { method: "DELETE" });
@@ -134,7 +143,6 @@ export default function WorkOrdersClient({
     router.push(`/${locale}/work-orders/${id}/edit`);
   };
 
-  // بناء أقسام الفلترة
   const filterSections = [
     {
       id: "statusId",
@@ -154,11 +162,11 @@ export default function WorkOrdersClient({
     },
   ];
 
-  // دالة عرض كل أمر عمل
   const renderWorkOrderItem = (workOrder: WorkOrder, actions: ItemActions) => {
     const statusInfo = getStatusDisplay(workOrder.status, isRtl);
     const priorityInfo = getPriorityDisplay(workOrder.priority, isRtl);
     const fullLocation = getFullLocation(workOrder.room, isRtl);
+    const typeLabel = getWorkOrderTypeLabel(workOrder.type, isRtl);
 
     return (
       <div
@@ -166,7 +174,6 @@ export default function WorkOrdersClient({
         className="group flex flex-col md:flex-row items-start md:items-center gap-6 bg-card hover:bg-secondary/40 border border-border rounded-[2rem] p-5 px-8 transition-all duration-300 cursor-pointer"
         onClick={() => router.push(`/${locale}/work-orders/${workOrder.id}`)}
       >
-        {/* أيقونة الحالة */}
         <div
           className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
           style={{ backgroundColor: `${statusInfo.hex}20`, color: statusInfo.hex, boxShadow: `0 0 12px ${statusInfo.hex}80` }}
@@ -174,7 +181,6 @@ export default function WorkOrdersClient({
           <statusInfo.icon size={24} style={{ color: statusInfo.hex }} />
         </div>
 
-        {/* المعلومات الأساسية */}
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-black group-hover:text-primary truncate leading-none text-foreground">
@@ -184,13 +190,14 @@ export default function WorkOrdersClient({
               {workOrder.code || `#${workOrder.id.slice(-4)}`}
             </span>
           </div>
+          {/* ✅ إضافة نوع الصيانة هنا */}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground font-bold">
             <div className="flex items-center gap-2"><MapPin size={12} /> {fullLocation}</div>
             <div className="flex items-center gap-2"><Calendar size={12} /> {new Date(workOrder.createdAt).toLocaleDateString(isRtl ? 'ar-SA' : 'en-US')}</div>
+            <div className="flex items-center gap-2"><Wrench size={12} /> {typeLabel}</div>
           </div>
         </div>
 
-        {/* الجانب الأيمن: الأولوية + الحالة + الأزرار */}
         <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
           <span
             className="rounded-full font-black text-xs px-3 py-1.5 inline-flex items-center gap-1"

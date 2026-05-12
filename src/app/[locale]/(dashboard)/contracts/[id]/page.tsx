@@ -3,11 +3,8 @@
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
-import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -30,9 +27,6 @@ import {
   FileText,
   Building,
   DollarSign,
-  Trash2,
-  Pencil,
-  Save,
   Loader2,
   X,
   History,
@@ -45,9 +39,7 @@ import {
   Eye,
   File,
   Image,
-  Upload,
   ArrowLeft,
-  ArrowRight,
 } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -57,47 +49,32 @@ import { PageContainer } from "@/components/shared/detail/PageContainer";
 import { DetailHeader } from "@/components/shared/detail/DetailHeader";
 import { InfoCard } from "@/components/shared/detail/InfoCard";
 import { SidebarCard } from "@/components/shared/detail/SidebarCard";
-import { BranchSelector } from "@/components/shared/BranchSelector";
 
 interface Attachment {
-  id: string;      // ✅ إضافة معرف المرفق
+  id: string;
   name: string;
   url: string;
   type: string;
   size: number;
 }
 
-function DetailItem({ label, value, icon: Icon, isEditing, onChange, type = "text", isPrice = false }: any) {
-  const formatDateForInput = (val: string) => {
-    if (!val) return "";
-    return val.split("T")[0];
-  };
-
+function DetailItem({ label, value, icon: Icon, type = "text", isPrice = false }: any) {
   return (
     <div className="space-y-2">
       <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
         <Icon className="h-3 w-3" />
         {label}
       </div>
-      {isEditing ? (
-        <Input
-          type={type}
-          value={type === "date" ? formatDateForInput(value) : value}
-          onChange={(e) => onChange(e.target.value)}
-          className="rounded-xl border-primary h-9 bg-background font-medium text-sm"
-        />
-      ) : (
-        <div className="flex items-baseline gap-1">
-          <span className={cn("text-lg font-medium tracking-tight", isPrice ? "text-primary" : "text-foreground")}>
-            {isPrice
-              ? Number(value || 0).toLocaleString()
-              : type === "date" && value
-              ? format(new Date(value), "d MMMM yyyy", { locale: ar })
-              : value || "—"}
-          </span>
-          {isPrice && <span className="text-[10px] font-medium text-muted-foreground mr-1">ر.س</span>}
-        </div>
-      )}
+      <div className="flex items-baseline gap-1">
+        <span className={cn("text-lg font-medium tracking-tight", isPrice ? "text-primary" : "text-foreground")}>
+          {isPrice
+            ? Number(value || 0).toLocaleString()
+            : type === "date" && value
+            ? format(new Date(value), "d MMMM yyyy", { locale: ar })
+            : value || "—"}
+        </span>
+        {isPrice && <span className="text-[10px] font-medium text-muted-foreground mr-1">ر.س</span>}
+      </div>
     </div>
   );
 }
@@ -110,13 +87,9 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
   const isRtl = locale === "ar";
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [reactivating, setReactivating] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
   const [contract, setContract] = useState<any>(null);
-  const [branchId, setBranchId] = useState<string>("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -153,8 +126,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
         if (!res.ok) throw new Error("Failed to fetch contract");
         const contractData = await res.json();
         setContract(contractData);
-        setBranchId(contractData.branchId || "");
-        // تأكد أن attachments تأتي بالشكل الصحيح (id, url, name, type, size)
         setAttachments(contractData.attachments || []);
       } catch (err) {
         console.error(err);
@@ -165,111 +136,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
     };
     fetchData();
   }, [resolvedParams?.id, t]);
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const maxSize = 10 * 1024 * 1024;
-    const allowedTypes = ["application/pdf", "image/jpeg", "image/png", "application/msword", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      if (file.size > maxSize) {
-        toast.error(`${file.name}: ${isRtl ? "يتجاوز الحد الأقصى 10 ميجابايت" : "exceeds 10MB limit"}`);
-        continue;
-      }
-      if (!allowedTypes.includes(file.type)) {
-        toast.error(`${file.name}: ${isRtl ? "نوع الملف غير مدعوم" : "Unsupported file type"}`);
-        continue;
-      }
-      setUploading(true);
-      const uploadData = new FormData();
-      uploadData.append("file", file);
-      try {
-        const res = await fetch("/api/contracts/upload", { method: "POST", body: uploadData });
-        const data = await res.json();
-        if (res.ok) {
-          // ✅ نخزن id, name, url, type, size
-          setAttachments((prev) => [
-            ...prev,
-            {
-              id: data.id,
-              name: data.name || file.name,
-              url: data.url,
-              type: file.type,
-              size: file.size,
-            },
-          ]);
-          toast.success(`${file.name} ${isRtl ? "تم الرفع بنجاح" : "uploaded successfully"}`);
-        } else {
-          toast.error(data.error || (isRtl ? "فشل رفع الملف" : "Upload failed"));
-        }
-      } catch {
-        toast.error(isRtl ? "حدث خطأ في رفع الملف" : "Error uploading file");
-      } finally {
-        setUploading(false);
-      }
-    }
-    e.target.value = "";
-  };
-
-  const handleRemoveAttachment = (index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
-    toast.success(isRtl ? "تم حذف المرفق" : "Attachment removed");
-  };
-
-  const handleSave = async () => {
-    if (!contract?.id) return;
-    setSaving(true);
-    try {
-      // ✅ إرسال فقط attachmentIds (معرفات المرفقات)
-      const payload = {
-        title: contract.title,
-        supplier: contract.supplier,
-        value: contract.value,
-        startDate: contract.startDate,
-        endDate: contract.endDate,
-        description: contract.description || null,
-        notes: contract.notes || null,
-        branchId: branchId,
-        code: contract.code || null,
-        attachmentIds: attachments.map(a => a.id), // ✅ فقط المعرفات
-      };
-      const res = await fetch(`/api/contracts/${contract.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Failed to update");
-      }
-      toast.success(t("updateSuccess"));
-      router.push(`/${locale}/contracts`);
-    } catch (err: any) {
-      console.error("Save error:", err);
-      toast.error(err.message || t("updateError"));
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!contract?.id || !confirm(t("deleteConfirm"))) return;
-    try {
-      const res = await fetch(`/api/contracts/${contract.id}`, { method: "DELETE" });
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.error || "Delete failed");
-      }
-      toast.success(t("deleteSuccess"));
-      router.push(`/${locale}/contracts`);
-    } catch (err: any) {
-      console.error("Delete error:", err);
-      toast.error(err.message || t("deleteError"));
-    }
-  };
 
   const openCancelDialog = () => {
     setCancelReason("");
@@ -360,81 +226,8 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
   }
   if (!contract) return null;
 
-  const activeStatus = statusConfig[contract.status] || statusConfig.PENDING_REVIEW;
-  const canEdit = contract.status !== "CANCELLED" && contract.status !== "EXPIRED";
-  const canCancel = (contract.status === "ACTIVE" || contract.status === "PENDING_REVIEW") && !isEditing;
-  const canReactivate = contract.status === "CANCELLED" && !isEditing;
-
-  const renderActionButtons = () => {
-    if (isEditing) {
-      return (
-        <div className="flex flex-col gap-3">
-          <div className="flex gap-3">
-            <Button
-              onClick={() => setIsEditing(false)}
-              variant="outline"
-              className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium"
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-12"
-            >
-              {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-              {t("save")}
-            </Button>
-          </div>
-          <Button
-            onClick={handleDelete}
-            variant="outline"
-            className="w-full rounded-full border-destructive text-destructive hover:bg-destructive/10 font-medium h-12"
-          >
-            <Trash2 className="h-5 w-5 mr-2" />
-            {t("delete")}
-          </Button>
-        </div>
-      );
-    }
-    return (
-      <div className="flex flex-col gap-3">
-        <div className="flex gap-3">
-          {canCancel && (
-            <Button
-              onClick={openCancelDialog}
-              disabled={cancelling}
-              variant="outline"
-              className="flex-1 rounded-full border-orange-500 text-orange-500 hover:bg-orange-500/10 h-12 font-medium"
-            >
-              {cancelling ? <Loader2 className="h-5 w-5 animate-spin" /> : <X className="h-5 w-5" />}
-              {t("terminate")}
-            </Button>
-          )}
-          {canReactivate && (
-            <Button
-              onClick={openReactivateDialog}
-              disabled={reactivating}
-              variant="outline"
-              className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium"
-            >
-              {reactivating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
-              {t("reactivate")}
-            </Button>
-          )}
-          {canEdit && (
-            <Button
-              onClick={() => setIsEditing(true)}
-              className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-12"
-            >
-              <Pencil className="h-5 w-5 mr-2" />
-              {t("edit")}
-            </Button>
-          )}
-        </div>
-      </div>
-    );
-  };
+  const canCancel = contract.status === "ACTIVE" || contract.status === "PENDING_REVIEW";
+  const canReactivate = contract.status === "CANCELLED";
 
   return (
     <PageContainer>
@@ -450,73 +243,28 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           <InfoCard title={t("basicInfo")} icon={<Zap className="h-5 w-5" />}>
             <div className="space-y-8">
               <div className="grid sm:grid-cols-2 gap-6">
-                <DetailItem
-                  label={t("supplier")}
-                  value={contract.supplier}
-                  icon={Building}
-                  isEditing={isEditing && canEdit}
-                  onChange={(v: string) => setContract({ ...contract, supplier: v })}
-                />
-                <DetailItem
-                  label={t("value")}
-                  value={contract.value}
-                  icon={DollarSign}
-                  isEditing={isEditing && canEdit}
-                  type="number"
-                  isPrice
-                  onChange={(v: string) => setContract({ ...contract, value: v })}
-                />
-                <DetailItem
-                  label={t("startDate")}
-                  value={contract.startDate}
-                  icon={Calendar}
-                  isEditing={isEditing && canEdit}
-                  type="date"
-                  onChange={(v: string) => setContract({ ...contract, startDate: v })}
-                />
-                <DetailItem
-                  label={t("endDate")}
-                  value={contract.endDate}
-                  icon={Calendar}
-                  isEditing={isEditing && canEdit}
-                  type="date"
-                  onChange={(v: string) => setContract({ ...contract, endDate: v })}
-                />
+                <DetailItem label={t("supplier")} value={contract.supplier} icon={Building} />
+                <DetailItem label={t("value")} value={contract.value} icon={DollarSign} isPrice />
+                <DetailItem label={t("startDate")} value={contract.startDate} icon={Calendar} type="date" />
+                <DetailItem label={t("endDate")} value={contract.endDate} icon={Calendar} type="date" />
               </div>
 
               <div className="pt-2">
                 <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
                   <FileText className="h-3.5 w-3.5" /> {t("description")}
                 </div>
-                {isEditing && canEdit ? (
-                  <Textarea
-                    rows={5}
-                    value={contract.description || ""}
-                    onChange={(e) => setContract({ ...contract, description: e.target.value })}
-                    className="rounded-xl border-primary bg-background mt-2 p-3 text-sm font-medium"
-                  />
-                ) : (
-                  <div className="mt-2 p-4 bg-muted/10 rounded-xl text-sm font-medium leading-relaxed text-foreground/80 border border-border/50">
-                    {contract.description || t("noDescription")}
-                  </div>
-                )}
+                <div className="mt-2 p-4 bg-muted/10 rounded-xl text-sm font-medium leading-relaxed text-foreground/80 border border-border/50">
+                  {contract.description || t("noDescription")}
+                </div>
               </div>
 
               <div className="pt-2 border-t border-border">
                 <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
                   <FileText className="h-3.5 w-3.5" /> {t("notes")}
                 </div>
-                {isEditing && canEdit ? (
-                  <Textarea
-                    value={contract.notes || ""}
-                    onChange={(e) => setContract({ ...contract, notes: e.target.value })}
-                    className="text-sm rounded-xl min-h-[100px] bg-background border-primary mt-2"
-                  />
-                ) : (
-                  <div className="mt-2 p-4 bg-muted/10 rounded-xl text-sm font-medium leading-relaxed text-foreground/80 border border-border/50">
-                    {contract.notes || t("noNotes")}
-                  </div>
-                )}
+                <div className="mt-2 p-4 bg-muted/10 rounded-xl text-sm font-medium leading-relaxed text-foreground/80 border border-border/50">
+                  {contract.notes || t("noNotes")}
+                </div>
               </div>
 
               {contract.status === "CANCELLED" && contract.cancellationReason && (
@@ -549,44 +297,18 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
                   <Building className="h-3 w-3" /> {t("branch")}
                 </div>
-                {isEditing && canEdit ? (
-                  <BranchSelector value={branchId} onValueChange={setBranchId} />
-                ) : (
-                  <p className="font-medium text-sm">{contract.branch?.name || t("notSpecified")}</p>
-                )}
+                <p className="font-medium text-sm">{contract.branch?.name || t("notSpecified")}</p>
               </div>
             </div>
           </SidebarCard>
 
-          {/* المرفقات */}
+          {/* المرفقات (عرض فقط) */}
           <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
-                <Paperclip className="h-4 w-4" />
-                {t("attachments")} ({attachments.length})
-              </div>
-              {isEditing && (
-                <label className="cursor-pointer">
-                  <input
-                    type="file"
-                    multiple
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
-                  />
-                  <div className="inline-flex items-center gap-1 text-primary hover:underline text-xs font-medium">
-                    <Upload className="h-4 w-4" />
-                    {isRtl ? "إضافة ملفات" : "Add files"}
-                  </div>
-                </label>
-              )}
+            <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
+              <Paperclip className="h-4 w-4" />
+              {t("attachments")} ({attachments.length})
             </div>
-            {uploading && (
-              <div className="flex justify-center py-2">
-                <Loader2 className="h-5 w-5 animate-spin text-primary" />
-              </div>
-            )}
-            {attachments.length === 0 && !uploading && (
+            {attachments.length === 0 && (
               <p className="text-xs text-muted-foreground text-center py-2">{t("noAttachments")}</p>
             )}
             <div className="space-y-2">
@@ -602,25 +324,14 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                     )}
                     <span className="text-sm font-medium truncate max-w-[200px]">{att.name}</span>
                   </div>
-                  <div className="flex items-center gap-1">
-                    <a
-                      href={att.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-primary hover:underline text-xs font-medium flex items-center gap-1"
-                    >
-                      <Eye className="h-4 w-4" /> {t("preview")}
-                    </a>
-                    {isEditing && (
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveAttachment(idx)}
-                        className="text-destructive hover:text-destructive/80 p-1"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
+                  <a
+                    href={att.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline text-xs font-medium flex items-center gap-1"
+                  >
+                    <Eye className="h-4 w-4" /> {t("preview")}
+                  </a>
                 </div>
               ))}
             </div>
@@ -631,12 +342,39 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             <div className="text-xs font-medium text-muted-foreground">{t("helpText")}</div>
           </div>
 
-          {renderActionButtons()}
+          {/* أزرار الإجراءات: فسخ / إعادة تفعيل فقط */}
+          <div className="flex flex-col gap-3">
+            {canCancel && (
+              <Button
+                onClick={openCancelDialog}
+                disabled={cancelling}
+                variant="outline"
+                className="w-full rounded-full border-orange-500 text-orange-500 hover:bg-orange-500/10 h-12 font-medium"
+              >
+                {cancelling ? <Loader2 className="h-5 w-5 animate-spin" /> : <X className="h-5 w-5" />}
+                {t("terminate")}
+              </Button>
+            )}
+            {canReactivate && (
+              <Button
+                onClick={openReactivateDialog}
+                disabled={reactivating}
+                variant="outline"
+                className="w-full rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium"
+              >
+                {reactivating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
+                {t("reactivate")}
+              </Button>
+            )}
+          </div>
+
+          {/* زر العودة (إلغاء) */}
           <Button
             variant="outline"
             onClick={() => router.back()}
             className="w-full rounded-full border-primary text-primary hover:bg-primary/10 font-medium h-11"
           >
+            <ArrowLeft className="h-4 w-4 ml-2" />
             {t("back")}
           </Button>
         </div>

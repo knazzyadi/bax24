@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
         mimeType: uploaded.mimeType,
         size: uploaded.size,
         originalName: uploaded.originalName,
-        contractId: null, // يبقى null حتى يرتبط بعقد
+        contractId: null,   // ✅ الآن مسموح به
       },
       select: { id: true, url: true, originalName: true },
     });

@@ -1,51 +1,235 @@
-// src/app/[locale]/(dashboard)/work-orders/page.tsx
-import { auth } from '@/auth';
-import { redirect } from 'next/navigation';
-import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
-import WorkOrdersClient from './WorkOrdersClient';
-import type { WorkOrder, WorkOrderStatus, WorkOrderPriority, Asset, Branch, Room, Floor, Building, AssetType } from '@prisma/client';
+import { auth } from "@/auth";
+import { redirect } from "next/navigation";
 
-// تعريف النوع الموسع للعلاقات
-type WorkOrderWithRelations = WorkOrder & {
-  priority: WorkOrderPriority | null;
-  status: WorkOrderStatus | null;
-  assetType: AssetType | null;
-  branch: Branch | null;
-  room: (Room & {
-    floor: (Floor & {
-      building: Building | null;
-    }) | null;
-  }) | null;
-  workOrderAssets: { asset: Asset }[];
-};
+import { prisma } from "@/lib/prisma";
+import { requirePermission } from "@/lib/permissions";
 
-interface PageProps {
-  params: Promise<{ locale: string }>;
-  searchParams: Promise<{ page?: string; q?: string; statusId?: string; priorityId?: string }>;
+import WorkOrdersClient from "./WorkOrdersClient";
+
+import type {
+  Prisma,
+  WorkOrder,
+  WorkOrderPriority,
+  WorkOrderStatus,
+} from "@prisma/client";
+
+//
+// =========================
+// Types
+// =========================
+//
+
+type WorkOrderType =
+  | "MAINTENANCE"
+  | "CORRECTIVE"
+  | "EMERGENCY"
+  | "BULK_PREVENTIVE";
+
+const VALID_WORK_ORDER_TYPES = new Set<WorkOrderType>([
+  "MAINTENANCE",
+  "CORRECTIVE",
+  "EMERGENCY",
+  "BULK_PREVENTIVE",
+]);
+
+interface TransformedWorkOrder {
+  id: string;
+  code: string;
+  title: string;
+  description: string | null;
+  type: WorkOrderType;
+  priority: {
+    id: string;
+    name: string;
+    nameEn?: string;
+    color?: string;
+  } | null;
+  status: {
+    id: string;
+    name: string;
+    nameEn?: string;
+    color?: string;
+  } | null;
+  branch: {
+    id: string;
+    name: string;
+    nameEn?: string;
+  } | null;
+  room: {
+    id: string;
+    name: string;
+    nameEn?: string;
+    floor?: {
+      name: string;
+      nameEn?: string;
+      building?: {
+        name: string;
+        nameEn?: string;
+      };
+    };
+  } | null;
+  createdAt: string;
+  asset: {
+    id: string;
+    name: string;
+    code: string;
+  } | null;
 }
 
-export default async function WorkOrdersPage({ params, searchParams }: PageProps) {
+//
+// =========================
+// Helpers
+// =========================
+//
+
+function isValidWorkOrderType(type: string): type is WorkOrderType {
+  return VALID_WORK_ORDER_TYPES.has(type as WorkOrderType);
+}
+
+type WorkOrderWithRelations = Prisma.WorkOrderGetPayload<{
+  include: {
+    priority: true;
+    status: true;
+    assetType: true;
+    branch: true;
+    room: {
+      include: {
+        floor: {
+          include: {
+            building: true;
+          };
+        };
+      };
+    };
+    workOrderAssets: {
+      include: {
+        asset: true;
+      };
+    };
+  };
+}>;
+
+function transformWorkOrder(wo: WorkOrderWithRelations): TransformedWorkOrder {
+  const type: WorkOrderType = isValidWorkOrderType(wo.type) ? wo.type : "MAINTENANCE";
+  const asset = wo.workOrderAssets?.[0]?.asset;
+
+  return {
+    id: wo.id,
+    code: wo.code || `WO-${wo.id.slice(-4)}`,
+    title: wo.title,
+    description: wo.description,
+    type,
+    priority: wo.priority
+      ? {
+          id: wo.priority.id,
+          name: wo.priority.name,
+          nameEn: wo.priority.nameEn ?? undefined,
+          color: wo.priority.color ?? undefined,
+        }
+      : null,
+    status: wo.status
+      ? {
+          id: wo.status.id,
+          name: wo.status.name,
+          nameEn: wo.status.nameEn ?? undefined,
+          color: wo.status.color ?? undefined,
+        }
+      : null,
+    branch: wo.branch
+      ? {
+          id: wo.branch.id,
+          name: wo.branch.name,
+          nameEn: wo.branch.nameEn ?? undefined,
+        }
+      : null,
+    room: wo.room
+      ? {
+          id: wo.room.id,
+          name: wo.room.name,
+          nameEn: wo.room.nameEn ?? undefined,
+          floor: wo.room.floor
+            ? {
+                name: wo.room.floor.name,
+                nameEn: wo.room.floor.nameEn ?? undefined,
+                building: wo.room.floor.building
+                  ? {
+                      name: wo.room.floor.building.name,
+                      nameEn: wo.room.floor.building.nameEn ?? undefined,
+                    }
+                  : undefined,
+              }
+            : undefined,
+        }
+      : null,
+    createdAt: wo.createdAt.toISOString(),
+    asset: asset
+      ? {
+          id: asset.id,
+          name: asset.name,
+          code: asset.code,
+        }
+      : null,
+  };
+}
+
+//
+// =========================
+// Page
+// =========================
+//
+
+export default async function WorkOrdersPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ locale: string }>;
+  searchParams: Promise<{ q?: string; statusId?: string; priorityId?: string; page?: string }>;
+}) {
+  //
+  // =========================
+  // Auth
+  // =========================
+  //
+
   const session = await auth();
-  if (!session?.user) redirect('/login');
-  await requirePermission('work_orders.read', session);
+  if (!session?.user) redirect("/login");
+  await requirePermission("work_orders.read", session);
+
+  //
+  // =========================
+  // Params
+  // =========================
+  //
 
   const { locale } = await params;
-  const { q = '', statusId = '', priorityId = '', page = '1' } = await searchParams;
+  const { q = "", statusId = "all", priorityId = "all", page = "1" } = await searchParams;
+
+  //
+  // =========================
+  // User Context
+  // =========================
+  //
+
   const companyId = session.user.companyId!;
-  const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+  const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
   const branchIds = session.user.branchIds || [];
 
-  const limit = 10;
-  const currentPage = parseInt(page);
-  const skip = (currentPage - 1) * limit;
+  //
+  // =========================
+  // Filters
+  // =========================
+  //
 
-  // شرط التصفية الأساسي
-  const where: any = { companyId, deletedAt: null };
+  const where: Prisma.WorkOrderWhereInput = {
+    companyId,
+    deletedAt: null,
+  };
+
   if (!isAdmin) {
     if (branchIds.length > 0) {
       where.branchId = { in: branchIds };
     } else {
+      // لا فروع مسموحة → قائمة فارغة
       return (
         <WorkOrdersClient
           initialWorkOrders={[]}
@@ -53,7 +237,7 @@ export default async function WorkOrdersPage({ params, searchParams }: PageProps
           priorities={[]}
           total={0}
           currentPage={1}
-          totalPages={1}
+          totalPages={0}
           q={q}
           statusId={statusId}
           priorityId={priorityId}
@@ -63,17 +247,32 @@ export default async function WorkOrdersPage({ params, searchParams }: PageProps
     }
   }
 
-  if (statusId && statusId !== 'all') where.statusId = statusId;
-  if (priorityId && priorityId !== 'all') where.priorityId = priorityId;
-  if (q) {
+  if (q.trim()) {
     where.OR = [
-      { title: { contains: q, mode: 'insensitive' } },
-      { code: { contains: q, mode: 'insensitive' } },
+      { title: { contains: q, mode: "insensitive" } },
+      { code: { contains: q, mode: "insensitive" } },
     ];
   }
+  if (statusId !== "all") where.statusId = statusId;
+  if (priorityId !== "all") where.priorityId = priorityId;
 
-  // جلب الصفحة الحالية فقط مع العلاقات
-  const [workOrders, total] = await Promise.all([
+  //
+  // =========================
+  // Pagination
+  // =========================
+  //
+
+  const limit = 10;
+  const currentPage = Math.max(1, Number.parseInt(page, 10) || 1);
+  const skip = (currentPage - 1) * limit;
+
+  //
+  // =========================
+  // Queries
+  // =========================
+  //
+
+  const [workOrders, total, statuses, priorities] = await Promise.all([
     prisma.workOrder.findMany({
       where,
       include: {
@@ -83,65 +282,44 @@ export default async function WorkOrdersPage({ params, searchParams }: PageProps
         branch: true,
         room: {
           include: {
-            floor: { include: { building: true } },
+            floor: {
+              include: { building: true },
+            },
           },
         },
         workOrderAssets: {
           include: { asset: true },
         },
       },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { createdAt: "desc" },
       skip,
       take: limit,
     }),
     prisma.workOrder.count({ where }),
+    prisma.workOrderStatus.findMany({
+      where: { companyId },
+      select: { id: true, name: true, nameEn: true },
+    }),
+    prisma.workOrderPriority.findMany({
+      where: { companyId },
+      select: { id: true, name: true, nameEn: true },
+    }),
   ]);
 
-  // تحويل البيانات للعميل - مع تحويل القيم null إلى قيم مناسبة
-  const transformedWorkOrders = (workOrders as WorkOrderWithRelations[]).map((wo) => ({
-    id: wo.id,
-    code: wo.code ?? '', // تحويل null إلى نص فارغ
-    title: wo.title,
-    description: wo.description,
-    type: wo.type as string, // تحويل enum إلى string
-    createdAt: wo.createdAt.toISOString(),
-    updatedAt: wo.updatedAt.toISOString(),
-    asset: wo.workOrderAssets[0]?.asset || null,
-    branch: wo.branch ? { id: wo.branch.id, name: wo.branch.name, nameEn: wo.branch.nameEn ?? undefined } : null,
-    room: wo.room ? {
-      id: wo.room.id,
-      name: wo.room.name,
-      nameEn: wo.room.nameEn ?? undefined,
-      floor: wo.room.floor ? {
-        name: wo.room.floor.name,
-        nameEn: wo.room.floor.nameEn ?? undefined,
-        building: wo.room.floor.building ? {
-          name: wo.room.floor.building.name,
-          nameEn: wo.room.floor.building.nameEn ?? undefined,
-        } : undefined,
-      } : undefined,
-    } : null,
-    status: wo.status ? {
-      id: wo.status.id,
-      name: wo.status.name,
-      nameEn: wo.status.nameEn ?? undefined,
-      color: wo.status.color ?? undefined,
-    } : null,
-    priority: wo.priority ? {
-      id: wo.priority.id,
-      name: wo.priority.name,
-      nameEn: wo.priority.nameEn ?? undefined,
-      color: (wo.priority as any).color ?? undefined,
-    } : null,
-  }));
+  //
+  // =========================
+  // Transform
+  // =========================
+  //
 
-  // جلب قوائم الحالات والأولويات للفلاتر
-  const [statuses, priorities] = await Promise.all([
-    prisma.workOrderStatus.findMany({ where: { companyId }, orderBy: { order: 'asc' } }),
-    prisma.workOrderPriority.findMany({ where: { companyId }, orderBy: { order: 'asc' } }),
-  ]);
-
+  const transformedWorkOrders = workOrders.map(transformWorkOrder);
   const totalPages = Math.ceil(total / limit);
+
+  //
+  // =========================
+  // Render
+  // =========================
+  //
 
   return (
     <WorkOrdersClient

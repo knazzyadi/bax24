@@ -6,7 +6,7 @@ import { requirePermission } from "@/lib/permissions";
 import { uploadFileToR2, deleteFileFromR2 } from "@/lib/storage";
 
 const allowedTicketTypes = ["MAINTENANCE", "INCIDENT"];
-const allowedTicketStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED", "REJECTED", "CANCELLED"];
+const allowedTicketStatuses = ["PENDING", "APPROVED", "REJECTED"];
 
 // ===========================
 // GET

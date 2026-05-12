@@ -15,10 +15,8 @@ enum TicketType {
 
 enum TicketStatus {
   PENDING
-  IN_PROGRESS
-  COMPLETED
+  APPROVED
   REJECTED
-  CANCELLED
 }
 
 // ========== باقي الـ ENUMS كما هي ==========

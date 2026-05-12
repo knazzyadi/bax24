@@ -307,7 +307,7 @@ model WorkOrderInventory {
 
 model ContractAttachment {
   id          String   @id @default(cuid())
-  contractId  String
+  contractId  String?
   url         String
   key         String
   provider    String   @default("CLOUDFLARE_R2")
@@ -315,7 +315,7 @@ model ContractAttachment {
   size        Int
   originalName String
   createdAt   DateTime @default(now())
-  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  contract    Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   @@index([contractId])
 }

@@ -4,6 +4,7 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";          // ✅ تمت الإضافة
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,

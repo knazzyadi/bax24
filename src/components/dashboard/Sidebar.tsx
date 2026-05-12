@@ -49,7 +49,7 @@ export default function Sidebar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [locationsOpen, setLocationsOpen] = useState(false);
-  const [vehiclesSettingsOpen, setVehiclesSettingsOpen] = useState(false);
+  // const [vehiclesSettingsOpen, setVehiclesSettingsOpen] = useState(false);
   const [dictionariesOpen, setDictionariesOpen] = useState(false);
   const [pendingTicketsCount, setPendingTicketsCount] = useState<number>(0);
 
@@ -60,7 +60,7 @@ export default function Sidebar() {
 
   useOutsideClick(settingsRef, () => setSettingsOpen(false), settingsOpen);
   useOutsideClick(locationsRef, () => setLocationsOpen(false), locationsOpen);
-  useOutsideClick(vehiclesRef, () => setVehiclesSettingsOpen(false), vehiclesSettingsOpen);
+  //useOutsideClick(vehiclesRef, () => setVehiclesSettingsOpen(false), vehiclesSettingsOpen);
   useOutsideClick(dictionariesRef, () => setDictionariesOpen(false), dictionariesOpen);
 
   // جلب عدد البلاغات المعلقة
@@ -259,8 +259,8 @@ export default function Sidebar() {
                 />
               </SidebarSection>
             </div>
-
-            {/* إعداد المركبات */}
+            {/* إعداد المركبات (معلق مؤقتاً) */}
+            {/* إعداد المركبات
             <div ref={vehiclesRef}>
               <SidebarSection
                 isOpen={vehiclesSettingsOpen}
@@ -284,7 +284,7 @@ export default function Sidebar() {
                   {...commonNavProps}
                 />
               </SidebarSection>
-            </div>
+            </div>*/}
 
             {/* إعداد المعجم */}
             <div ref={dictionariesRef}>

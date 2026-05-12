@@ -3,33 +3,31 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/permissions';
+import { deleteFileFromR2 } from '@/lib/storage'; // ✅ استيراد دالة الحذف من R2
 
-// GET: جلب عقد واحد
+// GET: جلب عقد واحد مع مرفقاته
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     await requirePermission('contracts.read', session);
 
     const { id } = await params;
     const companyId = session.user.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
-    }
+    if (!companyId) return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
 
     const contract = await prisma.contract.findFirst({
       where: { id, companyId, deletedAt: null },
-      include: { branch: true }, // ✅ إضافة هذا السطر
+      include: {
+        branch: true,
+        attachments: true, // ✅ جلب المرفقات
+      },
     });
 
-    if (!contract) {
-      return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
-    }
+    if (!contract) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
 
     // التحقق من صلاحية الفرع للمستخدمين غير الأدمن
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
@@ -57,21 +55,19 @@ export async function GET(
   }
 }
 
-// PUT: تحديث عقد (يستقبل buildingId ويحوله إلى branchId)
+// PUT: تحديث عقد (يدعم تحديث المرفقات عبر attachmentIds)
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     await requirePermission('contracts.update', session);
 
     const { id } = await params;
     const body = await request.json();
-    const { title, supplier, value, startDate, endDate, description, notes, buildingId } = body;
+    const { title, supplier, value, startDate, endDate, description, notes, buildingId, attachmentIds } = body;
 
     if (!title || !supplier || !startDate || !endDate) {
       return NextResponse.json({ error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة' }, { status: 400 });
@@ -80,11 +76,9 @@ export async function PUT(
     const companyId = session.user.companyId!;
     const existing = await prisma.contract.findFirst({
       where: { id, companyId, deletedAt: null },
-      select: { branchId: true },
+      select: { branchId: true, attachments: true }, // ✅ نأتي بالمرفقات الحالية لمعالجتها
     });
-    if (!existing) {
-      return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
-    }
+    if (!existing) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
 
     // تحويل buildingId إلى branchId
     let branchId = existing.branchId;
@@ -96,14 +90,12 @@ export async function PUT(
           where: { id: buildingId },
           select: { branchId: true },
         });
-        if (!building) {
-          return NextResponse.json({ error: 'المبنى المختار غير موجود' }, { status: 400 });
-        }
+        if (!building) return NextResponse.json({ error: 'المبنى المختار غير موجود' }, { status: 400 });
         branchId = building.branchId;
       }
     }
 
-    // التحقق من صلاحية الفرع للمستخدمين غير الأدمن
+    // التحقق من صلاحية الفرع
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin && branchId) {
       const userBranchIds = session.user.branchIds || [];
@@ -112,6 +104,34 @@ export async function PUT(
       }
     }
 
+    // معالجة المرفقات إذا تم إرسال attachmentIds جديدة
+    if (attachmentIds && Array.isArray(attachmentIds)) {
+      // الحصول على المرفقات الحالية للعقد
+      const currentAttachments = existing.attachments;
+      // المرفقات التي سيتم الاحتفاظ بها (الجديدة + القديمة التي لم تُحذف)
+      const toKeepIds = attachmentIds.filter(id => 
+        currentAttachments.some(a => a.id === id)
+      );
+      // المرفقات التي سيتم إزالتها من العقد (ليست في القائمة الجديدة)
+      const toRemove = currentAttachments.filter(a => !attachmentIds.includes(a.id));
+
+      // حذف المرفقات التي تم إزالتها من R2 (وسجلاتها)
+      for (const att of toRemove) {
+        await deleteFileFromR2(att.key);
+        await prisma.contractAttachment.delete({ where: { id: att.id } });
+      }
+
+      // ربط المرفقات الجديدة التي تم رفعها مسبقاً (لا تزال بدون contractId)
+      const newAttachmentIds = attachmentIds.filter(id => !toKeepIds.includes(id));
+      if (newAttachmentIds.length > 0) {
+        await prisma.contractAttachment.updateMany({
+          where: { id: { in: newAttachmentIds } },
+          data: { contractId: id },
+        });
+      }
+    }
+
+    // تحديث بيانات العقد
     const updated = await prisma.contract.update({
       where: { id },
       data: {
@@ -124,6 +144,7 @@ export async function PUT(
         notes: notes ?? null,
         branchId,
       },
+      include: { attachments: true }, // إعادة العقد مع المرفقات
     });
 
     return NextResponse.json(updated);
@@ -133,16 +154,14 @@ export async function PUT(
   }
 }
 
-// DELETE: حذف ناعم للعقد
+// DELETE: حذف ناعم للعقد مع حذف المرفقات من R2
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     await requirePermission('contracts.delete', session);
 
     const { id } = await params;
@@ -150,13 +169,11 @@ export async function DELETE(
 
     const existing = await prisma.contract.findFirst({
       where: { id, companyId, deletedAt: null },
-      select: { id: true, branchId: true },
+      include: { attachments: true }, // ✅ جلب المرفقات
     });
-    if (!existing) {
-      return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
-    }
+    if (!existing) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
 
-    // التحقق من صلاحية الفرع لغير الأدمن
+    // التحقق من صلاحية الفرع
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin && existing.branchId) {
       const userBranchIds = session.user.branchIds || [];
@@ -165,6 +182,13 @@ export async function DELETE(
       }
     }
 
+    // حذف المرفقات من R2 ثم من قاعدة البيانات
+    for (const att of existing.attachments) {
+      await deleteFileFromR2(att.key);
+      await prisma.contractAttachment.delete({ where: { id: att.id } });
+    }
+
+    // حذف ناعم للعقد
     await prisma.contract.update({
       where: { id },
       data: { deletedAt: new Date() },

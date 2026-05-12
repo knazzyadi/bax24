@@ -134,9 +134,8 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // ✅ استخدام الدالة المركزية لتوليد كود فريد لأمر العمل
-    const code = await generateWorkOrderCode(companyId, branchId);
-
+      // ✅ استخدام الدالة المركزية لتوليد كود فريد لأمر العمل (يعتمد على branchId)
+     const code = await generateWorkOrderCode(branchId);
     // ========== التحقق من صحة priorityId و statusId ==========
     let validPriorityId = null;
     if (priorityId && priorityId !== "" && priorityId !== "null" && priorityId !== "undefined" && priorityId !== "all") {

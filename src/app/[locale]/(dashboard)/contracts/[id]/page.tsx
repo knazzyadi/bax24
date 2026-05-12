@@ -60,6 +60,7 @@ import { SidebarCard } from "@/components/shared/detail/SidebarCard";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 
 interface Attachment {
+  id: string;      // ✅ إضافة معرف المرفق
   name: string;
   url: string;
   type: string;
@@ -153,6 +154,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
         const contractData = await res.json();
         setContract(contractData);
         setBranchId(contractData.branchId || "");
+        // تأكد أن attachments تأتي بالشكل الصحيح (id, url, name, type, size)
         setAttachments(contractData.attachments || []);
       } catch (err) {
         console.error(err);
@@ -188,7 +190,17 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
         const res = await fetch("/api/contracts/upload", { method: "POST", body: uploadData });
         const data = await res.json();
         if (res.ok) {
-          setAttachments((prev) => [...prev, { name: file.name, url: data.url, type: file.type, size: file.size }]);
+          // ✅ نخزن id, name, url, type, size
+          setAttachments((prev) => [
+            ...prev,
+            {
+              id: data.id,
+              name: data.name || file.name,
+              url: data.url,
+              type: file.type,
+              size: file.size,
+            },
+          ]);
           toast.success(`${file.name} ${isRtl ? "تم الرفع بنجاح" : "uploaded successfully"}`);
         } else {
           toast.error(data.error || (isRtl ? "فشل رفع الملف" : "Upload failed"));
@@ -211,6 +223,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
     if (!contract?.id) return;
     setSaving(true);
     try {
+      // ✅ إرسال فقط attachmentIds (معرفات المرفقات)
       const payload = {
         title: contract.title,
         supplier: contract.supplier,
@@ -221,7 +234,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
         notes: contract.notes || null,
         branchId: branchId,
         code: contract.code || null,
-        attachments: attachments,
+        attachmentIds: attachments.map(a => a.id), // ✅ فقط المعرفات
       };
       const res = await fetch(`/api/contracts/${contract.id}`, {
         method: "PUT",
@@ -429,15 +442,13 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
         icon={<FileText size={28} />}
         title={contract.title}
         subtitle={`${t("reference")} #${contract.code || "—"}`}
-        // تم إزالة الـ actions
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* العمود الرئيسي (2/3) - الملاحظات وسَبب الإلغاء */}
+        {/* العمود الرئيسي (2/3) */}
         <div className="lg:col-span-2 space-y-8">
           <InfoCard title={t("basicInfo")} icon={<Zap className="h-5 w-5" />}>
             <div className="space-y-8">
-              {/* الحقول الأساسية (supplier, value, dates) - تبقى كما هي */}
               <div className="grid sm:grid-cols-2 gap-6">
                 <DetailItem
                   label={t("supplier")}
@@ -473,7 +484,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 />
               </div>
 
-              {/* الوصف */}
               <div className="pt-2">
                 <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
                   <FileText className="h-3.5 w-3.5" /> {t("description")}
@@ -492,7 +502,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 )}
               </div>
 
-              {/* الملاحظات (notes) */}
               <div className="pt-2 border-t border-border">
                 <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
                   <FileText className="h-3.5 w-3.5" /> {t("notes")}
@@ -510,7 +519,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 )}
               </div>
 
-              {/* سبب الإلغاء (إذا كان العقد ملغياً) */}
               {contract.status === "CANCELLED" && contract.cancellationReason && (
                 <div className="pt-2 border-t border-border">
                   <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
@@ -525,9 +533,8 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           </InfoCard>
         </div>
 
-        {/* العمود الجانبي (1/3) - تاريخ الإنشاء، الفرع، المرفقات، الأزرار */}
+        {/* العمود الجانبي (1/3) */}
         <div className="space-y-8">
-          {/* بطاقة تاريخ الإنشاء + الفرع */}
           <SidebarCard title={t("additionalInfo")} icon={<Info className="h-5 w-5" />}>
             <div className="space-y-4">
               <div className="space-y-2">
@@ -584,7 +591,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             )}
             <div className="space-y-2">
               {attachments.map((att, idx) => (
-                <div key={idx} className="flex items-center justify-between p-2 hover:bg-muted/20 rounded-xl transition-colors">
+                <div key={att.id || idx} className="flex items-center justify-between p-2 hover:bg-muted/20 rounded-xl transition-colors">
                   <div className="flex items-center gap-2 overflow-hidden">
                     {att.type?.startsWith("image/") ? (
                       <Image className="h-5 w-5 text-primary shrink-0" />
@@ -619,14 +626,12 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
-          {/* نصيحة */}
           <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20 flex items-start gap-3">
             <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
             <div className="text-xs font-medium text-muted-foreground">{t("helpText")}</div>
           </div>
 
           {renderActionButtons()}
-          {/* ✅ زر العودة */}
           <Button
             variant="outline"
             onClick={() => router.back()}
@@ -637,7 +642,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* باقي الحوارات (نفس السابق) */}
+      {/* حوار إلغاء العقد */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent className="sm:max-w-[425px] rounded-2xl bg-card border-border shadow-lg">
           <DialogHeader>
@@ -677,6 +682,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
         </DialogContent>
       </Dialog>
 
+      {/* حوار إعادة التفعيل */}
       <Dialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
         <DialogContent className="sm:max-w-[425px] rounded-2xl bg-card border-border shadow-lg">
           <DialogHeader>
@@ -715,12 +721,4 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
       </Dialog>
     </PageContainer>
   );
-}
-
-function ActiveStatusIcon({ status }: { status: string }) {
-  if (status === "ACTIVE") return <CheckCircle2 className="h-3 w-3 text-emerald-500" />;
-  if (status === "EXPIRED") return <AlertCircle className="h-3 w-3 text-destructive" />;
-  if (status === "PENDING_REVIEW") return <History className="h-3 w-3 text-amber-500" />;
-  if (status === "CANCELLED") return <X className="h-3 w-3 text-orange-500" />;
-  return <Info className="h-3 w-3" />;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from 'next-intl';
 import { Button } from "@/components/ui/button";
@@ -19,6 +19,7 @@ import { InfoCard } from "@/components/shared/detail/InfoCard";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 
 interface Attachment {
+  id: string;      // ✅ معرف المرفق في قاعدة البيانات
   name: string;
   url: string;
   type: string;
@@ -69,7 +70,14 @@ export default function NewContractPage() {
         const res = await fetch("/api/contracts/upload", { method: "POST", body: uploadData });
         const data = await res.json();
         if (res.ok) {
-          setAttachments(prev => [...prev, { name: file.name, url: data.url, type: file.type, size: file.size }]);
+          // ✅ نخزن id و name و url و type و size
+          setAttachments(prev => [...prev, {
+            id: data.id,
+            name: data.name || file.name,
+            url: data.url,
+            type: file.type,
+            size: file.size,
+          }]);
           toast.success(`${file.name} ${isRtl ? "تم الرفع بنجاح" : "uploaded successfully"}`);
         } else {
           toast.error(data.error || (isRtl ? "فشل رفع الملف" : "Upload failed"));
@@ -83,7 +91,12 @@ export default function NewContractPage() {
     e.target.value = "";
   };
 
-  const removeAttachment = (index: number) => {
+  const removeAttachment = async (index: number) => {
+    const att = attachments[index];
+    if (!att) return;
+    
+    // اختياري: حذف المرفق من الخادم (يمكن إضافته لاحقاً)
+    // لكن هنا نكتفي بحذفه من الواجهة لأنه لم يرتبط بعد بالعقد
     setAttachments(prev => prev.filter((_, i) => i !== index));
     toast.success(isRtl ? "تم حذف المرفق" : "Attachment removed");
   };
@@ -109,7 +122,7 @@ export default function NewContractPage() {
         endDate: formData.endDate,
         description: formData.description || null,
         branchId: formData.branchId,
-        attachments: attachments.map(a => ({ name: a.name, url: a.url, type: a.type, size: a.size })),
+        attachmentIds: attachments.map(a => a.id), // ✅ إرسال المعرفات فقط
       };
       console.log("Sending payload:", payload);
       const res = await fetch("/api/contracts", {
@@ -271,7 +284,7 @@ export default function NewContractPage() {
                       </div>
                       <div className="divide-y divide-border">
                         {attachments.map((att, idx) => (
-                          <div key={idx} className="flex items-center justify-between p-3 hover:bg-muted/20 transition-colors">
+                          <div key={att.id} className="flex items-center justify-between p-3 hover:bg-muted/20 transition-colors">
                             <div className="flex items-center gap-3 overflow-hidden">
                               <div className="shrink-0">
                                 {att.type.startsWith('image/') ? (

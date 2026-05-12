@@ -86,6 +86,7 @@ export default async function AssetsPage({
       : undefined,
     purchaseDate: asset.purchaseDate?.toISOString() ?? null,
     warrantyEnd: asset.warrantyEnd?.toISOString() ?? null,
+    lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString() ?? null, // ✅ إضافة
     notes: asset.notes ?? undefined,
     createdAt: asset.createdAt.toISOString(),
     updatedAt: asset.updatedAt.toISOString(),

@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { 
   Calendar, MapPin, FileText, Loader2, Plus, ShieldCheck, Info, Globe, Upload, X, FileUp,
-  Building as BuildingIcon, Layers, DoorOpen
+  Building as BuildingIcon, Layers, DoorOpen, Wrench
 } from "lucide-react";
 import {
   Dialog,
@@ -46,6 +46,7 @@ interface BulkAsset {
   roomId: string;
   purchaseDate: string;
   warrantyEnd: string;
+  lastMaintenanceDate: string;   // ✅ إضافة
   notes: string;
 }
 
@@ -92,7 +93,7 @@ export default function NewAssetPage() {
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkAssets, setBulkAssets] = useState<BulkAsset[]>([
-    { name: "", typeId: "", statusId: "", buildingId: "", floorId: "", roomId: "", purchaseDate: "", warrantyEnd: "", notes: "" },
+    { name: "", typeId: "", statusId: "", buildingId: "", floorId: "", roomId: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" },
   ]);
 
   const [formData, setFormData] = useState({
@@ -102,6 +103,7 @@ export default function NewAssetPage() {
     statusId: "",
     purchaseDate: "",
     warrantyEnd: "",
+    lastMaintenanceDate: "",   // ✅ إضافة
     roomId: "",
     notes: "",
   });
@@ -220,7 +222,7 @@ export default function NewAssetPage() {
   };
 
   const addBulkRow = () => {
-    setBulkAssets(prev => [...prev, { name: "", typeId: "", statusId: "", buildingId: "", floorId: "", roomId: "", purchaseDate: "", warrantyEnd: "", notes: "" }]);
+    setBulkAssets(prev => [...prev, { name: "", typeId: "", statusId: "", buildingId: "", floorId: "", roomId: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" }]);
   };
 
   const removeBulkRow = (index: number) => {
@@ -257,6 +259,7 @@ export default function NewAssetPage() {
           roomId: row.roomId || "",
           purchaseDate: row.purchaseDate || "",
           warrantyEnd: row.warrantyEnd || "",
+          lastMaintenanceDate: row.lastMaintenanceDate || "",
           notes: row.notes || "",
         }));
         if (newAssets.length) setBulkAssets(newAssets);
@@ -270,8 +273,8 @@ export default function NewAssetPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = ["name", "typeId", "statusId", "buildingId", "floorId", "roomId", "purchaseDate", "warrantyEnd", "notes"];
-    const csvContent = headers.join(",") + "\n" + "Example Asset,,,,,,\n";
+    const headers = ["name", "typeId", "statusId", "buildingId", "floorId", "roomId", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
+    const csvContent = headers.join(",") + "\n" + "Example Asset,,,,,,,,,\n";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -307,6 +310,7 @@ export default function NewAssetPage() {
             statusId: asset.statusId || null,
             purchaseDate: asset.purchaseDate || null,
             warrantyEnd: asset.warrantyEnd || null,
+            lastMaintenanceDate: asset.lastMaintenanceDate || null,  // ✅ إضافة
             roomId: finalRoomId,
             notes: asset.notes || null,
           }),
@@ -363,6 +367,7 @@ export default function NewAssetPage() {
         statusId: cleanStatusId,
         purchaseDate: formData.purchaseDate || null,
         warrantyEnd: formData.warrantyEnd || null,
+        lastMaintenanceDate: formData.lastMaintenanceDate || null,  // ✅ إضافة
         roomId: formData.roomId,
         notes: formData.notes || null,
       };
@@ -451,6 +456,7 @@ export default function NewAssetPage() {
                       <TableHead className="whitespace-nowrap font-medium">{t('tableRoom')}</TableHead>
                       <TableHead className="whitespace-nowrap font-medium">{t('tablePurchaseDate')}</TableHead>
                       <TableHead className="whitespace-nowrap font-medium">{t('tableWarrantyEnd')}</TableHead>
+                      <TableHead className="whitespace-nowrap font-medium">{t('tableLastMaintenance')}</TableHead>
                       <TableHead className="whitespace-nowrap font-medium">{t('tableNotes')}</TableHead>
                       <TableHead className="w-12"></TableHead>
                     </TableRow>
@@ -518,6 +524,7 @@ export default function NewAssetPage() {
                         </TableCell>
                         <TableCell><Input type="date" value={asset.purchaseDate} onChange={(e) => updateBulkAsset(idx, "purchaseDate", e.target.value)} className="w-36" /></TableCell>
                         <TableCell><Input type="date" value={asset.warrantyEnd} onChange={(e) => updateBulkAsset(idx, "warrantyEnd", e.target.value)} className="w-36" /></TableCell>
+                        <TableCell><Input type="date" value={asset.lastMaintenanceDate} onChange={(e) => updateBulkAsset(idx, "lastMaintenanceDate", e.target.value)} className="w-36" /></TableCell>
                         <TableCell><Input value={asset.notes} onChange={(e) => updateBulkAsset(idx, "notes", e.target.value)} placeholder={t('notesPlaceholder')} /></TableCell>
                         <TableCell>
                           <Button variant="ghost" size="icon" onClick={() => removeBulkRow(idx)} className="text-red-500 hover:text-red-700">
@@ -717,6 +724,23 @@ export default function NewAssetPage() {
                       className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-emerald-500/50 w-full" 
                     />
                   </div>
+                </div>
+                {/* ✅ إضافة حقل آخر صيانة */}
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground/70 font-medium flex items-center gap-2">
+                    <Wrench className="h-4 w-4" /> {t('lastMaintenance')}
+                  </Label>
+                  <div className="relative">
+                    <Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" />
+                    <Input 
+                      name="lastMaintenanceDate" 
+                      type="date" 
+                      value={formData.lastMaintenanceDate} 
+                      onChange={handleChange} 
+                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-primary w-full" 
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mt-1 italic">{t('lastMaintenanceHint')}</p>
                 </div>
               </div>
             </InfoCard>

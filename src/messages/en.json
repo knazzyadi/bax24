@@ -843,6 +843,9 @@
     "next": "Next"
   },
   "AssetsForm": {
+    "lastMaintenance": "Last Maintenance",
+    "lastMaintenanceHint": "(Optional) Last maintenance date of the asset",
+    "tableLastMaintenance": "Last Maintenance",
     "selectBuilding": "Select building",
     "noBuildings": "No buildings found",
     "selectFloor": "Select floor",

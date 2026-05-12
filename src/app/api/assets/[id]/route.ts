@@ -67,6 +67,7 @@ export async function GET(
       ...asset,
       purchaseDate: asset.purchaseDate?.toISOString()?.split('T')[0] || null,
       warrantyEnd: asset.warrantyEnd?.toISOString()?.split('T')[0] || null,
+      lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString()?.split('T')[0] || null, // ✅ إضافة
     };
     return NextResponse.json(serializedAsset);
   } catch (error: any) {
@@ -85,7 +86,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, nameEn, typeId, statusId, purchaseDate, warrantyEnd, roomId, notes } = body;
+    const { name, nameEn, typeId, statusId, purchaseDate, warrantyEnd, lastMaintenanceDate, roomId, notes } = body; // ✅ إضافة lastMaintenanceDate
     const companyId = session.user.companyId!;
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
 
@@ -149,6 +150,7 @@ export async function PUT(
         statusId: statusId || null,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
         warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : null,
+        lastMaintenanceDate: lastMaintenanceDate ? new Date(lastMaintenanceDate) : null, // ✅ إضافة
         roomId: roomId || null,
         buildingId: newBuildingId,
         notes: notes?.trim() || null,

@@ -62,6 +62,7 @@ export interface Asset {
   room?: (Room & { floor?: Floor & { building?: Building } }) | null;
   purchaseDate?: string | null;
   warrantyEnd?: string | null;
+  lastMaintenanceDate?: string | null;   // ✅ إضافة حقل آخر صيانة
   notes?: string | null;
   createdAt?: Date | string;
   updatedAt?: Date | string;

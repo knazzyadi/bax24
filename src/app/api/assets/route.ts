@@ -118,6 +118,7 @@ export async function GET(request: Request) {
           nameEn: true,
           purchaseDate: true,
           warrantyEnd: true,
+          lastMaintenanceDate: true, // ✅ إضافة
           notes: true,
           createdAt: true,
           updatedAt: true,
@@ -158,6 +159,7 @@ export async function GET(request: Request) {
       ...asset,
       purchaseDate: asset.purchaseDate?.toISOString() || null,
       warrantyEnd: asset.warrantyEnd?.toISOString() || null,
+      lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString() || null, // ✅ إضافة
       createdAt: asset.createdAt.toISOString(),
       updatedAt: asset.updatedAt.toISOString(),
     }));
@@ -182,7 +184,7 @@ export async function POST(request: Request) {
     await requirePermission('assets.create', session);
 
     const body = await request.json();
-    const { name, nameEn, typeId, statusId, roomId, purchaseDate, warrantyEnd, notes } = body;
+    const { name, nameEn, typeId, statusId, roomId, purchaseDate, warrantyEnd, lastMaintenanceDate, notes } = body; // ✅ إضافة lastMaintenanceDate
 
     if (!name || !typeId || !roomId) {
       return NextResponse.json({ error: 'الاسم، نوع الأصل، والموقع إلزامية' }, { status: 400 });
@@ -256,6 +258,7 @@ export async function POST(request: Request) {
         companyId,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
         warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
+        lastMaintenanceDate: lastMaintenanceDate ? new Date(lastMaintenanceDate) : undefined, // ✅ إضافة
         notes: notes || undefined,
       },
     });

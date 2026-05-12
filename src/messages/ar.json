@@ -845,6 +845,9 @@
     "next": "التالي"
   },
   "AssetsForm": {
+    "lastMaintenance": "آخر صيانة",
+    "lastMaintenanceHint": "(اختياري) تاريخ آخر صيانة للأصل",
+    "tableLastMaintenance": "آخر صيانة",
     "selectBuilding": "اختر المبنى",
     "noBuildings": "لا توجد مباني",
     "selectFloor": "اختر الدور",

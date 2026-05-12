@@ -46,6 +46,11 @@ function getTypeDisplay(type: AssetType | null | undefined, isRtl: boolean) {
   return isRtl ? type.name : (type.nameEn || type.name);
 }
 
+function formatDate(dateStr?: string | null, isRtl?: boolean): string {
+  if (!dateStr) return "—";
+  return new Date(dateStr).toLocaleDateString(isRtl ? "ar-SA" : "en-US");
+}
+
 interface AssetsClientProps {
   initialAssets: Asset[];
   assetTypes: AssetType[];
@@ -146,7 +151,7 @@ export default function AssetsClient({
   const onFilterChange = (sectionId: string, value: string) => {
     if (sectionId === "typeId") setSelectedTypeId(value);
     else if (sectionId === "statusId") setSelectedStatusId(value);
-    setCurrentPage(1); // إعادة تعيين الصفحة إلى الأولى عند تغيير الفلتر
+    setCurrentPage(1);
   };
 
   const renderAssetItem = (asset: Asset, actions: ItemActions) => {
@@ -171,12 +176,10 @@ export default function AssetsClient({
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
-            {/* ✅ تغيير font-black إلى font-normal */}
             <h3 className="text-lg font-normal group-hover:text-primary transition-colors duration-200 truncate leading-none text-foreground">
               {isRtl ? asset.name : (asset.nameEn || asset.name)}
             </h3>
           </div>
-          {/* ✅ تغيير font-bold إلى font-normal */}
           <div className="flex items-center gap-2 text-[11px] font-normal text-muted-foreground">
             <Package size={12} /> {getTypeDisplay(asset.type, isRtl)}
           </div>
@@ -188,18 +191,21 @@ export default function AssetsClient({
               <Calendar size={12} />
               <span>{asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString(isRtl ? 'ar-SA' : 'en-US') : "—"}</span>
             </div>
+            {/* ✅ إضافة آخر صيانة */}
+            <div className="flex items-center gap-2">
+              <Wrench size={12} />
+              <span>{asset.lastMaintenanceDate ? formatDate(asset.lastMaintenanceDate, isRtl) : (isRtl ? "—" : "—")}</span>
+            </div>
           </div>
         </div>
 
         <div className="shrink-0">
-          {/* ✅ تغيير font-black إلى font-normal */}
           <span className="text-[12px] font-normal text-primary px-3 py-1.5 bg-primary/5 rounded-xl border border-primary/10 uppercase tracking-widest transition-colors duration-200 group-hover:bg-primary/20">
             {asset.code || `#${asset.id.slice(-4)}`}
           </span>
         </div>
 
         <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
-          {/* شارة الحالة - نحتفظ بـ font-black لأنها عنصر مميز */}
           <span className="rounded-full font-black text-sm px-4 py-1.5 border-none shadow-md inline-flex items-center gap-1" style={glowStyle}>
             <Icon size={14} style={{ color: statusColor }} /> {statusInfo.label}
           </span>

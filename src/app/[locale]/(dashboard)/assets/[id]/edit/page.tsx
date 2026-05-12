@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar, MapPin, FileText, Loader2, ShieldCheck, Info, Globe, Save, ArrowLeft, ArrowRight } from "lucide-react";
+import { Calendar, MapPin, FileText, Loader2, ShieldCheck, Info, Globe, Save, ArrowLeft, ArrowRight, Wrench } from "lucide-react";
 import Link from "next/link";
 import { PageContainer } from "@/components/shared/detail/PageContainer";
 import { DetailHeader } from "@/components/shared/detail/DetailHeader";
@@ -44,6 +44,7 @@ export default function EditAssetPage() {
     statusId: "",
     purchaseDate: "",
     warrantyEnd: "",
+    lastMaintenanceDate: "",   // ✅ إضافة
     roomId: "",
     notes: "",
   });
@@ -83,6 +84,7 @@ export default function EditAssetPage() {
           statusId: asset.statusId || "",
           purchaseDate: asset.purchaseDate ? asset.purchaseDate.split('T')[0] : "",
           warrantyEnd: asset.warrantyEnd ? asset.warrantyEnd.split('T')[0] : "",
+          lastMaintenanceDate: asset.lastMaintenanceDate ? asset.lastMaintenanceDate.split('T')[0] : "", // ✅ إضافة
           roomId: asset.roomId || "",
           notes: asset.notes || "",
         });
@@ -130,7 +132,6 @@ export default function EditAssetPage() {
           setSelectedRoomFullCode(fullCode);
           setSelectedRoomName(isRtl ? roomData.name : (roomData.nameEn || roomData.name));
         } else {
-          // Fallback باستخدام المباني المحفوظة إذا فشل API (اختياري)
           setSelectedRoomFullCode("");
           setSelectedRoomName("");
         }
@@ -182,6 +183,7 @@ export default function EditAssetPage() {
         statusId: formData.statusId || null,
         purchaseDate: formData.purchaseDate || null,
         warrantyEnd: formData.warrantyEnd || null,
+        lastMaintenanceDate: formData.lastMaintenanceDate || null, // ✅ إضافة
         roomId,
         notes: formData.notes || null,
       };
@@ -311,6 +313,22 @@ export default function EditAssetPage() {
                 <div className="space-y-2">
                   <Label className="text-muted-foreground/70">{t('warrantyEnd')}</Label>
                   <div className="relative"><ShieldCheck className="absolute right-4 top-4 h-5 w-5 text-emerald-500/70" /><Input name="warrantyEnd" type="date" value={formData.warrantyEnd} onChange={handleChange} className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-emerald-500/50 font-black w-full" /></div>
+                </div>
+                {/* ✅ إضافة حقل آخر صيانة */}
+                <div className="space-y-2">
+                  <Label className="text-muted-foreground/70 flex items-center gap-2">
+                    <Wrench className="h-4 w-4" /> {t('lastMaintenance')}
+                  </Label>
+                  <div className="relative">
+                    <Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" />
+                    <Input 
+                      name="lastMaintenanceDate" 
+                      type="date" 
+                      value={formData.lastMaintenanceDate} 
+                      onChange={handleChange} 
+                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-primary font-black w-full" 
+                    />
+                  </div>
                 </div>
               </div>
             </InfoCard>

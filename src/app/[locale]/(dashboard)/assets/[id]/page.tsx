@@ -43,6 +43,7 @@ interface AssetDetail {
   status?: { id: string; name: string; nameEn?: string; color?: string };
   purchaseDate?: string;
   warrantyEnd?: string;
+  lastMaintenanceDate?: string;      // ✅ إضافة تاريخ آخر صيانة
   notes?: string;
   room?: {
     id: string;
@@ -295,6 +296,18 @@ export default function AssetDetailPage() {
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="h-4 w-4 text-emerald-500" />
                   <span>{formatDate(asset.warrantyEnd)}</span>
+                </div>
+              </div>
+              {/* ✅ إضافة تاريخ آخر صيانة */}
+              <div>
+                <Label className="text-muted-foreground text-sm">{isRtl ? "آخر صيانة" : "Last Maintenance"}</Label>
+                <div className="flex items-center gap-2">
+                  <Wrench className="h-4 w-4 text-muted-foreground" />
+                  <span>
+                    {asset.lastMaintenanceDate
+                      ? formatDate(asset.lastMaintenanceDate)
+                      : (isRtl ? "لا توجد" : "None")}
+                  </span>
                 </div>
               </div>
             </div>

@@ -10,7 +10,6 @@ async function generateAssetCode(
   branchId: string,
   typeId: string
 ): Promise<string> {
-  // 1. الحصول على رمز الفرع (مثل "BR01")
   const branch = await prisma.branch.findUnique({
     where: { id: branchId },
     select: { code: true },
@@ -20,7 +19,6 @@ async function generateAssetCode(
   }
   const branchCode = branch.code;
 
-  // 2. الحصول على رمز نوع الأصل (مثل "EL", "MED", "FS")
   const assetType = await prisma.assetType.findUnique({
     where: { id: typeId },
     select: { code: true },
@@ -30,7 +28,6 @@ async function generateAssetCode(
   }
   const typeCode = assetType.code;
 
-  // 3. البحث عن آخر أصل لنفس (الفرع + النوع) في نفس الشركة
   const lastAsset = await prisma.asset.findFirst({
     where: {
       companyId,
@@ -44,7 +41,6 @@ async function generateAssetCode(
 
   let nextNumber = 1;
   if (lastAsset?.code) {
-    // استخراج الرقم التسلسلي من آخر كود (بصيغة ATS-XXXX-XXXX-1234)
     const match = lastAsset.code.match(/-(\d{4})$/);
     if (match) {
       nextNumber = parseInt(match[1]) + 1;
@@ -65,7 +61,7 @@ export async function GET(request: Request) {
     const q = searchParams.get('q') || '';
     const typeId = searchParams.get('typeId');
     const locationId = searchParams.get('locationId');
-    const roomId = searchParams.get('roomId');           // ✅ إضافة دعم roomId
+    const roomId = searchParams.get('roomId');           // ✅ دعم roomId
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
@@ -108,58 +104,72 @@ export async function GET(request: Request) {
     }
     if (typeId && typeId !== 'all') where.typeId = typeId;
 
-    // ✅ دعم roomId و locationId معاً (الأولوية لـ roomId)
+    // ✅ دمج roomId و locationId
     const effectiveRoomId = roomId || locationId;
     if (effectiveRoomId) {
       where.roomId = effectiveRoomId;
     }
 
-    const [assets, total] = await Promise.all([
-      prisma.asset.findMany({
-        where,
-        select: {
-          id: true,
-          code: true,
-          name: true,
-          nameEn: true,
-          purchaseDate: true,
-          warrantyEnd: true,
-          lastMaintenanceDate: true,
-          notes: true,
-          createdAt: true,
-          updatedAt: true,
-          buildingId: true,
-          type: {
-            select: { id: true, name: true, nameEn: true, code: true },
-          },
-          status: {
-            select: { id: true, name: true, nameEn: true, color: true },
-          },
-          room: {
-            select: {
-              id: true,
-              name: true,
-              nameEn: true,
-              code: true,
-              floor: {
-                select: {
-                  id: true,
-                  name: true,
-                  nameEn: true,
-                  building: {
-                    select: { id: true, name: true, nameEn: true, branchId: true },
+    // ✅ طباعة معلومات التصحيح (ستظهر في سجلات Render)
+    console.log("🔍 Assets API - roomId:", effectiveRoomId, "typeId:", typeId);
+    console.log("🔍 Assets API - where:", JSON.stringify(where, null, 2));
+
+    // ✅ تنفيذ الاستعلام مع try/catch محلي
+    let assets, total;
+    try {
+      [assets, total] = await Promise.all([
+        prisma.asset.findMany({
+          where,
+          select: {
+            id: true,
+            code: true,
+            name: true,
+            nameEn: true,
+            purchaseDate: true,
+            warrantyEnd: true,
+            lastMaintenanceDate: true,
+            notes: true,
+            createdAt: true,
+            updatedAt: true,
+            buildingId: true,
+            type: {
+              select: { id: true, name: true, nameEn: true, code: true },
+            },
+            status: {
+              select: { id: true, name: true, nameEn: true, color: true },
+            },
+            room: {
+              select: {
+                id: true,
+                name: true,
+                nameEn: true,
+                code: true,
+                floor: {
+                  select: {
+                    id: true,
+                    name: true,
+                    nameEn: true,
+                    building: {
+                      select: { id: true, name: true, nameEn: true, branchId: true },
+                    },
                   },
                 },
               },
             },
           },
-        },
-        orderBy: { createdAt: 'desc' },
-        skip,
-        take: limit,
-      }),
-      prisma.asset.count({ where }),
-    ]);
+          orderBy: { createdAt: 'desc' },
+          skip,
+          take: limit,
+        }),
+        prisma.asset.count({ where }),
+      ]);
+    } catch (dbError: any) {
+      console.error("❌ Database query error:", dbError);
+      return NextResponse.json(
+        { error: 'خطأ في استعلام قاعدة البيانات', details: dbError.message },
+        { status: 500 }
+      );
+    }
 
     const serializedAssets = assets.map((asset: any) => ({
       ...asset,
@@ -178,8 +188,11 @@ export async function GET(request: Request) {
       limit,
     });
   } catch (error: any) {
-    console.error('GET /api/assets error:', error);
-    return NextResponse.json({ error: 'خطأ في الخادم', details: error.message }, { status: 500 });
+    console.error("❌ GET /api/assets error details:", error);
+    return NextResponse.json(
+      { error: 'خطأ في الخادم', message: error.message, stack: error.stack },
+      { status: 500 }
+    );
   }
 }
 
@@ -201,7 +214,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
     }
 
-    // الحصول على buildingId و branchId من الغرفة
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       select: {
@@ -218,7 +230,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الغرفة غير مرتبطة بفرع' }, { status: 400 });
     }
 
-    // التحقق من وجود نوع الأصل مع رمز
     const assetType = await prisma.assetType.findUnique({
       where: { id: typeId },
       select: { code: true },
@@ -227,10 +238,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'نوع الأصل غير صالح أو لا يحتوي على رمز (code)' }, { status: 400 });
     }
 
-    // توليد الكود باستخدام الفرع والنوع
     const code = await generateAssetCode(companyId, branchId, typeId);
-
-    // التحقق من عدم تكرار الكود (للأمان)
     const existing = await prisma.asset.findFirst({
       where: { code, companyId },
     });
@@ -238,7 +246,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'تعارض في توليد الكود، حاول مرة أخرى' }, { status: 409 });
     }
 
-    // التحقق من صلاحية المستخدم على المبنى (لغير الأدمن)
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       const building = await prisma.building.findUnique({

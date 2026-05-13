@@ -8,24 +8,9 @@ import { useTranslations, useLocale } from 'next-intl';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-
-import {
-  AlertCircle,
-  CheckCircle2,
-  Loader2,
-  Eye,
-  EyeOff,
-  ShieldCheck,
-} from 'lucide-react';
+import { AlertCircle, CheckCircle2, Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
@@ -50,22 +35,16 @@ export default function AcceptInvitationPage() {
   // التحقق من وجود التوكن
   useEffect(() => {
     if (!token) {
-      setError(
-        isRtl
-          ? 'رابط الدعوة غير صالح'
-          : 'Invalid invitation link'
-      );
+      setError(isRtl ? 'رابط الدعوة غير صالح' : 'Invalid invitation link');
     }
   }, [token, isRtl]);
 
   // إعادة التوجيه بعد النجاح
   useEffect(() => {
     if (!success) return;
-
     const timeout = setTimeout(() => {
       router.push(`/${locale}/login?invited=true`);
     }, 2000);
-
     return () => clearTimeout(timeout);
   }, [success, router, locale]);
 
@@ -145,17 +124,17 @@ export default function AcceptInvitationPage() {
             <CardTitle className={cn('text-2xl font-bold text-center text-destructive', isRtl && 'text-right')}>
               {isRtl ? 'رابط غير صالح' : 'Invalid Link'}
             </CardTitle>
-            <CardDescription className={cn('text-center text-base', isRtl && 'text-right')}>
+            <p className={cn('text-center text-base text-muted-foreground', isRtl && 'text-right')}>
               {isRtl
                 ? 'يبدو أن رابط الدعوة غير صحيح أو منتهي الصلاحية.'
                 : 'The invitation link appears to be invalid or has expired.'}
-            </CardDescription>
+            </p>
           </CardHeader>
-          <CardFooter>
+          <CardContent>
             <Button onClick={() => router.push(`/${locale}/login`)} className="w-full h-12 text-base">
               {isRtl ? 'العودة إلى تسجيل الدخول' : 'Back to Login'}
             </Button>
-          </CardFooter>
+          </CardContent>
         </Card>
       </div>
     );
@@ -173,11 +152,11 @@ export default function AcceptInvitationPage() {
             <CardTitle className="text-center text-2xl font-bold">
               {isRtl ? 'تم التفعيل بنجاح' : 'Activation Successful'}
             </CardTitle>
-            <CardDescription className="text-center text-base">
+            <p className="text-center text-base text-muted-foreground">
               {isRtl
                 ? 'سيتم توجيهك إلى صفحة تسجيل الدخول خلال لحظات...'
                 : 'You will be redirected to the login page shortly...'}
-            </CardDescription>
+            </p>
           </CardHeader>
         </Card>
       </div>
@@ -195,11 +174,11 @@ export default function AcceptInvitationPage() {
           <CardTitle className="text-3xl font-bold tracking-tight">
             {isRtl ? 'تفعيل الحساب' : 'Activate Account'}
           </CardTitle>
-          <CardDescription className="text-base">
+          <p className="text-base text-muted-foreground">
             {isRtl
               ? 'قم بتعيين كلمة مرور قوية لتفعيل حسابك'
               : 'Set a strong password to activate your account'}
-          </CardDescription>
+          </p>
         </CardHeader>
 
         <CardContent>
@@ -313,11 +292,11 @@ export default function AcceptInvitationPage() {
           </form>
         </CardContent>
 
-        <CardFooter className="text-center text-xs text-muted-foreground border-t pt-4">
+        <div className="text-center text-xs text-muted-foreground border-t pt-4 pb-4">
           {isRtl
             ? 'سيتم استخدام هذه الكلمة المرور لتسجيل الدخول إلى حسابك.'
             : 'This password will be used to log in to your account.'}
-        </CardFooter>
+        </div>
       </Card>
     </div>
   );

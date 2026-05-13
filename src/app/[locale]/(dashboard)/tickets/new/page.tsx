@@ -26,7 +26,7 @@ import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
-// import { AssetField } from "@/components/shared/form/AssetField";   // ❌ تم الإزالة
+// import { AssetField } from "@/components/shared/form/AssetField";   // تم الاستغناء عنه
 import { AssetDetailsCard } from "@/components/shared/AssetDetailsCard";
 
 interface Building {
@@ -198,31 +198,38 @@ export default function NewTicketPage() {
     fetchRooms();
   }, [floorId, buildingId, buildings, floors]);
 
-  // جلب الأصول عند تغيير الغرفة أو نوع الأصل
+  // ✅ جلب الأصول عند تغيير الغرفة أو نوع الأصل (باستخدام roomId مباشرة)
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
       return;
     }
+
     const fetchAssets = async () => {
       setLoadingAssets(true);
       try {
         const params = new URLSearchParams();
-        params.append("locationId", roomId);
+        params.append("roomId", roomId);                  // ✅ التعديل الجوهري
         if (formData.assetTypeId && formData.assetTypeId !== "all") {
           params.append("typeId", formData.assetTypeId);
         }
+
         const res = await fetch(`/api/assets?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
+          console.log("Assets fetched:", data.assets);   // للمساعدة في التصحيح
           setAssets(data.assets || []);
-        } else setAssets([]);
-      } catch {
+        } else {
+          setAssets([]);
+        }
+      } catch (error) {
+        console.error("Error fetching assets:", error);
         setAssets([]);
       } finally {
         setLoadingAssets(false);
       }
     };
+
     fetchAssets();
   }, [roomId, formData.assetTypeId]);
 
@@ -464,7 +471,7 @@ export default function NewTicketPage() {
               placeholder={roomId ? (isRtl ? "اختر نوع الأصل" : "Select asset type") : (isRtl ? "اختر الموقع أولاً" : "Select location first")}
             />
 
-            {/* ✅ مكون الأصول المباشر (بديل AssetField) */}
+            {/* مكون الأصول المباشر (بديل AssetField) */}
             <div className="space-y-2">
               <Label className="text-sm font-black text-muted-foreground">
                 {isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}
@@ -472,7 +479,7 @@ export default function NewTicketPage() {
               <Select
                 value={formData.assetId}
                 onValueChange={(val) => setFormData(prev => ({ ...prev, assetId: val }))}
-                disabled={!roomId || loadingAssets || assets.length === 0}
+                disabled={!roomId || loadingAssets}
               >
                 <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6">
                   <SelectValue placeholder={
@@ -482,7 +489,7 @@ export default function NewTicketPage() {
                     (isRtl ? "اختر الأصل" : "Select asset")
                   } />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="z-50">
                   {assets.map(asset => (
                     <SelectItem key={asset.id} value={asset.id}>
                       {asset.name} ({asset.code})
@@ -490,9 +497,14 @@ export default function NewTicketPage() {
                   ))}
                 </SelectContent>
               </Select>
+              {roomId && !loadingAssets && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  {assets.length} {isRtl ? "أصل متاح" : "asset(s) available"}
+                </p>
+              )}
             </div>
 
-            {/* ✅ بطاقة الأصل المختار (بنفس تصميم الغرفة) */}
+            {/* بطاقة الأصل المختار */}
             {formData.assetId && (() => {
               const selectedAsset = assets.find(a => a.id === formData.assetId);
               if (!selectedAsset) return null;

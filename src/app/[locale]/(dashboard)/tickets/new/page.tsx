@@ -188,9 +188,8 @@ export default function NewTicketPage() {
     fetchRooms();
   }, [floorId, buildingId, buildings, floors]);
 
-  // ✅ جلب الأصول (محاكاة لأسلوب الصفحة العامة الناجح)
+  // جلب الأصول
   useEffect(() => {
-    // لا نطلب البيانات إذا لم يتم اختيار غرفة
     if (!roomId) {
       setAssets([]);
       return;
@@ -200,23 +199,20 @@ export default function NewTicketPage() {
       setLoadingAssets(true);
       try {
         const params = new URLSearchParams();
-        params.append("roomId", roomId);               // ✅ نفس المعامل المستخدم في الصفحة العامة
+        params.append("roomId", roomId);
         if (formData.assetTypeId && formData.assetTypeId !== "all") {
           params.append("typeId", formData.assetTypeId);
         }
 
-        console.log("🔍 Fetching assets with roomId:", roomId, "typeId:", formData.assetTypeId);
         const res = await fetch(`/api/assets?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
-          console.log("✅ Assets received:", data.assets?.length || 0, "items");
           setAssets(data.assets || []);
         } else {
           setAssets([]);
-          console.error("❌ API error:", res.status);
         }
       } catch (error) {
-        console.error("❌ Failed to fetch assets:", error);
+        console.error("Error fetching assets:", error);
         setAssets([]);
       } finally {
         setLoadingAssets(false);
@@ -226,7 +222,7 @@ export default function NewTicketPage() {
     fetchAssets();
   }, [roomId, formData.assetTypeId]);
 
-  // عند تغيير الغرفة، نمسح الأصول المحددة (لتجنب تعارض)
+  // عند تغيير الغرفة، نمسح الأصول المحددة
   useEffect(() => {
     setFormData(prev => ({ ...prev, assetId: "" }));
   }, [roomId]);
@@ -446,12 +442,15 @@ export default function NewTicketPage() {
                 disabled={!roomId || loadingAssets}
               >
                 <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6">
-                  <SelectValue placeholder={
-                    loadingAssets ? (isRtl ? "جار التحميل..." : "Loading...") :
-                    !roomId ? (isRtl ? "اختر الموقع أولاً" : "Select location first") :
-                    assets.length === 0 ? (isRtl ? "لا توجد أصول في هذا الموقع" : "No assets at this location") :
-                    (isRtl ? "اختر الأصل" : "Select asset")
-                  } />
+                  {/* ✅ عرض اسم الأصل بدلاً من المعرف */}
+                  <span className="truncate">
+                    {formData.assetId && assets.find(a => a.id === formData.assetId)
+                      ? assets.find(a => a.id === formData.assetId)?.name
+                      : loadingAssets ? (isRtl ? "جار التحميل..." : "Loading...") :
+                        !roomId ? (isRtl ? "اختر الموقع أولاً" : "Select location first") :
+                        assets.length === 0 ? (isRtl ? "لا توجد أصول في هذا الموقع" : "No assets at this location") :
+                        (isRtl ? "اختر الأصل" : "Select asset")}
+                  </span>
                 </SelectTrigger>
                 <SelectContent className="z-50">
                   {assets.map(asset => (
@@ -468,6 +467,7 @@ export default function NewTicketPage() {
               )}
             </div>
 
+            {/* بطاقة الأصل المختار */}
             {formData.assetId && (() => {
               const selectedAsset = assets.find(a => a.id === formData.assetId);
               if (!selectedAsset) return null;

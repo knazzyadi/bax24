@@ -65,6 +65,7 @@ export async function GET(request: Request) {
     const q = searchParams.get('q') || '';
     const typeId = searchParams.get('typeId');
     const locationId = searchParams.get('locationId');
+    const roomId = searchParams.get('roomId');           // ✅ إضافة دعم roomId
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
@@ -106,7 +107,12 @@ export async function GET(request: Request) {
       ];
     }
     if (typeId && typeId !== 'all') where.typeId = typeId;
-    if (locationId) where.roomId = locationId;
+
+    // ✅ دعم roomId و locationId معاً (الأولوية لـ roomId)
+    const effectiveRoomId = roomId || locationId;
+    if (effectiveRoomId) {
+      where.roomId = effectiveRoomId;
+    }
 
     const [assets, total] = await Promise.all([
       prisma.asset.findMany({
@@ -118,7 +124,7 @@ export async function GET(request: Request) {
           nameEn: true,
           purchaseDate: true,
           warrantyEnd: true,
-          lastMaintenanceDate: true, // ✅ إضافة
+          lastMaintenanceDate: true,
           notes: true,
           createdAt: true,
           updatedAt: true,
@@ -159,7 +165,7 @@ export async function GET(request: Request) {
       ...asset,
       purchaseDate: asset.purchaseDate?.toISOString() || null,
       warrantyEnd: asset.warrantyEnd?.toISOString() || null,
-      lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString() || null, // ✅ إضافة
+      lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString() || null,
       createdAt: asset.createdAt.toISOString(),
       updatedAt: asset.updatedAt.toISOString(),
     }));
@@ -184,7 +190,7 @@ export async function POST(request: Request) {
     await requirePermission('assets.create', session);
 
     const body = await request.json();
-    const { name, nameEn, typeId, statusId, roomId, purchaseDate, warrantyEnd, lastMaintenanceDate, notes } = body; // ✅ إضافة lastMaintenanceDate
+    const { name, nameEn, typeId, statusId, roomId, purchaseDate, warrantyEnd, lastMaintenanceDate, notes } = body;
 
     if (!name || !typeId || !roomId) {
       return NextResponse.json({ error: 'الاسم، نوع الأصل، والموقع إلزامية' }, { status: 400 });
@@ -258,7 +264,7 @@ export async function POST(request: Request) {
         companyId,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
         warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
-        lastMaintenanceDate: lastMaintenanceDate ? new Date(lastMaintenanceDate) : undefined, // ✅ إضافة
+        lastMaintenanceDate: lastMaintenanceDate ? new Date(lastMaintenanceDate) : undefined,
         notes: notes || undefined,
       },
     });

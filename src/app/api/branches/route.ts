@@ -2,6 +2,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
+import { randomUUID } from 'crypto';
+
+// دالة مساعدة لتوليد slug من النص
+function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\u0600-\u06FF]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
 
 export async function GET() {
   try {
@@ -18,9 +28,8 @@ export async function GET() {
     if (!user) return NextResponse.json({ error: 'مستخدم غير موجود' }, { status: 404 });
 
     const roleName = user.role?.name;
-    const userBranchIds = session.user.branchIds || []; // من الجلسة
+    const userBranchIds = session.user.branchIds || [];
 
-    // SUPER_ADMIN يرى كل الفروع
     if (roleName === 'SUPER_ADMIN') {
       const branches = await prisma.branch.findMany({
         include: { company: { select: { name: true } } },
@@ -29,19 +38,14 @@ export async function GET() {
       return NextResponse.json(branches);
     }
 
-    // للمستخدمين الآخرين (ADMIN, BRANCH_MANAGER, إلخ)
     if (user.companyId) {
       let where: any = { companyId: user.companyId };
-      
-      // إذا كان المستخدم ليس أدمن (أي BRANCH_MANAGER أو TECH) نقتصر على الفروع المسموحة
       const isAdmin = roleName === 'ADMIN';
       if (!isAdmin && userBranchIds.length > 0) {
         where.id = { in: userBranchIds };
       } else if (!isAdmin && userBranchIds.length === 0) {
-        // لا توجد فروع مسموحة → نرجع مصفوفة فارغة
         return NextResponse.json([]);
       }
-
       const branches = await prisma.branch.findMany({
         where,
         include: { company: { select: { name: true } } },
@@ -94,12 +98,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الكود موجود مسبقاً في هذه الشركة' }, { status: 409 });
     }
 
+    // إنشاء slug فريد باستخدام الاسم أو الكود
+    let baseSlug = generateSlug(name);
+    let slug = baseSlug;
+    let counter = 1;
+    while (await prisma.branch.findFirst({ where: { slug } })) {
+      slug = `${baseSlug}-${counter}`;
+      counter++;
+    }
+
+    // ✅ إنشاء الفرع – publicToken سيتم توليده تلقائياً بفضل @default(cuid()) في schema.prisma
+    // و slug تم إنشاؤه أعلاه
     const newBranch = await prisma.branch.create({
       data: {
         name,
         nameEn: nameEn || null,
         code,
         companyId: targetCompanyId,
+        slug,
+        // publicToken: سيتم تعبئته تلقائياً من قاعدة البيانات
+        allowPublicTickets: true, // قيمة افتراضية
       },
     });
 

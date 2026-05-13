@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { 
   Plus, FileText, Building, DollarSign, Calendar, Upload, Loader2, X, Save, 
-  Paperclip, File, Image, FileUp, Trash2, Eye
+  Paperclip, File, Image, FileUp, Trash2, Eye, User, Phone
 } from "lucide-react";
 
 import { PageContainer } from "@/components/shared/detail/PageContainer";
@@ -19,7 +19,7 @@ import { InfoCard } from "@/components/shared/detail/InfoCard";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 
 interface Attachment {
-  id: string;      // ✅ معرف المرفق في قاعدة البيانات
+  id: string;
   name: string;
   url: string;
   type: string;
@@ -44,13 +44,15 @@ export default function NewContractPage() {
     endDate: "",
     description: "",
     branchId: "",
+    agentName: "",     // ✅ اسم المندوب
+    agentPhone: "",    // ✅ رقم جوال المندوب
   });
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    const maxSize = 10 * 1024 * 1024; // 10 MB
+    const maxSize = 10 * 1024 * 1024;
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
 
     for (let i = 0; i < files.length; i++) {
@@ -70,7 +72,6 @@ export default function NewContractPage() {
         const res = await fetch("/api/contracts/upload", { method: "POST", body: uploadData });
         const data = await res.json();
         if (res.ok) {
-          // ✅ نخزن id و name و url و type و size
           setAttachments(prev => [...prev, {
             id: data.id,
             name: data.name || file.name,
@@ -94,9 +95,6 @@ export default function NewContractPage() {
   const removeAttachment = async (index: number) => {
     const att = attachments[index];
     if (!att) return;
-    
-    // اختياري: حذف المرفق من الخادم (يمكن إضافته لاحقاً)
-    // لكن هنا نكتفي بحذفه من الواجهة لأنه لم يرتبط بعد بالعقد
     setAttachments(prev => prev.filter((_, i) => i !== index));
     toast.success(isRtl ? "تم حذف المرفق" : "Attachment removed");
   };
@@ -122,7 +120,9 @@ export default function NewContractPage() {
         endDate: formData.endDate,
         description: formData.description || null,
         branchId: formData.branchId,
-        attachmentIds: attachments.map(a => a.id), // ✅ إرسال المعرفات فقط
+        agentName: formData.agentName || null,
+        agentPhone: formData.agentPhone || null,
+        attachmentIds: attachments.map(a => a.id),
       };
       console.log("Sending payload:", payload);
       const res = await fetch("/api/contracts", {
@@ -210,6 +210,32 @@ export default function NewContractPage() {
                       onChange={(e) => setFormData({ ...formData, value: e.target.value })}
                       placeholder="0.00"
                       required
+                      className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
+                    />
+                  </div>
+                </div>
+
+                {/* ✅ إضافة حقلين: اسم المندوب ورقم جواله */}
+                <div className="grid md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary" /> {t('agentName')}
+                    </Label>
+                    <Input
+                      value={formData.agentName}
+                      onChange={(e) => setFormData({ ...formData, agentName: e.target.value })}
+                      placeholder={t('agentNamePlaceholder')}
+                      className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-primary" /> {t('agentPhone')}
+                    </Label>
+                    <Input
+                      value={formData.agentPhone}
+                      onChange={(e) => setFormData({ ...formData, agentPhone: e.target.value })}
+                      placeholder={t('agentPhonePlaceholder')}
                       className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
                     />
                   </div>

@@ -19,15 +19,11 @@ import { cn } from "@/lib/utils";
 import { FormPageContainer } from "@/components/shared/form/FormPageContainer";
 import { FormSection } from "@/components/shared/form/FormSection";
 import { FormSidebar } from "@/components/shared/form/FormSidebar";
-import { FormField } from "@/components/shared/form/FormField";
-
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
-// import { AssetField } from "@/components/shared/form/AssetField";   // تم الاستغناء عنه
-import { AssetDetailsCard } from "@/components/shared/AssetDetailsCard";
 
 interface Building {
   id: string;
@@ -69,18 +65,14 @@ export default function NewTicketPage() {
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
-  const [selectedAssetDetails, setSelectedAssetDetails] = useState<any>(null);
-  const [loadingAssetDetails, setLoadingAssetDetails] = useState(false);
 
-  // حالات الموقع الهرمي
+  // الموقع الهرمي
   const [buildingId, setBuildingId] = useState<string>("");
   const [floorId, setFloorId] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
-
-  // الفرع (مطلوب)
   const [branchId, setBranchId] = useState<string>("");
 
-  // بيانات المباني والأدوار والغرف
+  // المباني والأدوار والغرف
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -101,8 +93,6 @@ export default function NewTicketPage() {
 
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
-
-  // container class موحد
   const containerClass = "bg-card border border-border rounded-md p-6 shadow-sm hover:shadow-md transition-all";
 
   // تعبئة بيانات المبلّغ تلقائياً من الجلسة
@@ -139,7 +129,7 @@ export default function NewTicketPage() {
     fetchInitialData();
   }, [t]);
 
-  // جلب الأدوار عند تغيير المبنى
+  // جلب الأدوار
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -198,8 +188,9 @@ export default function NewTicketPage() {
     fetchRooms();
   }, [floorId, buildingId, buildings, floors]);
 
-  // ✅ جلب الأصول عند تغيير الغرفة أو نوع الأصل (باستخدام roomId مباشرة)
+  // ✅ جلب الأصول (محاكاة لأسلوب الصفحة العامة الناجح)
   useEffect(() => {
+    // لا نطلب البيانات إذا لم يتم اختيار غرفة
     if (!roomId) {
       setAssets([]);
       return;
@@ -209,21 +200,23 @@ export default function NewTicketPage() {
       setLoadingAssets(true);
       try {
         const params = new URLSearchParams();
-        params.append("roomId", roomId);                  // ✅ التعديل الجوهري
+        params.append("roomId", roomId);               // ✅ نفس المعامل المستخدم في الصفحة العامة
         if (formData.assetTypeId && formData.assetTypeId !== "all") {
           params.append("typeId", formData.assetTypeId);
         }
 
+        console.log("🔍 Fetching assets with roomId:", roomId, "typeId:", formData.assetTypeId);
         const res = await fetch(`/api/assets?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
-          console.log("Assets fetched:", data.assets);   // للمساعدة في التصحيح
+          console.log("✅ Assets received:", data.assets?.length || 0, "items");
           setAssets(data.assets || []);
         } else {
           setAssets([]);
+          console.error("❌ API error:", res.status);
         }
       } catch (error) {
-        console.error("Error fetching assets:", error);
+        console.error("❌ Failed to fetch assets:", error);
         setAssets([]);
       } finally {
         setLoadingAssets(false);
@@ -233,28 +226,10 @@ export default function NewTicketPage() {
     fetchAssets();
   }, [roomId, formData.assetTypeId]);
 
-  // جلب تفاصيل الأصل المختار
+  // عند تغيير الغرفة، نمسح الأصول المحددة (لتجنب تعارض)
   useEffect(() => {
-    if (!formData.assetId) {
-      setSelectedAssetDetails(null);
-      return;
-    }
-    const fetchAssetDetails = async () => {
-      setLoadingAssetDetails(true);
-      try {
-        const res = await fetch(`/api/assets/${formData.assetId}`);
-        if (res.ok) {
-          const data = await res.json();
-          setSelectedAssetDetails(data);
-        } else setSelectedAssetDetails(null);
-      } catch {
-        setSelectedAssetDetails(null);
-      } finally {
-        setLoadingAssetDetails(false);
-      }
-    };
-    fetchAssetDetails();
-  }, [formData.assetId]);
+    setFormData(prev => ({ ...prev, assetId: "" }));
+  }, [roomId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -271,16 +246,6 @@ export default function NewTicketPage() {
     URL.revokeObjectURL(previews[index]);
     setFiles(prev => prev.filter((_, i) => i !== index));
     setPreviews(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const getFullLocation = (room: any, isRtl: boolean): string => {
-    if (!room) return isRtl ? "موقع غير محدد" : "Location not set";
-    const floor = room.floor;
-    const building = floor?.building;
-    const buildingName = building ? (isRtl ? building.name : building.nameEn || building.name) : "";
-    const floorName = floor ? (isRtl ? floor.name : floor.nameEn || floor.name) : "";
-    const roomName = isRtl ? room.name : room.nameEn || room.name;
-    return [buildingName, floorName, roomName].filter(p => p).join(" - ");
   };
 
   const handleSubmit = async () => {
@@ -393,7 +358,7 @@ export default function NewTicketPage() {
           </div>
         </FormSection>
 
-        {/* الموقع الهرمي مع containerClass وتسميات معدلة */}
+        {/* الموقع الهرمي */}
         <div className={containerClass}>
           <div className="space-y-3">
             <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
@@ -457,7 +422,7 @@ export default function NewTicketPage() {
           </div>
         </div>
 
-        {/* حاوية الأصل */}
+        {/* بيانات الأصل */}
         <div className={containerClass}>
           <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
             <FileText size={16} /> {isRtl ? 'بيانات الأصل (اختياري)' : 'Asset Details (Optional)'}
@@ -471,7 +436,6 @@ export default function NewTicketPage() {
               placeholder={roomId ? (isRtl ? "اختر نوع الأصل" : "Select asset type") : (isRtl ? "اختر الموقع أولاً" : "Select location first")}
             />
 
-            {/* مكون الأصول المباشر (بديل AssetField) */}
             <div className="space-y-2">
               <Label className="text-sm font-black text-muted-foreground">
                 {isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}
@@ -504,7 +468,6 @@ export default function NewTicketPage() {
               )}
             </div>
 
-            {/* بطاقة الأصل المختار */}
             {formData.assetId && (() => {
               const selectedAsset = assets.find(a => a.id === formData.assetId);
               if (!selectedAsset) return null;
@@ -565,7 +528,6 @@ export default function NewTicketPage() {
             </div>
           </div>
 
-          {/* الفرع (Branch) */}
           <div className="space-y-3 pt-4 border-t border-border">
             <Label className="text-sm font-bold text-muted-foreground flex items-center gap-2">
               <Building size={14} /> {isRtl ? "الفرع *" : "Branch *"}
@@ -576,7 +538,6 @@ export default function NewTicketPage() {
             </p>
           </div>
 
-          {/* رفع الصور */}
           <div className="space-y-3 pt-4 border-t border-border">
             <Label className="text-sm font-bold text-muted-foreground flex items-center gap-2">
               <Upload size={14} /> {isRtl ? "رفع صور (اختياري)" : "Upload Images (Optional)"}

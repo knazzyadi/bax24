@@ -55,7 +55,7 @@ export default function Sidebar() {
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const locationsRef = useRef<HTMLDivElement>(null);
-  const vehiclesRef = useRef<HTMLDivElement>(null);
+  // const vehiclesRef = useRef<HTMLDivElement>(null);
   const dictionariesRef = useRef<HTMLDivElement>(null);
 
   useOutsideClick(settingsRef, () => setSettingsOpen(false), settingsOpen);

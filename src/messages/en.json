@@ -843,6 +843,7 @@
     "next": "Next"
   },
   "AssetsForm": {
+    "addRow": "Add Row",
     "lastMaintenance": "Last Maintenance",
     "lastMaintenanceHint": "(Optional) Last maintenance date of the asset",
     "tableLastMaintenance": "Last Maintenance",

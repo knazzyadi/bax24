@@ -2,7 +2,6 @@
 import { prisma } from "@/lib/prisma";
 
 export async function generateWorkOrderCode(branchId: string): Promise<string> {
-  // 1. جلب آخر رقم تسلسلي لأمر عمل في نفس الفرع
   const lastWorkOrder = await prisma.workOrder.findFirst({
     where: { branchId, deletedAt: null },
     orderBy: { code: "desc" },
@@ -15,13 +14,33 @@ export async function generateWorkOrderCode(branchId: string): Promise<string> {
     if (match) nextNumber = parseInt(match[0], 10) + 1;
   }
 
-  // 2. جلب اختصار الفرع (code) من جدول Branch
   const branch = await prisma.branch.findUnique({
     where: { id: branchId },
     select: { code: true },
   });
-  const branchPrefix = branch?.code || "BR"; // احتياطي: "BR" إذا لم يوجد code
+  const prefix = branch?.code || "BR";
+  return `${prefix}-WO-${nextNumber.toString().padStart(4, "0")}`;
+}
 
-  // 3. إعادة الكود بالصيغة المطلوبة
-  return `${branchPrefix}-WO-${nextNumber.toString().padStart(4, "0")}`;
+// ✅ دالة جديدة لإنشاء أمر عمل مع إعادة المحاولة
+export async function createWorkOrderWithRetry(
+  data: any,
+  maxRetries = 3
+): Promise<any> {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const code = await generateWorkOrderCode(data.branchId);
+      const workOrder = await prisma.workOrder.create({
+        data: { ...data, code },
+      });
+      return workOrder;
+    } catch (error: any) {
+      if (error.code === "P2002" && attempt < maxRetries) {
+        console.log(`⚠️ Duplicate work order code, retrying (attempt ${attempt + 1})...`);
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error("فشل إنشاء أمر العمل بعد عدة محاولات");
 }

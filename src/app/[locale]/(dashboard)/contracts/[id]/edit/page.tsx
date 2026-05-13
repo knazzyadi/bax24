@@ -23,6 +23,9 @@ import {
   Trash2,
   Image,
   File,
+  User,
+  Phone,
+  Mail,
 } from "lucide-react";
 import { PageContainer } from "@/components/shared/detail/PageContainer";
 import { DetailHeader } from "@/components/shared/detail/DetailHeader";
@@ -59,10 +62,13 @@ export default function EditContractPage() {
     branchId: "",
     notes: "",
     code: "",
+    agentName: "",     // ✅ اسم المندوب
+    agentPhone: "",    // ✅ رقم جوال المندوب
+    agentEmail: "",    // ✅ بريد المندوب الإلكتروني
   });
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
-  // جلب العقد مع مرفقاته
+  // جلب العقد مع مرفقاته وبيانات المندوب
   useEffect(() => {
     const fetchContract = async () => {
       try {
@@ -79,6 +85,9 @@ export default function EditContractPage() {
           branchId: data.branchId || "",
           notes: data.notes || "",
           code: data.code || "",
+          agentName: data.agentName || "",
+          agentPhone: data.agentPhone || "",
+          agentEmail: data.agentEmail || "",
         });
         // تحويل المرفقات من API إلى الشكل المطلوب
         if (data.attachments && Array.isArray(data.attachments)) {
@@ -185,7 +194,10 @@ export default function EditContractPage() {
         branchId: formData.branchId || null,
         notes: formData.notes || null,
         code: formData.code || null,
-        attachmentIds: attachments.map((att) => att.id), // ✅ إرسال معرفات المرفقات المتبقية
+        agentName: formData.agentName || null,
+        agentPhone: formData.agentPhone || null,
+        agentEmail: formData.agentEmail || null,
+        attachmentIds: attachments.map((att) => att.id),
       };
       const res = await fetch(`/api/contracts/${id}`, {
         method: "PUT",
@@ -269,6 +281,45 @@ export default function EditContractPage() {
                     />
                   </div>
                 </div>
+
+                {/* ✅ حقل بيانات المندوب (الاسم، الجوال، البريد) */}
+                <div className="grid md:grid-cols-3 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
+                      <User className="h-4 w-4 text-primary" /> {t("agentName")}
+                    </Label>
+                    <Input
+                      value={formData.agentName}
+                      onChange={(e) => setFormData({ ...formData, agentName: e.target.value })}
+                      placeholder={t("agentNamePlaceholder")}
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-primary" /> {t("agentPhone")}
+                    </Label>
+                    <Input
+                      value={formData.agentPhone}
+                      onChange={(e) => setFormData({ ...formData, agentPhone: e.target.value })}
+                      placeholder={t("agentPhonePlaceholder")}
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-primary" /> {t("agentEmail")}
+                    </Label>
+                    <Input
+                      type="email"
+                      value={formData.agentEmail}
+                      onChange={(e) => setFormData({ ...formData, agentEmail: e.target.value })}
+                      placeholder={t("agentEmailPlaceholder")}
+                      className="h-12 rounded-xl"
+                    />
+                  </div>
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground/70">{t("startDate")} *</Label>

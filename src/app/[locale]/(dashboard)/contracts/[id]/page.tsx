@@ -4,7 +4,7 @@ import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";          // ✅ تمت الإضافة
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
@@ -41,6 +41,9 @@ import {
   File,
   Image,
   ArrowLeft,
+  User,      // ✅ أيقونة المندوب
+  Phone,     // ✅ أيقونة الجوال
+  Mail,      // ✅ أيقونة البريد
 } from "lucide-react";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -249,6 +252,36 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 <DetailItem label={t("startDate")} value={contract.startDate} icon={Calendar} type="date" />
                 <DetailItem label={t("endDate")} value={contract.endDate} icon={Calendar} type="date" />
               </div>
+
+              {/* ✅ قسم المندوب (يظهر فقط إذا كانت البيانات موجودة) */}
+              {(contract.agentName || contract.agentPhone || contract.agentEmail) && (
+                <div className="pt-2 border-t border-border">
+                  <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
+                    <User className="h-3.5 w-3.5" />
+                    {t("agentInfo")}
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {contract.agentName && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <User className="h-4 w-4 text-muted-foreground" />
+                        <span>{contract.agentName}</span>
+                      </div>
+                    )}
+                    {contract.agentPhone && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Phone className="h-4 w-4 text-muted-foreground" />
+                        <span>{contract.agentPhone}</span>
+                      </div>
+                    )}
+                    {contract.agentEmail && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <Mail className="h-4 w-4 text-muted-foreground" />
+                        <span>{contract.agentEmail}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="pt-2">
                 <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">

@@ -60,10 +60,10 @@ export async function POST(request: NextRequest) {
     await requirePermission('contracts.create', session);
 
     const body = await request.json();
-    const { 
-      code, title, supplier, value, startDate, endDate, description, branchId, 
+    const {
+      code, title, supplier, value, startDate, endDate, description, branchId,
       attachmentIds, notes,
-      agentName, agentPhone, agentEmail   // ✅ إضافة حقول المندوب
+      agentName, agentPhone, agentEmail  // ✅ حقول المندوب
     } = body;
 
     if (!title || !supplier || !startDate || !endDate) {
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // إنشاء العقد
+    // إنشاء العقد مع حقول المندوب
     const contract = await prisma.contract.create({
       data: {
         code: code || null,
@@ -96,13 +96,12 @@ export async function POST(request: NextRequest) {
         description: description || null,
         status: 'PENDING_REVIEW',
         notes: notes || null,
-        companyId,
-        branchId,
-        createdBy: session.user.id,
-        // ✅ إضافة حقول المندوب
         agentName: agentName || null,
         agentPhone: agentPhone || null,
         agentEmail: agentEmail || null,
+        companyId,
+        branchId,
+        createdBy: session.user.id,
       },
     });
 
@@ -114,7 +113,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // إعادة العقد مع المرفقات (اختياري)
+    // إعادة العقد مع المرفقات
     const contractWithAttachments = await prisma.contract.findUnique({
       where: { id: contract.id },
       include: { attachments: true },

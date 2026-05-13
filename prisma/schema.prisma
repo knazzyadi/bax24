@@ -340,6 +340,9 @@ model Contract {
   createdBy          String?
   branch             Branch?        @relation(fields: [branchId], references: [id])
   company            Company        @relation(fields: [companyId], references: [id])
+  agentName          String?
+  agentPhone         String?
+  agentEmail         String?
   attachments ContractAttachment[]
 
   @@index([companyId])

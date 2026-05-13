@@ -1236,6 +1236,13 @@
     "fetchError": "حدث خطأ في تحميل البيانات"
   },
   "Contracts": {
+    "agentInfo": "بيانات المندوب",
+    "agentEmail": "البريد الإلكتروني للمندوب",
+    "agentEmailPlaceholder": "example@domain.com",
+    "agentName": "اسم المندوب",
+    "agentNamePlaceholder": "أدخل اسم المندوب",
+    "agentPhone": "رقم جوال المندوب",
+    "agentPhonePlaceholder": "05xxxxxxxx",
     "editContract": "تعديل العقد",
     "editContractSubtitle": "تحديث بيانات العقد",
     "noAttachments": "لا توجد مرفقات",

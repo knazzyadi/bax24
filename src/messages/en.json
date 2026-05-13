@@ -1218,6 +1218,13 @@
     "fetchError": "Error loading data"
   },
   "Contracts": {
+    "agentInfo": "Agent Details",
+    "agentEmail": "Agent Email",
+    "agentEmailPlaceholder": "example@domain.com",
+    "agentName": "Agent Name",
+    "agentNamePlaceholder": "Enter agent name",
+    "agentPhone": "Agent Mobile",
+    "agentPhonePlaceholder": "05xxxxxxxx",
     "editContract": "Edit Contract",
     "editContractSubtitle": "Update contract details",
     "notesPlaceholder": "Additional notes (optional)",

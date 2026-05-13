@@ -6,7 +6,7 @@ import { useLocale } from "next-intl";
 import {
   FileText, Building, DollarSign, Calendar, AlertCircle, Clock,
   CheckCircle2, X, Edit, Trash2, Loader2, ChevronLeft, ChevronRight, Tag,
-  Paperclip // ✅ أيقونة المرفقات
+  Paperclip, User, Phone, Mail
 } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -25,7 +25,11 @@ interface Contract {
   notes: string | null;
   branchId: string | null;
   branch?: { id: string; name: string; nameEn?: string } | null;
-  attachmentsCount?: number; // ✅ حقل جديد
+  attachmentsCount?: number;
+  // ✅ حقول المندوب
+  agentName?: string | null;
+  agentPhone?: string | null;
+  agentEmail?: string | null;
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; bg: string; icon: any; hex: string }> = {
@@ -63,7 +67,8 @@ export default function ContractsClient({
         (c) =>
           c.title.toLowerCase().includes(term) ||
           c.code.toLowerCase().includes(term) ||
-          c.supplier.toLowerCase().includes(term)
+          c.supplier.toLowerCase().includes(term) ||
+          (c.agentName && c.agentName.toLowerCase().includes(term))
       );
     }
     if (selectedStatus !== "all") {
@@ -151,6 +156,14 @@ export default function ContractsClient({
           <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
             <Building size={12} /> {contract.supplier}
           </div>
+
+          {/* ✅ عرض اسم المندوب (إذا وجد) */}
+          {contract.agentName && (
+            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground">
+              <User size={12} /> {contract.agentName}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] font-medium text-muted-foreground">
             <div className="flex items-center gap-2">
               <Building size={12} />
@@ -161,7 +174,6 @@ export default function ContractsClient({
               {isRtl ? "ينتهي:" : "Ends:"}
               <span className="font-mono">{format(new Date(contract.endDate), "yyyy/MM/dd")}</span>
             </div>
-            {/* ✅ عرض عدد المرفقات */}
             {(contract.attachmentsCount ?? 0) > 0 && (
               <div className="flex items-center gap-1 text-xs text-muted-foreground">
                 <Paperclip size={12} />
@@ -236,7 +248,7 @@ export default function ContractsClient({
       addButtonLabel={isRtl ? "إضافة عقد جديد" : "Add New Contract"}
       addButtonLink={`/${locale}/contracts/new`}
       searchPlaceholder={
-        isRtl ? "بحث بالعنوان، الكود، أو المورد..." : "Search by title, code, or supplier..."
+        isRtl ? "بحث بالعنوان، الكود، أو المورد..." : "Search by title, code, supplier, or agent name..."
       }
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}

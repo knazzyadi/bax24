@@ -26,7 +26,7 @@ import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
-import { AssetField } from "@/components/shared/form/AssetField";
+// import { AssetField } from "@/components/shared/form/AssetField";   // ❌ تم الإزالة
 import { AssetDetailsCard } from "@/components/shared/AssetDetailsCard";
 
 interface Building {
@@ -463,15 +463,34 @@ export default function NewTicketPage() {
               disabled={!roomId}
               placeholder={roomId ? (isRtl ? "اختر نوع الأصل" : "Select asset type") : (isRtl ? "اختر الموقع أولاً" : "Select location first")}
             />
-            <AssetField
-              value={formData.assetId}
-              onChange={(val) => setFormData(prev => ({ ...prev, assetId: val ?? "" }))}
-              assets={assets}
-              loading={loadingAssets}
-              disabled={!roomId}
-              placeholder={roomId ? (isRtl ? "اختر الأصل" : "Select asset") : (isRtl ? "اختر الموقع أولاً" : "Select location first")}
-              noAssetsMessage={isRtl ? "لا توجد أصول في هذا الموقع" : "No assets at this location"}
-            />
+
+            {/* ✅ مكون الأصول المباشر (بديل AssetField) */}
+            <div className="space-y-2">
+              <Label className="text-sm font-black text-muted-foreground">
+                {isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}
+              </Label>
+              <Select
+                value={formData.assetId}
+                onValueChange={(val) => setFormData(prev => ({ ...prev, assetId: val }))}
+                disabled={!roomId || loadingAssets || assets.length === 0}
+              >
+                <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6">
+                  <SelectValue placeholder={
+                    loadingAssets ? (isRtl ? "جار التحميل..." : "Loading...") :
+                    !roomId ? (isRtl ? "اختر الموقع أولاً" : "Select location first") :
+                    assets.length === 0 ? (isRtl ? "لا توجد أصول في هذا الموقع" : "No assets at this location") :
+                    (isRtl ? "اختر الأصل" : "Select asset")
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {assets.map(asset => (
+                    <SelectItem key={asset.id} value={asset.id}>
+                      {asset.name} ({asset.code})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
             {/* ✅ بطاقة الأصل المختار (بنفس تصميم الغرفة) */}
             {formData.assetId && (() => {

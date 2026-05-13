@@ -256,6 +256,7 @@ model Asset {
   room            Room?            @relation(fields: [roomId], references: [id])
   status          AssetStatus?     @relation(fields: [statusId], references: [id])
   type            AssetType?       @relation(fields: [typeId], references: [id])
+  lastMaintenanceDate DateTime?   // ✅ أضف هذا السطر
 
   @@unique([companyId, code])
   @@index([companyId])

@@ -117,11 +117,11 @@ model Branch {
   updatedAt            DateTime              @updatedAt
   nameEn               String?
   allowPublicTickets   Boolean               @default(true)
-  publicToken          String                @unique
+  publicToken          String                @unique @default(cuid())   // ✅ أضفنا القيمة الافتراضية
   slug                 String                @unique
   contracts            Contract[]
   maintenanceSchedules MaintenanceSchedule[]
-  tickets              Ticket[]              // ✅ تم التصحيح (جمع)
+  tickets              Ticket[]
   workOrders           WorkOrder[]
   assets               Asset[]
   company              Company               @relation(fields: [companyId], references: [id])

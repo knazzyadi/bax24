@@ -2,15 +2,19 @@
 import { prisma } from "@/lib/prisma";
 
 export async function generateWorkOrderCode(branchId: string): Promise<string> {
+  // استخدام createdAt للترتيب بدلاً من code
   const lastWorkOrder = await prisma.workOrder.findFirst({
     where: { branchId, deletedAt: null },
-    orderBy: { code: "desc" },
+    orderBy: { createdAt: "desc" },
     select: { code: true },
   });
 
   let nextNumber = 1;
   if (lastWorkOrder?.code) {
-    const match = lastWorkOrder.code.match(/\d+$/);
+    // استخراج الرقم من نهاية الكود (بافتراض أن الرقم في آخر جزء بعد الشرطة)
+    const parts = lastWorkOrder.code.split('-');
+    const lastPart = parts[parts.length - 1];
+    const match = lastPart.match(/\d+/);
     if (match) nextNumber = parseInt(match[0], 10) + 1;
   }
 
@@ -22,7 +26,7 @@ export async function generateWorkOrderCode(branchId: string): Promise<string> {
   return `${prefix}-WO-${nextNumber.toString().padStart(4, "0")}`;
 }
 
-// ✅ دالة جديدة لإنشاء أمر عمل مع إعادة المحاولة
+// دالة إنشاء أمر العمل مع إعادة المحاولة (كما هي، لا تغيير)
 export async function createWorkOrderWithRetry(
   data: any,
   maxRetries = 3

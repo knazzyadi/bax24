@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { 
   Plus, FileText, Building, DollarSign, Calendar, Upload, Loader2, X, Save, 
-  Paperclip, File, Image, FileUp, Trash2, Eye, User, Phone
+  Paperclip, File, Image, FileUp, Trash2, Eye, User, Phone, Mail
 } from "lucide-react";
 
 import { PageContainer } from "@/components/shared/detail/PageContainer";
@@ -44,8 +44,9 @@ export default function NewContractPage() {
     endDate: "",
     description: "",
     branchId: "",
-    agentName: "",     // ✅ اسم المندوب
-    agentPhone: "",    // ✅ رقم جوال المندوب
+    agentName: "",     // اسم المندوب
+    agentPhone: "",    // رقم جوال المندوب
+    agentEmail: "",    // ✅ بريد المندوب الإلكتروني
   });
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,6 +123,7 @@ export default function NewContractPage() {
         branchId: formData.branchId,
         agentName: formData.agentName || null,
         agentPhone: formData.agentPhone || null,
+        agentEmail: formData.agentEmail || null,   // ✅ إضافة البريد
         attachmentIds: attachments.map(a => a.id),
       };
       console.log("Sending payload:", payload);
@@ -215,8 +217,8 @@ export default function NewContractPage() {
                   </div>
                 </div>
 
-                {/* ✅ إضافة حقلين: اسم المندوب ورقم جواله */}
-                <div className="grid md:grid-cols-2 gap-6">
+                {/* حقل بيانات المندوب (الاسم، الجوال، البريد) */}
+                <div className="grid md:grid-cols-3 gap-6">
                   <div className="space-y-2">
                     <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
                       <User className="h-4 w-4 text-primary" /> {t('agentName')}
@@ -236,6 +238,18 @@ export default function NewContractPage() {
                       value={formData.agentPhone}
                       onChange={(e) => setFormData({ ...formData, agentPhone: e.target.value })}
                       placeholder={t('agentPhonePlaceholder')}
+                      className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-primary" /> {t('agentEmail')}
+                    </Label>
+                    <Input
+                      type="email"
+                      value={formData.agentEmail}
+                      onChange={(e) => setFormData({ ...formData, agentEmail: e.target.value })}
+                      placeholder={t('agentEmailPlaceholder')}
                       className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
                     />
                   </div>

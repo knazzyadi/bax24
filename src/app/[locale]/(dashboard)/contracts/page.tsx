@@ -51,12 +51,12 @@ export default async function ContractsPage({
   }
   if (status && status !== 'all') where.status = status;
 
-  // ✅ جلب العقود مع المرفقات لحساب عددها
+  // جلب العقود مع البيانات المطلوبة (بما فيها حقول المندوب والمرفقات)
   let allContracts = await prisma.contract.findMany({
     where,
     include: {
       branch: true,
-      attachments: { select: { id: true } }, // نجلب فقط المعرفات لتقليل البيانات
+      attachments: { select: { id: true } },
     },
     orderBy: { createdAt: 'desc' },
   });
@@ -92,11 +92,29 @@ export default async function ContractsPage({
     allContracts = updatedContracts;
   }
 
-  // ✅ إضافة عدد المرفقات لكل عقد وإزالة `attachments` (نحتفظ فقط بالعدد)
+  // تحويل البيانات لـ ContractsClient مع إضافة عدد المرفقات وحقول المندوب
   const contractsWithCount = allContracts.map((contract: any) => ({
-    ...contract,
-    attachmentsCount: contract.attachments.length,
-    attachments: undefined, // نزيل المصفوفة لتخفيف الحجم
+    id: contract.id,
+    code: contract.code,
+    title: contract.title,
+    supplier: contract.supplier,
+    value: contract.value,
+    startDate: contract.startDate,
+    endDate: contract.endDate,
+    description: contract.description,
+    status: contract.status,
+    cancellationReason: contract.cancellationReason,
+    notes: contract.notes,
+    branchId: contract.branchId,
+    branch: contract.branch,
+    createdAt: contract.createdAt,
+    updatedAt: contract.updatedAt,
+    // ✅ إضافة حقول المندوب
+    agentName: contract.agentName,
+    agentPhone: contract.agentPhone,
+    agentEmail: contract.agentEmail,
+    // ✅ إضافة عدد المرفقات
+    attachmentsCount: contract.attachments?.length || 0,
   }));
 
   return (

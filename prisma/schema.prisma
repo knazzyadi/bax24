@@ -356,6 +356,7 @@ model Contract {
 model WorkOrder {
   id                 String               @id @default(cuid())
   code               String?              @unique
+  branchSeqNum       Int                   // ✅ الرقم التسلسلي داخل الفرع
   title              String
   description        String?
   type               WorkOrderType        @default(MAINTENANCE)
@@ -381,6 +382,7 @@ model WorkOrder {
   workOrderAssets    WorkOrderAsset[]
   workOrderInventory WorkOrderInventory[]
 
+  @@unique([branchId, branchSeqNum])   // ✅ قيد فريد لكل فرع
   @@index([companyId])
   @@index([branchId])
   @@index([roomId])

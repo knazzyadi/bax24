@@ -39,7 +39,7 @@ export async function GET(request: NextRequest) {
 
     const contracts = await prisma.contract.findMany({
       where,
-      include: { branch: true, attachments: true }, // ✅ إضافة attachments
+      include: { branch: true, attachments: true },
       orderBy: { createdAt: 'desc' },
       skip,
       take: limit,
@@ -60,7 +60,11 @@ export async function POST(request: NextRequest) {
     await requirePermission('contracts.create', session);
 
     const body = await request.json();
-    const { code, title, supplier, value, startDate, endDate, description, branchId, attachmentIds, notes } = body;
+    const { 
+      code, title, supplier, value, startDate, endDate, description, branchId, 
+      attachmentIds, notes,
+      agentName, agentPhone, agentEmail   // ✅ إضافة حقول المندوب
+    } = body;
 
     if (!title || !supplier || !startDate || !endDate) {
       return NextResponse.json({ error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة' }, { status: 400 });
@@ -95,6 +99,10 @@ export async function POST(request: NextRequest) {
         companyId,
         branchId,
         createdBy: session.user.id,
+        // ✅ إضافة حقول المندوب
+        agentName: agentName || null,
+        agentPhone: agentPhone || null,
+        agentEmail: agentEmail || null,
       },
     });
 

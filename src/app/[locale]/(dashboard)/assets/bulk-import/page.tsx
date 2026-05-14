@@ -10,8 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { 
-  Plus, Trash2, Upload, FileUp, Loader2, Calendar, Wrench, ShieldCheck, 
-  Building as BuildingIcon, Layers, DoorOpen, Save, X, Info, FileText, Globe
+  Plus, Trash2, Upload, FileUp, Loader2, Save, X, FileText
 } from "lucide-react";
 import {
   Table,
@@ -61,7 +60,6 @@ export default function BulkImportAssetsPage() {
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
   const [types, setTypes] = useState<AssetType[]>([]);
   
-  // ✅ القيم المشتركة: فقط الموقع (المبنى، الدور، الغرفة)
   const [commonBuildingId, setCommonBuildingId] = useState<string>("");
   const [commonFloorId, setCommonFloorId] = useState<string>("");
   const [commonRoomId, setCommonRoomId] = useState<string>("");
@@ -294,7 +292,6 @@ export default function BulkImportAssetsPage() {
     return true;
   };
 
-  // ✅ تحسين الأداء باستخدام Promise.allSettled
   const saveAll = async () => {
     if (!validateRows()) return;
     setLoading(true);
@@ -347,7 +344,7 @@ export default function BulkImportAssetsPage() {
         actions={
           <Button variant="outline" onClick={() => router.back()} className="rounded-full border-primary text-primary hover:bg-primary/10 gap-2">
             <X className="h-4 w-4" />
-            {t('back')}
+            {t('back')} {/* ✅ استخدام مفتاح الترجمة AssetsForm.back */}
           </Button>
         }
       />
@@ -397,7 +394,7 @@ export default function BulkImportAssetsPage() {
           </div>
         </InfoCard>
 
-        {/* Dynamic table card - يحتوي على جميع الحقول بما فيها النوع والحالة */}
+        {/* Responsive table - تتحول إلى بطاقات (Cards) على الشاشات المتوسطة والصغيرة */}
         <InfoCard title={isRtl ? "قائمة الأصول" : "Asset List"} icon={<Table className="h-5 w-5" />}>
           <div className="space-y-4">
             <div className="flex flex-wrap justify-between items-center gap-3">
@@ -417,7 +414,8 @@ export default function BulkImportAssetsPage() {
               </Button>
             </div>
 
-            <div className="border rounded-xl overflow-x-auto">
+            {/* الجدول للشاشات الكبيرة */}
+            <div className="hidden lg:block border rounded-xl overflow-x-auto">
               <Table>
                 <TableHeader className="bg-muted/30">
                   <TableRow>
@@ -435,71 +433,89 @@ export default function BulkImportAssetsPage() {
                 <TableBody>
                   {rows.map((row, idx) => (
                     <TableRow key={row.id}>
-                      <TableCell>
-                        <Input
-                          value={row.name}
-                          onChange={(e) => updateRow(idx, "name", e.target.value)}
-                          placeholder={t('namePlaceholder')}
-                          className="min-w-[160px]"
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Input
-                          value={row.nameEn}
-                          onChange={(e) => updateRow(idx, "nameEn", e.target.value)}
-                          placeholder={t('nameEnPlaceholder')}
-                          className="min-w-[160px]"
-                        />
-                      </TableCell>
+                      <TableCell><Input value={row.name} onChange={(e) => updateRow(idx, "name", e.target.value)} placeholder={t('namePlaceholder')} /></TableCell>
+                      <TableCell><Input value={row.nameEn} onChange={(e) => updateRow(idx, "nameEn", e.target.value)} placeholder={t('nameEnPlaceholder')} /></TableCell>
                       <TableCell>
                         <Select value={row.typeId} onValueChange={(v) => updateRow(idx, "typeId", v)}>
-                          <SelectTrigger className="w-[160px]">
-                            <span>{getTypeName(row.typeId)}</span>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {types.map(t => (
-                              <SelectItem key={t.id} value={t.id}>
-                                {isRtl ? t.name : (t.nameEn || t.name)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
+                          <SelectTrigger className="w-[160px]"><span>{getTypeName(row.typeId)}</span></SelectTrigger>
+                          <SelectContent>{types.map(t => (<SelectItem key={t.id} value={t.id}>{isRtl ? t.name : (t.nameEn || t.name)}</SelectItem>))}</SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell>
                         <Select value={row.statusId} onValueChange={(v) => updateRow(idx, "statusId", v)}>
-                          <SelectTrigger className="w-[160px]">
-                            <span>{getStatusName(row.statusId)}</span>
-                          </SelectTrigger>
-                          <SelectContent>
-                            {statuses.map(s => (
-                              <SelectItem key={s.id} value={s.id}>
-                                {isRtl ? s.name : (s.nameEn || s.name)}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
+                          <SelectTrigger className="w-[160px]"><span>{getStatusName(row.statusId)}</span></SelectTrigger>
+                          <SelectContent>{statuses.map(s => (<SelectItem key={s.id} value={s.id}>{isRtl ? s.name : (s.nameEn || s.name)}</SelectItem>))}</SelectContent>
                         </Select>
                       </TableCell>
-                      <TableCell>
-                        <Input type="date" value={row.purchaseDate} onChange={(e) => updateRow(idx, "purchaseDate", e.target.value)} className="w-36" />
-                      </TableCell>
-                      <TableCell>
-                        <Input type="date" value={row.warrantyEnd} onChange={(e) => updateRow(idx, "warrantyEnd", e.target.value)} className="w-36" />
-                      </TableCell>
-                      <TableCell>
-                        <Input type="date" value={row.lastMaintenanceDate} onChange={(e) => updateRow(idx, "lastMaintenanceDate", e.target.value)} className="w-36" />
-                      </TableCell>
-                      <TableCell>
-                        <Input value={row.notes} onChange={(e) => updateRow(idx, "notes", e.target.value)} placeholder={t('notesPlaceholder')} />
-                      </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="icon" onClick={() => removeRow(idx)} className="text-red-500 hover:text-red-700">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
+                      <TableCell><Input type="date" value={row.purchaseDate} onChange={(e) => updateRow(idx, "purchaseDate", e.target.value)} className="w-36" /></TableCell>
+                      <TableCell><Input type="date" value={row.warrantyEnd} onChange={(e) => updateRow(idx, "warrantyEnd", e.target.value)} className="w-36" /></TableCell>
+                      <TableCell><Input type="date" value={row.lastMaintenanceDate} onChange={(e) => updateRow(idx, "lastMaintenanceDate", e.target.value)} className="w-36" /></TableCell>
+                      <TableCell><Input value={row.notes} onChange={(e) => updateRow(idx, "notes", e.target.value)} placeholder={t('notesPlaceholder')} /></TableCell>
+                      <TableCell><Button variant="ghost" size="icon" onClick={() => removeRow(idx)} className="text-red-500"><Trash2 className="h-4 w-4" /></Button></TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
               </Table>
+            </div>
+
+            {/* عرض البطاقات (Cards) للشاشات المتوسطة والصغيرة (تظهر أسفل lg) */}
+            <div className="lg:hidden space-y-6">
+              {rows.map((row, idx) => (
+                <div key={row.id} className="border rounded-xl p-4 bg-card space-y-3 shadow-sm">
+                  <div className="flex justify-between items-start">
+                    <div className="flex-1 space-y-2">
+                      {/* الاسم */}
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground">{t('tableName')} *</Label>
+                        <Input value={row.name} onChange={(e) => updateRow(idx, "name", e.target.value)} placeholder={t('namePlaceholder')} />
+                      </div>
+                      {/* الاسم بالإنجليزية */}
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground">{t('nameEn')}</Label>
+                        <Input value={row.nameEn} onChange={(e) => updateRow(idx, "nameEn", e.target.value)} placeholder={t('nameEnPlaceholder')} />
+                      </div>
+                      {/* النوع والحالة في صف واحد */}
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground">{t('type')} *</Label>
+                          <Select value={row.typeId} onValueChange={(v) => updateRow(idx, "typeId", v)}>
+                            <SelectTrigger><span>{getTypeName(row.typeId)}</span></SelectTrigger>
+                            <SelectContent>{types.map(t => (<SelectItem key={t.id} value={t.id}>{isRtl ? t.name : (t.nameEn || t.name)}</SelectItem>))}</SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground">{t('status')}</Label>
+                          <Select value={row.statusId} onValueChange={(v) => updateRow(idx, "statusId", v)}>
+                            <SelectTrigger><span>{getStatusName(row.statusId)}</span></SelectTrigger>
+                            <SelectContent>{statuses.map(s => (<SelectItem key={s.id} value={s.id}>{isRtl ? s.name : (s.nameEn || s.name)}</SelectItem>))}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      {/* التواريخ في صف واحد */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground">{t('tablePurchaseDate')}</Label>
+                          <Input type="date" value={row.purchaseDate} onChange={(e) => updateRow(idx, "purchaseDate", e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground">{t('tableWarrantyEnd')}</Label>
+                          <Input type="date" value={row.warrantyEnd} onChange={(e) => updateRow(idx, "warrantyEnd", e.target.value)} />
+                        </div>
+                        <div>
+                          <Label className="text-xs font-medium text-muted-foreground">{t('lastMaintenance')}</Label>
+                          <Input type="date" value={row.lastMaintenanceDate} onChange={(e) => updateRow(idx, "lastMaintenanceDate", e.target.value)} />
+                        </div>
+                      </div>
+                      {/* الملاحظات */}
+                      <div>
+                        <Label className="text-xs font-medium text-muted-foreground">{t('tableNotes')}</Label>
+                        <Input value={row.notes} onChange={(e) => updateRow(idx, "notes", e.target.value)} placeholder={t('notesPlaceholder')} />
+                      </div>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => removeRow(idx)} className="text-red-500 shrink-0"><Trash2 className="h-4 w-4" /></Button>
+                  </div>
+                </div>
+              ))}
             </div>
 
             <div className="flex justify-end gap-3 pt-2">

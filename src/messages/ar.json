@@ -845,6 +845,7 @@
     "next": "التالي"
   },
   "AssetsForm": {
+    "back": "رجوع",
     "addRow": "إضافة صف",
     "lastMaintenance": "آخر صيانة",
     "lastMaintenanceHint": "(اختياري) تاريخ آخر صيانة للأصل",

@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter }from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +33,9 @@ import type { AssetStatus, AssetType, Building, Floor, Room } from '@/types/asse
 interface BulkAssetRow {
   id: string;
   name: string;
-  nameEn: string;        // ✅ إضافة حقل الاسم بالإنجليزية
+  nameEn: string;
+  typeId: string;
+  statusId: string;
   purchaseDate: string;
   warrantyEnd: string;
   lastMaintenanceDate: string;
@@ -59,8 +61,7 @@ export default function BulkImportAssetsPage() {
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
   const [types, setTypes] = useState<AssetType[]>([]);
   
-  const [commonTypeId, setCommonTypeId] = useState<string>("");
-  const [commonStatusId, setCommonStatusId] = useState<string>("");
+  // ✅ القيم المشتركة: فقط الموقع (المبنى، الدور، الغرفة)
   const [commonBuildingId, setCommonBuildingId] = useState<string>("");
   const [commonFloorId, setCommonFloorId] = useState<string>("");
   const [commonRoomId, setCommonRoomId] = useState<string>("");
@@ -68,7 +69,17 @@ export default function BulkImportAssetsPage() {
   const [commonRoomName, setCommonRoomName] = useState<string>("");
 
   const [rows, setRows] = useState<BulkAssetRow[]>([
-    { id: crypto.randomUUID(), name: "", nameEn: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" }
+    { 
+      id: crypto.randomUUID(), 
+      name: "", 
+      nameEn: "", 
+      typeId: "", 
+      statusId: "", 
+      purchaseDate: "", 
+      warrantyEnd: "", 
+      lastMaintenanceDate: "", 
+      notes: "" 
+    }
   ]);
 
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -195,7 +206,17 @@ export default function BulkImportAssetsPage() {
   };
 
   const addRow = () => {
-    setRows(prev => [...prev, { id: crypto.randomUUID(), name: "", nameEn: "", purchaseDate: "", warrantyEnd: "", lastMaintenanceDate: "", notes: "" }]);
+    setRows(prev => [...prev, { 
+      id: crypto.randomUUID(), 
+      name: "", 
+      nameEn: "", 
+      typeId: "", 
+      statusId: "", 
+      purchaseDate: "", 
+      warrantyEnd: "", 
+      lastMaintenanceDate: "", 
+      notes: "" 
+    }]);
   };
 
   const removeRow = (index: number) => {
@@ -224,6 +245,8 @@ export default function BulkImportAssetsPage() {
           id: crypto.randomUUID(),
           name: row.name || "",
           nameEn: row.nameEn || "",
+          typeId: row.typeId || "",
+          statusId: row.statusId || "",
           purchaseDate: row.purchaseDate || "",
           warrantyEnd: row.warrantyEnd || "",
           lastMaintenanceDate: row.lastMaintenanceDate || "",
@@ -240,8 +263,8 @@ export default function BulkImportAssetsPage() {
   };
 
   const downloadTemplate = () => {
-    const headers = ["name", "nameEn", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
-    const csvContent = headers.join(",") + "\n" + "Example Asset,Example Asset EN,2025-01-01,2026-01-01,2025-06-01,Some notes\n";
+    const headers = ["name", "nameEn", "typeId", "statusId", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
+    const csvContent = headers.join(",") + "\n" + "Example Asset,Example Asset EN,type_id_here,status_id_here,2025-01-01,2026-01-01,2025-06-01,Some notes\n";
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
@@ -259,10 +282,10 @@ export default function BulkImportAssetsPage() {
         toast.error(isRtl ? `الصف ${i+1}: اسم الأصل مطلوب` : `Row ${i+1}: Asset name is required`);
         return false;
       }
-    }
-    if (!commonTypeId) {
-      toast.error(isRtl ? "يرجى اختيار نوع الأصل" : "Please select asset type");
-      return false;
+      if (!rows[i].typeId) {
+        toast.error(isRtl ? `الصف ${i+1}: نوع الأصل مطلوب` : `Row ${i+1}: Asset type is required`);
+        return false;
+      }
     }
     if (!commonRoomId) {
       toast.error(isRtl ? "يرجى اختيار الغرفة (الموقع)" : "Please select room");
@@ -271,21 +294,20 @@ export default function BulkImportAssetsPage() {
     return true;
   };
 
+  // ✅ تحسين الأداء باستخدام Promise.allSettled
   const saveAll = async () => {
     if (!validateRows()) return;
     setLoading(true);
-    let successCount = 0;
-    let failCount = 0;
-
-    for (const row of rows) {
-      try {
-        const code = await generateSequentialCode(commonTypeId);
+    
+    const results = await Promise.allSettled(
+      rows.map(async (row) => {
+        const code = await generateSequentialCode(row.typeId);
         const payload = {
           name: row.name.trim(),
           nameEn: row.nameEn.trim() || null,
           code,
-          typeId: commonTypeId,
-          statusId: commonStatusId || null,
+          typeId: row.typeId,
+          statusId: row.statusId || null,
           purchaseDate: row.purchaseDate || null,
           warrantyEnd: row.warrantyEnd || null,
           lastMaintenanceDate: row.lastMaintenanceDate || null,
@@ -297,12 +319,12 @@ export default function BulkImportAssetsPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(payload),
         });
-        if (res.ok) successCount++;
-        else failCount++;
-      } catch {
-        failCount++;
-      }
-    }
+        return res.ok;
+      })
+    );
+
+    const successCount = results.filter(r => r.status === "fulfilled" && r.value).length;
+    const failCount = results.length - successCount;
 
     setLoading(false);
     if (failCount === 0) {
@@ -314,7 +336,7 @@ export default function BulkImportAssetsPage() {
     }
   };
 
-  const commonFieldsValid = commonTypeId && commonRoomId;
+  const commonFieldsValid = commonRoomId !== "";
 
   return (
     <PageContainer>
@@ -331,42 +353,9 @@ export default function BulkImportAssetsPage() {
       />
 
       <div className="space-y-8">
-        {/* Common fields card */}
+        {/* Common fields card - فقط الموقع */}
         <InfoCard title={isRtl ? "القيم المشتركة لجميع الأصول" : "Common values for all assets"} icon={<FileText className="h-5 w-5" />}>
           <div className="space-y-6">
-            <div className="grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <Label>{t('type')} *</Label>
-                <Select value={commonTypeId} onValueChange={setCommonTypeId}>
-                  <SelectTrigger className="h-12 rounded-xl">
-                    <span>{getTypeName(commonTypeId)}</span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {types.map(t => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {isRtl ? t.name : (t.nameEn || t.name)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>{t('status')}</Label>
-                <Select value={commonStatusId} onValueChange={setCommonStatusId}>
-                  <SelectTrigger className="h-12 rounded-xl">
-                    <span>{getStatusName(commonStatusId)}</span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {statuses.map(s => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {isRtl ? s.name : (s.nameEn || s.name)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
             <div className="space-y-2">
               <Label>{t('location')} *</Label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -408,7 +397,7 @@ export default function BulkImportAssetsPage() {
           </div>
         </InfoCard>
 
-        {/* Dynamic table card */}
+        {/* Dynamic table card - يحتوي على جميع الحقول بما فيها النوع والحالة */}
         <InfoCard title={isRtl ? "قائمة الأصول" : "Asset List"} icon={<Table className="h-5 w-5" />}>
           <div className="space-y-4">
             <div className="flex flex-wrap justify-between items-center gap-3">
@@ -434,6 +423,8 @@ export default function BulkImportAssetsPage() {
                   <TableRow>
                     <TableHead className="min-w-[180px]">{t('tableName')} *</TableHead>
                     <TableHead className="min-w-[180px]">{t('nameEn')}</TableHead>
+                    <TableHead className="min-w-[160px]">{t('type')} *</TableHead>
+                    <TableHead className="min-w-[160px]">{t('status')}</TableHead>
                     <TableHead className="min-w-[140px]">{t('tablePurchaseDate')}</TableHead>
                     <TableHead className="min-w-[140px]">{t('tableWarrantyEnd')}</TableHead>
                     <TableHead className="min-w-[140px]">{t('lastMaintenance')}</TableHead>
@@ -459,6 +450,34 @@ export default function BulkImportAssetsPage() {
                           placeholder={t('nameEnPlaceholder')}
                           className="min-w-[160px]"
                         />
+                      </TableCell>
+                      <TableCell>
+                        <Select value={row.typeId} onValueChange={(v) => updateRow(idx, "typeId", v)}>
+                          <SelectTrigger className="w-[160px]">
+                            <span>{getTypeName(row.typeId)}</span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {types.map(t => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {isRtl ? t.name : (t.nameEn || t.name)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </TableCell>
+                      <TableCell>
+                        <Select value={row.statusId} onValueChange={(v) => updateRow(idx, "statusId", v)}>
+                          <SelectTrigger className="w-[160px]">
+                            <span>{getStatusName(row.statusId)}</span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statuses.map(s => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {isRtl ? s.name : (s.nameEn || s.name)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
                       </TableCell>
                       <TableCell>
                         <Input type="date" value={row.purchaseDate} onChange={(e) => updateRow(idx, "purchaseDate", e.target.value)} className="w-36" />

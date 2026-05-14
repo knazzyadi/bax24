@@ -1,4 +1,3 @@
-// src/app/[locale]/(dashboard)/assets/bulk-import/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -90,16 +89,19 @@ export default function BulkImportAssetsPage() {
   const normalizeFloor = (f: Floor) => ({ ...f, nameEn: f.nameEn ?? undefined });
   const normalizeRoom = (r: Room) => ({ ...r, nameEn: r.nameEn ?? undefined });
 
+  // دوال مساعدة للحصول على اسم النوع والحالة من المعرف
   const getTypeName = (typeId: string) => {
     if (!typeId) return t('selectType');
     const type = types.find(t => t.id === typeId);
-    return type ? (isRtl ? type.name : (type.nameEn || type.name)) : t('selectType');
+    if (!type) return t('selectType');
+    return isRtl ? type.name : (type.nameEn || type.name);
   };
 
   const getStatusName = (statusId: string) => {
     if (!statusId) return t('selectStatus');
     const status = statuses.find(s => s.id === statusId);
-    return status ? (isRtl ? status.name : (status.nameEn || status.name)) : t('selectStatus');
+    if (!status) return t('selectStatus');
+    return isRtl ? status.name : (status.nameEn || status.name);
   };
 
   // Fetch data
@@ -344,7 +346,7 @@ export default function BulkImportAssetsPage() {
         actions={
           <Button variant="outline" onClick={() => router.back()} className="rounded-full border-primary text-primary hover:bg-primary/10 gap-2">
             <X className="h-4 w-4" />
-            {t('back')} {/* ✅ استخدام مفتاح الترجمة AssetsForm.back */}
+            {t('back')}
           </Button>
         }
       />
@@ -394,7 +396,7 @@ export default function BulkImportAssetsPage() {
           </div>
         </InfoCard>
 
-        {/* Responsive table - تتحول إلى بطاقات (Cards) على الشاشات المتوسطة والصغيرة */}
+        {/* Dynamic table card - يحتوي على جميع الحقول بما فيها النوع والحالة */}
         <InfoCard title={isRtl ? "قائمة الأصول" : "Asset List"} icon={<Table className="h-5 w-5" />}>
           <div className="space-y-4">
             <div className="flex flex-wrap justify-between items-center gap-3">
@@ -437,14 +439,30 @@ export default function BulkImportAssetsPage() {
                       <TableCell><Input value={row.nameEn} onChange={(e) => updateRow(idx, "nameEn", e.target.value)} placeholder={t('nameEnPlaceholder')} /></TableCell>
                       <TableCell>
                         <Select value={row.typeId} onValueChange={(v) => updateRow(idx, "typeId", v)}>
-                          <SelectTrigger className="w-[160px]"><span>{getTypeName(row.typeId)}</span></SelectTrigger>
-                          <SelectContent>{types.map(t => (<SelectItem key={t.id} value={t.id}>{isRtl ? t.name : (t.nameEn || t.name)}</SelectItem>))}</SelectContent>
+                          <SelectTrigger className="w-[160px]">
+                            <span>{getTypeName(row.typeId)}</span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {types.map(t => (
+                              <SelectItem key={t.id} value={t.id}>
+                                {isRtl ? t.name : (t.nameEn || t.name)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell>
                         <Select value={row.statusId} onValueChange={(v) => updateRow(idx, "statusId", v)}>
-                          <SelectTrigger className="w-[160px]"><span>{getStatusName(row.statusId)}</span></SelectTrigger>
-                          <SelectContent>{statuses.map(s => (<SelectItem key={s.id} value={s.id}>{isRtl ? s.name : (s.nameEn || s.name)}</SelectItem>))}</SelectContent>
+                          <SelectTrigger className="w-[160px]">
+                            <span>{getStatusName(row.statusId)}</span>
+                          </SelectTrigger>
+                          <SelectContent>
+                            {statuses.map(s => (
+                              <SelectItem key={s.id} value={s.id}>
+                                {isRtl ? s.name : (s.nameEn || s.name)}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                       </TableCell>
                       <TableCell><Input type="date" value={row.purchaseDate} onChange={(e) => updateRow(idx, "purchaseDate", e.target.value)} className="w-36" /></TableCell>
@@ -479,15 +497,31 @@ export default function BulkImportAssetsPage() {
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground">{t('type')} *</Label>
                           <Select value={row.typeId} onValueChange={(v) => updateRow(idx, "typeId", v)}>
-                            <SelectTrigger><span>{getTypeName(row.typeId)}</span></SelectTrigger>
-                            <SelectContent>{types.map(t => (<SelectItem key={t.id} value={t.id}>{isRtl ? t.name : (t.nameEn || t.name)}</SelectItem>))}</SelectContent>
+                            <SelectTrigger className="w-full">
+                              <span>{getTypeName(row.typeId)}</span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {types.map(t => (
+                                <SelectItem key={t.id} value={t.id}>
+                                  {isRtl ? t.name : (t.nameEn || t.name)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
                           </Select>
                         </div>
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground">{t('status')}</Label>
                           <Select value={row.statusId} onValueChange={(v) => updateRow(idx, "statusId", v)}>
-                            <SelectTrigger><span>{getStatusName(row.statusId)}</span></SelectTrigger>
-                            <SelectContent>{statuses.map(s => (<SelectItem key={s.id} value={s.id}>{isRtl ? s.name : (s.nameEn || s.name)}</SelectItem>))}</SelectContent>
+                            <SelectTrigger className="w-full">
+                              <span>{getStatusName(row.statusId)}</span>
+                            </SelectTrigger>
+                            <SelectContent>
+                              {statuses.map(s => (
+                                <SelectItem key={s.id} value={s.id}>
+                                  {isRtl ? s.name : (s.nameEn || s.name)}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
                           </Select>
                         </div>
                       </div>

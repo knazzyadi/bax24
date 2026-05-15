@@ -1,41 +1,47 @@
+// src/app/[locale]/(dashboard)/settings/asset-statuses/page.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Pencil, Trash2, Plus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AdminGuard } from '@/lib/client-guard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { toast } from 'sonner';
 
-interface Building {
-  id: string;
-  name: string;
-}
-
-interface Floor {
+interface AssetStatus {
   id: string;
   name: string;
   nameEn: string | null;
-  code: string;
+  code: string | null;
+  color: string | null;
   order: number;
-  buildingId: string;
-  building: Building;
+  isDefault: boolean;
 }
 
-function FloorsPageContent() {
+function AssetStatusesPageContent() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const params = useParams();
   const locale = params?.locale as string;
-  const t = useTranslations('Locations');
+  const t = useTranslations('Settings'); // تأكد من وجود هذه الترجمة
 
-  const [floors, setFloors] = useState<Floor[]>([]);
-  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [statuses, setStatuses] = useState<AssetStatus[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState<Floor | null>(null);
-  const [form, setForm] = useState({ name: '', nameEn: '', code: '', order: 0, buildingId: '' });
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [editing, setEditing] = useState<AssetStatus | null>(null);
+  const [form, setForm] = useState({
+    name: '',
+    nameEn: '',
+    code: '',
+    color: '#64748b',
+    order: 0,
+    isDefault: false,
+  });
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
@@ -43,45 +49,33 @@ function FloorsPageContent() {
     if (status === 'unauthenticated') {
       router.push(`/${locale}/login`);
     } else {
-      fetchFloors();
-      fetchBuildings();
+      fetchStatuses();
     }
   }, [status, locale, router]);
 
-  const fetchFloors = async (bypassCache = false) => {
+  const fetchStatuses = async (bypassCache = false) => {
     setLoading(true);
     try {
-      const url = bypassCache ? '/api/locations/floors?t=' + Date.now() : '/api/locations/floors';
+      const url = bypassCache ? '/api/asset-statuses?t=' + Date.now() : '/api/asset-statuses';
       const res = await fetch(url);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setFloors(data);
+      setStatuses(data);
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      toast.error(err.message || t('fetchError'));
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchBuildings = async () => {
-    try {
-      const res = await fetch('/api/locations/buildings');
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
-      setBuildings(data);
-    } catch (err: any) {
-      console.error(err);
-    }
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.buildingId) {
-      setMessage({ type: 'error', text: t('requiredFields') });
+    if (!form.name.trim()) {
+      toast.error(t('nameRequired'));
       return;
     }
     try {
-      const url = editing ? `/api/locations/floors/${editing.id}` : '/api/locations/floors';
+      const url = editing ? `/api/asset-statuses/${editing.id}` : '/api/asset-statuses';
       const method = editing ? 'PUT' : 'POST';
       const res = await fetch(url, {
         method,
@@ -90,171 +84,175 @@ function FloorsPageContent() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      setMessage({ type: 'success', text: editing ? t('save') : t('save') });
+      toast.success(editing ? t('updateSuccess') : t('createSuccess'));
       setEditing(null);
-      setForm({ name: '', nameEn: '', code: '', order: 0, buildingId: '' });
+      setForm({ name: '', nameEn: '', code: '', color: '#64748b', order: 0, isDefault: false });
       setShowForm(false);
-      await fetchFloors(true);
+      await fetchStatuses(true);
       router.refresh();
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      toast.error(err.message);
     }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm(t('deleteConfirm'))) return;
     try {
-      const res = await fetch(`/api/locations/floors/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/asset-statuses/${id}`, { method: 'DELETE' });
       const data = await res.json();
-      if (!res.ok) {
-        setMessage({ type: 'error', text: data.error || t('deleteError') });
-        return;
-      }
-      setMessage({ type: 'success', text: t('deleteSuccess') });
-      await fetchFloors(true);
+      if (!res.ok) throw new Error(data.error);
+      toast.success(t('deleteSuccess'));
+      await fetchStatuses(true);
       router.refresh();
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      toast.error(err.message);
     }
   };
 
-  const editFloor = (floor: Floor) => {
-    setEditing(floor);
+  const editStatus = (status: AssetStatus) => {
+    setEditing(status);
     setForm({
-      name: floor.name,
-      nameEn: floor.nameEn || '',
-      code: floor.code,
-      order: floor.order,
-      buildingId: floor.buildingId,
+      name: status.name,
+      nameEn: status.nameEn || '',
+      code: status.code || '',
+      color: status.color || '#64748b',
+      order: status.order,
+      isDefault: status.isDefault,
     });
     setShowForm(true);
   };
 
   const cancelEdit = () => {
     setEditing(null);
-    setForm({ name: '', nameEn: '', code: '', order: 0, buildingId: '' });
+    setForm({ name: '', nameEn: '', code: '', color: '#64748b', order: 0, isDefault: false });
     setShowForm(false);
   };
 
-  if (status === 'loading' || loading) return <div className="p-6">جاري التحميل...</div>;
+  if (status === 'loading' || loading) {
+    return <div className="p-6 text-center">جاري التحميل...</div>;
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      {/* نفس المحتوى الأصلي */}
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-foreground">{t('floors')}</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold text-foreground">{t('assetStatuses')}</h1>
         {!showForm && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700 transition"
-          >
-            <Plus size={18} /> {t('addFloor')}
-          </button>
+          <Button onClick={() => setShowForm(true)} className="gap-2">
+            <Plus size={18} /> {t('addStatus')}
+          </Button>
         )}
       </div>
 
-      {message && (
-        <div className={cn('p-2 mb-4 rounded', message.type === 'success'
-          ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-          : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300')}>
-          {message.text}
-        </div>
-      )}
-
       {showForm && (
-        <div className="bg-card border border-border p-4 rounded-lg shadow mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-semibold text-foreground">
-              {editing ? t('editFloor') : t('addFloor')}
-            </h2>
-            <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground transition">
+        <Card className="mb-8">
+          <CardHeader className="flex flex-row justify-between items-center">
+            <CardTitle>{editing ? t('editStatus') : t('addStatus')}</CardTitle>
+            <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground">
               <X size={20} />
             </button>
-          </div>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <select
-              value={form.buildingId}
-              onChange={(e) => setForm({ ...form, buildingId: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
-              required
-            >
-              <option value="">{t('building')}</option>
-              {buildings.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-            <input
-              type="text"
-              placeholder={t('nameAr')}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
-              required
-            />
-            <input
-              type="text"
-              placeholder={t('nameEn')}
-              value={form.nameEn}
-              onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
-            />
-            <input
-              type="text"
-              placeholder={t('code')}
-              value={form.code}
-              onChange={(e) => setForm({ ...form, code: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
-              required
-            />
-            <input
-              type="number"
-              placeholder={t('order')}
-              value={form.order}
-              onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
-            />
-            <div className="md:col-span-2 flex gap-2">
-              <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition">
-                {editing ? t('save') : t('save')}
-              </button>
-              <button type="button" onClick={cancelEdit} className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition">
-                {t('cancel')}
-              </button>
-            </div>
-          </form>
-        </div>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t('nameAr')} *</Label>
+                <Input
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('nameEn')}</Label>
+                <Input
+                  value={form.nameEn}
+                  onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('code')}</Label>
+                <Input
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t('color')}</Label>
+                <div className="flex gap-2 items-center">
+                  <Input
+                    type="color"
+                    value={form.color}
+                    onChange={(e) => setForm({ ...form, color: e.target.value })}
+                    className="w-12 h-10 p-1"
+                  />
+                  <Input
+                    value={form.color}
+                    onChange={(e) => setForm({ ...form, color: e.target.value })}
+                    placeholder="#64748b"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label>{t('order')}</Label>
+                <Input
+                  type="number"
+                  value={form.order}
+                  onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="isDefault"
+                  checked={form.isDefault}
+                  onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
+                  className="w-4 h-4"
+                />
+                <Label htmlFor="isDefault">{t('defaultStatus')}</Label>
+              </div>
+              <div className="md:col-span-2 flex gap-2 pt-2">
+                <Button type="submit">{editing ? t('save') : t('create')}</Button>
+                <Button type="button" variant="outline" onClick={cancelEdit}>{t('cancel')}</Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       )}
 
-      {loading ? (
-        <p>جاري التحميل...</p>
+      {statuses.length === 0 ? (
+        <p className="text-center text-muted-foreground">{t('noStatuses')}</p>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full border border-border rounded-lg">
+        <div className="overflow-x-auto border rounded-lg">
+          <table className="w-full">
             <thead className="bg-muted/50">
-              <tr className="border-b border-border">
-                <th className="p-2 text-right text-foreground">#</th>
-                <th className="p-2 text-right text-foreground">{t('building')}</th>
-                <th className="p-2 text-right text-foreground">{t('nameAr')}</th>
-                <th className="p-2 text-right text-foreground">{t('nameEn')}</th>
-                <th className="p-2 text-right text-foreground">{t('code')}</th>
-                <th className="p-2 text-right text-foreground">{t('order')}</th>
-                <th className="p-2 text-right text-foreground">{t('actions')}</th>
+              <tr className="border-b">
+                <th className="p-3 text-right">{t('nameAr')}</th>
+                <th className="p-3 text-right">{t('nameEn')}</th>
+                <th className="p-3 text-right">{t('code')}</th>
+                <th className="p-3 text-right">{t('color')}</th>
+                <th className="p-3 text-right">{t('order')}</th>
+                <th className="p-3 text-right">{t('default')}</th>
+                <th className="p-3 text-right">{t('actions')}</th>
               </tr>
             </thead>
             <tbody>
-              {floors.map((floor, idx) => (
-                <tr key={floor.id} className="border-b border-border hover:bg-muted/30">
-                  <td className="p-2">{idx + 1}</td>
-                  <td className="p-2">{floor.building.name}</td>
-                  <td className="p-2">{floor.name}</td>
-                  <td className="p-2">{floor.nameEn || '-'}</td>
-                  <td className="p-2">{floor.code}</td>
-                  <td className="p-2">{floor.order}</td>
-                  <td className="p-2 flex gap-2">
-                    <button onClick={() => editFloor(floor)} className="text-blue-600 dark:text-blue-400 hover:underline">
+              {statuses.map((status) => (
+                <tr key={status.id} className="border-b hover:bg-muted/30">
+                  <td className="p-3">{status.name}</td>
+                  <td className="p-3">{status.nameEn || '-'}</td>
+                  <td className="p-3">{status.code || '-'}</td>
+                  <td className="p-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 rounded-full" style={{ backgroundColor: status.color || '#64748b' }} />
+                      <span>{status.color || '-'}</span>
+                    </div>
+                  </td>
+                  <td className="p-3">{status.order}</td>
+                  <td className="p-3">{status.isDefault ? '✓' : ''}</td>
+                  <td className="p-3 flex gap-2">
+                    <button onClick={() => editStatus(status)} className="text-blue-600 hover:underline">
                       <Pencil size={18} />
                     </button>
-                    <button onClick={() => handleDelete(floor.id)} className="text-red-600 dark:text-red-400 hover:underline">
+                    <button onClick={() => handleDelete(status.id)} className="text-red-600 hover:underline">
                       <Trash2 size={18} />
                     </button>
                   </td>
@@ -268,10 +266,10 @@ function FloorsPageContent() {
   );
 }
 
-export default function FloorsPage() {
+export default function AssetStatusesPage() {
   return (
     <AdminGuard>
-      <FloorsPageContent />
+      <AssetStatusesPageContent />
     </AdminGuard>
   );
 }

@@ -6,11 +6,11 @@ import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Pencil, Trash2, Plus, X, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { AdminGuard } from '@/lib/client-guard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -21,6 +21,19 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
+
+// ✅ قائمة الألوان الثابتة (يمكنك إضافة/إزالة حسب الرغبة)
+const COLOR_PALETTE = [
+  { value: '#3b82f6', nameAr: 'أزرق', nameEn: 'Blue' },
+  { value: '#22c55e', nameAr: 'أخضر', nameEn: 'Green' },
+  { value: '#ef4444', nameAr: 'أحمر', nameEn: 'Red' },
+  { value: '#eab308', nameAr: 'أصفر', nameEn: 'Yellow' },
+  { value: '#f97316', nameAr: 'برتقالي', nameEn: 'Orange' },
+  { value: '#8b5cf6', nameAr: 'بنفسجي', nameEn: 'Purple' },
+  { value: '#ec4899', nameAr: 'وردي', nameEn: 'Pink' },
+  { value: '#6b7280', nameAr: 'رمادي', nameEn: 'Gray' },
+  { value: '#06b6d4', nameAr: 'سماوي', nameEn: 'Cyan' },
+];
 
 interface AssetStatus {
   id: string;
@@ -38,6 +51,7 @@ function AssetStatusesPageContent() {
   const params = useParams();
   const locale = params?.locale as string;
   const t = useTranslations('AssetStatuses');
+  const isRtl = locale === 'ar';
 
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,7 +60,7 @@ function AssetStatusesPageContent() {
     name: '',
     nameEn: '',
     code: '',
-    color: '#64748b',
+    color: '#3b82f6',    // لون افتراضي (أزرق)
     order: 0,
     isDefault: false,
   });
@@ -95,7 +109,7 @@ function AssetStatusesPageContent() {
       if (!res.ok) throw new Error('Failed');
       toast.success(editing ? t('updateSuccess') : t('createSuccess'));
       setEditing(null);
-      setForm({ name: '', nameEn: '', code: '', color: '#64748b', order: 0, isDefault: false });
+      setForm({ name: '', nameEn: '', code: '', color: '#3b82f6', order: 0, isDefault: false });
       setShowForm(false);
       await fetchStatuses(true);
       router.refresh();
@@ -125,7 +139,7 @@ function AssetStatusesPageContent() {
       name: status.name,
       nameEn: status.nameEn || '',
       code: status.code || '',
-      color: status.color || '#64748b',
+      color: status.color || '#3b82f6',
       order: status.order,
       isDefault: status.isDefault,
     });
@@ -134,8 +148,15 @@ function AssetStatusesPageContent() {
 
   const cancelEdit = () => {
     setEditing(null);
-    setForm({ name: '', nameEn: '', code: '', color: '#64748b', order: 0, isDefault: false });
+    setForm({ name: '', nameEn: '', code: '', color: '#3b82f6', order: 0, isDefault: false });
     setShowForm(false);
+  };
+
+  // دالة للحصول على اسم اللون المترجم
+  const getColorLabel = (colorValue: string) => {
+    const color = COLOR_PALETTE.find(c => c.value === colorValue);
+    if (!color) return colorValue;
+    return isRtl ? color.nameAr : color.nameEn;
   };
 
   if (status === 'loading') {
@@ -188,21 +209,36 @@ function AssetStatusesPageContent() {
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
                 />
               </div>
+              {/* ✅ قائمة منسدلة للألوان الثابتة بدلاً من منتقي الألوان */}
               <div className="space-y-2">
                 <Label>{t('color')}</Label>
-                <div className="flex gap-2 items-center">
-                  <Input
-                    type="color"
-                    value={form.color}
-                    onChange={(e) => setForm({ ...form, color: e.target.value })}
-                    className="w-12 h-10 p-1"
-                  />
-                  <Input
-                    value={form.color}
-                    onChange={(e) => setForm({ ...form, color: e.target.value })}
-                    placeholder="#64748b"
-                  />
-                </div>
+                <Select
+                  value={form.color}
+                  onValueChange={(val) => setForm({ ...form, color: val })}
+                >
+                  <SelectTrigger className="w-full">
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-5 h-5 rounded-full border border-border"
+                        style={{ backgroundColor: form.color }}
+                      />
+                      <span>{getColorLabel(form.color)}</span>
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    {COLOR_PALETTE.map((color) => (
+                      <SelectItem key={color.value} value={color.value}>
+                        <div className="flex items-center gap-2">
+                          <div
+                            className="w-5 h-5 rounded-full border border-border"
+                            style={{ backgroundColor: color.value }}
+                          />
+                          <span>{isRtl ? color.nameAr : color.nameEn}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>{t('order')}</Label>
@@ -264,9 +300,9 @@ function AssetStatusesPageContent() {
                     <div className="flex items-center gap-2">
                       <div
                         className="w-5 h-5 rounded-full border border-border"
-                        style={{ backgroundColor: status.color || '#64748b' }}
+                        style={{ backgroundColor: status.color || '#6b7280' }}
                       />
-                      <span>{status.color || '—'}</span>
+                      <span>{getColorLabel(status.color || '#6b7280')}</span>
                     </div>
                   </TableCell>
                   <TableCell>{status.order}</TableCell>

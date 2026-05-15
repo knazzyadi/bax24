@@ -1,17 +1,25 @@
 // src/app/[locale]/(dashboard)/settings/asset-statuses/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Pencil, Trash2, Plus, X } from 'lucide-react';
+import { Pencil, Trash2, Plus, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AdminGuard } from '@/lib/client-guard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 import { toast } from 'sonner';
 
 interface AssetStatus {
@@ -29,7 +37,7 @@ function AssetStatusesPageContent() {
   const router = useRouter();
   const params = useParams();
   const locale = params?.locale as string;
-  const t = useTranslations('Settings'); // تأكد من وجود هذه الترجمة
+  const t = useTranslations('AssetStatuses');
 
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
   const [loading, setLoading] = useState(true);
@@ -43,6 +51,7 @@ function AssetStatusesPageContent() {
     isDefault: false,
   });
   const [showForm, setShowForm] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -56,13 +65,13 @@ function AssetStatusesPageContent() {
   const fetchStatuses = async (bypassCache = false) => {
     setLoading(true);
     try {
-      const url = bypassCache ? '/api/asset-statuses?t=' + Date.now() : '/api/asset-statuses';
+      const url = bypassCache ? `/api/asset-statuses?t=${Date.now()}` : '/api/asset-statuses';
       const res = await fetch(url);
+      if (!res.ok) throw new Error('Failed to fetch');
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
       setStatuses(data);
-    } catch (err: any) {
-      toast.error(err.message || t('fetchError'));
+    } catch (err) {
+      toast.error(t('fetchError') || 'حدث خطأ');
     } finally {
       setLoading(false);
     }
@@ -71,9 +80,10 @@ function AssetStatusesPageContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.name.trim()) {
-      toast.error(t('nameRequired'));
+      toast.error(t('nameRequired') || 'الاسم مطلوب');
       return;
     }
+    setSubmitting(true);
     try {
       const url = editing ? `/api/asset-statuses/${editing.id}` : '/api/asset-statuses';
       const method = editing ? 'PUT' : 'POST';
@@ -82,16 +92,17 @@ function AssetStatusesPageContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error('Failed');
       toast.success(editing ? t('updateSuccess') : t('createSuccess'));
       setEditing(null);
       setForm({ name: '', nameEn: '', code: '', color: '#64748b', order: 0, isDefault: false });
       setShowForm(false);
       await fetchStatuses(true);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error(editing ? t('updateError') : t('createError'));
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -99,13 +110,12 @@ function AssetStatusesPageContent() {
     if (!confirm(t('deleteConfirm'))) return;
     try {
       const res = await fetch(`/api/asset-statuses/${id}`, { method: 'DELETE' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+      if (!res.ok) throw new Error();
       toast.success(t('deleteSuccess'));
       await fetchStatuses(true);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err) {
+      toast.error(t('deleteError'));
     }
   };
 
@@ -128,14 +138,17 @@ function AssetStatusesPageContent() {
     setShowForm(false);
   };
 
-  if (status === 'loading' || loading) {
-    return <div className="p-6 text-center">جاري التحميل...</div>;
+  if (status === 'loading') {
+    return <div className="p-6 text-center">{t('loading')}</div>;
   }
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
+    <div className="p-6 max-w-7xl mx-auto">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-foreground">{t('assetStatuses')}</h1>
+        <div>
+          <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+          <p className="text-muted-foreground">{t('subtitle')}</p>
+        </div>
         {!showForm && (
           <Button onClick={() => setShowForm(true)} className="gap-2">
             <Plus size={18} /> {t('addStatus')}
@@ -154,7 +167,7 @@ function AssetStatusesPageContent() {
           <CardContent>
             <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{t('nameAr')} *</Label>
+                <Label>{t('name')} *</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
@@ -207,59 +220,82 @@ function AssetStatusesPageContent() {
                   onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
                   className="w-4 h-4"
                 />
-                <Label htmlFor="isDefault">{t('defaultStatus')}</Label>
+                <Label htmlFor="isDefault">{t('isDefault')}</Label>
               </div>
               <div className="md:col-span-2 flex gap-2 pt-2">
-                <Button type="submit">{editing ? t('save') : t('create')}</Button>
-                <Button type="button" variant="outline" onClick={cancelEdit}>{t('cancel')}</Button>
+                <Button type="submit" disabled={submitting}>
+                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  {t('save')}
+                </Button>
+                <Button type="button" variant="outline" onClick={cancelEdit}>
+                  {t('cancel')}
+                </Button>
               </div>
             </form>
           </CardContent>
         </Card>
       )}
 
-      {statuses.length === 0 ? (
-        <p className="text-center text-muted-foreground">{t('noStatuses')}</p>
+      {loading ? (
+        <div className="text-center py-8">{t('loading')}</div>
+      ) : statuses.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">{t('noStatuses')}</div>
       ) : (
-        <div className="overflow-x-auto border rounded-lg">
-          <table className="w-full">
-            <thead className="bg-muted/50">
-              <tr className="border-b">
-                <th className="p-3 text-right">{t('nameAr')}</th>
-                <th className="p-3 text-right">{t('nameEn')}</th>
-                <th className="p-3 text-right">{t('code')}</th>
-                <th className="p-3 text-right">{t('color')}</th>
-                <th className="p-3 text-right">{t('order')}</th>
-                <th className="p-3 text-right">{t('default')}</th>
-                <th className="p-3 text-right">{t('actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
+        <div className="border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>{t('name')}</TableHead>
+                <TableHead>{t('nameEn')}</TableHead>
+                <TableHead>{t('code')}</TableHead>
+                <TableHead>{t('color')}</TableHead>
+                <TableHead>{t('order')}</TableHead>
+                <TableHead>{t('isDefault')}</TableHead>
+                <TableHead className="w-24">{t('actions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {statuses.map((status) => (
-                <tr key={status.id} className="border-b hover:bg-muted/30">
-                  <td className="p-3">{status.name}</td>
-                  <td className="p-3">{status.nameEn || '-'}</td>
-                  <td className="p-3">{status.code || '-'}</td>
-                  <td className="p-3">
+                <TableRow key={status.id}>
+                  <TableCell className="font-medium">{status.name}</TableCell>
+                  <TableCell>{status.nameEn || '—'}</TableCell>
+                  <TableCell>{status.code || '—'}</TableCell>
+                  <TableCell>
                     <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 rounded-full" style={{ backgroundColor: status.color || '#64748b' }} />
-                      <span>{status.color || '-'}</span>
+                      <div
+                        className="w-5 h-5 rounded-full border border-border"
+                        style={{ backgroundColor: status.color || '#64748b' }}
+                      />
+                      <span>{status.color || '—'}</span>
                     </div>
-                  </td>
-                  <td className="p-3">{status.order}</td>
-                  <td className="p-3">{status.isDefault ? '✓' : ''}</td>
-                  <td className="p-3 flex gap-2">
-                    <button onClick={() => editStatus(status)} className="text-blue-600 hover:underline">
-                      <Pencil size={18} />
-                    </button>
-                    <button onClick={() => handleDelete(status.id)} className="text-red-600 hover:underline">
-                      <Trash2 size={18} />
-                    </button>
-                  </td>
-                </tr>
+                  </TableCell>
+                  <TableCell>{status.order}</TableCell>
+                  <TableCell>{status.isDefault ? '✓' : ''}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => editStatus(status)}
+                        title={t('edit')}
+                      >
+                        <Pencil size={16} />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(status.id)}
+                        title={t('delete')}
+                        className="text-destructive hover:text-destructive"
+                      >
+                        <Trash2 size={16} />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

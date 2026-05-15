@@ -321,6 +321,7 @@
   "tipContent": "Use striking colors (e.g., red, orange) for high priorities to ensure technicians' attention immediately when the request appears on their dashboard."
 },
   "AssetStatuses": {
+    "code": "Code",
     "title": "Asset Statuses",
     "subtitle": "Define operational statuses for equipment (e.g., Working, Broken, Under Maintenance)",
     "addStatus": "Add Status",

@@ -1238,6 +1238,7 @@
     "fetchError": "حدث خطأ في تحميل البيانات"
   },
   "Contracts": {
+    "noAgentInfo": "لا توجد معلومات للمندوب",
     "agentInfo": "بيانات المندوب",
     "agentEmail": "البريد الإلكتروني للمندوب",
     "agentEmailPlaceholder": "example@domain.com",

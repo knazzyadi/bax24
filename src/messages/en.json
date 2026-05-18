@@ -1220,6 +1220,7 @@
     "fetchError": "Error loading data"
   },
   "Contracts": {
+    "noAgentInfo": "No agent information",
     "agentInfo": "Agent Details",
     "agentEmail": "Agent Email",
     "agentEmailPlaceholder": "example@domain.com",

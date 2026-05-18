@@ -5,7 +5,7 @@ import { prisma } from '@/lib/prisma';
 import { requirePermission } from '@/lib/permissions';
 import { deleteFileFromR2 } from '@/lib/storage';
 
-// GET: جلب عقد واحد مع مرفقاته
+// GET: جلب عقد واحد مع مرفقاته وحقول المندوب
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -45,6 +45,10 @@ export async function GET(
       endDate: contract.endDate.toISOString().split('T')[0],
       createdAt: contract.createdAt.toISOString(),
       updatedAt: contract.updatedAt.toISOString(),
+      // ✅ تضمين حقول المندوب (الموجودة في الـ model)
+      agentName: contract.agentName || null,
+      agentPhone: contract.agentPhone || null,
+      agentEmail: contract.agentEmail || null,
     };
 
     return NextResponse.json(serialized);
@@ -54,7 +58,7 @@ export async function GET(
   }
 }
 
-// PUT: تحديث عقد (يدعم تحديث المرفقات عبر attachmentIds)
+// PUT: تحديث عقد (يدعم تحديث المرفقات وحقول المندوب)
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -66,7 +70,11 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { title, supplier, value, startDate, endDate, description, notes, buildingId, attachmentIds } = body;
+    const { 
+      title, supplier, value, startDate, endDate, description, notes, 
+      buildingId, attachmentIds,
+      agentName, agentPhone, agentEmail  // ✅ إضافة حقول المندوب
+    } = body;
 
     if (!title || !supplier || !startDate || !endDate) {
       return NextResponse.json({ error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة' }, { status: 400 });
@@ -103,24 +111,17 @@ export async function PUT(
       }
     }
 
-    // معالجة المرفقات إذا تم إرسال attachmentIds جديدة
+    // معالجة المرفقات (نفس الكود السابق)
     if (attachmentIds && Array.isArray(attachmentIds) && attachmentIds.length > 0) {
       const currentAttachments = existing.attachments as { id: string; key: string }[];
-
-      // المرفقات التي سيتم الاحتفاظ بها (التي موجودة في attachmentIds وتنتمي أصلاً للعقد)
       const toKeepIds = attachmentIds.filter((id: string) =>
         currentAttachments.some((a: { id: string }) => a.id === id)
       );
-      // المرفقات التي سيتم إزالتها من العقد (ليست في القائمة الجديدة)
       const toRemove = currentAttachments.filter((a: { id: string }) => !attachmentIds.includes(a.id));
-
-      // حذف المرفقات التي تم إزالتها من R2 وسجلاتها
       for (const att of toRemove) {
         await deleteFileFromR2(att.key);
         await prisma.contractAttachment.delete({ where: { id: att.id } });
       }
-
-      // ربط المرفقات الجديدة التي تم رفعها مسبقاً (بدون contractId)
       const newAttachmentIds = attachmentIds.filter((id: string) => !toKeepIds.includes(id));
       if (newAttachmentIds.length > 0) {
         await prisma.contractAttachment.updateMany({
@@ -129,7 +130,6 @@ export async function PUT(
         });
       }
     } else if (attachmentIds !== undefined && attachmentIds.length === 0) {
-      // إذا أرسل attachmentIds = []، يعني حذف جميع المرفقات الحالية
       const currentAttachments = existing.attachments as { id: string; key: string }[];
       for (const att of currentAttachments) {
         await deleteFileFromR2(att.key);
@@ -137,7 +137,7 @@ export async function PUT(
       }
     }
 
-    // تحديث بيانات العقد
+    // تحديث بيانات العقد (بما فيها حقول المندوب)
     const updated = await prisma.contract.update({
       where: { id },
       data: {
@@ -149,6 +149,9 @@ export async function PUT(
         description: description ?? null,
         notes: notes ?? null,
         branchId,
+        agentName: agentName ?? null,
+        agentPhone: agentPhone ?? null,
+        agentEmail: agentEmail ?? null,
       },
       include: { attachments: true },
     });

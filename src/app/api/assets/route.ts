@@ -110,9 +110,17 @@ export async function GET(request: Request) {
       where.roomId = effectiveRoomId;
     }
 
-    // ✅ طباعة معلومات التصحيح (ستظهر في سجلات Render)
-    console.log("🔍 Assets API - roomId:", effectiveRoomId, "typeId:", typeId);
-    console.log("🔍 Assets API - where:", JSON.stringify(where, null, 2));
+    // ========== سجلات التصحيح (Debug) ==========
+    console.log("===== DEBUG START =====");
+    console.log("1. roomId param from URL:", searchParams.get('roomId'));
+    console.log("2. locationId param:", searchParams.get('locationId'));
+    console.log("3. typeId param:", searchParams.get('typeId'));
+    console.log("4. isAdmin:", isAdmin);
+    console.log("5. branchIds array:", branchIds);
+    console.log("6. companyId:", companyId);
+    console.log("7. effectiveRoomId:", effectiveRoomId);
+    console.log("8. Final where clause:", JSON.stringify(where, null, 2));
+    console.log("===== DEBUG END =====");
 
     // ✅ تنفيذ الاستعلام مع try/catch محلي
     let assets, total;

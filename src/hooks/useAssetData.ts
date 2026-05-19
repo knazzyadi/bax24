@@ -45,7 +45,7 @@ export function useAssetData({ slug, token, roomId, assetTypeId, isRtl }: UseAss
     }
   }, [slug, token, isRtl]);
 
-  // جلب الأصول بناءً على الغرفة ونوع الأصل
+  // جلب الأصول بناءً على الغرفة ونوع الأصل (باستخدام API العام)
   const fetchAssets = useCallback(async () => {
     if (!roomId) {
       setAssets([]);
@@ -53,20 +53,22 @@ export function useAssetData({ slug, token, roomId, assetTypeId, isRtl }: UseAss
     }
     setLoadingAssets(true);
     try {
-      let url = `/api/public/assets?slug=${slug}&token=${token}&roomId=${roomId}`;
-      if (assetTypeId && assetTypeId !== "none") {
-        url += `&typeId=${assetTypeId}`;
+      const params = new URLSearchParams();
+      params.append('roomId', roomId);
+      if (assetTypeId && assetTypeId !== "none" && assetTypeId !== "") {
+        params.append('typeId', assetTypeId);
       }
-      const res = await fetch(url);
+      // ✅ استخدام API العام للأصول (بدون مصادقة)
+      const res = await fetch(`/api/public/assets?${params.toString()}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
-      setAssets(data);
+      setAssets(data.assets || []);
     } catch {
       setAssets([]);
     } finally {
       setLoadingAssets(false);
     }
-  }, [slug, token, roomId, assetTypeId]);
+  }, [roomId, assetTypeId]);
 
   // تشغيل fetchAssets تلقائياً عند تغيير roomId أو assetTypeId
   useEffect(() => {

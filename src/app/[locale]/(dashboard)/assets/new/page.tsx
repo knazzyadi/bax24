@@ -1,3 +1,5 @@
+// src/app/[locale]/(dashboard)/assets/new/page.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -183,10 +185,19 @@ export default function NewAssetPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // ✅ فحص الاسم
     if (!formData.name.trim()) {
       toast.error(t('nameRequired'));
       return;
     }
+
+    // ✅ فحص نوع الأصل (إلزامي)
+    if (!formData.typeId || formData.typeId === "all") {
+      toast.error(isRtl ? "يرجى اختيار نوع الأصل" : "Please select an asset type");
+      return;
+    }
+
+    // ✅ فحص الغرفة (إلزامي - يمنع إنشاء أصل بدون غرفة)
     if (!roomId) {
       toast.error(t('locationRequired'));
       return;
@@ -267,7 +278,7 @@ export default function NewAssetPage() {
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <Label className="text-muted-foreground/70">{t('type')}</Label>
+                    <Label className="text-muted-foreground/70">{t('type')} *</Label>
                     <Select value={formData.typeId} onValueChange={(v) => handleSelectChange("typeId", v)} disabled={types.length === 0}>
                       <SelectTrigger className="w-full h-14 rounded-2xl border-primary bg-background px-6">
                         <SelectValue placeholder={t('selectType')} />
@@ -297,7 +308,7 @@ export default function NewAssetPage() {
                 <div className={containerClass}>
                   <div className="space-y-3">
                     <h3 className="text-foreground font-medium text-lg uppercase tracking-widest flex items-center gap-2">
-                      <MapPin size={16} /> {t('locationDetails')}
+                      <MapPin size={16} /> {t('locationDetails')} <span className="text-red-500 text-sm">*</span>
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <BuildingSelector value={buildingId} onValueChange={handleBuildingChange} buildings={buildings.map(normalizeBuilding)} loading={buildings.length === 0} placeholder={t('selectBuilding')} emptyMessage={t('noBuildings')} />

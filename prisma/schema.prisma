@@ -236,7 +236,7 @@ model Asset {
   nameEn          String?
   typeId          String?
   statusId        String?
-  roomId          String?
+  roomId          String
   purchaseDate    DateTime?
   warrantyEnd     DateTime?
   notes           String?

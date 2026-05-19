@@ -90,7 +90,7 @@ export async function GET(request: Request) {
       deletedAt: null,
     };
 
-    // ✅ FIX الأساسي (هنا المشكلة كانت)
+    // ✅ تصحيح: البحث مباشرة في branchId بدلاً من building.branchId
     if (!isAdmin) {
       if (branchIds.length > 0) {
         where.branchId = {
@@ -125,6 +125,7 @@ export async function GET(request: Request) {
       where.roomId = effectiveRoomId;
     }
 
+    // إزالة سجلات التصحيح بعد التأكد من عمل النظام (يمكنك حذف هذا السطر لاحقاً)
     console.log('===== DEBUG START =====');
     console.log('where:', JSON.stringify(where, null, 2));
     console.log('===== DEBUG END =====');
@@ -219,9 +220,10 @@ export async function POST(request: Request) {
       notes,
     } = body;
 
+    // ✅ التأكد من وجود roomId (يمنع إنشاء أصل بدون غرفة)
     if (!name || !typeId || !roomId) {
       return NextResponse.json(
-        { error: 'الاسم، النوع، والموقع مطلوبين' },
+        { error: 'الاسم، النوع، والموقع (الغرفة) مطلوبين' },
         { status: 400 }
       );
     }
@@ -235,6 +237,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // ✅ التحقق من صحة الغرفة وأن لها فرع ومبنى
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       select: {
@@ -243,9 +246,16 @@ export async function POST(request: Request) {
       },
     });
 
-    if (!room?.building?.branchId) {
+    if (!room) {
       return NextResponse.json(
-        { error: 'الغرفة غير صالحة' },
+        { error: 'الغرفة غير موجودة في قاعدة البيانات' },
+        { status: 400 }
+      );
+    }
+
+    if (!room.building?.branchId) {
+      return NextResponse.json(
+        { error: 'الغرفة غير مرتبطة بفرع أو مبنى صالح' },
         { status: 400 }
       );
     }
@@ -262,7 +272,7 @@ export async function POST(request: Request) {
         code,
         typeId,
         statusId: statusId || undefined,
-        roomId,
+        roomId,        // ✅ roomId إلزامي الآن
         buildingId,
         branchId,
         companyId,

@@ -80,11 +80,11 @@ export async function GET(request: Request) {
     };
 
     if (!isAdmin) {
-      if (branchIds.length > 0) {
-        where.building = {
-          branchId: { in: branchIds }
-        };
-      } else {
+    if (branchIds.length > 0) {
+      where.branchId = {
+        in: branchIds,
+      };
+    } else {
         return NextResponse.json({
           assets: [],
           total: 0,

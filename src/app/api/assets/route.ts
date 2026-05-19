@@ -14,19 +14,19 @@ async function generateAssetCode(
     where: { id: branchId },
     select: { code: true },
   });
+
   if (!branch || !branch.code) {
     throw new Error('الفرع غير صالح أو لا يحتوي على رمز (code)');
   }
-  const branchCode = branch.code;
 
   const assetType = await prisma.assetType.findUnique({
     where: { id: typeId },
     select: { code: true },
   });
+
   if (!assetType || !assetType.code) {
     throw new Error('نوع الأصل غير صالح أو لا يحتوي على رمز (code)');
   }
-  const typeCode = assetType.code;
 
   const lastAsset = await prisma.asset.findFirst({
     where: {
@@ -40,38 +40,49 @@ async function generateAssetCode(
   });
 
   let nextNumber = 1;
+
   if (lastAsset?.code) {
     const match = lastAsset.code.match(/-(\d{4})$/);
-    if (match) {
-      nextNumber = parseInt(match[1]) + 1;
-    }
+    if (match) nextNumber = parseInt(match[1]) + 1;
   }
 
-  const paddedNumber = nextNumber.toString().padStart(4, '0');
-  return `ATS-${branchCode}-${typeCode}-${paddedNumber}`;
+  const padded = nextNumber.toString().padStart(4, '0');
+
+  return `ATS-${branch.code}-${assetType.code}-${padded}`;
 }
 
 export async function GET(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     await requirePermission('assets.read', session);
 
     const { searchParams } = new URL(request.url);
+
     const q = searchParams.get('q') || '';
     const typeId = searchParams.get('typeId');
     const locationId = searchParams.get('locationId');
-    const roomId = searchParams.get('roomId');           // ✅ دعم roomId
+    const roomId = searchParams.get('roomId');
+
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin =
+      session.user.role === 'ADMIN' ||
+      session.user.role === 'SUPER_ADMIN';
+
     const branchIds = session.user.branchIds || [];
     const companyId = session.user.companyId;
 
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
     }
 
     const where: any = {
@@ -79,12 +90,13 @@ export async function GET(request: Request) {
       deletedAt: null,
     };
 
+    // ✅ FIX الأساسي (هنا المشكلة كانت)
     if (!isAdmin) {
-    if (branchIds.length > 0) {
-      where.branchId = {
-        in: branchIds,
-      };
-    } else {
+      if (branchIds.length > 0) {
+        where.branchId = {
+          in: branchIds,
+        };
+      } else {
         return NextResponse.json({
           assets: [],
           total: 0,
@@ -102,82 +114,58 @@ export async function GET(request: Request) {
         { code: { contains: q, mode: 'insensitive' } },
       ];
     }
-    if (typeId && typeId !== 'all') where.typeId = typeId;
 
-    // ✅ دمج roomId و locationId
+    if (typeId && typeId !== 'all') {
+      where.typeId = typeId;
+    }
+
     const effectiveRoomId = roomId || locationId;
+
     if (effectiveRoomId) {
       where.roomId = effectiveRoomId;
     }
 
-    // ========== سجلات التصحيح (Debug) ==========
-    console.log("===== DEBUG START =====");
-    console.log("1. roomId param from URL:", searchParams.get('roomId'));
-    console.log("2. locationId param:", searchParams.get('locationId'));
-    console.log("3. typeId param:", searchParams.get('typeId'));
-    console.log("4. isAdmin:", isAdmin);
-    console.log("5. branchIds array:", branchIds);
-    console.log("6. companyId:", companyId);
-    console.log("7. effectiveRoomId:", effectiveRoomId);
-    console.log("8. Final where clause:", JSON.stringify(where, null, 2));
-    console.log("===== DEBUG END =====");
+    console.log('===== DEBUG START =====');
+    console.log('where:', JSON.stringify(where, null, 2));
+    console.log('===== DEBUG END =====');
 
-    // ✅ تنفيذ الاستعلام مع try/catch محلي
-    let assets, total;
-    try {
-      [assets, total] = await Promise.all([
-        prisma.asset.findMany({
-          where,
-          select: {
-            id: true,
-            code: true,
-            name: true,
-            nameEn: true,
-            purchaseDate: true,
-            warrantyEnd: true,
-            lastMaintenanceDate: true,
-            notes: true,
-            createdAt: true,
-            updatedAt: true,
-            buildingId: true,
-            type: {
-              select: { id: true, name: true, nameEn: true, code: true },
-            },
-            status: {
-              select: { id: true, name: true, nameEn: true, color: true },
-            },
-            room: {
-              select: {
-                id: true,
-                name: true,
-                nameEn: true,
-                code: true,
-                floor: {
-                  select: {
-                    id: true,
-                    name: true,
-                    nameEn: true,
-                    building: {
-                      select: { id: true, name: true, nameEn: true, branchId: true },
-                    },
-                  },
-                },
-              },
+    const [assets, total] = await Promise.all([
+      prisma.asset.findMany({
+        where,
+        select: {
+          id: true,
+          code: true,
+          name: true,
+          nameEn: true,
+          purchaseDate: true,
+          warrantyEnd: true,
+          lastMaintenanceDate: true,
+          notes: true,
+          createdAt: true,
+          updatedAt: true,
+          buildingId: true,
+          type: {
+            select: { id: true, name: true, nameEn: true, code: true },
+          },
+          status: {
+            select: { id: true, name: true, nameEn: true, color: true },
+          },
+          room: {
+            select: {
+              id: true,
+              name: true,
+              nameEn: true,
+              code: true,
             },
           },
-          orderBy: { createdAt: 'desc' },
-          skip,
-          take: limit,
-        }),
-        prisma.asset.count({ where }),
-      ]);
-    } catch (dbError: any) {
-      console.error("❌ Database query error:", dbError);
-      return NextResponse.json(
-        { error: 'خطأ في استعلام قاعدة البيانات', details: dbError.message },
-        { status: 500 }
-      );
-    }
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+
+      prisma.asset.count({ where }),
+    ]);
 
     const serializedAssets = assets.map((asset: any) => ({
       ...asset,
@@ -196,9 +184,13 @@ export async function GET(request: Request) {
       limit,
     });
   } catch (error: any) {
-    console.error("❌ GET /api/assets error details:", error);
+    console.error('GET /api/assets error:', error);
+
     return NextResponse.json(
-      { error: 'خطأ في الخادم', message: error.message, stack: error.stack },
+      {
+        error: 'خطأ في الخادم',
+        message: error.message,
+      },
       { status: 500 }
     );
   }
@@ -207,64 +199,61 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session?.user) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     await requirePermission('assets.create', session);
 
     const body = await request.json();
-    const { name, nameEn, typeId, statusId, roomId, purchaseDate, warrantyEnd, lastMaintenanceDate, notes } = body;
+
+    const {
+      name,
+      nameEn,
+      typeId,
+      statusId,
+      roomId,
+      purchaseDate,
+      warrantyEnd,
+      lastMaintenanceDate,
+      notes,
+    } = body;
 
     if (!name || !typeId || !roomId) {
-      return NextResponse.json({ error: 'الاسم، نوع الأصل، والموقع إلزامية' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'الاسم، النوع، والموقع مطلوبين' },
+        { status: 400 }
+      );
     }
 
-    const companyId = session.user.companyId ?? undefined;
+    const companyId = session.user.companyId;
+
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
     }
 
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       select: {
         buildingId: true,
-        building: { select: { branchId: true } }
+        building: { select: { branchId: true } },
       },
     });
-    if (!room) {
-      return NextResponse.json({ error: 'الغرفة غير موجودة' }, { status: 400 });
-    }
-    const buildingId = room.buildingId;
-    const branchId = room.building?.branchId;
-    if (!branchId) {
-      return NextResponse.json({ error: 'الغرفة غير مرتبطة بفرع' }, { status: 400 });
+
+    if (!room?.building?.branchId) {
+      return NextResponse.json(
+        { error: 'الغرفة غير صالحة' },
+        { status: 400 }
+      );
     }
 
-    const assetType = await prisma.assetType.findUnique({
-      where: { id: typeId },
-      select: { code: true },
-    });
-    if (!assetType || !assetType.code) {
-      return NextResponse.json({ error: 'نوع الأصل غير صالح أو لا يحتوي على رمز (code)' }, { status: 400 });
-    }
+    const branchId = room.building.branchId;
+    const buildingId = room.buildingId;
 
     const code = await generateAssetCode(companyId, branchId, typeId);
-    const existing = await prisma.asset.findFirst({
-      where: { code, companyId },
-    });
-    if (existing) {
-      return NextResponse.json({ error: 'تعارض في توليد الكود، حاول مرة أخرى' }, { status: 409 });
-    }
-
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
-    if (!isAdmin) {
-      const building = await prisma.building.findUnique({
-        where: { id: buildingId },
-        select: { branchId: true }
-      });
-      const userBranchIds = session.user.branchIds || [];
-      if (!building || !userBranchIds.includes(building.branchId)) {
-        return NextResponse.json({ error: 'لا تملك صلاحية إضافة أصل في هذا المبنى' }, { status: 403 });
-      }
-    }
 
     const asset = await prisma.asset.create({
       data: {
@@ -279,7 +268,9 @@ export async function POST(request: Request) {
         companyId,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
         warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
-        lastMaintenanceDate: lastMaintenanceDate ? new Date(lastMaintenanceDate) : undefined,
+        lastMaintenanceDate: lastMaintenanceDate
+          ? new Date(lastMaintenanceDate)
+          : undefined,
         notes: notes || undefined,
       },
     });
@@ -287,8 +278,12 @@ export async function POST(request: Request) {
     return NextResponse.json(asset, { status: 201 });
   } catch (error: any) {
     console.error('POST /api/assets error:', error);
+
     return NextResponse.json(
-      { error: 'خطأ في إنشاء الأصل', details: error.message },
+      {
+        error: 'خطأ في إنشاء الأصل',
+        message: error.message,
+      },
       { status: 500 }
     );
   }

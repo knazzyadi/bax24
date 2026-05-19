@@ -179,9 +179,9 @@
         "title": "مخزون منخفض",
         "description": "أصناف تحتاج لإعادة طلب"
       },
-      "pendingRequests": {
-        "title": "طلبات معلقة",
-        "description": "طلبات تغيير الزيت والحوادث"
+       "pendingRequests": {
+      "title": "البلاغات",
+      "description": "التذاكر المعلقة للمراجعة"
       },
       "live": "مباشر"
     },

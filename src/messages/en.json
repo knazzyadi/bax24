@@ -180,8 +180,8 @@
         "description": "Items needing reorder"
       },
       "pendingRequests": {
-        "title": "Pending Requests",
-        "description": "Oil change & accident requests"
+      "title": "Tickets",
+      "description": "Pending tickets awaiting review"
       },
       "live": "Live"
     },

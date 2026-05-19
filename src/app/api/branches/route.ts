@@ -4,13 +4,14 @@ import { prisma } from '@/lib/prisma';
 import { auth } from '@/auth';
 import { randomUUID } from 'crypto';
 
-// دالة مساعدة لتوليد slug من النص
+// دالة لتحويل النص إلى slug صالح للـ URL (أحرف لاتينية، أرقام، شرطات فقط)
 function generateSlug(text: string): string {
   return text
     .toLowerCase()
-    .replace(/[^a-z0-9\u0600-\u06FF]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // إزالة علامات التشكيل (مثل é => e)
+    .replace(/[^a-z0-9]/g, "-") // إزالة كل ما ليس حرفًا إنجليزيًا أو رقمًا (بما فيها العربية)
+    .replace(/-+/g, "-")        // استبدال عدة شرطات بواحدة
+    .replace(/^-|-$/g, "");     // إزالة الشرطات من البداية والنهاية
 }
 
 export async function GET() {
@@ -98,8 +99,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الكود موجود مسبقاً في هذه الشركة' }, { status: 409 });
     }
 
-    // إنشاء slug فريد باستخدام الاسم أو الكود
-    let baseSlug = generateSlug(name);
+    // إنشاء slug من النص الإنجليزي (nameEn) إذا وُجد، وإلا من name (العربي سيُزال)
+    const baseText = nameEn && nameEn.trim() ? nameEn : name;
+    let baseSlug = generateSlug(baseText);
+    // إذا أصبح baseSlug فارغًا (مثلاً لو كان النص عربيًا فقط وتمت إزالته)، نستخدم "branch"
+    if (!baseSlug) baseSlug = "branch";
+    
     let slug = baseSlug;
     let counter = 1;
     while (await prisma.branch.findFirst({ where: { slug } })) {
@@ -107,8 +112,9 @@ export async function POST(request: Request) {
       counter++;
     }
 
-    // ✅ إنشاء الفرع – publicToken سيتم توليده تلقائياً بفضل @default(cuid()) في schema.prisma
-    // و slug تم إنشاؤه أعلاه
+    // توليد publicToken (حتى لو كان هناك default، نضمن وجود قيمة)
+    const publicToken = randomUUID();
+
     const newBranch = await prisma.branch.create({
       data: {
         name,
@@ -116,8 +122,8 @@ export async function POST(request: Request) {
         code,
         companyId: targetCompanyId,
         slug,
-        // publicToken: سيتم تعبئته تلقائياً من قاعدة البيانات
-        allowPublicTickets: true, // قيمة افتراضية
+        publicToken,
+        allowPublicTickets: true,
       },
     });
 

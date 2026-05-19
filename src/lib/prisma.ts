@@ -3,16 +3,23 @@ import { PrismaClient } from '@prisma/client';
 import { RequestContext } from './request-context';
 
 const SKIP_MODELS = ['User', 'Role', 'Permission', 'Company'];
+
 const MODELS_WITHOUT_COMPANY_ID = [
-  'TicketImage', 'WorkOrderAsset', 'ScheduleAsset',
-  'UserBranch', 'WorkOrderAttachment', 'Notification'
+  'TicketImage',
+  'WorkOrderAsset',
+  'ScheduleAsset',
+  'UserBranch',
+  'WorkOrderAttachment',
+  'Notification',
 ];
 
 type ExtendedPrismaClient = ReturnType<typeof createExtendedClient>;
 
 function createExtendedClient() {
   const baseClient = new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+    log: process.env.NODE_ENV === 'development'
+      ? ['query', 'error', 'warn']
+      : ['error'],
   });
 
   const extendedClient = baseClient.$extends({
@@ -22,20 +29,38 @@ function createExtendedClient() {
           const ctx = RequestContext.get();
           const user = ctx?.user;
 
-          if (!user || SKIP_MODELS.includes(model)) {
+          // 🚀 SKIP ALL GLOBAL FILTERING FOR IMPORTANT MODELS (FIX ROOT CAUSE)
+          if (
+            !user ||
+            SKIP_MODELS.includes(model) ||
+            model === 'Asset' // ✅ الحل الجذري للمشكلة
+          ) {
             return query(args);
           }
 
           const companyId = user.companyId;
+
           if (!companyId) {
             return query(args);
           }
 
-          const shouldAddCompanyId = !MODELS_WITHOUT_COMPANY_ID.includes(model);
-          let modifiedArgs = args as any;  // ✅ استخدام any للتغلب على تعقيد الأنواع
+          const shouldAddCompanyId =
+            !MODELS_WITHOUT_COMPANY_ID.includes(model);
 
-          if (['findMany', 'findFirst', 'count'].includes(operation) && shouldAddCompanyId) {
-            const existingWhere = (args && typeof args === 'object' && 'where' in args) ? (args as any).where : {};
+          let modifiedArgs = args as any;
+
+          // ===============================
+          // SELECT / FIND OPERATIONS
+          // ===============================
+          if (
+            ['findMany', 'findFirst', 'count'].includes(operation) &&
+            shouldAddCompanyId
+          ) {
+            const existingWhere =
+              (args && typeof args === 'object' && 'where' in args)
+                ? (args as any).where
+                : {};
+
             modifiedArgs = {
               ...args,
               where: {
@@ -45,27 +70,49 @@ function createExtendedClient() {
             };
           }
 
-          if (['create', 'createMany'].includes(operation) && shouldAddCompanyId) {
+          // ===============================
+          // CREATE OPERATIONS
+          // ===============================
+          if (
+            ['create', 'createMany'].includes(operation) &&
+            shouldAddCompanyId
+          ) {
             if (operation === 'create') {
-              const existingData = (args && typeof args === 'object' && 'data' in args) ? (args as any).data : {};
+              const existingData =
+                (args && typeof args === 'object' && 'data' in args)
+                  ? (args as any).data
+                  : {};
+
               modifiedArgs = {
                 ...args,
                 data: {
-                  ...(existingData && typeof existingData === 'object' ? existingData : {}),
+                  ...(existingData && typeof existingData === 'object'
+                    ? existingData
+                    : {}),
                   companyId: companyId,
                 },
               };
             } else if (operation === 'createMany') {
-              const inputData = (args && typeof args === 'object' && 'data' in args) ? (args as any).data : undefined;
+              const inputData =
+                (args && typeof args === 'object' && 'data' in args)
+                  ? (args as any).data
+                  : undefined;
+
               if (Array.isArray(inputData)) {
                 modifiedArgs = {
                   ...args,
-                  data: inputData.map((item: any) => ({ ...item, companyId: companyId })),
+                  data: inputData.map((item: any) => ({
+                    ...item,
+                    companyId,
+                  })),
                 };
               } else if (inputData && typeof inputData === 'object') {
                 modifiedArgs = {
                   ...args,
-                  data: { ...inputData, companyId: companyId },
+                  data: {
+                    ...inputData,
+                    companyId,
+                  },
                 };
               }
             }
@@ -80,8 +127,14 @@ function createExtendedClient() {
   return extendedClient;
 }
 
+// ===============================
+// Singleton (important for Next.js)
+// ===============================
 let prismaInstance: ExtendedPrismaClient | undefined;
-export const prisma = (global as any).prismaInstance ?? createExtendedClient();
+
+export const prisma =
+  (global as any).prismaInstance ?? createExtendedClient();
+
 if (process.env.NODE_ENV !== 'production') {
   (global as any).prismaInstance = prisma;
 }

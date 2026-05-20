@@ -54,6 +54,7 @@ import { PageContainer } from "@/components/shared/detail/PageContainer";
 import { DetailHeader } from "@/components/shared/detail/DetailHeader";
 import { InfoCard } from "@/components/shared/detail/InfoCard";
 import { SidebarCard } from "@/components/shared/detail/SidebarCard";
+import { AttachmentsManager } from "@/components/contracts/AttachmentsManager";
 
 interface Attachment {
   id: string;
@@ -103,6 +104,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [newStartDate, setNewStartDate] = useState("");
   const [newEndDate, setNewEndDate] = useState("");
+  const [canEdit, setCanEdit] = useState(false);
 
   const cancelReasonOptions = [
     { value: "legal_issue", label: t("reasonLegalIssue") },
@@ -132,6 +134,9 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
         const contractData = await res.json();
         setContract(contractData);
         setAttachments(contractData.attachments || []);
+        
+        // التحقق من صلاحية التعديل (يمكنك تعديل حسب صلاحيات المستخدم)
+        setCanEdit(true); // أو حسب role
       } catch (err) {
         console.error(err);
         toast.error(t("fetchError"));
@@ -350,39 +355,18 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </SidebarCard>
 
-          {/* المرفقات (عرض فقط) */}
-          <div className="bg-card border border-border rounded-2xl p-5 space-y-3">
+          {/* ✅ مرفقات العقد مع إدارة كاملة (رفع، حذف، إعادة تسمية) */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
             <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
               <Paperclip className="h-4 w-4" />
-              {t("attachments")} ({attachments.length})
+              {t("attachments")}
             </div>
-            {attachments.length === 0 && (
-              <p className="text-xs text-muted-foreground text-center py-2">{t("noAttachments")}</p>
-            )}
-            <div className="space-y-2">
-              {attachments.map((att, idx) => (
-                <div key={att.id || idx} className="flex items-center justify-between p-2 hover:bg-muted/20 rounded-xl transition-colors">
-                  <div className="flex items-center gap-2 overflow-hidden">
-                    {att.type?.startsWith("image/") ? (
-                      <Image className="h-5 w-5 text-primary shrink-0" />
-                    ) : att.type === "application/pdf" ? (
-                      <FileText className="h-5 w-5 text-destructive shrink-0" />
-                    ) : (
-                      <File className="h-5 w-5 text-muted-foreground shrink-0" />
-                    )}
-                    <span className="text-sm font-medium truncate max-w-[200px]">{att.name}</span>
-                  </div>
-                  <a
-                    href={att.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-primary hover:underline text-xs font-medium flex items-center gap-1"
-                  >
-                    <Eye className="h-4 w-4" /> {t("preview")}
-                  </a>
-                </div>
-              ))}
-            </div>
+            <AttachmentsManager
+              contractId={contract.id}
+              canUpload={canEdit}
+              canDelete={canEdit}
+              maxFiles={15}
+            />
           </div>
 
           <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20 flex items-start gap-3">

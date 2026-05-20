@@ -30,7 +30,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { WorkOrderInventory } from "@/components/work-order/WorkOrderInventory";
-import { AttachmentsManager } from "@/components/work-orders/AttachmentsManager";
+import { AttachmentsManager } from "@/components/work-order/AttachmentsManager";
 
 // تعريف نوع المرفق (مطابق لـ TicketAttachment)
 interface Attachment {

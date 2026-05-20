@@ -250,6 +250,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* العمود الرئيسي (2/3) */}
         <div className="lg:col-span-2 space-y-8">
+          {/* بطاقة المعلومات الأساسية */}
           <InfoCard title={t("basicInfo")} icon={<Zap className="h-5 w-5" />}>
             <div className="space-y-8">
               <div className="grid sm:grid-cols-2 gap-6">
@@ -259,7 +260,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 <DetailItem label={t("endDate")} value={contract.endDate} icon={Calendar} type="date" />
               </div>
 
-              {/* ✅ قسم المندوب (يظهر دائماً حتى لو كانت بعض الحقول فارغة) */}
+              {/* ✅ قسم المندوب */}
               <div className="pt-2 border-t border-border">
                 <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest mb-3">
                   <User className="h-3.5 w-3.5" />
@@ -296,7 +297,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                   )}
                 </div>
-                {/* إذا كانت جميع الحقول فارغة، نعرض رسالة "لا يوجد" */}
                 {!contract.agentName && !contract.agentPhone && !contract.agentEmail && (
                   <p className="text-sm text-muted-foreground">{t("noAgentInfo")}</p>
                 )}
@@ -332,6 +332,20 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
               )}
             </div>
           </InfoCard>
+
+          {/* ✅ حاوية المرفقات (منقولة إلى هنا - أسفل معلومات العقد) */}
+          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
+            <div className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground uppercase tracking-widest">
+              <Paperclip className="h-4 w-4" />
+              {t("attachments")}
+            </div>
+            <AttachmentsManager
+              contractId={contract.id}
+              canUpload={canEdit}
+              canDelete={canEdit}
+              maxFiles={15}
+            />
+          </div>
         </div>
 
         {/* العمود الجانبي (1/3) */}
@@ -354,20 +368,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
               </div>
             </div>
           </SidebarCard>
-
-          {/* ✅ مرفقات العقد مع إدارة كاملة (رفع، حذف، إعادة تسمية) */}
-          <div className="bg-card border border-border rounded-2xl p-5 space-y-4">
-            <div className="flex items-center gap-2 text-[10px] font-medium text-muted-foreground uppercase tracking-widest">
-              <Paperclip className="h-4 w-4" />
-              {t("attachments")}
-            </div>
-            <AttachmentsManager
-              contractId={contract.id}
-              canUpload={canEdit}
-              canDelete={canEdit}
-              maxFiles={15}
-            />
-          </div>
 
           <div className="p-5 rounded-2xl bg-primary/5 border border-primary/20 flex items-start gap-3">
             <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
@@ -400,7 +400,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             )}
           </div>
 
-          {/* زر العودة (إلغاء) */}
+          {/* زر العودة */}
           <Button
             variant="outline"
             onClick={() => router.back()}

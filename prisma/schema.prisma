@@ -381,6 +381,7 @@ model WorkOrder {
   ticket             Ticket?              @relation(fields: [ticketId], references: [id])
   workOrderAssets    WorkOrderAsset[]
   workOrderInventory WorkOrderInventory[]
+  attachments        WorkOrderAttachment[]
 
   @@unique([branchId, branchSeqNum])   // ✅ قيد فريد لكل فرع
   @@index([companyId])
@@ -398,6 +399,24 @@ model WorkOrderAsset {
   workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@id([workOrderId, assetId])
+}
+
+model WorkOrderAttachment {
+  id          String   @id @default(cuid())
+  workOrderId String
+  url         String   // رابط الملف الكامل (من Cloudflare R2)
+  key         String   // المفتاح الفريد للتخزين (مثل "work-orders/abc-123.pdf")
+  fileName    String   // الاسم الذي أدخله المستخدم (مثل "فاتورة الصيانة")
+  originalName String  // اسم الملف الأصلي (مثل "invoice.pdf")
+  provider    String   @default("CLOUDFLARE_R2")
+  mimeType    String   // نوع الملف (application/pdf)
+  size        Int      // الحجم بالبايت (بحد أقصى 10MB)
+  uploadedBy  String?  // معرف المستخدم الذي رفع الملف
+  createdAt   DateTime @default(now())
+
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  @@index([workOrderId])
 }
 
 model MaintenanceSchedule {

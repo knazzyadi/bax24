@@ -30,6 +30,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import Link from "next/link";
 import { WorkOrderInventory } from "@/components/work-order/WorkOrderInventory";
+import { AttachmentsManager } from "@/components/work-orders/AttachmentsManager";
 
 // تعريف نوع المرفق (مطابق لـ TicketAttachment)
 interface Attachment {
@@ -97,6 +98,9 @@ export default function WorkOrderDetailPage() {
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [loadingAttachments, setLoadingAttachments] = useState(false);
 
+  // تحديد صلاحيات المستخدم (يمكنك تعديلها حسب نظام الصلاحيات لديك)
+  const canEdit = true; // ✅ يمكن تعديلها بناءً على دور المستخدم
+
   useEffect(() => {
     const fetchWorkOrder = async () => {
       try {
@@ -115,7 +119,7 @@ export default function WorkOrderDetailPage() {
     if (id) fetchWorkOrder();
   }, [id, locale, router, t]);
 
-  // جلب مرفقات التذكرة (بدلاً من الصور القديمة)
+  // جلب مرفقات التذكرة (الصور)
   useEffect(() => {
     const fetchTicketAttachments = async () => {
       if (!workOrder?.ticketId) return;
@@ -402,6 +406,16 @@ export default function WorkOrderDetailPage() {
             <WorkOrderInventory workOrderId={workOrder.id} locale={locale} />
           </InfoCard>
 
+          {/* ✅ مرفقات PDF الخاصة بأمر العمل (جديدة) */}
+          <InfoCard title={isRtl ? "مرفقات PDF" : "PDF Attachments"} icon={<FileText className="h-5 w-5" />}>
+            <AttachmentsManager
+              workOrderId={workOrder.id}
+              canUpload={canEdit}
+              canDelete={canEdit}
+              maxFiles={5}
+            />
+          </InfoCard>
+
           <InfoCard title={t("location")} icon={<MapPin className="h-5 w-5" />}>
             {workOrder.room ? (
               <div>
@@ -428,7 +442,7 @@ export default function WorkOrderDetailPage() {
             </InfoCard>
           )}
 
-          {/* المرفقات من التذكرة (باستخدام attachments بدلاً من ticketImages) */}
+          {/* المرفقات من التذكرة (الصور) */}
           {workOrder.ticketId && (
             <InfoCard title={t("attachedImages")} icon={<FileText className="h-5 w-5" />}>
               {loadingAttachments ? (

@@ -59,6 +59,7 @@ export default function DashboardPage() {
     }
   }
 
+  // ✅ التعديل هنا: استخدام API التذاكر بدلاً من طلبات الزيت والحوادث
   const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(false);
@@ -67,34 +68,28 @@ export default function DashboardPage() {
         '/api/stats/assets-count',
         '/api/stats/work-orders-count',
         '/api/stats/low-inventory-count',
-        '/api/stats/pending-requests-count',  // نجمع طلبات الزيت والحوادث هنا أو نهاية منفصلة
-        '/api/stats/pending-oil-requests',
-        '/api/stats/pending-accident-requests',
+        '/api/tickets/count?status=PENDING',  // ✅ جلب عدد التذاكر المعلقة
       ];
 
-      // استخدام Promise.allSettled بدلاً من all لتجنب فشل واحد يؤدي إلى إسقاط الكل
       const results = await Promise.allSettled(
         endpoints.map(async (url) => {
           const res = await fetch(url);
           if (!res.ok) throw new Error(`HTTP ${res.status}`);
           const json: StatsResponse = await res.json();
-          // بعض الـ APIs ترجع العدد مباشرة، والبعض ترجع { count: number }
           if (typeof json === 'number') return json;
           return json.count ?? 0;
         })
       );
 
-      // استخراج القيم الناجحة فقط، واستخدام 0 للقيم الفاشلة
       const values = results.map((result) => (result.status === 'fulfilled' ? result.value : 0));
 
-      // الترتيب: assets, workOrders, lowInventory, pendingRequests, oil, accident
-      const [assets, workOrders, lowInventory, pendingRequests, oil, accident] = values;
+      const [assets, workOrders, lowInventory, pendingTickets] = values;
       
       setData({
         assets: assets ?? 0,
         workOrders: workOrders ?? 0,
         lowInventory: lowInventory ?? 0,
-        pendingRequests: (oil ?? 0) + (accident ?? 0),
+        pendingRequests: pendingTickets ?? 0,  // ✅ عدد التذاكر المعلقة
       });
     } catch (err) {
       console.error('Dashboard error:', err);

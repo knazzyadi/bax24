@@ -182,7 +182,7 @@ export function AttachmentsManager({
 
         {canUpload && attachments.length < maxFiles && (
           <Dialog open={openDialog} onOpenChange={setOpenDialog}>
-            <DialogTrigger asChild>
+            <DialogTrigger>
               <Button variant="outline" size="sm" className="gap-1">
                 <Plus size={14} />
                 {isRtl ? "إضافة ملف" : "Add File"}

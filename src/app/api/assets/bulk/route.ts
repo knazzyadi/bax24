@@ -1,7 +1,6 @@
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
-import { randomUUID } from 'crypto';
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,15 +28,24 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < assets.length; i++) {
         const asset = assets[i];
         try {
-          // الحصول على بادئة النوع (اختياري)
+          // 1. الحصول على البادئة الخاصة بنوع الأصل
           const assetType = await tx.assetType.findUnique({
             where: { id: asset.typeId },
             select: { code: true },
           });
           const prefix = assetType?.code || 'AST';
-          const uniqueId = randomUUID().split('-')[0];
-          const code = `${prefix}-${uniqueId}`;
 
+          // 2. زيادة العداد لهذا النوع والحصول على القيمة الجديدة
+          const counter = await tx.assetCounter.upsert({
+            where: { typeId: asset.typeId },
+            update: { lastValue: { increment: 1 } },
+            create: { typeId: asset.typeId, lastValue: 1000 },
+          });
+
+          // 3. توليد الكود المتسلسل (مثال: AST-1001)
+          const code = `${prefix}-${counter.lastValue}`;
+
+          // 4. إنشاء الأصل
           const newAsset = await tx.asset.create({
             data: {
               name: asset.name,

@@ -1,12 +1,13 @@
+// hooks/useBulkAssets.ts
 import { useState, useCallback } from 'react';
 import { BulkAssetRow } from '../types/bulkImport.types';
-import crypto from 'crypto';
+import { generateId } from '../utils/generateId';
 
 export function useBulkAssets(initialRows?: BulkAssetRow[]) {
   const [rows, setRows] = useState<BulkAssetRow[]>(
     initialRows ?? [
       {
-        id: crypto.randomUUID(),
+        id: generateId(),
         name: '',
         nameEn: '',
         typeId: '',
@@ -23,7 +24,7 @@ export function useBulkAssets(initialRows?: BulkAssetRow[]) {
     setRows(prev => [
       ...prev,
       {
-        id: crypto.randomUUID(),
+        id: generateId(),
         name: '',
         nameEn: '',
         typeId: '',

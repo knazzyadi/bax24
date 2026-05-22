@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { AssetRowSchema, BulkAssetRow } from '../types/bulkImport.types';
+import { generateId } from './generateId';
 
 export function validateCSVRow(row: any): { valid: boolean; errors?: string[]; data?: BulkAssetRow } {
   const result = AssetRowSchema.safeParse(row);
@@ -8,7 +9,7 @@ export function validateCSVRow(row: any): { valid: boolean; errors?: string[]; d
     return {
       valid: true,
       data: {
-        id: crypto.randomUUID(),
+         id: generateId(),
         ...result.data,
       },
     };

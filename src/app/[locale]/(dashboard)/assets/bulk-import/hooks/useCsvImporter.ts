@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import Papa from 'papaparse';
 import { toast } from 'sonner';
 import { AssetRowSchema, BulkAssetRow } from '../types/bulkImport.types';
-import crypto from 'crypto';
+import { generateId } from '../utils/generateId';
 
 export function useCsvImporter(onSuccess: (rows: BulkAssetRow[]) => void) {
   const [isLoading, setIsLoading] = useState(false);
@@ -34,9 +34,9 @@ export function useCsvImporter(onSuccess: (rows: BulkAssetRow[]) => void) {
             
             if (parseResult.success) {
               validatedRows.push({
-                id: crypto.randomUUID(),
-                ...parseResult.data,
-              });
+              id: generateId(),
+              ...parseResult.data,
+            });
             } else {
               // التوافق مع إصدارات Zod المختلفة
               const zodError = parseResult.error;

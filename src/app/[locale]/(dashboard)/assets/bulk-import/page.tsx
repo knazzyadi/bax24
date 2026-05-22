@@ -15,7 +15,6 @@ import { useAssetTypesAndStatuses } from "./hooks/useAssetTypesAndStatuses";
 import { useAssetLocation } from "./hooks/useAssetLocation";
 import { useBulkAssets } from "./hooks/useBulkAssets";
 import { useCsvImporter } from "./hooks/useCsvImporter";
-import { generateSequentialCodesForTypes } from "./utils/generateBatchCodes";
 import { toast } from "sonner";
 
 export default function BulkImportAssetsPage() {
@@ -89,45 +88,65 @@ export default function BulkImportAssetsPage() {
     return true;
   };
 
+  // حفظ جميع الأصول دفعة واحدة باستخدام API الجديد
   const saveAll = async () => {
     if (!validateRows()) return;
     setIsSaving(true);
-    const typeIds = rows.map((r) => r.typeId);
-    const codes = await generateSequentialCodesForTypes(typeIds);
 
-    const results = await Promise.allSettled(
-      rows.map(async (row, idx) => {
-        const payload = {
-          name: row.name.trim(),
-          nameEn: row.nameEn?.trim() || null,
-          code: codes[idx],
-          typeId: row.typeId,
-          statusId: row.statusId || null,
-          purchaseDate: formatDate(row.purchaseDate),
-          warrantyEnd: formatDate(row.warrantyEnd),
-          lastMaintenanceDate: formatDate(row.lastMaintenanceDate),
+    // تجهيز البيانات للإرسال (بدون أكواد)
+    const assetsToSend = rows.map((row) => ({
+      name: row.name.trim(),
+      nameEn: row.nameEn?.trim() || null,
+      typeId: row.typeId,
+      statusId: row.statusId || null,
+      purchaseDate: formatDate(row.purchaseDate),
+      warrantyEnd: formatDate(row.warrantyEnd),
+      lastMaintenanceDate: formatDate(row.lastMaintenanceDate),
+      notes: row.notes || null,
+    }));
+
+    try {
+      const res = await fetch("/api/assets/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           roomId: selectedRoomId,
-          notes: row.notes || null,
-        };
-        const res = await fetch("/api/assets", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        return res.ok;
-      })
-    );
+          assets: assetsToSend,
+        }),
+      });
 
-    const successCount = results.filter((r) => r.status === "fulfilled" && r.value).length;
-    const failCount = results.length - successCount;
+      const data = await res.json();
 
-    setIsSaving(false);
-    if (failCount === 0) {
-      toast.success(t("bulkSaveSuccess", { successCount }));
-      router.push(`/${locale}/assets`);
-      router.refresh();
-    } else {
-      toast.error(t("bulkSavePartial", { successCount, failCount }));
+      if (!res.ok) {
+        throw new Error(data.error || "فشل حفظ الأصول");
+      }
+
+      const { successCount, failCount, errors } = data;
+
+      if (failCount === 0) {
+        toast.success(t("bulkSaveSuccess", { successCount }));
+        router.push(`/${locale}/assets`);
+        router.refresh();
+      } else {
+        // عرض رسالة عامة
+        toast.error(t("bulkSavePartial", { successCount, failCount }));
+        // عرض أول خطأ للمستخدم (إن وجد)
+        if (errors && errors.length > 0) {
+          const firstError = errors[0];
+          toast.error(
+            isRtl
+              ? `الصف ${firstError.index + 1}: ${firstError.message}`
+              : `Row ${firstError.index + 1}: ${firstError.message}`
+          );
+        }
+        // تسجيل التفاصيل في الكونسول للمساعدة التقنية
+        console.error("Bulk save errors:", errors);
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || isRtl ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving");
+    } finally {
+      setIsSaving(false);
     }
   };
 

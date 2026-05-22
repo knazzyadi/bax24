@@ -268,6 +268,14 @@ model Asset {
   @@map("assets")
 }
 
+model AssetCounter {
+  typeId    String   @id
+  lastValue Int      @default(1000)
+  updatedAt DateTime @updatedAt
+
+  // بدون علاقة صريحة - هذا مقبول وسيظل يعمل
+}
+
 model InventoryItem {
   id                 String               @id @default(cuid())
   sku                String?              @unique

@@ -25,7 +25,7 @@ export default function BulkImportAssetsPage() {
   const isRtl = locale === "ar";
 
   // Hooks
-  const { types, statuses, loading: loadingTypesStatus } = useAssetTypesAndStatuses();
+  const { types, statuses } = useAssetTypesAndStatuses();
   const {
     buildings,
     floors,
@@ -46,7 +46,20 @@ export default function BulkImportAssetsPage() {
   const { uploadFile, isLoading: isUploading } = useCsvImporter(setRowsFromCSV);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Download template
+  // دالة مساعدة لتنسيق التاريخ
+  const formatDate = (dateStr: unknown): string | null => {
+    if (dateStr == null || dateStr === "") return null;
+    if (typeof dateStr !== "string") return null;
+    try {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return null;
+      return date.toISOString().split("T")[0];
+    } catch {
+      return null;
+    }
+  };
+
+  // تحميل قالب CSV
   const downloadTemplate = () => {
     const headers = ["name", "nameEn", "typeId", "statusId", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
     const csvContent = headers.join(",") + "\nExample Asset,Example EN,type_id_here,,2025-01-01,2026-01-01,2025-06-01,notes\n";
@@ -60,12 +73,12 @@ export default function BulkImportAssetsPage() {
 
   const validateRows = () => {
     for (let i = 0; i < rows.length; i++) {
-      if (!rows[i].name.trim()) {
-        toast.error(isRtl ? `الصف ${i+1}: الاسم مطلوب` : `Row ${i+1}: Name required`);
+      if (!rows[i].name?.trim()) {
+        toast.error(isRtl ? `الصف ${i + 1}: الاسم مطلوب` : `Row ${i + 1}: Name required`);
         return false;
       }
       if (!rows[i].typeId) {
-        toast.error(isRtl ? `الصف ${i+1}: النوع مطلوب` : `Row ${i+1}: Type required`);
+        toast.error(isRtl ? `الصف ${i + 1}: النوع مطلوب` : `Row ${i + 1}: Type required`);
         return false;
       }
     }
@@ -79,7 +92,7 @@ export default function BulkImportAssetsPage() {
   const saveAll = async () => {
     if (!validateRows()) return;
     setIsSaving(true);
-    const typeIds = rows.map(r => r.typeId);
+    const typeIds = rows.map((r) => r.typeId);
     const codes = await generateSequentialCodesForTypes(typeIds);
 
     const results = await Promise.allSettled(
@@ -90,9 +103,9 @@ export default function BulkImportAssetsPage() {
           code: codes[idx],
           typeId: row.typeId,
           statusId: row.statusId || null,
-          purchaseDate: row.purchaseDate || null,
-          warrantyEnd: row.warrantyEnd || null,
-          lastMaintenanceDate: row.lastMaintenanceDate || null,
+          purchaseDate: formatDate(row.purchaseDate),
+          warrantyEnd: formatDate(row.warrantyEnd),
+          lastMaintenanceDate: formatDate(row.lastMaintenanceDate),
           roomId: selectedRoomId,
           notes: row.notes || null,
         };
@@ -105,16 +118,16 @@ export default function BulkImportAssetsPage() {
       })
     );
 
-    const successCount = results.filter(r => r.status === "fulfilled" && r.value).length;
+    const successCount = results.filter((r) => r.status === "fulfilled" && r.value).length;
     const failCount = results.length - successCount;
 
     setIsSaving(false);
     if (failCount === 0) {
-      toast.success(t('bulkSaveSuccess', { successCount }));
+      toast.success(t("bulkSaveSuccess", { successCount }));
       router.push(`/${locale}/assets`);
       router.refresh();
     } else {
-      toast.error(t('bulkSavePartial', { successCount, failCount }));
+      toast.error(t("bulkSavePartial", { successCount, failCount }));
     }
   };
 
@@ -122,56 +135,157 @@ export default function BulkImportAssetsPage() {
     <PageContainer>
       <DetailHeader
         icon={<Upload size={28} />}
-        title={t('bulkImportTitle')}
-        actions={<Button variant="outline" onClick={() => router.back()}><X className="h-4 w-4" /> {t('back')}</Button>}
+        title={t("bulkImportTitle")}
+        actions={
+          <Button variant="outline" onClick={() => router.back()}>
+            <X className="h-4 w-4" /> {t("back")}
+          </Button>
+        }
       />
       <div className="space-y-8">
-        {/* Location Card */}
+        {/* بطاقة الموقع المشترك */}
         <InfoCard title={isRtl ? "الموقع المشترك" : "Common Location"} icon={<></>}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <BuildingSelector value={selectedBuildingId} onValueChange={handleBuildingChange} buildings={buildings} />
-            <FloorSelector value={selectedFloorId} onValueChange={handleFloorChange} floors={floors} buildingId={selectedBuildingId} loading={loadingFloors} />
-            <RoomSelector value={selectedRoomId} onValueChange={handleRoomChange} rooms={rooms} floorId={selectedFloorId} loading={loadingRooms} />
+            <BuildingSelector
+              value={selectedBuildingId}
+              onValueChange={handleBuildingChange}
+              buildings={buildings}
+            />
+            <FloorSelector
+              value={selectedFloorId}
+              onValueChange={handleFloorChange}
+              floors={floors}
+              buildingId={selectedBuildingId}
+              loading={loadingFloors}
+            />
+            <RoomSelector
+              value={selectedRoomId}
+              onValueChange={handleRoomChange}
+              rooms={rooms}
+              floorId={selectedFloorId}
+              loading={loadingRooms}
+            />
           </div>
-          {selectedRoomCode && <p className="text-sm text-primary mt-2">{selectedRoomName} — {selectedRoomCode}</p>}
+          {selectedRoomCode && (
+            <p className="text-sm text-primary mt-2">
+              {selectedRoomName} — {selectedRoomCode}
+            </p>
+          )}
         </InfoCard>
 
-        {/* Assets Table Card */}
+        {/* بطاقة جدول الأصول */}
         <InfoCard title={isRtl ? "قائمة الأصول" : "Assets List"} icon={<></>}>
           <div className="flex gap-2 mb-4">
-            <Button variant="outline" onClick={downloadTemplate}><FileUp className="h-4 w-4" /> {t('bulkImportTemplate')}</Button>
+            <Button variant="outline" onClick={downloadTemplate}>
+              <FileUp className="h-4 w-4" /> {t("bulkImportTemplate")}
+            </Button>
             <Button variant="secondary" onClick={uploadFile} disabled={isUploading}>
               {isUploading ? <Loader2 className="animate-spin h-4 w-4" /> : <Upload className="h-4 w-4" />}
-              {t('bulkUploadCSV')}
+              {t("bulkUploadCSV")}
             </Button>
-            <Button onClick={addRow} variant="outline"><Plus className="h-4 w-4" /> {t('addRow')}</Button>
+            <Button onClick={addRow} variant="outline">
+              <Plus className="h-4 w-4" /> {t("addRow")}
+            </Button>
           </div>
 
-          {/* Desktop Table */}
+          {/* جدول سطح المكتب */}
           <div className="hidden lg:block border rounded-xl overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-muted"><tr>{["name","nameEn","type","status","purchaseDate","warrantyEnd","lastMaintenance","notes",""].map(h => <th key={h} className="p-2 text-left">{t(h)}</th>)}</tr></thead>
+              <thead className="bg-muted">
+                <tr>
+                  {["name", "nameEn", "type", "status", "purchaseDate", "warrantyEnd", "lastMaintenance", "notes", ""].map((h) => (
+                    <th key={h} className="p-2 text-left">
+                      {t(h)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
               <tbody>
                 {rows.map((row, idx) => (
                   <tr key={row.id}>
-                    <td><input className="border p-1 w-full" value={row.name} onChange={e => updateRow(idx, "name", e.target.value)} /></td>
-                    <td><input className="border p-1 w-full" value={row.nameEn} onChange={e => updateRow(idx, "nameEn", e.target.value)} /></td>
-                    <td><select value={row.typeId} onChange={e => updateRow(idx, "typeId", e.target.value)} className="border p-1">{types.map(t => <option key={t.id} value={t.id}>{isRtl ? t.name : t.nameEn}</option>)}</select></td>
-                    <td><select value={row.statusId} onChange={e => updateRow(idx, "statusId", e.target.value)} className="border p-1">{statuses.map(s => <option key={s.id} value={s.id}>{isRtl ? s.name : s.nameEn}</option>)}</select></td>
-                    <td><input type="date" value={row.purchaseDate} onChange={e => updateRow(idx, "purchaseDate", e.target.value)} /></td>
-                    <td><input type="date" value={row.warrantyEnd} onChange={e => updateRow(idx, "warrantyEnd", e.target.value)} /></td>
-                    <td><input type="date" value={row.lastMaintenanceDate} onChange={e => updateRow(idx, "lastMaintenanceDate", e.target.value)} /></td>
-                    <td><input value={row.notes} onChange={e => updateRow(idx, "notes", e.target.value)} /></td>
-                    <td><Button variant="ghost" size="icon" onClick={() => removeRow(idx)}><Trash2 className="h-4 w-4" /></Button></td>
+                    <td>
+                      <input
+                        className="border p-1 w-full"
+                        value={row.name}
+                        onChange={(e) => updateRow(idx, "name", e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        className="border p-1 w-full"
+                        value={row.nameEn}
+                        onChange={(e) => updateRow(idx, "nameEn", e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <select
+                        value={row.typeId}
+                        onChange={(e) => updateRow(idx, "typeId", e.target.value)}
+                        className="border p-1"
+                      >
+                        {types.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {isRtl ? t.name : t.nameEn}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <select
+                        value={row.statusId}
+                        onChange={(e) => updateRow(idx, "statusId", e.target.value)}
+                        className="border p-1"
+                      >
+                        {statuses.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {isRtl ? s.name : s.nameEn}
+                          </option>
+                        ))}
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        type="date"
+                        value={row.purchaseDate as string}
+                        onChange={(e) => updateRow(idx, "purchaseDate", e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="date"
+                        value={row.warrantyEnd as string}
+                        onChange={(e) => updateRow(idx, "warrantyEnd", e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="date"
+                        value={row.lastMaintenanceDate as string}
+                        onChange={(e) => updateRow(idx, "lastMaintenanceDate", e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        value={row.notes}
+                        onChange={(e) => updateRow(idx, "notes", e.target.value)}
+                      />
+                    </td>
+                    <td>
+                      <Button variant="ghost" size="icon" onClick={() => removeRow(idx)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
+
+          {/* زر الحفظ الجماعي */}
           <div className="flex justify-end mt-4">
             <Button onClick={saveAll} disabled={isSaving || !selectedRoomId}>
               {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
-              {t('bulkSaveAll')}
+              {t("bulkSaveAll")}
             </Button>
           </div>
         </InfoCard>

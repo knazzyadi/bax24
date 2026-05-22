@@ -21,34 +21,51 @@ export function useCsvImporter(onSuccess: (rows: BulkAssetRow[]) => void) {
           const errors: string[] = [];
 
           rawData.forEach((row, idx) => {
+            // تطبيع التواريخ: محاولة تحويل أي صيغة إلى YYYY-MM-DD
+            const normalizedRow = { ...row };
+            const dateFields = ['purchaseDate', 'warrantyEnd', 'lastMaintenanceDate'];
+            for (const field of dateFields) {
+              if (normalizedRow[field]) {
+                const date = new Date(normalizedRow[field]);
+                if (!isNaN(date.getTime())) {
+                  normalizedRow[field] = date.toISOString().split('T')[0];
+                } else {
+                  normalizedRow[field] = ''; // سيسبب فشل التحقق
+                }
+              }
+            }
+
             const parseResult = AssetRowSchema.safeParse({
-              name: row.name,
-              nameEn: row.nameEn,
-              typeId: row.typeId,
-              statusId: row.statusId,
-              purchaseDate: row.purchaseDate,
-              warrantyEnd: row.warrantyEnd,
-              lastMaintenanceDate: row.lastMaintenanceDate,
-              notes: row.notes,
+              name: normalizedRow.name,
+              nameEn: normalizedRow.nameEn,
+              typeId: normalizedRow.typeId,
+              statusId: normalizedRow.statusId,
+              purchaseDate: normalizedRow.purchaseDate,
+              warrantyEnd: normalizedRow.warrantyEnd,
+              lastMaintenanceDate: normalizedRow.lastMaintenanceDate,
+              notes: normalizedRow.notes,
             });
             
             if (parseResult.success) {
               validatedRows.push({
-              id: generateId(),
-              ...parseResult.data,
-            });
+                id: generateId(),
+                ...parseResult.data,
+              });
             } else {
-              // التوافق مع إصدارات Zod المختلفة
               const zodError = parseResult.error;
-              let firstMessage = 'Validation error';
+              let errorMessage = 'Invalid data';
               
               if ('issues' in zodError && zodError.issues.length > 0) {
-                firstMessage = zodError.issues[0].message;
+                const issue = zodError.issues[0];
+                const field = issue.path.join('.');
+                errorMessage = field ? `${field}: ${issue.message}` : issue.message;
               } else if ('errors' in zodError && (zodError as any).errors.length > 0) {
-                firstMessage = (zodError as any).errors[0].message;
+                const err = (zodError as any).errors[0];
+                const field = err.path?.join('.') || '';
+                errorMessage = field ? `${field}: ${err.message}` : err.message;
               }
               
-              errors.push(`Row ${idx + 1}: ${firstMessage}`);
+              errors.push(`Row ${idx + 1}: ${errorMessage}`);
             }
           });
 

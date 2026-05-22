@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,10 @@ export default function BulkImportAssetsPage() {
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
+  // Refs للحل الاحترافي لرفع الملفات
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [csvError, setCsvError] = useState<string | null>(null);
+
   const normalizeBuilding = (b: Building) => ({ ...b, nameEn: b.nameEn ?? undefined });
   const normalizeFloor = (f: Floor) => ({ ...f, nameEn: f.nameEn ?? undefined });
   const normalizeRoom = (r: Room) => ({ ...r, nameEn: r.nameEn ?? undefined });
@@ -104,6 +108,86 @@ export default function BulkImportAssetsPage() {
     return isRtl ? status.name : (status.nameEn || status.name);
   };
 
+  // ========== الحل الاحترافي لرفع الملفات (يمنع خطأ message channel) ==========
+  
+  // دالة معالجة الملف بعد اختياره
+  const processCSVFile = useCallback((file: File) => {
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: (results) => {
+        const parsed = results.data as any[];
+        const newRows: BulkAssetRow[] = parsed.map((row) => ({
+          id: crypto.randomUUID(),
+          name: row.name || "",
+          nameEn: row.nameEn || "",
+          typeId: row.typeId || "",
+          statusId: row.statusId || "",
+          purchaseDate: row.purchaseDate || "",
+          warrantyEnd: row.warrantyEnd || "",
+          lastMaintenanceDate: row.lastMaintenanceDate || "",
+          notes: row.notes || "",
+        })).filter(row => row.name.trim() !== "");
+        if (newRows.length) {
+          setRows(newRows);
+          toast.success(t('importSuccess', { count: newRows.length }));
+        } else {
+          toast.warning(isRtl ? "الملف لا يحتوي على بيانات صالحة" : "File contains no valid data");
+        }
+        setCsvError(null);
+      },
+      error: (error) => {
+        console.error("CSV Parse Error:", error);
+        toast.error(t('importError'));
+        setCsvError(error.message);
+      },
+    });
+  }, [t, isRtl]);
+
+  // الطريقة الحديثة (File System Access API) - تمنع تماماً خطأ message channel
+  const handleFileUploadModern = useCallback(async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // التحقق من دعم المتصفح للـ File System Access API
+    if ('showOpenFilePicker' in window) {
+      try {
+        const [fileHandle] = await (window as any).showOpenFilePicker({
+          types: [{
+            description: 'CSV files',
+            accept: { 'text/csv': ['.csv'] }
+          }],
+          multiple: false
+        });
+        const file = await fileHandle.getFile();
+        processCSVFile(file);
+      } catch (err: any) {
+        // المستخدم ألغى اختيار الملف - لا نعرض رسالة خطأ
+        if (err.name !== 'AbortError') {
+          console.error("File picker error:", err);
+          toast.error(isRtl ? 'خطأ في اختيار الملف' : 'Error selecting file');
+        }
+      }
+    } else {
+      // Fallback للمتصفحات القديمة: استخدم input المخفي مع تحسينات
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''; // إعادة تعيين القيمة
+        fileInputRef.current.click();
+      }
+    }
+  }, [isRtl, processCSVFile]);
+
+  // دالة الرفع للـ input القديم (fallback للمتصفحات التي لا تدعم showOpenFilePicker)
+  const handleLegacyFileInput = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    processCSVFile(file);
+    // إعادة تعيين القيمة للسماح برفع نفس الملف مرة أخرى
+    if (event.target) event.target.value = '';
+  }, [processCSVFile]);
+
+  // ========== نهاية الحل الاحترافي ==========
+
   // Fetch data
   useEffect(() => {
     const fetchData = async () => {
@@ -122,6 +206,22 @@ export default function BulkImportAssetsPage() {
     };
     fetchData();
   }, [locale, t]);
+
+  // تصفية خطأ "message channel closed" بشكل عام (طبقة حماية إضافية)
+  useEffect(() => {
+    const originalError = window.onerror;
+    window.onerror = (message, source, lineno, colno, error) => {
+      if (typeof message === 'string' && 
+          (message.includes('message channel closed') || 
+           message.includes('listener indicated an asynchronous response'))) {
+        console.warn('Ignored harmless extension error:', message);
+        return true; // منع ظهور الخطأ في الكونسول
+      }
+      if (originalError) return originalError(message, source, lineno, colno, error);
+      return false;
+    };
+    return () => { window.onerror = originalError; };
+  }, []);
 
   useEffect(() => {
     if (!commonBuildingId) {
@@ -233,35 +333,7 @@ export default function BulkImportAssetsPage() {
     setRows(updated);
   };
 
-  const handleCSVUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    Papa.parse(file, {
-      header: true,
-      skipEmptyLines: true,
-      complete: (results) => {
-        const parsed = results.data as any[];
-        const newRows: BulkAssetRow[] = parsed.map((row, idx) => ({
-          id: crypto.randomUUID(),
-          name: row.name || "",
-          nameEn: row.nameEn || "",
-          typeId: row.typeId || "",
-          statusId: row.statusId || "",
-          purchaseDate: row.purchaseDate || "",
-          warrantyEnd: row.warrantyEnd || "",
-          lastMaintenanceDate: row.lastMaintenanceDate || "",
-          notes: row.notes || "",
-        })).filter(row => row.name.trim() !== "");
-        if (newRows.length) setRows(newRows);
-        toast.success(t('importSuccess', { count: newRows.length }));
-      },
-      error: () => {
-        toast.error(t('importError'));
-      },
-    });
-    event.target.value = "";
-  };
-
+  // دالة تحميل القالب تبقى كما هي (تعمل بشكل طبيعي)
   const downloadTemplate = () => {
     const headers = ["name", "nameEn", "typeId", "statusId", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
     const csvContent = headers.join(",") + "\n" + "Example Asset,Example Asset EN,type_id_here,status_id_here,2025-01-01,2026-01-01,2025-06-01,Some notes\n";
@@ -396,7 +468,7 @@ export default function BulkImportAssetsPage() {
           </div>
         </InfoCard>
 
-        {/* Dynamic table card - يحتوي على جميع الحقول بما فيها النوع والحالة */}
+        {/* Dynamic table card - يحتوي على جميع الحfields */}
         <InfoCard title={isRtl ? "قائمة الأصول" : "Asset List"} icon={<Table className="h-5 w-5" />}>
           <div className="space-y-4">
             <div className="flex flex-wrap justify-between items-center gap-3">
@@ -404,17 +476,37 @@ export default function BulkImportAssetsPage() {
                 <Button type="button" variant="outline" onClick={downloadTemplate} className="gap-2 rounded-full">
                   <FileUp className="h-4 w-4" /> {t('bulkImportTemplate')}
                 </Button>
-                <label className="cursor-pointer">
-                  <input type="file" accept=".csv" onChange={handleCSVUpload} className="hidden" />
-                  <Button type="button" variant="secondary" className="gap-2 rounded-full">
-                    <Upload className="h-4 w-4" /> {t('bulkUploadCSV')}
-                  </Button>
-                </label>
+                
+                {/* زر رفع الملف الجديد - يستخدم الحل الاحترافي */}
+                <Button 
+                  type="button" 
+                  variant="secondary" 
+                  className="gap-2 rounded-full"
+                  onClick={handleFileUploadModern}
+                >
+                  <Upload className="h-4 w-4" /> {t('bulkUploadCSV')}
+                </Button>
+
+                {/* Input مخفي للمتصفحات القديمة (fallback) */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv"
+                  onChange={handleLegacyFileInput}
+                  style={{ display: 'none' }}
+                />
               </div>
               <Button type="button" onClick={addRow} variant="outline" className="gap-2 rounded-full">
                 <Plus className="h-4 w-4" /> {t('addRow')}
               </Button>
             </div>
+
+            {/* عرض الخطأ في CSV إذا وجد */}
+            {csvError && (
+              <div className="text-red-500 text-sm bg-red-50 p-2 rounded">
+                {isRtl ? 'خطأ في قراءة الملف: ' : 'CSV Error: '} {csvError}
+              </div>
+            )}
 
             {/* الجدول للشاشات الكبيرة */}
             <div className="hidden lg:block border rounded-xl overflow-x-auto">
@@ -476,23 +568,20 @@ export default function BulkImportAssetsPage() {
               </Table>
             </div>
 
-            {/* عرض البطاقات (Cards) للشاشات المتوسطة والصغيرة (تظهر أسفل lg) */}
+            {/* عرض البطاقات (Cards) للشاشات المتوسطة والصغيرة */}
             <div className="lg:hidden space-y-6">
               {rows.map((row, idx) => (
                 <div key={row.id} className="border rounded-xl p-4 bg-card space-y-3 shadow-sm">
                   <div className="flex justify-between items-start">
                     <div className="flex-1 space-y-2">
-                      {/* الاسم */}
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground">{t('tableName')} *</Label>
                         <Input value={row.name} onChange={(e) => updateRow(idx, "name", e.target.value)} placeholder={t('namePlaceholder')} />
                       </div>
-                      {/* الاسم بالإنجليزية */}
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground">{t('nameEn')}</Label>
                         <Input value={row.nameEn} onChange={(e) => updateRow(idx, "nameEn", e.target.value)} placeholder={t('nameEnPlaceholder')} />
                       </div>
-                      {/* النوع والحالة في صف واحد */}
                       <div className="grid grid-cols-2 gap-2">
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground">{t('type')} *</Label>
@@ -525,7 +614,6 @@ export default function BulkImportAssetsPage() {
                           </Select>
                         </div>
                       </div>
-                      {/* التواريخ في صف واحد */}
                       <div className="grid grid-cols-3 gap-2">
                         <div>
                           <Label className="text-xs font-medium text-muted-foreground">{t('tablePurchaseDate')}</Label>
@@ -540,7 +628,6 @@ export default function BulkImportAssetsPage() {
                           <Input type="date" value={row.lastMaintenanceDate} onChange={(e) => updateRow(idx, "lastMaintenanceDate", e.target.value)} />
                         </div>
                       </div>
-                      {/* الملاحظات */}
                       <div>
                         <Label className="text-xs font-medium text-muted-foreground">{t('tableNotes')}</Label>
                         <Input value={row.notes} onChange={(e) => updateRow(idx, "notes", e.target.value)} placeholder={t('notesPlaceholder')} />

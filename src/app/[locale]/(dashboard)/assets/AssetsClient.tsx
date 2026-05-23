@@ -12,7 +12,6 @@ import { toast } from "sonner";
 import type { Asset, AssetType, AssetStatus } from "@/types/assets";
 import { DataList, type FilterSection, type ItemActions } from "@/components/shared/DataList";
 
-// دوال مساعدة (بدون تغيير)
 function getFullLocation(asset: Asset, isRtl: boolean): string {
   const room = asset.room;
   if (!room) return isRtl ? "موقع غير محدد" : "Location not set";
@@ -79,7 +78,6 @@ export default function AssetsClient({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
-  // تصفية البيانات محلياً
   const filteredAssets = useMemo(() => {
     let result = [...initialAssets];
     if (searchTerm) {
@@ -103,20 +101,29 @@ export default function AssetsClient({
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const paginatedItems = filteredAssets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // ✅ إضافة تأكيد الحذف
+  // ✅ دالة الحذف المعدلة (تعرض رسالة الخطأ من الخادم)
   const handleDeleteAsset = async (id: string, name: string) => {
     const confirmed = window.confirm(
-      isRtl ? `هل أنت متأكد من حذف الأصل "${name}"؟ لا يمكن التراجع عن هذا الإجراء.` : `Are you sure you want to delete "${name}"? This action cannot be undone.`
+      isRtl ? `⚠️ هل أنت متأكد من حذف الأصل "${name}"؟ لا يمكن التراجع عن هذا الإجراء.` : `⚠️ Are you sure you want to delete "${name}"? This action cannot be undone.`
     );
     if (!confirmed) return;
 
-    const res = await fetch(`/api/assets/${id}`, { method: "DELETE" });
-    if (!res.ok) {
-      const error = await res.json();
-      throw new Error(error.error || "فشل الحذف");
+    try {
+      const res = await fetch(`/api/assets/${id}`, { method: "DELETE" });
+      const data = await res.json();
+
+      if (!res.ok) {
+        // عرض الرسالة التفصيلية من الخادم (مثل ارتباط بأمر عمل)
+        toast.error(data.error || (isRtl ? "فشل الحذف" : "Deletion failed"));
+        return;
+      }
+
+      toast.success(isRtl ? "✅ تم حذف الأصل بنجاح" : "✅ Asset deleted successfully");
+      router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast.error(isRtl ? "حدث خطأ أثناء الاتصال بالخادم" : "Server connection error");
     }
-    toast.success(isRtl ? "تم حذف الأصل بنجاح" : "Asset deleted successfully");
-    router.refresh();
   };
 
   const handleEditAsset = (id: string) => {
@@ -142,7 +149,6 @@ export default function AssetsClient({
     },
   ];
 
-  // قيم الفلاتر الحالية
   const filterValues = {
     typeId: selectedTypeId,
     statusId: selectedStatusId,
@@ -191,10 +197,9 @@ export default function AssetsClient({
               <Calendar size={12} />
               <span>{asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString(isRtl ? 'ar-SA' : 'en-US') : "—"}</span>
             </div>
-            {/* ✅ إضافة آخر صيانة */}
             <div className="flex items-center gap-2">
               <Wrench size={12} />
-              <span>{asset.lastMaintenanceDate ? formatDate(asset.lastMaintenanceDate, isRtl) : (isRtl ? "—" : "—")}</span>
+              <span>{asset.lastMaintenanceDate ? formatDate(asset.lastMaintenanceDate, isRtl) : "—"}</span>
             </div>
           </div>
         </div>

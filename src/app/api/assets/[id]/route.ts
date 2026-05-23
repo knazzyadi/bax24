@@ -67,7 +67,7 @@ export async function GET(
       ...asset,
       purchaseDate: asset.purchaseDate?.toISOString()?.split('T')[0] || null,
       warrantyEnd: asset.warrantyEnd?.toISOString()?.split('T')[0] || null,
-      lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString()?.split('T')[0] || null, // ✅ إضافة
+      lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString()?.split('T')[0] || null,
     };
     return NextResponse.json(serializedAsset);
   } catch (error: any) {
@@ -86,11 +86,10 @@ export async function PUT(
 
     const { id } = await params;
     const body = await request.json();
-    const { name, nameEn, typeId, statusId, purchaseDate, warrantyEnd, lastMaintenanceDate, roomId, notes } = body; // ✅ إضافة lastMaintenanceDate
+    const { name, nameEn, typeId, statusId, purchaseDate, warrantyEnd, lastMaintenanceDate, roomId, notes } = body;
     const companyId = session.user.companyId!;
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
 
-    // جلب الأصل الحالي للتحقق من الصلاحية
     const existingAsset = await prisma.asset.findFirst({
       where: { id, companyId, deletedAt: null },
       include: {
@@ -105,7 +104,6 @@ export async function PUT(
     });
     if (!existingAsset) return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
 
-    // التحقق من صلاحية الفرع للمستخدم غير الأدمن
     if (!isAdmin) {
       const userBranchIds = session.user.branchIds || [];
       let assetBranchId: string | null = null;
@@ -123,7 +121,6 @@ export async function PUT(
       }
     }
 
-    // إذا تم تغيير الغرفة، تحقق من صلاحية الغرفة الجديدة
     let newBuildingId = existingAsset.buildingId;
     if (roomId && roomId !== existingAsset.roomId) {
       const newRoom = await prisma.room.findFirst({
@@ -150,7 +147,7 @@ export async function PUT(
         statusId: statusId || null,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
         warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : null,
-        lastMaintenanceDate: lastMaintenanceDate ? new Date(lastMaintenanceDate) : null, // ✅ إضافة
+        lastMaintenanceDate: lastMaintenanceDate ? new Date(lastMaintenanceDate) : null,
         roomId: roomId || null,
         buildingId: newBuildingId,
         notes: notes?.trim() || null,
@@ -178,43 +175,23 @@ export async function DELETE(
     const existingAsset = await prisma.asset.findFirst({ where: { id, companyId, deletedAt: null } });
     if (!existingAsset) return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
 
-    // التحقق من وجود ارتباطات بأوامر العمل (WorkOrderAsset)
-    const workOrderAsset = await prisma.workOrderAsset.findFirst({
-      where: { assetId: id },
-      select: { workOrderId: true }
-    });
-    if (workOrderAsset) {
-      return NextResponse.json(
-        { error: 'لا يمكن حذف الأصل لأنه مرتبط بأمر عمل. قم بإزالة الارتباط أولاً.' },
-        { status: 409 }
-      );
+    // فحص جميع الارتباطات مع رسالة مفصلة
+    const [workOrderAsset, ticket, scheduleAsset] = await Promise.all([
+      prisma.workOrderAsset.findFirst({ where: { assetId: id }, select: { workOrderId: true } }),
+      prisma.ticket.findFirst({ where: { assetId: id, deletedAt: null }, select: { id: true } }),
+      prisma.scheduleAsset.findFirst({ where: { assetId: id }, select: { scheduleId: true } }),
+    ]);
+
+    const relations: string[] = [];
+    if (workOrderAsset) relations.push('أمر عمل (Work Order)');
+    if (ticket) relations.push('تذكرة (Ticket)');
+    if (scheduleAsset) relations.push('جدول صيانة (Maintenance Schedule)');
+
+    if (relations.length > 0) {
+      const errorMessage = `لا يمكن حذف الأصل لأنه مرتبط بـ: ${relations.join('، ')}. يرجى حذف هذه العناصر أولاً.`;
+      return NextResponse.json({ error: errorMessage }, { status: 409 });
     }
 
-    // التحقق من وجود ارتباطات بجداول الصيانة الدورية (ScheduleAsset)
-    const scheduleAsset = await prisma.scheduleAsset.findFirst({
-      where: { assetId: id },
-      select: { scheduleId: true }
-    });
-    if (scheduleAsset) {
-      return NextResponse.json(
-        { error: 'لا يمكن حذف الأصل لأنه مرتبط بجدول صيانة دورية.' },
-        { status: 409 }
-      );
-    }
-
-    // التحقق من وجود ارتباطات بتذاكر (بلاغات)
-    const ticket = await prisma.ticket.findFirst({
-      where: { assetId: id, deletedAt: null },
-      select: { id: true }
-    });
-    if (ticket) {
-      return NextResponse.json(
-        { error: 'لا يمكن حذف الأصل لأنه مرتبط بتذكرة (بلاغ).' },
-        { status: 409 }
-      );
-    }
-
-    // تنفيذ الحذف الناعم
     await prisma.asset.update({
       where: { id },
       data: { deletedAt: new Date() }

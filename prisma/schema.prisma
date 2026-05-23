@@ -269,11 +269,12 @@ model Asset {
 }
 
 model AssetCounter {
-  typeId    String   @id
-  lastValue Int      @default(1000)
+  typeId    String
+  branchId  String
+  lastValue Int      @default(0)
   updatedAt DateTime @updatedAt
 
-  // بدون علاقة صريحة - هذا مقبول وسيظل يعمل
+  @@id([typeId, branchId])
 }
 
 model InventoryItem {

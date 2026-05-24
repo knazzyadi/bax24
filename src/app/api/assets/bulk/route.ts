@@ -148,16 +148,16 @@ export async function POST(request: NextRequest) {
             const seqNumber = counter.lastValue;
 
             // ==============================
-            // تنسيق الرقم
+            // ✅ تنسيق الرقم إلى 4 خانات فقط (بدلاً من 6)
             // ==============================
             const paddedNumber = seqNumber
               .toString()
-              .padStart(6, '0');
+              .padStart(4, '0');
 
             // ==============================
             // الكود النهائي
             // مثال:
-            // RUH-IT-000001
+            // RUH-IT-0001
             // ==============================
             const code = `${branchCode}-${typePrefix}-${paddedNumber}`;
 

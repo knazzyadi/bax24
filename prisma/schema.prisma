@@ -277,6 +277,12 @@ model AssetCounter {
   @@id([typeId, branchId])
 }
 
+model WorkOrderCounter {
+  branchId  String   @id
+  lastValue Int      @default(0)
+  updatedAt DateTime @updatedAt
+}
+
 model InventoryItem {
   id                 String               @id @default(cuid())
   sku                String?              @unique

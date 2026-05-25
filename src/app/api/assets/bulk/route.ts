@@ -50,9 +50,7 @@ export async function POST(request: NextRequest) {
     const buildingId = roomData.buildingId;
     const companyId = roomData.building.company.id;
     const branchId = roomData.building.branchId;
-
-    const branchCode =
-      roomData.building.branch?.code?.trim().toUpperCase() || 'BR';
+    const branchCode = roomData.building.branch?.code?.trim().toUpperCase() || 'BR';
 
     if (!branchId) {
       return NextResponse.json(
@@ -66,25 +64,15 @@ export async function POST(request: NextRequest) {
     // ==============================
     const result = await prisma.$transaction(
       async (tx: Prisma.TransactionClient) => {
-
         const createdAssets = [];
-        const errors: {
-          index: number;
-          assetName?: string;
-          message: string;
-        }[] = [];
+        const errors: { index: number; assetName?: string; message: string }[] = [];
 
         // ==============================
-        // جلب جميع أنواع الأصول مرة واحدة (Performance Optimization)
+        // جلب جميع أنواع الأصول مرة واحدة
         // ==============================
         const assetTypes = await tx.assetType.findMany({
-          select: {
-            id: true,
-            code: true,
-          },
+          select: { id: true, code: true },
         });
-
-        // تحويلها إلى Map للبحث السريع
         const assetTypeMap = new Map(
           assetTypes.map((type) => [
             type.id,
@@ -93,34 +81,44 @@ export async function POST(request: NextRequest) {
         );
 
         // ==============================
+        // جلب الحالة الافتراضية للشركة (للحالات المفقودة أو غير الصالحة)
+        // ==============================
+        const defaultStatus = await tx.assetStatus.findFirst({
+          where: { companyId, isDefault: true },
+        });
+        let fallbackStatusId = defaultStatus?.id;
+        if (!fallbackStatusId) {
+          const anyStatus = await tx.assetStatus.findFirst({ where: { companyId } });
+          if (!anyStatus) {
+            throw new Error('لا توجد حالات أصول مسجلة للشركة. يرجى إضافة حالة أولاً.');
+          }
+          fallbackStatusId = anyStatus.id;
+        }
+
+        // ==============================
         // Loop على الأصول
         // ==============================
         for (let i = 0; i < assets.length; i++) {
-
           const asset = assets[i];
-
           try {
+            if (!asset.name?.trim()) throw new Error('Asset name is required');
+            if (!asset.typeId) throw new Error('Asset type is required');
+
+            const typePrefix = assetTypeMap.get(asset.typeId) || 'AST';
 
             // ==============================
-            // Validation داخلي
+            // التحقق من صحة statusId وتعيين الحالة الافتراضية إذا لزم الأمر
             // ==============================
-            if (!asset.name?.trim()) {
-              throw new Error('Asset name is required');
+            let validStatusId: string | null = null;
+            if (asset.statusId) {
+              const statusExists = await tx.assetStatus.findFirst({
+                where: { id: asset.statusId, companyId },
+              });
+              if (statusExists) validStatusId = asset.statusId;
             }
+            const finalStatusId = validStatusId || fallbackStatusId;
 
-            if (!asset.typeId) {
-              throw new Error('Asset type is required');
-            }
-
-            // ==============================
-            // Prefix النوع
-            // ==============================
-            const typePrefix =
-              assetTypeMap.get(asset.typeId) || 'AST';
-
-            // ==============================
-            // Atomic Counter (مضاد للتكرار)
-            // ==============================
+            // Atomic Counter
             const counter = await tx.assetCounter.upsert({
               where: {
                 typeId_branchId: {
@@ -128,141 +126,60 @@ export async function POST(request: NextRequest) {
                   branchId: branchId,
                 },
               },
-
-              update: {
-                lastValue: {
-                  increment: 1,
-                },
-              },
-
-              create: {
-                typeId: asset.typeId,
-                branchId: branchId,
-                lastValue: 1,
-              },
+              update: { lastValue: { increment: 1 } },
+              create: { typeId: asset.typeId, branchId: branchId, lastValue: 1 },
             });
 
-            // ==============================
-            // الرقم التسلسلي الصحيح
-            // ==============================
             const seqNumber = counter.lastValue;
-
-            // ==============================
-            // ✅ تنسيق الرقم إلى 4 خانات فقط (بدلاً من 6)
-            // ==============================
-            const paddedNumber = seqNumber
-              .toString()
-              .padStart(4, '0');
-
-            // ==============================
-            // الكود النهائي
-            // مثال:
-            // RUH-IT-0001
-            // ==============================
+            const paddedNumber = seqNumber.toString().padStart(4, '0');
             const code = `${branchCode}-${typePrefix}-${paddedNumber}`;
 
-            // ==============================
-            // إنشاء الأصل
-            // ==============================
             const newAsset = await tx.asset.create({
               data: {
                 name: asset.name.trim(),
-
-                nameEn:
-                  asset.nameEn?.trim() || null,
-
+                nameEn: asset.nameEn?.trim() || null,
                 code,
-
                 typeId: asset.typeId,
-
-                statusId:
-                  asset.statusId || null,
-
-                purchaseDate:
-                  asset.purchaseDate
-                    ? new Date(asset.purchaseDate)
-                    : null,
-
-                warrantyEnd:
-                  asset.warrantyEnd
-                    ? new Date(asset.warrantyEnd)
-                    : null,
-
-                lastMaintenanceDate:
-                  asset.lastMaintenanceDate
-                    ? new Date(asset.lastMaintenanceDate)
-                    : null,
-
+                statusId: finalStatusId,   // ← استخدام الحالة الصالحة
+                purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate) : null,
+                warrantyEnd: asset.warrantyEnd ? new Date(asset.warrantyEnd) : null,
+                lastMaintenanceDate: asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate) : null,
                 roomId,
                 buildingId,
                 companyId,
                 branchId,
-
-                notes:
-                  asset.notes?.trim() || null,
+                notes: asset.notes?.trim() || null,
               },
             });
 
             createdAssets.push(newAsset);
-
           } catch (err: any) {
-
-            console.error(
-              `Asset import error at index ${i}:`,
-              err
-            );
-
+            console.error(`Asset import error at index ${i}:`, err);
             errors.push({
               index: i,
               assetName: asset?.name || 'Unknown',
-              message:
-                err?.message || 'Unknown error',
+              message: err?.message || 'Unknown error',
             });
           }
         }
 
-        // ==============================
-        // Return result
-        // ==============================
-        return {
-          createdAssets,
-          errors,
-        };
+        return { createdAssets, errors };
       },
-
-      // ==============================
-      // Transaction timeout
-      // ==============================
-      {
-        timeout: 60000,
-      }
+      { timeout: 60000 } // Transaction timeout
     );
 
-    // ==============================
-    // Final response
-    // ==============================
     return NextResponse.json({
       success: true,
-
       successCount: result.createdAssets.length,
-
       failCount: result.errors.length,
-
       errors: result.errors,
     });
-
   } catch (error: any) {
-
-    console.error(
-      'Bulk asset create fatal error:',
-      error
-    );
-
+    console.error('Bulk asset create fatal error:', error);
     return NextResponse.json(
       {
         success: false,
-        error:
-          error?.message || 'Internal server error',
+        error: error?.message || 'Internal server error',
       },
       { status: 500 }
     );

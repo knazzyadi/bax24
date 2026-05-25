@@ -58,10 +58,12 @@ export default function BulkImportAssetsPage() {
     }
   };
 
-  // تحميل قالب CSV
+  // تحميل قالب CSV (مع تحسين الـ statusId example)
   const downloadTemplate = () => {
     const headers = ["name", "nameEn", "typeId", "statusId", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
-    const csvContent = headers.join(",") + "\nExample Asset,Example EN,type_id_here,,2025-01-01,2026-01-01,2025-06-01,notes\n";
+    // الحصول على أول statusId متاح من القائمة لإضافته كمثال (اختياري)
+    const exampleStatusId = statuses.length > 0 ? statuses[0].id : "status_id_here";
+    const csvContent = headers.join(",") + `\nExample Asset,Example EN,type_id_here,${exampleStatusId},2025-01-01,2026-01-01,2025-06-01,notes\n`;
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -93,7 +95,6 @@ export default function BulkImportAssetsPage() {
     if (!validateRows()) return;
     setIsSaving(true);
 
-    // تجهيز البيانات للإرسال (بدون أكواد)
     const assetsToSend = rows.map((row) => ({
       name: row.name.trim(),
       nameEn: row.nameEn?.trim() || null,
@@ -128,9 +129,7 @@ export default function BulkImportAssetsPage() {
         router.push(`/${locale}/assets`);
         router.refresh();
       } else {
-        // عرض رسالة عامة
         toast.error(t("bulkSavePartial", { successCount, failCount }));
-        // عرض أول خطأ للمستخدم (إن وجد)
         if (errors && errors.length > 0) {
           const firstError = errors[0];
           toast.error(
@@ -139,12 +138,11 @@ export default function BulkImportAssetsPage() {
               : `Row ${firstError.index + 1}: ${firstError.message}`
           );
         }
-        // تسجيل التفاصيل في الكونسول للمساعدة التقنية
         console.error("Bulk save errors:", errors);
       }
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || isRtl ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving");
+      toast.error(err.message || (isRtl ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving"));
     } finally {
       setIsSaving(false);
     }
@@ -194,7 +192,7 @@ export default function BulkImportAssetsPage() {
 
         {/* بطاقة جدول الأصول */}
         <InfoCard title={isRtl ? "قائمة الأصول" : "Assets List"} icon={<></>}>
-          <div className="flex gap-2 mb-4">
+          <div className="flex flex-wrap gap-2 mb-4">
             <Button variant="outline" onClick={downloadTemplate}>
               <FileUp className="h-4 w-4" /> {t("bulkImportTemplate")}
             </Button>
@@ -207,7 +205,7 @@ export default function BulkImportAssetsPage() {
             </Button>
           </div>
 
-          {/* جدول سطح المكتب */}
+          {/* جدول سطح المكتب مع تحسينات الوضع الليلي */}
           <div className="hidden lg:block border rounded-xl overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted">
@@ -222,76 +220,89 @@ export default function BulkImportAssetsPage() {
               <tbody>
                 {rows.map((row, idx) => (
                   <tr key={row.id}>
-                    <td>
+                    <td className="p-1">
                       <input
-                        className="border p-1 w-full"
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         value={row.name}
                         onChange={(e) => updateRow(idx, "name", e.target.value)}
+                        placeholder={t("namePlaceholder")}
                       />
                     </td>
-                    <td>
+                    <td className="p-1">
                       <input
-                        className="border p-1 w-full"
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                         value={row.nameEn}
                         onChange={(e) => updateRow(idx, "nameEn", e.target.value)}
+                        placeholder={t("nameEnPlaceholder")}
                       />
                     </td>
-                    <td>
+                    <td className="p-1">
                       <select
                         value={row.typeId}
                         onChange={(e) => updateRow(idx, "typeId", e.target.value)}
-                        className="border p-1"
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       >
+                        <option value="" disabled>
+                          {t("selectType")}
+                        </option>
                         {types.map((t) => (
                           <option key={t.id} value={t.id}>
-                            {isRtl ? t.name : t.nameEn}
+                            {isRtl ? t.name : t.nameEn || t.name}
                           </option>
                         ))}
                       </select>
                     </td>
-                    <td>
+                    <td className="p-1">
                       <select
-                        value={row.statusId}
+                        value={row.statusId || ""}
                         onChange={(e) => updateRow(idx, "statusId", e.target.value)}
-                        className="border p-1"
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       >
+                        <option value="" disabled>
+                          {t("selectStatus")}
+                        </option>
                         {statuses.map((s) => (
                           <option key={s.id} value={s.id}>
-                            {isRtl ? s.name : s.nameEn}
+                            {isRtl ? s.name : s.nameEn || s.name}
                           </option>
                         ))}
                       </select>
                     </td>
-                    <td>
+                    <td className="p-1">
                       <input
                         type="date"
                         value={row.purchaseDate as string}
                         onChange={(e) => updateRow(idx, "purchaseDate", e.target.value)}
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       />
                     </td>
-                    <td>
+                    <td className="p-1">
                       <input
                         type="date"
                         value={row.warrantyEnd as string}
                         onChange={(e) => updateRow(idx, "warrantyEnd", e.target.value)}
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       />
                     </td>
-                    <td>
+                    <td className="p-1">
                       <input
                         type="date"
                         value={row.lastMaintenanceDate as string}
                         onChange={(e) => updateRow(idx, "lastMaintenanceDate", e.target.value)}
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       />
                     </td>
-                    <td>
+                    <td className="p-1">
                       <input
                         value={row.notes}
                         onChange={(e) => updateRow(idx, "notes", e.target.value)}
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        placeholder={t("notesPlaceholder")}
                       />
                     </td>
-                    <td>
+                    <td className="p-1 text-center">
                       <Button variant="ghost" size="icon" onClick={() => removeRow(idx)}>
-                        <Trash2 className="h-4 w-4" />
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </td>
                   </tr>
@@ -302,8 +313,8 @@ export default function BulkImportAssetsPage() {
 
           {/* زر الحفظ الجماعي */}
           <div className="flex justify-end mt-4">
-            <Button onClick={saveAll} disabled={isSaving || !selectedRoomId}>
-              {isSaving ? <Loader2 className="animate-spin" /> : <Save />}
+            <Button onClick={saveAll} disabled={isSaving || !selectedRoomId} className="gap-2">
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
               {t("bulkSaveAll")}
             </Button>
           </div>

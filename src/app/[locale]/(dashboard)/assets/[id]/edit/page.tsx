@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar, MapPin, FileText, Loader2, ShieldCheck, Info, Globe, Save, ArrowLeft, ArrowRight, Wrench } from "lucide-react";
+import { Calendar, MapPin, FileText, Loader2, ShieldCheck, Info, Globe, Save, ArrowLeft, ArrowRight, Wrench, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { PageContainer } from "@/components/shared/detail/PageContainer";
 import { DetailHeader } from "@/components/shared/detail/DetailHeader";
@@ -44,7 +44,7 @@ export default function EditAssetPage() {
     statusId: "",
     purchaseDate: "",
     warrantyEnd: "",
-    lastMaintenanceDate: "",   // ✅ إضافة
+    lastMaintenanceDate: "",
     roomId: "",
     notes: "",
   });
@@ -84,7 +84,7 @@ export default function EditAssetPage() {
           statusId: asset.statusId || "",
           purchaseDate: asset.purchaseDate ? asset.purchaseDate.split('T')[0] : "",
           warrantyEnd: asset.warrantyEnd ? asset.warrantyEnd.split('T')[0] : "",
-          lastMaintenanceDate: asset.lastMaintenanceDate ? asset.lastMaintenanceDate.split('T')[0] : "", // ✅ إضافة
+          lastMaintenanceDate: asset.lastMaintenanceDate ? asset.lastMaintenanceDate.split('T')[0] : "",
           roomId: asset.roomId || "",
           notes: asset.notes || "",
         });
@@ -179,11 +179,11 @@ export default function EditAssetPage() {
       const payload = {
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
-        typeId: formData.typeId || null,
+        typeId: formData.typeId || null,    // يمكن إرسال نفس القيمة (لن تتغير)
         statusId: formData.statusId || null,
         purchaseDate: formData.purchaseDate || null,
         warrantyEnd: formData.warrantyEnd || null,
-        lastMaintenanceDate: formData.lastMaintenanceDate || null, // ✅ إضافة
+        lastMaintenanceDate: formData.lastMaintenanceDate || null,
         roomId,
         notes: formData.notes || null,
       };
@@ -245,10 +245,18 @@ export default function EditAssetPage() {
                   <Input name="nameEn" value={formData.nameEn} onChange={handleChange} placeholder={t('nameEnPlaceholder')} className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6" />
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
+                  {/* ========== نوع الأصل (معطل) ========== */}
                   <div className="space-y-2">
-                    <Label className="text-muted-foreground/70">{t('type')}</Label>
-                    <Select value={formData.typeId} onValueChange={(v) => handleSelectChange("typeId", v)} disabled={types.length === 0}>
-                      <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background font-black px-6">
+                    <Label className="text-muted-foreground/70 flex items-center gap-1">
+                      {t('type')} 
+                      <span className="text-xs text-destructive font-normal">(لا يمكن التعديل)</span>
+                    </Label>
+                    <Select 
+                      value={formData.typeId} 
+                      onValueChange={(v) => handleSelectChange("typeId", v)} 
+                      disabled  // ✅ منع التعديل
+                    >
+                      <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-gray-100 dark:bg-gray-800 text-muted-foreground cursor-not-allowed px-6">
                         {getTypeName(formData.typeId) || <SelectValue placeholder={t('selectType')} />}
                       </SelectTrigger>
                       <SelectContent>
@@ -257,7 +265,12 @@ export default function EditAssetPage() {
                         ))}
                       </SelectContent>
                     </Select>
+                    <p className="text-xs text-muted-foreground/70 flex items-center gap-1 mt-1">
+                      <AlertTriangle className="h-3 w-3" />
+                      {isRtl ? "لا يمكن تغيير نوع الأصل بعد الإنشاء. إذا أردت تغيير النوع، احذف الأصل وأعد إنشاءه." : "Asset type cannot be changed after creation. To change the type, delete the asset and recreate it."}
+                    </p>
                   </div>
+                  {/* ========== الحالة ========== */}
                   <div className="space-y-2">
                     <Label className="text-muted-foreground/70">{t('status')}</Label>
                     <Select value={formData.statusId} onValueChange={(v) => handleSelectChange("statusId", v)} disabled={statuses.length === 0}>
@@ -314,7 +327,6 @@ export default function EditAssetPage() {
                   <Label className="text-muted-foreground/70">{t('warrantyEnd')}</Label>
                   <div className="relative"><ShieldCheck className="absolute right-4 top-4 h-5 w-5 text-emerald-500/70" /><Input name="warrantyEnd" type="date" value={formData.warrantyEnd} onChange={handleChange} className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-emerald-500/50 font-black w-full" /></div>
                 </div>
-                {/* ✅ إضافة حقل آخر صيانة */}
                 <div className="space-y-2">
                   <Label className="text-muted-foreground/70 flex items-center gap-2">
                     <Wrench className="h-4 w-4" /> {t('lastMaintenance')}

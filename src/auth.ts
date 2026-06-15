@@ -1,4 +1,3 @@
-// src/auth.ts
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import bcrypt from "bcryptjs";
@@ -34,13 +33,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         // جلب قائمة الفروع (branchIds)
         let branchIds: string[] = [];
-        
-        // الفرع الرئيسي (إذا وجد)
-        if (user.branchId) {
-          branchIds.push(user.branchId);
-        }
-        
-        // محاولة جلب الفروع الإضافية من جدول UserBranch (إذا كان موجوداً)
+        if (user.branchId) branchIds.push(user.branchId);
         try {
           if (prisma.userBranch) {
             const userBranches = await prisma.userBranch.findMany({
@@ -53,8 +46,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         } catch (error) {
           console.warn("UserBranch table not found or error fetching branches:", error);
         }
-        
-        // إزالة المكررات
         branchIds = [...new Set(branchIds)];
 
         return {

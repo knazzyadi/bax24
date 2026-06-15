@@ -1,5 +1,4 @@
-// src/app/api/auth/[...nextauth]/route.ts
-import { handlers } from "@/auth";   // يجب أن يكون المسار صحيحاً لملف auth.ts في جذر src
+import { handlers } from "@/auth";
 
 export const { GET, POST } = handlers;
 

@@ -1,8 +1,8 @@
 {
   "crons": [
     {
-      "path": "/api/some-task",
-      "schedule": "0 0 * * *"
+      "path": "/api/cron/run-maintenance",
+      "schedule": "0 2 * * *"
     }
   ],
   "headers": [

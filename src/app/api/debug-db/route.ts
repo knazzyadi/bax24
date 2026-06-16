@@ -2,19 +2,17 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    const users = await prisma.user.findMany({
-      take: 1,
-    });
+    const user = await prisma.user.findFirst();
 
     return Response.json({
       ok: true,
-      usersCount: users.length,
-      sample: users[0] || null,
+      message: "DB connection works",
+      userExists: !!user
     });
   } catch (error: any) {
     return Response.json({
       ok: false,
-      error: error.message,
+      error: error.message
     });
   }
 }

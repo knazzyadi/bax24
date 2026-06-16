@@ -7,35 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ========== ENUMS الجديدة ==========
-enum TicketType {
-  MAINTENANCE
-  INCIDENT
-}
-
-enum TicketStatus {
-  PENDING
-  APPROVED
-  REJECTED
-}
-
-// ========== باقي الـ ENUMS كما هي ==========
-enum ContractStatus {
-  PENDING_REVIEW
-  ACTIVE
-  EXPIRED
-  CANCELLED
-}
-
-enum WorkOrderType {
-  MAINTENANCE
-  CORRECTIVE
-  EMERGENCY
-  BULK_PREVENTIVE
-}
-
-// ========== MODELS ==========
-
 model Company {
   id                    String                @id @default(cuid())
   name                  String                @unique
@@ -51,7 +22,7 @@ model Company {
   contracts             Contract[]
   inventoryItems        InventoryItem[]
   maintenanceSchedules  MaintenanceSchedule[]
-  tickets               Ticket[]              // ✅ تم التصحيح (جمع)
+  tickets               Ticket[]
   workOrders            WorkOrder[]
   workOrderPriorities   WorkOrderPriority[]
   workOrderStatuses     WorkOrderStatus[]
@@ -72,7 +43,6 @@ model User {
   password          String?
   status            Boolean      @default(true)
   companyId         String?
-  // ❌ تم حذف branchId لأنه مخزن في UserBranch
   roleId            String?
   createdAt         DateTime     @default(now())
   updatedAt         DateTime     @updatedAt
@@ -117,7 +87,7 @@ model Branch {
   updatedAt            DateTime              @updatedAt
   nameEn               String?
   allowPublicTickets   Boolean               @default(true)
-  publicToken          String                @unique @default(cuid())   // ✅ أضفنا القيمة الافتراضية
+  publicToken          String                @unique @default(cuid())
   slug                 String                @unique
   contracts            Contract[]
   maintenanceSchedules MaintenanceSchedule[]
@@ -180,7 +150,7 @@ model Room {
   updatedAt      DateTime        @updatedAt
   deletedAt      DateTime?
   inventoryItems InventoryItem[]
-  tickets        Ticket[]        // ✅ تم التصحيح (جمع)
+  tickets        Ticket[]
   workOrders     WorkOrder[]
   assets         Asset[]
   building       Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
@@ -230,33 +200,33 @@ model AssetStatus {
 }
 
 model Asset {
-  id              String           @id @default(cuid())
-  code            String           @unique @default(cuid())
-  name            String
-  nameEn          String?
-  typeId          String?
-  statusId        String?
-  roomId          String
-  purchaseDate    DateTime?
-  warrantyEnd     DateTime?
-  notes           String?
-  qrCode          String?          @unique
-  companyId       String
-  buildingId      String
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  deletedAt       DateTime?
-  branchId        String?          @map("branch_id")
-  scheduleAssets  ScheduleAsset[]
-  tickets         Ticket[]         // ✅ تم التصحيح (جمع)
-  workOrderAssets WorkOrderAsset[]
-  branch          Branch?          @relation(fields: [branchId], references: [id])
-  building        Building         @relation(fields: [buildingId], references: [id])
-  company         Company          @relation(fields: [companyId], references: [id])
-  room            Room?            @relation(fields: [roomId], references: [id])
-  status          AssetStatus?     @relation(fields: [statusId], references: [id])
-  type            AssetType?       @relation(fields: [typeId], references: [id])
-  lastMaintenanceDate DateTime?   // ✅ أضف هذا السطر
+  id                  String           @id @default(cuid())
+  code                String           @unique @default(cuid())
+  name                String
+  nameEn              String?
+  typeId              String?
+  statusId            String?
+  roomId              String
+  purchaseDate        DateTime?
+  warrantyEnd         DateTime?
+  notes               String?
+  qrCode              String?          @unique
+  companyId           String
+  buildingId          String
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  deletedAt           DateTime?
+  branchId            String?          @map("branch_id")
+  lastMaintenanceDate DateTime?
+  scheduleAssets      ScheduleAsset[]
+  tickets             Ticket[]
+  workOrderAssets     WorkOrderAsset[]
+  branch              Branch?          @relation(fields: [branchId], references: [id])
+  building            Building         @relation(fields: [buildingId], references: [id])
+  company             Company          @relation(fields: [companyId], references: [id])
+  room                Room             @relation(fields: [roomId], references: [id])
+  status              AssetStatus?     @relation(fields: [statusId], references: [id])
+  type                AssetType?       @relation(fields: [typeId], references: [id])
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -322,46 +292,46 @@ model WorkOrderInventory {
 }
 
 model ContractAttachment {
-  id          String   @id @default(cuid())
-  contractId  String   // ✅ removed ? to make it required
-  url         String
-  key         String
-  fileName    String?   // ✅ new field for custom name
+  id           String   @id @default(cuid())
+  contractId   String
+  url          String
+  key          String
+  fileName     String?
   originalName String
-  provider    String   @default("CLOUDFLARE_R2")
-  mimeType    String
-  size        Int
-  uploadedBy  String?  // ✅ optional: who uploaded
-  createdAt   DateTime @default(now())
-  contract    Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  provider     String   @default("CLOUDFLARE_R2")
+  mimeType     String
+  size         Int
+  uploadedBy   String?
+  createdAt    DateTime @default(now())
+  contract     Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   @@index([contractId])
 }
 
 model Contract {
-  id                 String         @id @default(cuid())
-  code               String?        @unique
+  id                 String               @id @default(cuid())
+  code               String?              @unique
   title              String
   supplier           String
   value              Float
   startDate          DateTime
   endDate            DateTime
   description        String?
-  status             ContractStatus @default(PENDING_REVIEW)
+  status             ContractStatus       @default(PENDING_REVIEW)
   cancellationReason String?
   notes              String?
-  createdAt          DateTime       @default(now())
-  updatedAt          DateTime       @updatedAt
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime             @updatedAt
   deletedAt          DateTime?
   companyId          String
   branchId           String?
   createdBy          String?
-  branch             Branch?        @relation(fields: [branchId], references: [id])
-  company            Company        @relation(fields: [companyId], references: [id])
   agentName          String?
   agentPhone         String?
   agentEmail         String?
-  attachments ContractAttachment[]
+  branch             Branch?              @relation(fields: [branchId], references: [id])
+  company            Company              @relation(fields: [companyId], references: [id])
+  attachments        ContractAttachment[]
 
   @@index([companyId])
   @@index([branchId])
@@ -371,36 +341,36 @@ model Contract {
 }
 
 model WorkOrder {
-  id                 String               @id @default(cuid())
-  code               String?              @unique
-  branchSeqNum       Int                   // ✅ الرقم التسلسلي داخل الفرع
+  id                 String                @id @default(cuid())
+  code               String?               @unique
+  branchSeqNum       Int
   title              String
   description        String?
-  type               WorkOrderType        @default(MAINTENANCE)
+  type               WorkOrderType         @default(MAINTENANCE)
   priorityId         String?
   statusId           String?
   roomId             String?
   notes              String?
-  createdAt          DateTime             @default(now())
-  updatedAt          DateTime             @updatedAt
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
   deletedAt          DateTime?
   companyId          String
   branchId           String?
   createdBy          String?
   assetTypeId        String?
-  ticketId           String?              @unique
-  assetType          AssetType?           @relation(fields: [assetTypeId], references: [id])
-  branch             Branch?              @relation(fields: [branchId], references: [id])
-  company            Company              @relation(fields: [companyId], references: [id])
-  priority           WorkOrderPriority?   @relation(fields: [priorityId], references: [id])
-  room               Room?                @relation(fields: [roomId], references: [id])
-  status             WorkOrderStatus?     @relation(fields: [statusId], references: [id])
-  ticket             Ticket?              @relation(fields: [ticketId], references: [id])
+  ticketId           String?               @unique
+  assetType          AssetType?            @relation(fields: [assetTypeId], references: [id])
+  branch             Branch?               @relation(fields: [branchId], references: [id])
+  company            Company               @relation(fields: [companyId], references: [id])
+  priority           WorkOrderPriority?    @relation(fields: [priorityId], references: [id])
+  room               Room?                 @relation(fields: [roomId], references: [id])
+  status             WorkOrderStatus?      @relation(fields: [statusId], references: [id])
+  ticket             Ticket?               @relation(fields: [ticketId], references: [id])
   workOrderAssets    WorkOrderAsset[]
-  workOrderInventory WorkOrderInventory[]
   attachments        WorkOrderAttachment[]
+  workOrderInventory WorkOrderInventory[]
 
-  @@unique([branchId, branchSeqNum])   // ✅ قيد فريد لكل فرع
+  @@unique([branchId, branchSeqNum])
   @@index([companyId])
   @@index([branchId])
   @@index([roomId])
@@ -419,19 +389,18 @@ model WorkOrderAsset {
 }
 
 model WorkOrderAttachment {
-  id          String   @id @default(cuid())
-  workOrderId String
-  url         String   // رابط الملف الكامل (من Cloudflare R2)
-  key         String   // المفتاح الفريد للتخزين (مثل "work-orders/abc-123.pdf")
-  fileName    String   // الاسم الذي أدخله المستخدم (مثل "فاتورة الصيانة")
-  originalName String  // اسم الملف الأصلي (مثل "invoice.pdf")
-  provider    String   @default("CLOUDFLARE_R2")
-  mimeType    String   // نوع الملف (application/pdf)
-  size        Int      // الحجم بالبايت (بحد أقصى 10MB)
-  uploadedBy  String?  // معرف المستخدم الذي رفع الملف
-  createdAt   DateTime @default(now())
-
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  id           String    @id @default(cuid())
+  workOrderId  String
+  url          String
+  key          String
+  fileName     String
+  originalName String
+  provider     String    @default("CLOUDFLARE_R2")
+  mimeType     String
+  size         Int
+  uploadedBy   String?
+  createdAt    DateTime  @default(now())
+  workOrder    WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
 
   @@index([workOrderId])
 }
@@ -497,56 +466,49 @@ model WorkOrderStatus {
   @@unique([companyId, name])
 }
 
-// ========== نموذج المرفقات الجديد ==========
 model TicketAttachment {
-  id          String   @id @default(cuid())
-  ticketId    String
-  url         String   // رابط الملف الكامل (مثل URL من R2)
-  key         String   // المفتاح الفريد للتخزين (مثل "tickets/abc-123.jpg")
-  provider    String   @default("CLOUDFLARE_R2") // R2 أو S3 أو CLOUDINARY
-  mimeType    String   // نوع الملف (image/jpeg, application/pdf)
-  size        Int      // الحجم بالبايت
-  originalName String  // اسم الملف الأصلي
-  createdAt   DateTime @default(now())
-  ticket      Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  id           String   @id @default(cuid())
+  ticketId     String
+  url          String
+  key          String
+  provider     String   @default("CLOUDFLARE_R2")
+  mimeType     String
+  size         Int
+  originalName String
+  createdAt    DateTime @default(now())
+  ticket       Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
 
   @@index([ticketId])
 }
 
-// ========== نموذج Ticket المعدل بالكامل (يستخدم enums و branchSeqNum و attachments) ==========
 model Ticket {
-  id              String        @id @default(cuid())
-  code            String        @unique
+  id              String             @id @default(cuid())
+  code            String             @unique
   branchSeqNum    Int
   title           String
   description     String?
   assetId         String?
   roomId          String?
   notes           String?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
   deletedAt       DateTime?
   companyId       String
   branchId        String
   createdBy       String?
-  type            TicketType    @default(MAINTENANCE)
+  type            TicketType         @default(MAINTENANCE)
   phone           String?
   reporterEmail   String
   reporterName    String
-  status          TicketStatus  @default(PENDING)
+  status          TicketStatus       @default(PENDING)
   rejectionReason String?
+  asset           Asset?             @relation(fields: [assetId], references: [id])
+  branch          Branch             @relation(fields: [branchId], references: [id])
+  company         Company            @relation(fields: [companyId], references: [id])
+  room            Room?              @relation(fields: [roomId], references: [id])
+  attachments     TicketAttachment[]
+  workOrder       WorkOrder?
 
-  // علاقات مفردة (N:1)
-  asset           Asset?        @relation(fields: [assetId], references: [id])
-  branch          Branch        @relation(fields: [branchId], references: [id])
-  company         Company       @relation(fields: [companyId], references: [id])
-  room            Room?         @relation(fields: [roomId], references: [id])
-
-  // علاقات جمع (1:N)
-  workOrder       WorkOrder?                    // 1:1
-  attachments     TicketAttachment[]            // ✅ نظام المرفقات الجديد (R2)
-
-  // فهارس وقيد فريد مركب
   @@unique([branchId, branchSeqNum])
   @@index([companyId])
   @@index([branchId])
@@ -554,4 +516,29 @@ model Ticket {
   @@index([roomId])
   @@index([status])
   @@index([branchSeqNum])
+}
+
+enum TicketType {
+  MAINTENANCE
+  INCIDENT
+}
+
+enum TicketStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ContractStatus {
+  PENDING_REVIEW
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum WorkOrderType {
+  MAINTENANCE
+  CORRECTIVE
+  EMERGENCY
+  BULK_PREVENTIVE
 }

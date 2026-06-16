@@ -22,6 +22,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           },
         });
 
+        console.log("EMAIL:", credentials.email);
+        console.log("USER FOUND:", user);
+        console.log("PASSWORD IN DB:", user?.password);
+
         if (!user || !user.password) return null;
         if (user.status === false) return null;
 

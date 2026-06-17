@@ -114,6 +114,7 @@ export default async function ContractsPage({
     agentPhone: contract.agentPhone,
     agentEmail: contract.agentEmail,
     // ✅ إضافة عدد المرفقات
+    type: contract.type,
     attachmentsCount: contract.attachments?.length || 0,
   }));
 

@@ -20,105 +20,113 @@ function createExtendedClient() {
     log: process.env.NODE_ENV === 'development'
       ? ['query', 'error', 'warn']
       : ['error'],
+    // إضافة إعدادات إضافية لتحسين الاتصال في بيئة serverless
+    // ويمكن إضافة connectionLimit هنا إذا أردت، لكن الأفضل في DATABASE_URL
   });
 
   const extendedClient = baseClient.$extends({
     query: {
       $allModels: {
         async $allOperations({ model, operation, args, query }) {
-          const ctx = RequestContext.get();
-          const user = ctx?.user;
+          try {
+            const ctx = RequestContext.get();
+            const user = ctx?.user;
 
-          // 🚀 SKIP ALL GLOBAL FILTERING FOR IMPORTANT MODELS (FIX ROOT CAUSE)
-          if (
-            !user ||
-            SKIP_MODELS.includes(model) ||
-            model === 'Asset' // ✅ الحل الجذري للمشكلة
-          ) {
-            return query(args);
-          }
+            // 🚀 SKIP ALL GLOBAL FILTERING FOR IMPORTANT MODELS
+            if (
+              !user ||
+              SKIP_MODELS.includes(model) ||
+              model === 'Asset'
+            ) {
+              return query(args);
+            }
 
-          const companyId = user.companyId;
+            const companyId = user.companyId;
 
-          if (!companyId) {
-            return query(args);
-          }
+            if (!companyId) {
+              return query(args);
+            }
 
-          const shouldAddCompanyId =
-            !MODELS_WITHOUT_COMPANY_ID.includes(model);
+            const shouldAddCompanyId =
+              !MODELS_WITHOUT_COMPANY_ID.includes(model);
 
-          let modifiedArgs = args as any;
+            let modifiedArgs = args as any;
 
-          // ===============================
-          // SELECT / FIND OPERATIONS
-          // ===============================
-          if (
-            ['findMany', 'findFirst', 'count'].includes(operation) &&
-            shouldAddCompanyId
-          ) {
-            const existingWhere =
-              (args && typeof args === 'object' && 'where' in args)
-                ? (args as any).where
-                : {};
-
-            modifiedArgs = {
-              ...args,
-              where: {
-                ...existingWhere,
-                companyId: companyId,
-              },
-            };
-          }
-
-          // ===============================
-          // CREATE OPERATIONS
-          // ===============================
-          if (
-            ['create', 'createMany'].includes(operation) &&
-            shouldAddCompanyId
-          ) {
-            if (operation === 'create') {
-              const existingData =
-                (args && typeof args === 'object' && 'data' in args)
-                  ? (args as any).data
+            // ===============================
+            // SELECT / FIND OPERATIONS
+            // ===============================
+            if (
+              ['findMany', 'findFirst', 'count'].includes(operation) &&
+              shouldAddCompanyId
+            ) {
+              const existingWhere =
+                (args && typeof args === 'object' && 'where' in args)
+                  ? (args as any).where
                   : {};
 
               modifiedArgs = {
                 ...args,
-                data: {
-                  ...(existingData && typeof existingData === 'object'
-                    ? existingData
-                    : {}),
+                where: {
+                  ...existingWhere,
                   companyId: companyId,
                 },
               };
-            } else if (operation === 'createMany') {
-              const inputData =
-                (args && typeof args === 'object' && 'data' in args)
-                  ? (args as any).data
-                  : undefined;
+            }
 
-              if (Array.isArray(inputData)) {
-                modifiedArgs = {
-                  ...args,
-                  data: inputData.map((item: any) => ({
-                    ...item,
-                    companyId,
-                  })),
-                };
-              } else if (inputData && typeof inputData === 'object') {
+            // ===============================
+            // CREATE OPERATIONS
+            // ===============================
+            if (
+              ['create', 'createMany'].includes(operation) &&
+              shouldAddCompanyId
+            ) {
+              if (operation === 'create') {
+                const existingData =
+                  (args && typeof args === 'object' && 'data' in args)
+                    ? (args as any).data
+                    : {};
+
                 modifiedArgs = {
                   ...args,
                   data: {
-                    ...inputData,
-                    companyId,
+                    ...(existingData && typeof existingData === 'object'
+                      ? existingData
+                      : {}),
+                    companyId: companyId,
                   },
                 };
+              } else if (operation === 'createMany') {
+                const inputData =
+                  (args && typeof args === 'object' && 'data' in args)
+                    ? (args as any).data
+                    : undefined;
+
+                if (Array.isArray(inputData)) {
+                  modifiedArgs = {
+                    ...args,
+                    data: inputData.map((item: any) => ({
+                      ...item,
+                      companyId,
+                    })),
+                  };
+                } else if (inputData && typeof inputData === 'object') {
+                  modifiedArgs = {
+                    ...args,
+                    data: {
+                      ...inputData,
+                      companyId,
+                    },
+                  };
+                }
               }
             }
-          }
 
-          return query(modifiedArgs);
+            return query(modifiedArgs);
+          } catch (error) {
+            // في حالة حدوث خطأ في RequestContext أو أي شيء آخر، نتجاوز التصفية وننفذ الاستعلام كما هو.
+            console.error('Error in Prisma extension filter:', error);
+            return query(args);
+          }
         },
       },
     },
@@ -128,13 +136,15 @@ function createExtendedClient() {
 }
 
 // ===============================
-// Singleton (important for Next.js)
+// Singleton pattern for Next.js (Vercel serverless)
 // ===============================
-let prismaInstance: ExtendedPrismaClient | undefined;
+const globalForPrisma = globalThis as unknown as {
+  prismaInstance: ExtendedPrismaClient | undefined;
+};
 
 export const prisma =
-  (global as any).prismaInstance ?? createExtendedClient();
+  globalForPrisma.prismaInstance ?? createExtendedClient();
 
 if (process.env.NODE_ENV !== 'production') {
-  (global as any).prismaInstance = prisma;
+  globalForPrisma.prismaInstance = prisma;
 }

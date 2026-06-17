@@ -1,9 +1,8 @@
 // src/app/api/work-orders/[id]/inventory/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
+import { prisma, TxClient } from "@/lib/prisma";
 import { requirePermission } from "@/lib/permissions";
-import { Prisma } from "@prisma/client";
 
 // ===================== GET =====================
 // جلب جميع قطع الغيار المرتبطة بأمر العمل
@@ -86,7 +85,7 @@ export async function POST(
     }
 
     // استخدام المعاملة (Transaction) لضمان الاتساق
-    const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    const result = await prisma.$transaction(async (tx: TxClient) => {
       // خصم الكمية من المخزون
       await tx.inventoryItem.update({
         where: { id: inventoryItemId },
@@ -127,7 +126,7 @@ export async function DELETE(
 
     const { id } = await params;
     const { searchParams } = new URL(req.url);
-    const recordId = searchParams.get("recordId"); // ✅ تغيير من inventoryItemId إلى recordId
+    const recordId = searchParams.get("recordId");
 
     if (!recordId) {
       return NextResponse.json({ error: "معرف السجل (recordId) مطلوب" }, { status: 400 });
@@ -153,7 +152,7 @@ export async function DELETE(
     }
 
     // استخدام المعاملة لإعادة الكمية وحذف السجل
-    await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+    await prisma.$transaction(async (tx: TxClient) => {
       // إعادة الكمية إلى المخزون
       await tx.inventoryItem.update({
         where: { id: record.inventoryItemId },

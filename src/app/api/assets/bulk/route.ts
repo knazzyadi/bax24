@@ -1,4 +1,4 @@
-import { prisma } from '@/lib/prisma';
+import { prisma, TxClient } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     // Transaction
     // ==============================
     const result = await prisma.$transaction(
-      async (tx: Prisma.TransactionClient) => {
+      async (tx: TxClient) => {
         const createdAssets = [];
         const errors: { index: number; assetName?: string; message: string }[] = [];
 
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
                 nameEn: asset.nameEn?.trim() || null,
                 code,
                 typeId: asset.typeId,
-                statusId: finalStatusId,   // ← استخدام الحالة الصالحة
+                statusId: finalStatusId,
                 purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate) : null,
                 warrantyEnd: asset.warrantyEnd ? new Date(asset.warrantyEnd) : null,
                 lastMaintenanceDate: asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate) : null,

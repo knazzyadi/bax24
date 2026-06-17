@@ -1,13 +1,11 @@
 ﻿// src/app/api/companies/route.ts
 import { NextResponse } from 'next/server';
-import { PrismaClient } from '@prisma/client';
 import { auth } from '@/auth';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
+import { prisma, TxClient } from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
-
-const prisma = new PrismaClient();
 
 // GET: جلب جميع الشركات مع بيانات المدير (ADMIN)
 export async function GET() {
@@ -117,7 +115,7 @@ export async function POST(request: Request) {
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 ساعة
 
     // إنشاء الشركة والمستخدم في معاملة واحدة
-    const result = await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx: TxClient) => {
       const company = await tx.company.create({
         data: {
           name: companyNameAr,

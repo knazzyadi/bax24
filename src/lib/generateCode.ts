@@ -1,11 +1,10 @@
-import { prisma } from "@/lib/prisma";
-import { Prisma } from "@prisma/client";  // ✅ أضف هذا الاستيراد
+import { prisma, TxClient } from "@/lib/prisma";
 
 export async function generateWorkOrderCode(
   branchId: string
 ): Promise<{ code: string; branchSeqNum: number }> {
-  // استخدام المعاملة (transaction) مع تحديد النوع
-  const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
+  // استخدام المعاملة (transaction) مع TxClient
+  const result = await prisma.$transaction(async (tx: TxClient) => {
     const counter = await tx.workOrderCounter.upsert({
       where: { branchId },
       update: { lastValue: { increment: 1 } },

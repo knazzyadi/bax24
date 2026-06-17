@@ -20,8 +20,6 @@ function createExtendedClient() {
     log: process.env.NODE_ENV === 'development'
       ? ['query', 'error', 'warn']
       : ['error'],
-    // إضافة إعدادات إضافية لتحسين الاتصال في بيئة serverless
-    // ويمكن إضافة connectionLimit هنا إذا أردت، لكن الأفضل في DATABASE_URL
   });
 
   const extendedClient = baseClient.$extends({
@@ -148,3 +146,10 @@ export const prisma =
 if (process.env.NODE_ENV !== 'production') {
   globalForPrisma.prismaInstance = prisma;
 }
+
+// ===============================
+// Transaction client type helper
+// ===============================
+export type TxClient = Parameters<
+  Parameters<typeof prisma.$transaction>[0]
+>[0];

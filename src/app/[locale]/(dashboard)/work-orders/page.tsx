@@ -272,7 +272,7 @@ export default async function WorkOrdersPage({
   // =========================
   //
 
-  const [workOrders, total, statuses, priorities] = await Promise.all([
+  const [workOrders, total, rawStatuses, rawPriorities] = await Promise.all([
     prisma.workOrder.findMany({
       where,
       include: {
@@ -305,6 +305,19 @@ export default async function WorkOrdersPage({
       select: { id: true, name: true, nameEn: true },
     }),
   ]);
+
+  // تحويل null → undefined لتوافق أنواع WorkOrdersClient
+  const statuses = rawStatuses.map((s) => ({
+    id: s.id,
+    name: s.name,
+    nameEn: s.nameEn ?? undefined,
+  }));
+
+  const priorities = rawPriorities.map((p) => ({
+    id: p.id,
+    name: p.name,
+    nameEn: p.nameEn ?? undefined,
+  }));
 
   //
   // =========================

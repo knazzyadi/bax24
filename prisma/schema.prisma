@@ -48,6 +48,8 @@ model User {
   updatedAt         DateTime     @updatedAt
   invitationToken   String?      @unique
   invitationExpires DateTime?
+  resetToken        String?      @unique   // ✅ أضف هذا
+  resetExpires      DateTime?              // ✅ أضف هذا
   firstLogin        Boolean      @default(true)
   userBranches      UserBranch[]
   company           Company?     @relation(fields: [companyId], references: [id])

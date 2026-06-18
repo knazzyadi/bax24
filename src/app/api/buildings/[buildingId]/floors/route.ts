@@ -28,6 +28,14 @@ export async function GET(
       return NextResponse.json({ error: 'المبنى غير موجود' }, { status: 404 });
     }
 
+    // التحقق من وجود الفرع
+    if (!building.branch) {
+      return NextResponse.json(
+        { error: 'المبنى ليس لديه فرع مرتبط' },
+        { status: 400 }
+      );
+    }
+
     // التحقق من أن المبنى يتبع نفس الشركة
     if (building.branch.companyId !== companyId) {
       return NextResponse.json({ error: 'المبنى لا ينتمي لشركتك' }, { status: 403 });
@@ -36,13 +44,20 @@ export async function GET(
     // التحقق من أن المستخدم يملك صلاحية على هذا الفرع (إذا لم يكن ADMIN)
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) {
+      // التأكد من أن building.branchId ليس null
+      if (!building.branchId) {
+        return NextResponse.json(
+          { error: 'المبنى ليس لديه فرع مرتبط' },
+          { status: 400 }
+        );
+      }
       const userBranchIds = session.user.branchIds || [];
       if (!userBranchIds.includes(building.branchId)) {
         return NextResponse.json({ error: 'لا تملك صلاحية الوصول لهذا الفرع' }, { status: 403 });
       }
     }
 
-    // جلب الأدوار مرتبة حسب order
+    // جلب الطوابق مرتبة حسب order
     const floors = await prisma.floor.findMany({
       where: { buildingId: building.id },
       select: {

@@ -120,6 +120,7 @@ model Building {
   company              Company               @relation(fields: [companyId], references: [id])
   floors               Floor[]
   rooms                Room[]
+  vehicles             Vehicle[] // <- إضافة هذا
 
   @@map("buildings")
 }
@@ -294,18 +295,18 @@ model WorkOrderInventory {
 }
 
 model ContractAttachment {
-  id           String   @id @default(cuid())
-  contractId   String
+  id           String    @id @default(cuid())
+  contractId   String?   // ✅ جعل الحقل اختيارياً
   url          String
   key          String
   fileName     String?
   originalName String
-  provider     String   @default("CLOUDFLARE_R2")
+  provider     String    @default("CLOUDFLARE_R2")
   mimeType     String
   size         Int
   uploadedBy   String?
-  createdAt    DateTime @default(now())
-  contract     Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  createdAt    DateTime  @default(now())
+  contract     Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade) // ✅ جعل العلاقة اختيارية
 
   @@index([contractId])
 }
@@ -543,4 +544,45 @@ enum WorkOrderType {
   CORRECTIVE
   EMERGENCY
   BULK_PREVENTIVE
+}
+
+model Vehicle {
+  id           String   @id @default(cuid())
+  name         String
+  plateNumber  String?
+  buildingId   String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  building     Building @relation(fields: [buildingId], references: [id])
+  accidentRequests AccidentRequest[] // العلاقة مع حوادث السيارات
+  oilChangeRequests OilChangeRequest[] // ✅ العلاقة مع طلبات تغيير الزيت
+
+  @@map("vehicles")
+}
+
+model AccidentRequest {
+  id           String   @id @default(cuid())
+  vehicleId    String
+  description  String?
+  status       String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id])
+
+  @@map("accident_requests")
+}
+
+model OilChangeRequest {
+  id           String   @id @default(cuid())
+  vehicleId    String
+  description  String?
+  status       String   @default("PENDING")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id])
+
+  @@map("oil_change_requests")
 }

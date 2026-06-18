@@ -32,6 +32,14 @@ export async function GET(
       return NextResponse.json({ error: 'الدور غير موجود' }, { status: 404 });
     }
 
+    // التحقق من وجود الفرع
+    if (!floor.building.branch) {
+      return NextResponse.json(
+        { error: 'المبنى ليس لديه فرع مرتبط' },
+        { status: 400 }
+      );
+    }
+
     // التحقق من انتماء المبنى للشركة
     if (floor.building.branch.companyId !== companyId) {
       return NextResponse.json({ error: 'هذا الدور لا ينتمي لشركتك' }, { status: 403 });
@@ -39,6 +47,13 @@ export async function GET(
 
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) {
+      // التحقق من وجود branchId في المبنى
+      if (!floor.building.branchId) {
+        return NextResponse.json(
+          { error: 'المبنى ليس لديه فرع مرتبط' },
+          { status: 400 }
+        );
+      }
       const userBranchIds = session.user.branchIds || [];
       if (!userBranchIds.includes(floor.building.branchId)) {
         return NextResponse.json({ error: 'لا تملك صلاحية الوصول لهذا الفرع' }, { status: 403 });

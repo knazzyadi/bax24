@@ -1,3 +1,4 @@
+// src/app/api/stats/pending-accident-requests/route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
@@ -26,6 +27,7 @@ export async function GET() {
       };
     }
 
+    // ✅ استخدام النموذج الصحيح من Prisma
     const count = await prisma.accidentRequest.count({ where: whereAccident });
     return NextResponse.json(count);
   } catch (error) {

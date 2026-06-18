@@ -19,8 +19,13 @@ export async function GET(
 
     const { id } = await params;
     const companyId = session.user.companyId;
+
+    // ✅ التحقق من وجود companyId
     if (!companyId) {
-      return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
+      return NextResponse.json(
+        { error: "لا توجد شركة مرتبطة بالمستخدم" },
+        { status: 400 }
+      );
     }
 
     // التأكد من وجود أمر العمل للشركة
@@ -64,6 +69,14 @@ export async function POST(
     }
 
     const companyId = session.user.companyId;
+
+    // ✅ التحقق من وجود companyId
+    if (!companyId) {
+      return NextResponse.json(
+        { error: "لا توجد شركة مرتبطة بالمستخدم" },
+        { status: 400 }
+      );
+    }
 
     // التحقق من وجود أمر العمل
     const workOrder = await prisma.workOrder.findFirst({
@@ -133,6 +146,14 @@ export async function DELETE(
     }
 
     const companyId = session.user.companyId;
+
+    // ✅ التحقق من وجود companyId
+    if (!companyId) {
+      return NextResponse.json(
+        { error: "لا توجد شركة مرتبطة بالمستخدم" },
+        { status: 400 }
+      );
+    }
 
     // جلب سجل الربط مع التحقق من أنه يخص أمر العمل الصحيح والشركة
     const record = await prisma.workOrderInventory.findFirst({

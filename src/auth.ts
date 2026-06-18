@@ -35,21 +35,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         );
         if (!isValid) return null;
 
-        // جلب قائمة الفروع (branchIds)
+        // ✅ جلب قائمة الفروع من جدول UserBranch فقط (بدون user.branchId)
         let branchIds: string[] = [];
-        if (user.branchId) branchIds.push(user.branchId);
         try {
           if (prisma.userBranch) {
             const userBranches = await prisma.userBranch.findMany({
               where: { userId: user.id },
-              select: { branchId: true }
+              select: { branchId: true },
             });
-            const extraBranchIds = userBranches.map((ub: { branchId: string }) => ub.branchId);
-            branchIds = [...branchIds, ...extraBranchIds];
+            branchIds = userBranches.map((ub: { branchId: string }) => ub.branchId);
           }
         } catch (error) {
           console.warn("UserBranch table not found or error fetching branches:", error);
         }
+        // إزالة القيم المكررة
         branchIds = [...new Set(branchIds)];
 
         return {
@@ -60,7 +59,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           companyId: user.companyId,
           companyName: user.company?.name,
           companyNameEn: user.company?.nameEn,
-          branchId: user.branchId,
+          branchId: null, // ✅ لم نعد نستخدم user.branchId، نعطيه قيمة null
           branchIds,
         };
       },
@@ -77,7 +76,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         token.companyId = user.companyId;
         token.companyName = user.companyName;
         token.companyNameEn = user.companyNameEn;
-        token.branchId = user.branchId;
+        token.branchId = user.branchId; // سيكون null
         token.branchIds = user.branchIds;
       }
       return token;
@@ -90,7 +89,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         session.user.companyId = token.companyId as string;
         session.user.companyName = token.companyName as string;
         session.user.companyNameEn = token.companyNameEn as string;
-        session.user.branchId = token.branchId as string | null;
+        session.user.branchId = token.branchId as string | null; // قد يكون null
         session.user.branchIds = token.branchIds as string[] | null;
       }
       return session;

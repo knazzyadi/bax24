@@ -26,6 +26,7 @@ export async function GET() {
       };
     }
 
+    // ✅ استخدام النموذج الجديد
     const count = await prisma.oilChangeRequest.count({ where: whereOil });
     return NextResponse.json(count);
   } catch (error) {

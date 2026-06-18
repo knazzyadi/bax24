@@ -1,3 +1,4 @@
+// src/app/api/work-order-priorities/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
@@ -16,6 +17,15 @@ export async function GET(
 
     const { id } = await params;
     const companyId = session.user.companyId;
+
+    // ✅ التحقق من وجود companyId
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بالمستخدم' },
+        { status: 400 }
+      );
+    }
+
     const priority = await prisma.workOrderPriority.findFirst({
       where: { id, companyId },
     });
@@ -49,6 +59,15 @@ export async function PUT(
     const { name, nameEn, order, isDefault, color } = body;
 
     const companyId = session.user.companyId;
+
+    // ✅ التحقق من وجود companyId
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بالمستخدم' },
+        { status: 400 }
+      );
+    }
+
     const existing = await prisma.workOrderPriority.findFirst({
       where: { id, companyId },
     });
@@ -98,6 +117,15 @@ export async function DELETE(
 
     const { id } = await params;
     const companyId = session.user.companyId;
+
+    // ✅ التحقق من وجود companyId
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بالمستخدم' },
+        { status: 400 }
+      );
+    }
+
     const existing = await prisma.workOrderPriority.findFirst({
       where: { id, companyId },
     });

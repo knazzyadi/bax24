@@ -26,6 +26,14 @@ export async function GET(
     const { id } = await params;
     const companyId = session.user.companyId;
 
+    // ✅ التحقق من وجود companyId
+    if (!companyId) {
+      return NextResponse.json(
+        { error: "لا توجد شركة مرتبطة بالمستخدم" },
+        { status: 400 }
+      );
+    }
+
     const ticket = await prisma.ticket.findFirst({
       where: { id, companyId, deletedAt: null },
       include: {
@@ -64,6 +72,14 @@ export async function PUT(
 
     const { id } = await params;
     const companyId = session.user.companyId;
+
+    // ✅ التحقق من وجود companyId
+    if (!companyId) {
+      return NextResponse.json(
+        { error: "لا توجد شركة مرتبطة بالمستخدم" },
+        { status: 400 }
+      );
+    }
 
     const existingTicket = await prisma.ticket.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -291,6 +307,14 @@ export async function DELETE(
 
     const { id } = await params;
     const companyId = session.user.companyId;
+
+    // ✅ التحقق من وجود companyId
+    if (!companyId) {
+      return NextResponse.json(
+        { error: "لا توجد شركة مرتبطة بالمستخدم" },
+        { status: 400 }
+      );
+    }
 
     const existingTicket = await prisma.ticket.findFirst({
       where: { id, companyId, deletedAt: null },

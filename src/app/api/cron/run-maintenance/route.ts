@@ -1,8 +1,35 @@
+// src/app/api/cron/run-maintenance/route.ts
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { addDays, addMonths, addYears, isBefore, startOfDay, differenceInDays } from "date-fns";
 
-// دالة لحساب تاريخ الاستحقاق التالي بناءً على آخر تنفيذ والفترة
+// ==============================
+// Helper: توليد كود أمر العمل
+// ==============================
+async function generateWorkOrderCode(branchId: string): Promise<{ code: string; branchSeqNum: number }> {
+  const result = await prisma.$transaction(async (tx) => {
+    const counter = await tx.workOrderCounter.upsert({
+      where: { branchId },
+      update: { lastValue: { increment: 1 } },
+      create: { branchId, lastValue: 1 },
+    });
+
+    const branch = await tx.branch.findUnique({
+      where: { id: branchId },
+      select: { code: true },
+    });
+    const prefix = branch?.code || "BR";
+    const padded = counter.lastValue.toString().padStart(4, "0");
+    const code = `${prefix}-WO-${padded}`;
+    return { code, branchSeqNum: counter.lastValue };
+  });
+
+  return result;
+}
+
+// ==============================
+// Helper: حساب تاريخ الاستحقاق التالي
+// ==============================
 function getNextDueDate(lastRun: Date, frequency: string): Date {
   switch (frequency) {
     case "DAILY":
@@ -18,6 +45,16 @@ function getNextDueDate(lastRun: Date, frequency: string): Date {
   }
 }
 
+// ==============================
+// Helper: تنسيق التاريخ
+// ==============================
+function formatDate(date: Date): string {
+  return date.toISOString().split("T")[0];
+}
+
+// ==============================
+// API Route (Cron)
+// ==============================
 export async function GET() {
   try {
     const today = startOfDay(new Date());
@@ -58,6 +95,15 @@ export async function GET() {
 
       if (targetAssets.length === 0) continue;
 
+      // التأكد من وجود branchId لتوليد الكود
+      if (!schedule.branchId) {
+        console.warn(`⚠️ لا يوجد branchId للجدول ${schedule.id}، سيتم تخطي إنشاء أمر العمل`);
+        continue;
+      }
+
+      // توليد الكود والرقم التسلسلي
+      const { code, branchSeqNum } = await generateWorkOrderCode(schedule.branchId);
+
       // إنشاء أمر عمل جماعي واحد
       const workOrder = await prisma.workOrder.create({
         data: {
@@ -70,8 +116,13 @@ export async function GET() {
           companyId: schedule.companyId,
           createdBy: "SYSTEM_CRON",
           assetTypeId: schedule.assetTypeId,
+          code: code,                    // ✅ الكود الفريد
+          branchSeqNum: branchSeqNum,    // ✅ الرقم التسلسلي للفرع
           workOrderAssets: {
-            create: targetAssets.map((asset: any) => ({ assetId: asset.id })),
+            create: targetAssets.map((asset: any) => ({ 
+              assetId: asset.id,
+              quantity: 1,
+            })),
           },
         },
       });
@@ -83,7 +134,11 @@ export async function GET() {
       });
 
       executedCount++;
-      results.push({ scheduleId: schedule.id, workOrderId: workOrder.id, assetsCount: targetAssets.length });
+      results.push({ 
+        scheduleId: schedule.id, 
+        workOrderId: workOrder.id, 
+        assetsCount: targetAssets.length 
+      });
     }
 
     return NextResponse.json({
@@ -94,8 +149,4 @@ export async function GET() {
     console.error("CRON_MAINTENANCE_ERROR:", error);
     return NextResponse.json({ error: "فشل تنفيذ المهمة المجدولة" }, { status: 500 });
   }
-}
-
-function formatDate(date: Date): string {
-  return date.toISOString().split("T")[0];
 }

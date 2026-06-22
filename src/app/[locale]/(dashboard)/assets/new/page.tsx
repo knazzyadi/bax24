@@ -285,7 +285,9 @@ export default function NewAssetPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {types.map((type) => (
-                          <SelectItem key={type.id} value={type.id}>{isRtl ? type.name : (type.nameEn || type.name)}</SelectItem>
+                          <SelectItem key={type.id} value={String(type.id)}>
+                          {isRtl ? type.name : (type.nameEn || type.name)}
+                        </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -298,7 +300,9 @@ export default function NewAssetPage() {
                       </SelectTrigger>
                       <SelectContent>
                         {statuses.map((status) => (
-                          <SelectItem key={status.id} value={status.id}>{isRtl ? status.name : (status.nameEn || status.name)}</SelectItem>
+                          <SelectItem key={status.id} value={String(status.id)}>
+                            {isRtl ? status.name : (status.nameEn || status.name)}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

@@ -48,7 +48,7 @@ async function generateAssetCode(
 
   const padded = nextNumber.toString().padStart(4, '0');
 
-  return `ATS-${branch.code}-${assetType.code}-${padded}`;
+  return `${branch.code}-${assetType.code}-${padded}`;
 }
 
 export async function GET(request: Request) {

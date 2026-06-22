@@ -25,9 +25,11 @@ import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import type { AssetStatus, AssetType, Building, Floor, Room } from '@/types/assets';
 
-const generateSequentialCode = async (typeId: string | null): Promise<string> => {
+// ✅ التعديل: إضافة roomId كمعامل ثانٍ
+const generateSequentialCode = async (typeId: string | null, roomId: string): Promise<string> => {
   const params = new URLSearchParams();
   if (typeId) params.append('typeId', typeId);
+  if (roomId) params.append('roomId', roomId);
   const res = await fetch(`/api/assets/next-code?${params.toString()}`);
   if (!res.ok) throw new Error('Failed to generate code');
   const data = await res.json();
@@ -202,7 +204,8 @@ export default function NewAssetPage() {
 
     setLoading(true);
     try {
-      const sequentialCode = await generateSequentialCode(formData.typeId || null);
+      // ✅ التعديل: تمرير roomId مع typeId
+      const sequentialCode = await generateSequentialCode(formData.typeId || null, roomId);
       const cleanTypeId = formData.typeId && formData.typeId !== "all" ? formData.typeId : null;
       const cleanStatusId = formData.statusId && formData.statusId !== "all" ? formData.statusId : null;
 
@@ -283,7 +286,6 @@ export default function NewAssetPage() {
                       disabled={types.length === 0}
                     >
                       <SelectTrigger className="w-full h-14 rounded-2xl border-primary bg-background px-6">
-                        {/* عرض مخصص بدلاً من <SelectValue /> */}
                         <span className="text-foreground">
                           {types.find(t => t.id.toString() === formData.typeId)
                             ? (isRtl
@@ -311,7 +313,6 @@ export default function NewAssetPage() {
                       disabled={statuses.length === 0}
                     >
                       <SelectTrigger className="w-full h-14 rounded-2xl border-primary bg-background px-6">
-                        {/* عرض مخصص بدلاً من <SelectValue /> */}
                         <span className="text-foreground">
                           {statuses.find(s => s.id.toString() === formData.statusId)
                             ? (isRtl

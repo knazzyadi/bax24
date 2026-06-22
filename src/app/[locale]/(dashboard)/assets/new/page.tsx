@@ -10,10 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
 import { toast } from "sonner";
-import { 
-  Calendar, MapPin, FileText, Loader2, Plus, ShieldCheck, Info, Globe, 
+import {
+  Calendar, MapPin, FileText, Loader2, Plus, ShieldCheck, Info, Globe,
   Building as BuildingIcon, Layers, DoorOpen, Wrench, Upload
 } from "lucide-react";
 
@@ -43,7 +43,7 @@ export default function NewAssetPage() {
   const [loading, setLoading] = useState(false);
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
   const [types, setTypes] = useState<AssetType[]>([]);
-  
+
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -185,19 +185,16 @@ export default function NewAssetPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // ✅ فحص الاسم
     if (!formData.name.trim()) {
       toast.error(t('nameRequired'));
       return;
     }
 
-    // ✅ فحص نوع الأصل (إلزامي)
     if (!formData.typeId || formData.typeId === "all") {
       toast.error(isRtl ? "يرجى اختيار نوع الأصل" : "Please select an asset type");
       return;
     }
 
-    // ✅ فحص الغرفة (إلزامي - يمنع إنشاء أصل بدون غرفة)
     if (!roomId) {
       toast.error(t('locationRequired'));
       return;
@@ -277,30 +274,55 @@ export default function NewAssetPage() {
                   <Input name="nameEn" value={formData.nameEn} onChange={handleChange} placeholder={t('nameEnPlaceholder')} className="h-14 rounded-2xl border-primary bg-background text-lg px-6" />
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
+                  {/* ===== نوع الأصل ===== */}
                   <div className="space-y-2">
                     <Label className="text-muted-foreground/70">{t('type')} *</Label>
-                    <Select value={formData.typeId} onValueChange={(v) => handleSelectChange("typeId", v)} disabled={types.length === 0}>
+                    <Select
+                      value={formData.typeId}
+                      onValueChange={(v) => handleSelectChange("typeId", v)}
+                      disabled={types.length === 0}
+                    >
                       <SelectTrigger className="w-full h-14 rounded-2xl border-primary bg-background px-6">
-                        <SelectValue placeholder={t('selectType')} />
+                        {/* عرض مخصص بدلاً من <SelectValue /> */}
+                        <span className="text-foreground">
+                          {types.find(t => t.id.toString() === formData.typeId)
+                            ? (isRtl
+                                ? types.find(t => t.id.toString() === formData.typeId)?.name
+                                : types.find(t => t.id.toString() === formData.typeId)?.nameEn || types.find(t => t.id.toString() === formData.typeId)?.name)
+                            : t('selectType')}
+                        </span>
                       </SelectTrigger>
                       <SelectContent>
                         {types.map((type) => (
-                          <SelectItem key={type.id} value={String(type.id)}>
-                          {isRtl ? type.name : (type.nameEn || type.name)}
-                        </SelectItem>
+                          <SelectItem key={type.id} value={type.id.toString()}>
+                            {isRtl ? type.name : (type.nameEn || type.name)}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* ===== الحالة ===== */}
                   <div className="space-y-2">
                     <Label className="text-muted-foreground/70">{t('status')}</Label>
-                    <Select value={formData.statusId} onValueChange={(v) => handleSelectChange("statusId", v)} disabled={statuses.length === 0}>
+                    <Select
+                      value={formData.statusId}
+                      onValueChange={(v) => handleSelectChange("statusId", v)}
+                      disabled={statuses.length === 0}
+                    >
                       <SelectTrigger className="w-full h-14 rounded-2xl border-primary bg-background px-6">
-                        <SelectValue placeholder={t('selectStatus')} />
+                        {/* عرض مخصص بدلاً من <SelectValue /> */}
+                        <span className="text-foreground">
+                          {statuses.find(s => s.id.toString() === formData.statusId)
+                            ? (isRtl
+                                ? statuses.find(s => s.id.toString() === formData.statusId)?.name
+                                : statuses.find(s => s.id.toString() === formData.statusId)?.nameEn || statuses.find(s => s.id.toString() === formData.statusId)?.name)
+                            : t('selectStatus')}
+                        </span>
                       </SelectTrigger>
                       <SelectContent>
                         {statuses.map((status) => (
-                          <SelectItem key={status.id} value={String(status.id)}>
+                          <SelectItem key={status.id} value={status.id.toString()}>
                             {isRtl ? status.name : (status.nameEn || status.name)}
                           </SelectItem>
                         ))}
@@ -308,7 +330,7 @@ export default function NewAssetPage() {
                     </Select>
                   </div>
                 </div>
-                
+
                 <div className={containerClass}>
                   <div className="space-y-3">
                     <h3 className="text-foreground font-medium text-lg uppercase tracking-widest flex items-center gap-2">

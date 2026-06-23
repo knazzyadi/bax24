@@ -251,7 +251,8 @@
       "permissions": "الصلاحيات",
       "drivers": "السائقين",
       "vehiclesList": "المركبات",
-      "branches": "الفروع"
+      "branches": "الفروع",
+      "reports": "التقارير"
     },
     "systemAdminSection": "إدارة النظام",
     "settings": "الإعدادات",

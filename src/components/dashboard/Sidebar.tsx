@@ -30,6 +30,7 @@ import {
   KeyRound,
   Settings,
   TrendingUp,
+  FileText, // <-- أيقونة التقارير
 } from "lucide-react";
 
 import { SidebarNavItem } from "./SidebarNavItem";
@@ -218,6 +219,17 @@ export default function Sidebar() {
               />
             );
           })}
+
+        {/* ===== إضافة التقارير تحت المخزون ===== */}
+        {!isSuperAdmin && (
+          <SidebarNavItem
+            href="/reports"
+            label={getLabel("reports", "التقارير")}
+            icon={FileText}
+            isActive={pathname.startsWith(`/${locale}/reports`)}
+            {...commonNavProps}
+          />
+        )}
 
         {!isSuperAdmin && (
           <SidebarSection

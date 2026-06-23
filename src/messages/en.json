@@ -251,7 +251,8 @@
       "permissions": "Permissions",
       "drivers": "Drivers",
       "branches": "Branches",
-      "vehiclesList": "Vehicles"
+      "vehiclesList": "Vehicles",
+      "reports": "Reports"
     },
     "systemAdminSection": "System Admin",
     "settings": "Settings",

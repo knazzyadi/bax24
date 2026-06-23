@@ -10,6 +10,10 @@ import {
   SortingState,
 } from "@tanstack/react-table";
 import { useState } from "react";
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils"; // ✅ استيراد cn
+import { formatDate, getStatusColor, translateStatus } from "@/lib/reports-utils";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -18,9 +22,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
-import { formatDate, getStatusColor, translateStatus } from "@/lib/reports-utils";
 import { ReportsExport } from "./ReportsExport";
 
 interface ReportsTableProps {

@@ -1,5 +1,3 @@
-//src\components\ui\textarea.tsx
-//إنشاء مكوّن جاهز (Reusable UI Component) لعنصر Textarea مع تصميم موحّد وقابل لإعادة الاستخدام في كل التطبيق
 import * as React from "react"
 
 import { cn } from "@/lib/utils"

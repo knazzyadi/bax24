@@ -4,8 +4,12 @@
 import { ThemeProvider } from '@/components/theme-provider';
 import { SessionProvider } from 'next-auth/react';
 import { Toaster } from 'sonner';
-import { Inter, IBM_Plex_Sans_Arabic } from 'next/font/google';
+import { Inter, IBM_Plex_Sans_Arabic, Geist } from 'next/font/google';
 import '@/app/globals.css';
+import { Providers } from './providers';
+import { cn } from "@/lib/utils";
+
+const geist = Geist({subsets:['latin'],variable:'--font-sans'});
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
@@ -17,12 +21,14 @@ const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${ibmPlexSansArabic.variable}`}>
+    <html lang="en" suppressHydrationWarning className={cn(inter.variable, ibmPlexSansArabic.variable, "font-sans", geist.variable)}>
       <body>
         <ThemeProvider defaultTheme="dark">
-          <SessionProvider>
-            {children}
-          </SessionProvider>
+          <Providers> {/* <-- إضافة Providers لتغليف التطبيق */}
+            <SessionProvider>
+              {children}
+            </SessionProvider>
+          </Providers>
         </ThemeProvider>
         {/* Toaster واحد فقط في أعلى التسلسل - إعدادات صلبة غير زجاجية */}
         <Toaster

@@ -646,7 +646,8 @@
       "asset": "Assets",
       "inventory": "Inventory",
       "contract": "Contracts",
-      "vehicle": "Vehicles"
+      "vehicle": "Vehicles",
+      "reports": "Reports"
     },
     "permission": {
       "report:view": {

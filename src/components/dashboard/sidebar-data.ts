@@ -28,10 +28,12 @@ export const MAIN_MENU_ITEMS: NavItem[] = [
   { href: "/work-orders", labelKey: "nav.workOrders", icon: ClipboardList },
   { href: "/tickets", labelKey: "nav.tickets", icon: FileText },
   { href: "/maintenance", labelKey: "nav.maintenance", icon: Calendar },
-  //{ href: "/vehicle-requests", labelKey: "nav.vehicles", icon: Car }, // ❌ تم إخفاء مؤقتاً
+  // { href: "/vehicle-requests", labelKey: "nav.vehicles", icon: Car }, // ❌ مؤقتاً
   { href: "/contracts", labelKey: "nav.contracts", icon: FileSpreadsheet },
   { href: "/assets", labelKey: "nav.assets", icon: Package },
   { href: "/inventory", labelKey: "nav.inventory", icon: Box },
+  // ⬇️ تم إضافة التقارير تحت المخزون ⬇️
+  { href: "/reports", labelKey: "nav.reports", icon: FileText },
 ];
 
 // قائمة عناصر السوبر أدمن

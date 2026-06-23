@@ -648,7 +648,8 @@
       "asset": "الأصول",
       "inventory": "المخزون",
       "contract": "العقود",
-      "vehicle": "المركبات"
+      "vehicle": "المركبات",
+       "reports": "التقارير"
     },
     "permission": {
       "report:view": {

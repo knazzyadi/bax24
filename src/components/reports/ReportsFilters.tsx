@@ -3,6 +3,12 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { DateRange } from "react-day-picker";
+import { format } from "date-fns";
+import { ar } from "date-fns/locale";
+import { CalendarIcon, X } from "lucide-react";
+import { cn } from "@/lib/utils";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -12,16 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { CalendarIcon, Filter, X } from "lucide-react";
-import { format } from "date-fns";
-import { ar } from "date-fns/locale";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { cn } from "@/lib/utils";
 
 export function ReportsFilters() {
   const router = useRouter();
@@ -34,7 +36,7 @@ export function ReportsFilters() {
   const currentFrom = searchParams.get("from") || "";
   const currentTo = searchParams.get("to") || "";
 
-  const [date, setDate] = useState<{ from?: Date; to?: Date }>({
+  const [date, setDate] = useState<DateRange | undefined>({
     from: currentFrom ? new Date(currentFrom) : undefined,
     to: currentTo ? new Date(currentTo) : undefined,
   });
@@ -47,19 +49,18 @@ export function ReportsFilters() {
     } else {
       params.delete(key);
     }
-    // إعادة تعيين الصفحة إلى 1 عند تغيير الفلاتر
     params.set("page", "1");
     router.push(`/reports?${params.toString()}`, { scroll: false });
   };
 
   // تطبيق تاريخ
   const applyDateRange = () => {
-    if (date.from) {
+    if (date?.from) {
       updateFilter("from", date.from.toISOString().split("T")[0]);
     } else {
       updateFilter("from", "");
     }
-    if (date.to) {
+    if (date?.to) {
       updateFilter("to", date.to.toISOString().split("T")[0]);
     } else {
       updateFilter("to", "");
@@ -68,7 +69,7 @@ export function ReportsFilters() {
 
   // إعادة ضبط جميع الفلاتر
   const resetFilters = () => {
-    setDate({ from: undefined, to: undefined });
+    setDate(undefined);
     router.push("/reports", { scroll: false });
   };
 
@@ -131,12 +132,12 @@ export function ReportsFilters() {
               variant="outline"
               className={cn(
                 "justify-start text-left font-normal w-[220px]",
-                !date.from && !date.to && "text-muted-foreground"
+                !date?.from && !date?.to && "text-muted-foreground"
               )}
             >
               <CalendarIcon className="ml-2 h-4 w-4" />
-              {date.from ? (
-                date.to ? (
+              {date?.from ? (
+                date?.to ? (
                   <>
                     {format(date.from, "dd/MM/yyyy", { locale: ar })} -{" "}
                     {format(date.to, "dd/MM/yyyy", { locale: ar })}
@@ -154,7 +155,7 @@ export function ReportsFilters() {
               mode="range"
               selected={date}
               onSelect={setDate}
-              initialFocus
+              // ✅ تم حذف initialFocus لإصلاح الخطأ
             />
             <div className="p-2 border-t flex justify-end">
               <Button size="sm" onClick={applyDateRange}>

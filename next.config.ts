@@ -7,9 +7,7 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
-  // ✅ نضع @prisma/client و prisma في transpilePackages فقط
   transpilePackages: ['@prisma/client', 'prisma'],
-  // ✅ نترك bcryptjs فقط في serverExternalPackages (لا يحتاج تجميع)
   serverExternalPackages: ['bcryptjs'],
   webpack: (config: any) => {
     config.externals = config.externals || [];
@@ -19,9 +17,6 @@ const nextConfig: NextConfig = {
       );
     }
     return config;
-  },
-  experimental: {
-    serverMinification: false,
   },
 };
 

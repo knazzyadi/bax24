@@ -7,8 +7,10 @@ const nextConfig: NextConfig = {
   typescript: {
     ignoreBuildErrors: true,
   },
+  // ✅ نضع @prisma/client و prisma في transpilePackages فقط
   transpilePackages: ['@prisma/client', 'prisma'],
-  serverExternalPackages: ['bcryptjs', '@prisma/client', 'prisma'],
+  // ✅ نترك bcryptjs فقط في serverExternalPackages (لا يحتاج تجميع)
+  serverExternalPackages: ['bcryptjs'],
   webpack: (config: any) => {
     config.externals = config.externals || [];
     if (Array.isArray(config.externals)) {
@@ -18,7 +20,6 @@ const nextConfig: NextConfig = {
     }
     return config;
   },
-  // ✅ إضافة إعدادات إضافية لتحسين الأداء في Vercel
   experimental: {
     serverMinification: false,
   },

@@ -1,31 +1,26 @@
-'use client'; // ✅ إضافة هذا السطر
-
+// src/app/[locale]/layout.tsx
 import { NextIntlClientProvider } from 'next-intl';
-import { useParams, usePathname } from 'next/navigation';
+import { getMessages } from 'next-intl/server';
+import { notFound } from 'next/navigation';
 import { Header } from '@/components/ui/Header';
 import { Footer } from '@/components/ui/Footer';
-import { useEffect, useState } from 'react';
 
-export default function LocaleLayout({
+const locales = ['en', 'ar'];
+
+export default async function LocaleLayout({
   children,
+  params,
 }: {
   children: React.ReactNode;
+  params: Promise<{ locale: string }>;
 }) {
-  const params = useParams();
-  const locale = params.locale as string;
-  const [messages, setMessages] = useState<any>(null);
-  const pathname = usePathname();
+  const { locale } = await params;
 
-  useEffect(() => {
-    fetch(`/messages/${locale}.json`)
-      .then(res => res.json())
-      .then(data => setMessages(data))
-      .catch(() => setMessages({}));
-  }, [locale]);
+  if (!locales.includes(locale as any)) notFound();
+
+  const messages = await getMessages({ locale });
 
   const isRtl = locale === 'ar';
-
-  if (!messages) return null;
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>

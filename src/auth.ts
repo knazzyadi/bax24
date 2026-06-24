@@ -1,6 +1,8 @@
 // src/auth.ts
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import { prisma } from "./lib/prisma";
+import bcrypt from "bcryptjs";
 
 const authInstance = NextAuth({
   providers: [
@@ -11,10 +13,6 @@ const authInstance = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // ✅ استيراد ديناميكي لـ prisma و bcrypt (يُحمّلان فقط عند تسجيل الدخول)
-        const { prisma } = await import("./lib/prisma");
-        const bcrypt = (await import("bcryptjs")).default;
-
         if (!credentials?.email || !credentials?.password) return null;
 
         const user = await prisma.user.findUnique({
@@ -37,7 +35,7 @@ const authInstance = NextAuth({
             where: { userId: user.id },
             select: { branchId: true },
           });
-          branchIds = userBranches.map((ub: { branchId: string }) => ub.branchId);
+          branchIds = userBranches.map((ub: any) => ub.branchId);
         } catch (error) {
           console.warn("UserBranch error:", error);
         }
@@ -85,7 +83,6 @@ const authInstance = NextAuth({
       return session;
     },
   },
-  secret: process.env.NEXTAUTH_SECRET,
 });
 
 export const handlers = authInstance.handlers;

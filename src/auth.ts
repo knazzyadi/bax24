@@ -11,25 +11,44 @@ const authInstance = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        // ✅ استيراد ديناميكي (يُحمّل فقط عند تسجيل الدخول)
+        // ✅ استيراد ديناميكي لتجنب تحميل prisma و bcrypt أثناء البناء
         const { prisma } = await import("./lib/prisma");
         const bcrypt = (await import("bcryptjs")).default;
 
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+          console.error("❌ Missing credentials");
+          return null;
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string },
           include: { role: true, company: true },
         });
 
-        if (!user || !user.password) return null;
-        if (user.status === false) return null;
+        if (!user) {
+          console.error(`❌ User not found: ${credentials.email}`);
+          return null;
+        }
+
+        if (!user.password) {
+          console.error(`❌ User has no password: ${credentials.email}`);
+          return null;
+        }
+
+        if (user.status === false) {
+          console.error(`❌ User inactive: ${credentials.email}`);
+          return null;
+        }
 
         const isValid = await bcrypt.compare(
           credentials.password as string,
           user.password
         );
-        if (!isValid) return null;
+
+        if (!isValid) {
+          console.error(`❌ Invalid password for: ${credentials.email}`);
+          return null;
+        }
 
         let branchIds: string[] = [];
         try {
@@ -37,9 +56,9 @@ const authInstance = NextAuth({
             where: { userId: user.id },
             select: { branchId: true },
           });
-          branchIds = userBranches.map((ub: any) => ub.branchId);
+          branchIds = userBranches.map((ub: { branchId: string }) => ub.branchId);
         } catch (error) {
-          console.warn("UserBranch error:", error);
+          console.warn("⚠️ UserBranch fetch error:", error);
         }
         branchIds = [...new Set(branchIds)];
 
@@ -57,8 +76,12 @@ const authInstance = NextAuth({
       },
     }),
   ],
-  pages: { signIn: "/login" },
-  session: { strategy: "jwt" },
+  pages: {
+    signIn: "/login",
+  },
+  session: {
+    strategy: "jwt",
+  },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {

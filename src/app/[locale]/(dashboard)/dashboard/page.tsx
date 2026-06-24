@@ -59,7 +59,6 @@ export default function DashboardPage() {
     }
   }
 
-  // ✅ التعديل هنا: استخدام API التذاكر بدلاً من طلبات الزيت والحوادث
   const fetchStats = useCallback(async () => {
     setLoading(true);
     setError(false);
@@ -68,7 +67,7 @@ export default function DashboardPage() {
         '/api/stats/assets-count',
         '/api/stats/work-orders-count',
         '/api/stats/low-inventory-count',
-        '/api/tickets/count?status=PENDING',  // ✅ جلب عدد التذاكر المعلقة
+        '/api/tickets/count?status=PENDING',
       ];
 
       const results = await Promise.allSettled(
@@ -89,7 +88,7 @@ export default function DashboardPage() {
         assets: assets ?? 0,
         workOrders: workOrders ?? 0,
         lowInventory: lowInventory ?? 0,
-        pendingRequests: pendingTickets ?? 0,  // ✅ عدد التذاكر المعلقة
+        pendingRequests: pendingTickets ?? 0,
       });
     } catch (err) {
       console.error('Dashboard error:', err);
@@ -227,30 +226,31 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card className="bg-primary text-primary-foreground overflow-hidden relative group border-none">
-          <CardHeader>
+        {/* ✅ بطاقة حالة النظام المحسّنة */}
+        <Card className="relative overflow-hidden transition-all hover:shadow-md group border bg-card text-card-foreground">
+          <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-xl font-bold">{t('systemStatus.title')}</CardTitle>
+            <div className="p-2 rounded-lg bg-primary/10 text-primary">
+              <ShieldCheck className="h-5 w-5" />
+            </div>
           </CardHeader>
           <CardContent className="space-y-6 relative z-10">
             <div className={cn('flex items-center gap-3', isRTL ? 'flex-row-reverse' : '')}>
-              <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
-                <ShieldCheck className="h-6 w-6 text-white" />
-              </div>
-              <span className="font-semibold">{t('systemStatus.message')}</span>
+              <span className="font-semibold text-foreground">{t('systemStatus.message')}</span>
             </div>
             <div className="space-y-2">
-              <div className="flex justify-between text-xs font-medium opacity-80">
+              <div className="flex justify-between text-xs font-medium text-muted-foreground">
                 <span>{t('systemStatus.sync')}</span>
                 <span>100%</span>
               </div>
-              <div className="h-1.5 bg-white/20 rounded-full">
-                <div className="h-full bg-white w-full rounded-full transition-all duration-1000" />
+              <div className="h-1.5 bg-muted rounded-full">
+                <div className="h-full bg-primary w-full rounded-full transition-all duration-1000" />
               </div>
             </div>
           </CardContent>
           <Activity className={cn(
-            'absolute inset-0 m-auto h-48 w-48 text-white/5 group-hover:scale-110 transition-transform duration-700',
-            isRTL ? 'rotate-180' : ''
+            'absolute -bottom-4 h-32 w-32 text-primary/5 group-hover:scale-110 transition-transform duration-500',
+            isRTL ? '-left-4' : '-right-4'
           )} />
         </Card>
       </div>
@@ -274,8 +274,8 @@ function QuickActionLink({
   isRTL: boolean;
 }) {
   const variants = {
-    blue: 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100',
-    emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100 hover:bg-emerald-100',
+    blue: 'text-blue-600 bg-blue-50 border-blue-100 hover:bg-blue-100 dark:text-blue-400 dark:bg-blue-950/30 dark:border-blue-800/30',
+    emerald: 'text-emerald-600 bg-emerald-50 border-emerald-100 hover:bg-emerald-100 dark:text-emerald-400 dark:bg-emerald-950/30 dark:border-emerald-800/30',
   };
 
   return (

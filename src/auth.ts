@@ -1,10 +1,10 @@
 // src/auth.ts
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import { authConfig } from "./auth.config";
+import { prisma } from "./lib/prisma";
+import bcrypt from "bcryptjs";
 
 const authInstance = NextAuth({
-  ...authConfig,
   providers: [
     Credentials({
       name: "credentials",
@@ -13,76 +13,50 @@ const authInstance = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
+        if (!credentials?.email || !credentials?.password) return null;
+
+        const user = await prisma.user.findUnique({
+          where: { email: credentials.email as string },
+          include: { role: true, company: true },
+        });
+
+        if (!user || !user.password) return null;
+        if (user.status === false) return null;
+
+        const isValid = await bcrypt.compare(
+          credentials.password as string,
+          user.password
+        );
+        if (!isValid) return null;
+
+        let branchIds: string[] = [];
         try {
-          // ✅ استيراد ديناميكي لـ prisma و bcrypt
-          const { prisma } = await import("./lib/prisma");
-          const bcrypt = (await import("bcryptjs")).default;
-
-          if (!credentials?.email || !credentials?.password) {
-            console.error("❌ Missing credentials");
-            return null;
-          }
-
-          const user = await prisma.user.findUnique({
-            where: { email: credentials.email as string },
-            include: { role: true, company: true },
+          const userBranches = await prisma.userBranch.findMany({
+            where: { userId: user.id },
+            select: { branchId: true },
           });
-
-          if (!user) {
-            console.error(`❌ User not found: ${credentials.email}`);
-            return null;
-          }
-
-          if (!user.password) {
-            console.error(`❌ User has no password: ${credentials.email}`);
-            return null;
-          }
-
-          if (user.status === false) {
-            console.error(`❌ User inactive: ${credentials.email}`);
-            return null;
-          }
-
-          const isValid = await bcrypt.compare(
-            credentials.password as string,
-            user.password
-          );
-
-          if (!isValid) {
-            console.error(`❌ Invalid password for: ${credentials.email}`);
-            return null;
-          }
-
-          let branchIds: string[] = [];
-          try {
-            const userBranches = await prisma.userBranch.findMany({
-              where: { userId: user.id },
-              select: { branchId: true },
-            });
-            branchIds = userBranches.map((ub: { branchId: string }) => ub.branchId);
-          } catch (error) {
-            console.warn("⚠️ UserBranch fetch error:", error);
-          }
-          branchIds = [...new Set(branchIds)];
-
-          return {
-            id: user.id,
-            email: user.email,
-            name: user.name,
-            role: user.role?.name || "USER",
-            companyId: user.companyId,
-            companyName: user.company?.name,
-            companyNameEn: user.company?.nameEn,
-            branchId: null,
-            branchIds,
-          };
+          branchIds = userBranches.map((ub: any) => ub.branchId);
         } catch (error) {
-          console.error("❌ Authorize error:", error);
-          return null;
+          console.warn("UserBranch error:", error);
         }
+        branchIds = [...new Set(branchIds)];
+
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role?.name || "USER",
+          companyId: user.companyId,
+          companyName: user.company?.name,
+          companyNameEn: user.company?.nameEn,
+          branchId: null,
+          branchIds,
+        };
       },
     }),
   ],
+  pages: { signIn: "/login" },
+  session: { strategy: "jwt" },
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
@@ -109,6 +83,7 @@ const authInstance = NextAuth({
       return session;
     },
   },
+  secret: process.env.NEXTAUTH_SECRET,
 });
 
 export const handlers = authInstance.handlers;

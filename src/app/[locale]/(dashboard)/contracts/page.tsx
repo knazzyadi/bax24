@@ -1,8 +1,9 @@
 // src/app/[locale]/(dashboard)/contracts/page.tsx
-import { auth } from '@/auth';
+
 import { redirect } from 'next/navigation';
+import { getSession, requirePermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
+
 import { startOfDay, isBefore } from 'date-fns';
 import ContractsClient from './ContractsClient';
 import type { Contract } from '@/types/contracts';
@@ -14,9 +15,9 @@ export default async function ContractsPage({
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
-  await requirePermission('contracts.read', session);
+  await requirePermission('contracts.read');
 
   const { locale } = await params;
   const { q, status } = await searchParams;

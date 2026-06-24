@@ -1,6 +1,8 @@
 // src/app/api/public/tickets/route.ts
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+
+
+import { prisma } from '@/lib/prisma';
 import { uploadFileToR2 } from "@/lib/storage";
 
 // ======================

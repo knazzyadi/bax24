@@ -1,8 +1,11 @@
 // src/app/api/maintenance/schedules/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+
+
+import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 
 // دالة مساعدة لتحويل تردد نصي إلى عدد الأيام
 function frequencyStringToDays(freq: string): number {
@@ -25,11 +28,11 @@ function frequencyStringToDays(freq: string): number {
 // GET: جلب قائمة جداول الصيانة الوقائية (مع دعم الفلترة والفروع)
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("maintenance.read", session);
+    await requirePermission("maintenance.read");
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
@@ -98,11 +101,11 @@ export async function GET(request: NextRequest) {
 // POST: إنشاء جدول صيانة جديد
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("maintenance.create", session);
+    await requirePermission("maintenance.create");
 
     const body = await request.json();
     const {

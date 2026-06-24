@@ -1,8 +1,11 @@
 // src/app/api/work-orders/[id]/inventory/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { prisma, TxClient } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+
+
+import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 
 // ===================== GET =====================
 // جلب جميع قطع الغيار المرتبطة بأمر العمل
@@ -11,11 +14,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("work_orders.read", session);
+    await requirePermission("work_orders.read");
 
     const { id } = await params;
     const companyId = session.user.companyId;
@@ -54,11 +57,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("work_orders.update", session);
+    await requirePermission("work_orders.update");
 
     const { id } = await params;
     const body = await req.json();
@@ -131,11 +134,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("work_orders.update", session);
+    await requirePermission("work_orders.update");
 
     const { id } = await params;
     const { searchParams } = new URL(req.url);

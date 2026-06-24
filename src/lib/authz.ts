@@ -1,16 +1,17 @@
-import { auth } from '@/auth';
+// src/lib/authz.ts
 import { RequestContext } from './request-context';
 
 type Role = 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'TECH';
 
 export async function requireAuth() {
+  // ✅ استيراد ديناميكي (يبقى كما هو)
+  const { auth } = await import('@/auth');
   const session = await auth();
 
   if (!session?.user) {
     throw new Error('UNAUTHORIZED');
   }
 
-  // 🔥 هنا أهم إضافة في النظام كله
   RequestContext.run(
     {
       user: {
@@ -28,7 +29,6 @@ export async function requireAuth() {
 
 export async function requireRole(roles: Role[]) {
   const session = await requireAuth();
-
   const userRole = session.user.role as Role;
 
   if (!roles.includes(userRole)) {
@@ -40,5 +40,5 @@ export async function requireRole(roles: Role[]) {
 
 export function getCurrentUser() {
   const ctx = RequestContext.get();
-  return ctx.user;
+  return ctx?.user;
 }

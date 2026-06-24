@@ -1,11 +1,21 @@
 // src/app/[locale]/(dashboard)/assets/page.tsx
-import { auth } from '@/auth';
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
 import { getAssets } from '@/lib/data-fetching';
 import AssetsClient from './AssetsClient';
 import type { Asset, AssetType, AssetStatus } from '@/types/assets';
+
+// ✅ دوال مساعدة ديناميكية لتجنب تحميل auth أثناء البناء
+async function getSessionAndPermissions() {
+  const { auth } = await import('@/auth');
+  const { requirePermission } = await import('@/lib/permissions');
+  const session = await getSession();
+  if (!session?.user) {
+    throw new Error('UNAUTHORIZED');
+  }
+  await requirePermission('assets.read');
+  return session;
+}
 
 export default async function AssetsPage({
   params,
@@ -14,12 +24,20 @@ export default async function AssetsPage({
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ q?: string; typeId?: string; statusId?: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user) redirect('/login');
-  await requirePermission('assets.read', session);
+  // ✅ التحقق من وجود params و searchParams
+  const paramsResolved = await params;
+  const searchParamsResolved = await searchParams || {};
 
-  const { locale } = await params;
-  const { q, typeId, statusId } = await searchParams;
+  // ✅ استخدام الدالة المساعدة
+  let session;
+  try {
+    session = await getSessionAndPermissions();
+  } catch (error) {
+    redirect('/login');
+  }
+
+  const { locale } = paramsResolved;
+  const { q, typeId, statusId } = searchParamsResolved;
   const companyId = session.user.companyId!;
 
   // بناء شرط where للبحث والفلترة (سيُمرر إلى getAssets)
@@ -86,7 +104,7 @@ export default async function AssetsPage({
       : undefined,
     purchaseDate: asset.purchaseDate?.toISOString() ?? null,
     warrantyEnd: asset.warrantyEnd?.toISOString() ?? null,
-    lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString() ?? null, // ✅ إضافة
+    lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString() ?? null,
     notes: asset.notes ?? undefined,
     createdAt: asset.createdAt.toISOString(),
     updatedAt: asset.updatedAt.toISOString(),

@@ -1,4 +1,4 @@
-import { auth } from '@/auth';
+// src/lib/guard.ts
 import { RequestContext } from './request-context';
 
 type Role = 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'TECH';
@@ -8,6 +8,8 @@ type GuardOptions = {
 };
 
 export async function guard(options: GuardOptions = {}) {
+  // ✅ استيراد ديناميكي
+  const { auth } = await import('@/auth');
   const session = await auth();
 
   if (!session?.user) {

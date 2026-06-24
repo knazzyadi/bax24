@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
 
+
+import { getSession, requirePermission } from '@/lib/auth-helper';
 export async function POST(req: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     // 🔐 حماية: فقط المستخدمين المسجلين
     if (!session || !session.user?.id) {

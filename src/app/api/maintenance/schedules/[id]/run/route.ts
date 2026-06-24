@@ -1,8 +1,11 @@
 // src/app/api/maintenance/schedules/[id]/run/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+
+
+import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 import { addDays, format } from "date-fns";
 
 // ==============================
@@ -37,11 +40,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("maintenance.execute", session);
+    await requirePermission("maintenance.execute");
 
     const { id } = await params;
     const companyId = session.user.companyId;

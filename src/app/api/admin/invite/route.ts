@@ -1,20 +1,28 @@
+// src/app/api/admin/invite/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
 
+// ✅ دالة مساعدة لجلب session والصلاحيات ديناميكياً
+async function getAuthAndPermissions() {
+  const { auth } = await import('@/auth');
+  const { requirePermission } = await import('@/lib/permissions');
+  const session = await getSession();
+  if (!session?.user) {
+    throw new Error('UNAUTHORIZED');
+  }
+  return { session, requirePermission };
+}
+
 export async function POST(req: Request) {
   try {
-    const session = await auth();
-
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    // ✅ استيراد ديناميكي لـ auth و requirePermission
+    const { session, requirePermission } = await getAuthAndPermissions();
 
     // 🔐 صلاحية مركزية بدل role check
-    await requirePermission('users.invite', session.user.id);
+    await requirePermission('users.invite');
 
     const { email, name, roleId, companyId } = await req.json();
 
@@ -70,8 +78,23 @@ export async function POST(req: Request) {
     );
 
     return NextResponse.json({ success: true, user });
-  } catch (error) {
-    console.error(error);
+  } catch (error: any) {
+    console.error('POST /api/admin/invite error:', error);
+    
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
+    }
+    
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json(
+        { error: 'لا تملك الصلاحية المطلوبة' },
+        { status: 403 }
+      );
+    }
+
     return NextResponse.json(
       { error: 'حدث خطأ في الخادم' },
       { status: 500 }

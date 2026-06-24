@@ -1,10 +1,11 @@
-// lib/data-fetching.ts
+// src/lib/data-fetching.ts
 import { cache } from 'react';
-import { auth } from '@/auth';
-import { prisma } from './prisma';
+import { prisma } from '@/lib/prisma';
 
 // ========== دوال مساعدة داخلية ==========
 async function getSessionAndCompany() {
+  // ✅ استيراد ديناميكي
+  const { auth } = await import('@/auth');
   const session = await auth();
   if (!session?.user) throw new Error('غير مصرح');
   const companyId = session.user.companyId;

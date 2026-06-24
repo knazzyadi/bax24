@@ -1,11 +1,13 @@
 // src/app/api/assets/next-code/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

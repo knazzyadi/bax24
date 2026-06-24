@@ -1,23 +1,31 @@
-// src/app/[locale]/layout.tsx
+'use client'; // ✅ إضافة هذا السطر
+
 import { NextIntlClientProvider } from 'next-intl';
-import { getMessages } from 'next-intl/server';
-import { notFound } from 'next/navigation';
+import { useParams, usePathname } from 'next/navigation';
 import { Header } from '@/components/ui/Header';
 import { Footer } from '@/components/ui/Footer';
+import { useEffect, useState } from 'react';
 
-const locales = ['en', 'ar'];
-
-export default async function LocaleLayout({
+export default function LocaleLayout({
   children,
-  params,
 }: {
   children: React.ReactNode;
-  params: Promise<{ locale: string }>;
 }) {
-  const { locale } = await params;
-  if (!locales.includes(locale as any)) notFound();
-  const messages = await getMessages({ locale });
+  const params = useParams();
+  const locale = params.locale as string;
+  const [messages, setMessages] = useState<any>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    fetch(`/messages/${locale}.json`)
+      .then(res => res.json())
+      .then(data => setMessages(data))
+      .catch(() => setMessages({}));
+  }, [locale]);
+
   const isRtl = locale === 'ar';
+
+  if (!messages) return null;
 
   return (
     <NextIntlClientProvider locale={locale} messages={messages}>
@@ -25,7 +33,6 @@ export default async function LocaleLayout({
         <Header />
         <main className="flex-1">{children}</main>
         <Footer />
-        {/* تم نقل <Toaster /> إلى الجذر (layout.tsx) لإلغاء الخلفية الزجاجية */}
       </div>
     </NextIntlClientProvider>
   );

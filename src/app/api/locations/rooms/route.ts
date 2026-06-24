@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
 import { revalidatePath } from 'next/cache';
 
 // GET: جلب جميع الغرف الخاصة بمباني الشركة (للمدير فقط)
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -48,7 +50,7 @@ export async function GET() {
 // POST: إضافة غرفة جديدة (للمدير فقط)
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

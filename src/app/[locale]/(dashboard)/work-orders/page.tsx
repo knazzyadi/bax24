@@ -1,8 +1,10 @@
-import { auth } from "@/auth";
+
 import { redirect } from "next/navigation";
 
-import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 
 import WorkOrdersClient from "./WorkOrdersClient";
 
@@ -86,7 +88,7 @@ function isValidWorkOrderType(type: string): type is WorkOrderType {
   return VALID_WORK_ORDER_TYPES.has(type as WorkOrderType);
 }
 
-type WorkOrderWithRelations = Prisma.WorkOrderGetPayload<{
+type WorkOrderWithRelations = PrismaClient.WorkOrderGetPayload<{
   include: {
     priority: true;
     status: true;
@@ -191,9 +193,9 @@ export default async function WorkOrdersPage({
   // =========================
   //
 
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect("/login");
-  await requirePermission("work_orders.read", session);
+  await requirePermission("work_orders.read");
 
   //
   // =========================
@@ -220,7 +222,7 @@ export default async function WorkOrdersPage({
   // =========================
   //
 
-  const where: Prisma.WorkOrderWhereInput = {
+  const where: PrismaClient.WorkOrderWhereInput = {
     companyId,
     deletedAt: null,
   };

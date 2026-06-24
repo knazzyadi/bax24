@@ -1,7 +1,8 @@
-import { auth } from "@/auth";
+
 import { redirect } from "next/navigation";
+import { getSession, requirePermission } from '@/lib/auth-helper';
 import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+
 import MaintenanceClient from "./MaintenanceClient";
 
 interface ScheduleForClient {
@@ -46,16 +47,13 @@ export default async function MaintenancePage({
     page?: string;
   }>;
 }) {
-  const session = await auth();
+  const session = await getSession();
 
   if (!session?.user) {
     redirect("/login");
   }
 
-  await requirePermission(
-    "maintenance.read",
-    session
-  );
+  await requirePermission("maintenance.read");
 
   const { locale } = await params;
 

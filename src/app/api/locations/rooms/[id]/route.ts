@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
 import { revalidatePath } from 'next/cache';
 
 // دالة مساعدة للتحقق من ملكية الغرفة وصلاحية التعديل/الحذف
@@ -33,7 +35,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     console.log('🔍 PUT /api/locations/rooms/[id] - session:', session?.user?.email);
 
     if (!session || session.user?.role !== 'ADMIN') {
@@ -124,7 +126,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     console.log('🔍 DELETE /api/locations/rooms/[id] - session:', session?.user?.email);
 
     if (!session || session.user?.role !== 'ADMIN') {

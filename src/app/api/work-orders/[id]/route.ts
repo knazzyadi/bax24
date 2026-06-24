@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+
+
+import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 
 // ========== GET: جلب أمر عمل واحد مع التفاصيل (وتضمين buildingId/floorId إذا وجدت) ==========
 export async function GET(
@@ -9,11 +12,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("work_orders.read", session);
+    await requirePermission("work_orders.read");
 
     const { id } = await params;
     const companyId = session.user.companyId;
@@ -83,9 +86,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-    await requirePermission("work_orders.update", session);
+    await requirePermission("work_orders.update");
 
     const { id } = await params;
     const body = await request.json();
@@ -188,9 +191,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-    await requirePermission("work_orders.delete", session);
+    await requirePermission("work_orders.delete");
 
     const { id } = await params;
     const companyId = session.user.companyId;

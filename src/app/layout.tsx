@@ -1,16 +1,12 @@
 // src/app/layout.tsx
-//هو الهيكل الأساسي (Root Layout) للتطبيق بالكامل في Next.js، ويغلف كل الصفحات بالـ Providers
-//والإعدادات العامة (الثيم، الجلسة، الخطوط).
 import { ThemeProvider } from '@/components/theme-provider';
-import { SessionProvider } from 'next-auth/react';
 import { Toaster } from 'sonner';
 import { Inter, IBM_Plex_Sans_Arabic, Geist } from 'next/font/google';
 import '@/app/globals.css';
 import { Providers } from './providers';
 import { cn } from "@/lib/utils";
 
-const geist = Geist({subsets:['latin'],variable:'--font-sans'});
-
+const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
 const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
   weight: ['100', '200', '300', '400', '500', '600', '700'],
@@ -24,13 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={cn(inter.variable, ibmPlexSansArabic.variable, "font-sans", geist.variable)}>
       <body>
         <ThemeProvider defaultTheme="dark">
-          <Providers> {/* <-- إضافة Providers لتغليف التطبيق */}
-            <SessionProvider>
-              {children}
-            </SessionProvider>
+          <Providers> {/* ✅ يحتوي على SessionProvider داخل Client Component */}
+            {children}
           </Providers>
         </ThemeProvider>
-        {/* Toaster واحد فقط في أعلى التسلسل - إعدادات صلبة غير زجاجية */}
         <Toaster
           position="top-center"
           richColors

@@ -1,5 +1,4 @@
 // src/lib/permissions.ts
-import { auth } from '@/auth';
 import { prisma } from '@/lib/prisma';
 
 const roleCache = new Map<string, string | null>();
@@ -62,6 +61,8 @@ export async function getUserPermissions(userId: string): Promise<string[]> {
  * 🔐 التحقق من وجود جلسة صالحة
  */
 async function getSessionOrThrow(session?: any) {
+  // ✅ استيراد ديناميكي
+  const { auth } = await import('@/auth');
   const currentSession = session || (await auth());
   if (!currentSession?.user?.id) {
     throw new Error('UNAUTHORIZED: لا توجد جلسة نشطة');

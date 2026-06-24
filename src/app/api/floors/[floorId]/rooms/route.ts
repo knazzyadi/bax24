@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ floorId: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await requirePermission('assets.read', session);
+    await requirePermission('assets.read');
 
     const { floorId } = await params;
     const companyId = session.user.companyId;

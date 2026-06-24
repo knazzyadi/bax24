@@ -1,5 +1,7 @@
-import { prisma, TxClient } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+
+
+
+import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {

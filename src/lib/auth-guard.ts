@@ -1,7 +1,9 @@
-import { auth } from '@/auth';
+// src/lib/auth-guard.ts
 import { NextResponse } from 'next/server';
 
 export async function requireSuperAdmin() {
+  // ✅ استيراد ديناميكي لتجنب التحميل أثناء البناء
+  const { auth } = await import('@/auth');
   const session = await auth();
 
   if (!session || session.user?.role !== 'SUPER_ADMIN') {

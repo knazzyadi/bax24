@@ -1,13 +1,25 @@
+// src/app/api/admin/profile/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
+
 import { prisma } from '@/lib/prisma';
-import bcrypt from 'bcryptjs';
+// ✅ دالة مساعدة لجلب الجلسة ديناميكياً
+async function getSession() {
+  const { auth } = await import('@/auth');
+  const session = await getSession();
+  if (!session?.user) {
+    throw new Error('UNAUTHORIZED');
+  }
+  return session;
+}
 
 export async function PUT(request: Request) {
   try {
-    const session = await auth();
+    // ✅ استيراد ديناميكي لـ auth
+    const session = await getSession();
 
-    if (!session || session.user?.role !== 'SUPER_ADMIN') {
+    // ✅ التحقق من صلاحية SUPER_ADMIN
+    if (session.user.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'غير مصرح' },
         { status: 401 }
@@ -61,6 +73,8 @@ export async function PUT(request: Request) {
 
     // تحديث كلمة المرور فقط إذا تم إدخالها
     if (password) {
+      // ✅ استيراد bcrypt ديناميكياً
+      const bcrypt = (await import('bcryptjs')).default;
       updateData.password = await bcrypt.hash(password, 10);
     }
 
@@ -79,8 +93,15 @@ export async function PUT(request: Request) {
       user: updatedUser,
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('PROFILE_UPDATE_ERROR:', error);
+    
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
+    }
 
     return NextResponse.json(
       { error: 'خطأ في تحديث الملف الشخصي' },

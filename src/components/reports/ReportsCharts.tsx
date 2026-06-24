@@ -1,4 +1,3 @@
-// components/reports/ReportsCharts.tsx
 "use client";
 
 import {
@@ -14,49 +13,41 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface ReportsChartsProps {
-  data: any[];
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { Report } from "@/types/report";
+
+interface Props {
+  data: Report[];
 }
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
-export function ReportsCharts({ data }: ReportsChartsProps) {
-  // تجميع البيانات حسب التصنيف
-  const categoryCount = data.reduce((acc: any, item: any) => {
-    acc[item.category] = (acc[item.category] || 0) + 1;
-    return acc;
-  }, {});
+export function ReportsCharts({ data }: Props) {
+  const categoryCount: Record<string, number> = {};
+  const statusCount: Record<string, number> = {};
+
+  for (const item of data) {
+    categoryCount[item.category] = (categoryCount[item.category] || 0) + 1;
+    statusCount[item.status] = (statusCount[item.status] || 0) + 1;
+  }
 
   const categoryData = Object.entries(categoryCount).map(([name, value]) => ({
-    name: name === "maintenance" ? "صيانة" :
-          name === "inventory" ? "مخزون" :
-          name === "vehicles" ? "مركبات" :
-          name === "incidents" ? "حوادث" :
-          name === "sales" ? "مبيعات" : name,
+    name,
     value,
   }));
 
-  // تجميع البيانات حسب الحالة
-  const statusCount = data.reduce((acc: any, item: any) => {
-    acc[item.status] = (acc[item.status] || 0) + 1;
-    return acc;
-  }, {});
-
   const statusData = Object.entries(statusCount).map(([name, value]) => ({
-    name: name === "completed" ? "مكتمل" :
-          name === "pending" ? "معلق" :
-          name === "in-progress" ? "قيد التنفيذ" :
-          name === "cancelled" ? "ملغي" : name,
+    name,
     value,
   }));
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">التقارير حسب التصنيف</CardTitle>
+          <CardTitle>التصنيفات</CardTitle>
         </CardHeader>
         <CardContent className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
@@ -74,22 +65,14 @@ export function ReportsCharts({ data }: ReportsChartsProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">التقارير حسب الحالة</CardTitle>
+          <CardTitle>الحالات</CardTitle>
         </CardHeader>
         <CardContent className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie
-                data={statusData}
-                dataKey="value"
-                nameKey="name"
-                cx="50%"
-                cy="50%"
-                outerRadius={80}
-                label
-              >
-                {statusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+              <Pie data={statusData} dataKey="value" cx="50%" cy="50%" outerRadius={80}>
+                {statusData.map((_, i) => (
+                  <Cell key={i} fill={COLORS[i % COLORS.length]} />
                 ))}
               </Pie>
               <Tooltip />
@@ -97,6 +80,7 @@ export function ReportsCharts({ data }: ReportsChartsProps) {
           </ResponsiveContainer>
         </CardContent>
       </Card>
+
     </div>
   );
 }

@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 // GET: جلب جميع الأدوار
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session || session.user?.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
@@ -26,7 +28,7 @@ export async function GET() {
 // POST: إنشاء الأدوار
 export async function POST() {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session || session.user?.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });

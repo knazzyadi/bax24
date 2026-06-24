@@ -1,4 +1,3 @@
-// components/reports/ReportsTable.tsx
 "use client";
 
 import {
@@ -9,10 +8,22 @@ import {
   flexRender,
   SortingState,
 } from "@tanstack/react-table";
+
 import { useState } from "react";
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown } from "lucide-react";
-import { cn } from "@/lib/utils"; // ✅ استيراد cn
-import { formatDate, getStatusColor, translateStatus } from "@/lib/reports-utils";
+import {
+  ChevronLeft,
+  ChevronRight,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
+
+import { cn } from "@/lib/utils";
+import {
+  formatDate,
+  getStatusColor,
+  translateStatus,
+} from "@/lib/reports-utils";
+
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -22,27 +33,43 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
 import { ReportsExport } from "./ReportsExport";
+import type { Report } from "@/types/report";
 
 interface ReportsTableProps {
-  data: any[];
-  pagination: { total: number; page: number; limit: number; totalPages: number };
+  data: Report[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
   onPageChange: (page: number) => void;
 }
 
-export function ReportsTable({ data, pagination, onPageChange }: ReportsTableProps) {
+export function ReportsTable({
+  data,
+  pagination,
+  onPageChange,
+}: ReportsTableProps) {
   const [sorting, setSorting] = useState<SortingState>([]);
 
   const columns = [
     {
       accessorKey: "id",
       header: "المعرف",
-      cell: (info: any) => <span className="font-mono text-sm">#{info.getValue()}</span>,
+      cell: (info: any) => {
+        const value = String(info.getValue() ?? "");
+        return <span className="font-mono text-sm">#{value}</span>;
+      },
     },
     {
       accessorKey: "title",
       header: "عنوان التقرير",
-      cell: (info: any) => <span className="font-medium">{info.getValue()}</span>,
+      cell: (info: any) => (
+        <span className="font-medium">{String(info.getValue() ?? "")}</span>
+      ),
     },
     {
       accessorKey: "category",
@@ -55,14 +82,15 @@ export function ReportsTable({ data, pagination, onPageChange }: ReportsTablePro
           incidents: "حوادث",
           sales: "مبيعات",
         };
-        return <span className="capitalize">{map[info.getValue()] || info.getValue()}</span>;
+        const value = String(info.getValue() ?? "");
+        return <span>{map[value] || value}</span>;
       },
     },
     {
       accessorKey: "status",
       header: "الحالة",
       cell: (info: any) => {
-        const status = info.getValue();
+        const status = String(info.getValue() ?? "");
         return (
           <span
             className={cn(
@@ -78,13 +106,15 @@ export function ReportsTable({ data, pagination, onPageChange }: ReportsTablePro
     {
       accessorKey: "createdAt",
       header: "تاريخ الإنشاء",
-      cell: (info: any) => formatDate(info.getValue()),
+      cell: (info: any) => {
+        return formatDate(String(info.getValue() ?? ""));
+      },
     },
   ];
 
   const table = useReactTable({
-    data,
-    columns,
+    data: data as any[],
+    columns: columns as any[],
     state: { sorting },
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
@@ -104,9 +134,9 @@ export function ReportsTable({ data, pagination, onPageChange }: ReportsTablePro
       <div className="border rounded-lg overflow-hidden">
         <Table>
           <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
+            {table.getHeaderGroups().map((headerGroup: any) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
+                {headerGroup.headers.map((header: any) => (
                   <TableHead key={header.id}>
                     {header.isPlaceholder ? null : (
                       <div
@@ -128,11 +158,12 @@ export function ReportsTable({ data, pagination, onPageChange }: ReportsTablePro
               </TableRow>
             ))}
           </TableHeader>
+
           <TableBody>
             {table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map((row: any) => (
                 <TableRow key={row.id}>
-                  {row.getVisibleCells().map((cell) => (
+                  {row.getVisibleCells().map((cell: any) => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
@@ -150,7 +181,6 @@ export function ReportsTable({ data, pagination, onPageChange }: ReportsTablePro
         </Table>
       </div>
 
-      {/* الترقيم (Pagination) */}
       {pagination.totalPages > 1 && (
         <div className="flex items-center justify-between">
           <div className="text-sm text-muted-foreground">

@@ -1,14 +1,16 @@
 // src/app/api/work-order-statuses/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
 
     const isAdmin = session.user.role === 'ADMIN';
@@ -71,7 +73,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
 
     const isAdmin = session.user.role === 'ADMIN';

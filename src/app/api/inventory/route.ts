@@ -1,16 +1,18 @@
 // src/app/api/inventory/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission('assets.read', session);
+    await requirePermission('assets.read');
 
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get('q') || '';
@@ -151,11 +153,11 @@ export async function GET(request: NextRequest) {
 // POST: إنشاء صنف جديد (مع التحقق من الصلاحيات والعضوية)
 export async function POST(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission('assets.create', session);
+    await requirePermission('assets.create');
 
     const body = await request.json();
     const { name, nameEn, sku, quantity, minQuantity, unit, roomId, notes } = body;

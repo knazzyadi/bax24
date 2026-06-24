@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 
 // GET: List all priorities for the user's company
 export async function GET() {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission('work_orders.read', session);
+    await requirePermission('work_orders.read');
 
     const companyId = session.user.companyId;
     if (!companyId) {
@@ -34,7 +36,7 @@ export async function GET() {
 // POST: Create a new priority
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

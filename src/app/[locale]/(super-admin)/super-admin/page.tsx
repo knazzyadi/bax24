@@ -1,8 +1,10 @@
-import { auth } from '@/auth';
-import { redirect } from 'next/navigation';
-import { PrismaClient } from '@prisma/client';
 
-const prisma = new PrismaClient();
+import { redirect } from 'next/navigation';
+import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
+
 
 export default async function SuperAdminDashboard({
   params,
@@ -10,7 +12,7 @@ export default async function SuperAdminDashboard({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const session = await auth();
+  const session = await getSession();
 
   if (!session || session.user?.role !== 'SUPER_ADMIN') {
     redirect(`/${locale}/login`);

@@ -1,8 +1,10 @@
 // src/app/api/assets/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 
 // ========== دالة توليد كود فريد لكل (فرع + نوع) ==========
 async function generateAssetCode(
@@ -53,12 +55,12 @@ async function generateAssetCode(
 
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await requirePermission('assets.read', session);
+    await requirePermission('assets.read');
 
     const { searchParams } = new URL(request.url);
 
@@ -199,12 +201,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await requirePermission('assets.create', session);
+    await requirePermission('assets.create');
 
     const body = await request.json();
 

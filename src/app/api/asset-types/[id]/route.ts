@@ -1,9 +1,19 @@
 // src/app/api/asset-types/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
 import { revalidatePath } from 'next/cache';
+
+// ✅ استيراد requirePermission ديناميكياً (لأنه يستخدم auth)
+async function getAuthAndPermissions() {
+  const { auth } = await import('@/auth');
+  const { requirePermission } = await import('@/lib/permissions');
+  const session = await getSession();
+  if (!session?.user) {
+    throw new Error('UNAUTHORIZED');
+  }
+  return { session, requirePermission };
+}
 
 // PUT: تحديث نوع أصل
 export async function PUT(
@@ -11,11 +21,8 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    await requirePermission('assets.write', session);
+    const { session, requirePermission } = await getAuthAndPermissions();
+    await requirePermission('assets.write');
 
     const { id } = await params;
     const { name, nameEn, code, description, order, isDefault, companyId } = await request.json();
@@ -74,6 +81,12 @@ export async function PUT(
     return NextResponse.json(updatedType);
   } catch (error: any) {
     console.error('PUT /api/asset-types/[id] error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     if (error.code === 'P2002') {
       return NextResponse.json(
         { error: 'نوع أصل بنفس الاسم موجود بالفعل لهذه الشركة' },
@@ -84,21 +97,18 @@ export async function PUT(
   }
 }
 
-// DELETE: حذف نوع أصل (بدون التحقق من الأصول المرتبطة حالياً)
+// DELETE: حذف نوع أصل
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    await requirePermission('assets.write', session);
+    const { session, requirePermission } = await getAuthAndPermissions();
+    await requirePermission('assets.write');
 
     const { id } = await params;
 
-    // التحقق من وجود النوع (بدون include)
+    // التحقق من وجود النوع
     const assetType = await prisma.assetType.findFirst({
       where: {
         id,
@@ -109,13 +119,17 @@ export async function DELETE(
       return NextResponse.json({ error: 'نوع الأصل غير موجود' }, { status: 404 });
     }
 
-    // TODO: أضف لاحقاً التحقق من وجود أصول مرتبطة عند إنشاء نموذج Asset
-
     await prisma.assetType.delete({ where: { id } });
     revalidatePath('/ar/settings/asset-types');
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('DELETE /api/asset-types/[id] error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

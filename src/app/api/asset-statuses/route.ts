@@ -1,19 +1,25 @@
 // src/app/api/asset-statuses/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
 import { revalidatePath } from 'next/cache';
+
+// ✅ دالة مساعدة لجلب session والصلاحيات ديناميكياً
+async function getAuthAndPermissions() {
+  const { auth } = await import('@/auth');
+  const { requirePermission } = await import('@/lib/permissions');
+  const session = await getSession();
+  if (!session?.user) {
+    throw new Error('UNAUTHORIZED');
+  }
+  return { session, requirePermission };
+}
 
 // GET: جلب قائمة حالات الأصول (للمستخدمين المصرح لهم assets.read)
 export async function GET() {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    // ✅ السماح لأي مستخدم لديه صلاحية assets.read
-    await requirePermission('assets.read', session);
+    const { session, requirePermission } = await getAuthAndPermissions();
+    await requirePermission('assets.read');
 
     const companyId = session.user.companyId;
     if (!companyId) {
@@ -35,8 +41,14 @@ export async function GET() {
       },
     });
     return NextResponse.json(statuses);
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET /api/asset-statuses error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
@@ -44,10 +56,7 @@ export async function GET() {
 // POST: إضافة حالة أصل جديدة (للأدمن فقط)
 export async function POST(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const { session } = await getAuthAndPermissions();
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية إنشاء حالة' }, { status: 403 });
@@ -98,6 +107,9 @@ export async function POST(request: Request) {
     return NextResponse.json(newStatus, { status: 201 });
   } catch (error: any) {
     console.error('POST /api/asset-statuses error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
     if (error.code === 'P2002') {
       return NextResponse.json(
         { error: 'حالة أصل بنفس الاسم موجودة بالفعل' },
@@ -111,17 +123,22 @@ export async function POST(request: Request) {
 // PUT: تحديث حالة (للأدمن فقط)
 export async function PUT(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    const { session } = await getAuthAndPermissions();
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
-    if (!isAdmin) return NextResponse.json({ error: 'لا تملك صلاحية تحديث الحالة' }, { status: 403 });
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'لا تملك صلاحية تحديث الحالة' }, { status: 403 });
+    }
 
     const body = await request.json();
     const { id, name, nameEn, code, description, color, order, isDefault } = body;
-    if (!id) return NextResponse.json({ error: 'المعرف مطلوب' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'المعرف مطلوب' }, { status: 400 });
+    }
 
     const companyId = session.user.companyId;
-    if (!companyId) return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    }
 
     // التحقق من وجود الحالة
     const existing = await prisma.assetStatus.findFirst({
@@ -154,8 +171,11 @@ export async function PUT(request: Request) {
 
     revalidatePath('/ar/settings/asset-statuses');
     return NextResponse.json(updated);
-  } catch (error) {
+  } catch (error: any) {
     console.error('PUT /api/asset-statuses error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
@@ -163,28 +183,38 @@ export async function PUT(request: Request) {
 // DELETE: حذف حالة (للأدمن فقط)
 export async function DELETE(request: Request) {
   try {
-    const session = await auth();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    const { session } = await getAuthAndPermissions();
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
-    if (!isAdmin) return NextResponse.json({ error: 'لا تملك صلاحية حذف الحالة' }, { status: 403 });
+    if (!isAdmin) {
+      return NextResponse.json({ error: 'لا تملك صلاحية حذف الحالة' }, { status: 403 });
+    }
 
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
-    if (!id) return NextResponse.json({ error: 'المعرف مطلوب' }, { status: 400 });
+    if (!id) {
+      return NextResponse.json({ error: 'المعرف مطلوب' }, { status: 400 });
+    }
 
     const companyId = session.user.companyId;
-    if (!companyId) return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    }
 
     const existing = await prisma.assetStatus.findFirst({
       where: { id, companyId },
     });
-    if (!existing) return NextResponse.json({ error: 'الحالة غير موجودة' }, { status: 404 });
+    if (!existing) {
+      return NextResponse.json({ error: 'الحالة غير موجودة' }, { status: 404 });
+    }
 
     await prisma.assetStatus.delete({ where: { id } });
     revalidatePath('/ar/settings/asset-statuses');
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('DELETE /api/asset-statuses error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

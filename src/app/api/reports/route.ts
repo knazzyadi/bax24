@@ -1,7 +1,8 @@
 // app/api/reports/route.ts
 import { NextRequest, NextResponse } from "next/server";
+import { getSession, requirePermission } from '@/lib/auth-helper';
 import { getServerSession } from "next-auth"; // استيراد مباشر من next-auth
-import { auth } from "@/auth";
+
 
 // نموذج بيانات وهمية (سنستبدلها بقاعدة البيانات لاحقاً)
 const mockReports = [
@@ -14,7 +15,7 @@ const mockReports = [
 
 export async function GET(req: NextRequest) {
   // 1. التحقق من الصلاحيات (اختياري)
-  const session = await auth();
+  const session = await getSession();
   if (!session) {
     return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
   }

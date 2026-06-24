@@ -1,16 +1,11 @@
-import { auth } from "@/auth";
 
 import { redirect } from "next/navigation";
-
-import { prisma } from "@/lib/prisma";
-
-import { requirePermission } from "@/lib/permissions";
+import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
 
 import InventoryClient from "./InventoryClient";
-
 import type { InventoryItem } from "./types";
 
-import type { Prisma } from "@prisma/client";
 
 export default async function InventoryPage({
   params,
@@ -26,16 +21,13 @@ export default async function InventoryPage({
     page?: string;
   }>;
 }) {
-  const session = await auth();
+  const session = await getSession();
 
   if (!session?.user) {
     redirect("/login");
   }
 
-  await requirePermission(
-    "assets.read",
-    session
-  );
+  await requirePermission("assets.read");
 
   const { locale } = await params;
 
@@ -56,7 +48,7 @@ export default async function InventoryPage({
     session.user.branchIds || [];
 
   // ✅ استخدام type رسمي من Prisma
-  const branchFilter: Prisma.InventoryItemWhereInput =
+  const branchFilter: PrismaClient.InventoryItemWhereInput =
     {};
 
   if (!isAdmin) {

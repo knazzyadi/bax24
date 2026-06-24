@@ -1,8 +1,11 @@
 // src/app/api/tickets/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-import { requirePermission } from "@/lib/permissions";
+
+
+import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 import { uploadFileToR2 } from "@/lib/storage";
 
 // ========== دالة توليد كود فريد لكل فرع ==========
@@ -56,12 +59,12 @@ async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
 // ========== GET ==========
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
-    await requirePermission("tickets.read", session);
+    await requirePermission("tickets.read");
 
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get("q") || "";
@@ -171,7 +174,7 @@ export async function GET(request: NextRequest) {
 // ========== POST ==========
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }

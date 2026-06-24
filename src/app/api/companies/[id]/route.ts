@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
-import { PrismaClient } from '@prisma/client';
+
+
+import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
 import bcrypt from 'bcryptjs';
 
 // ============================================
@@ -10,15 +13,9 @@ const globalForPrisma = globalThis as unknown as {
   prisma: PrismaClient | undefined;
 };
 
-const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    log: ["error"],
-  });
 
-if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
-}
+
+
 
 // ============================================
 // Types
@@ -41,7 +38,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> } // ✅ params هي Promise
 ) {
   try {
-    const session = await auth();
+    const session = await getSession();
 
     if (!session || session.user?.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });

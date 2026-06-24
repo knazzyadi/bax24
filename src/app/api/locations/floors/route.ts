@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
 import { revalidatePath } from 'next/cache';
 
 // GET: جلب الأدوار (يمكن فلترتها حسب buildingId)
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -58,7 +60,7 @@ export async function GET(request: Request) {
 // POST: إضافة دور جديد (للمدير فقط) - بدون تغيير
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

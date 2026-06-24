@@ -1,19 +1,21 @@
 // src/app/api/work-order-statuses/route.ts
 import { NextResponse } from 'next/server';
-import { auth } from '@/auth';
+
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
+import { getSession, requirePermission } from '@/lib/auth-helper';
+
+
 
 // GET: جلب قائمة الحالات (مع صلاحية work_orders.read أو work_orders.create)
 export async function GET(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     // تحقق من صلاحية قراءة أو إنشاء أوامر العمل (حسب استخدامك)
-    await requirePermission('work_orders.read', session);
+    await requirePermission('work_orders.read');
 
     const { searchParams } = new URL(request.url);
     const companyIdParam = searchParams.get('companyId');
@@ -43,7 +45,7 @@ export async function GET(request: Request) {
 // POST: إضافة حالة جديدة (يتطلب صلاحية admin أو settings.manage)
 export async function POST(request: Request) {
   try {
-    const session = await auth();
+    const session = await getSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

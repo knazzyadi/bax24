@@ -1,8 +1,9 @@
 // src/app/[locale]/(dashboard)/tickets/page.tsx
-import { auth } from '@/auth';
+
 import { redirect } from 'next/navigation';
+import { getSession, requirePermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { requirePermission } from '@/lib/permissions';
+
 import TicketsClient from './TicketsClient';
 import type { Ticket } from './types';
 
@@ -13,9 +14,9 @@ export default async function TicketsPage({
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ page?: string; q?: string; status?: string }>;
 }) {
-  const session = await auth();
+  const session = await getSession();
   if (!session?.user) redirect('/login');
-  await requirePermission('tickets.read', session);
+  await requirePermission('tickets.read');
 
   const { locale } = await params;
   const { q = "", status = "all" } = await searchParams;

@@ -1,7 +1,8 @@
 // src/lib/auth-helper.ts
 export async function getSession() {
-  const { auth } = await import('@/auth');
-  const session = await auth();
+  const { getServerSession } = await import('next-auth');
+  const { authOptions } = await import('@/auth');
+  const session = await getServerSession(authOptions);
   return session;
 }
 

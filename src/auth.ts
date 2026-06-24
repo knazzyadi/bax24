@@ -1,8 +1,8 @@
-// src/auth.ts
+// src/auth.ts - NextAuth v4
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-const authInstance = NextAuth({
+export const authOptions = {
   providers: [
     Credentials({
       name: "credentials",
@@ -109,11 +109,7 @@ const authInstance = NextAuth({
     },
   },
   secret: process.env.NEXTAUTH_SECRET,
-});
+};
 
-export const handlers = authInstance.handlers;
-export const auth = authInstance.auth;
-export const signIn = authInstance.signIn;
-export const signOut = authInstance.signOut;
-
-export default authInstance;
+// ✅ في v4، نُصدّر authOptions وليس handlers
+export default NextAuth(authOptions);

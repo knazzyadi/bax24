@@ -249,8 +249,8 @@ export default function DashboardPage() {
             </div>
           </CardContent>
           <Activity className={cn(
-            'absolute bottom-0 h-32 w-32 text-white/20 group-hover:text-white/30 transition-all duration-500 group-hover:scale-110 group-hover:-translate-y-1',
-            isRTL ? 'left-0' : 'right-0'
+            'absolute inset-0 m-auto h-48 w-48 text-white/5 group-hover:scale-110 transition-transform duration-700',
+            isRTL ? 'rotate-180' : ''
           )} />
         </Card>
       </div>

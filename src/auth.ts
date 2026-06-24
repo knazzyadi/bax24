@@ -13,48 +13,73 @@ const authInstance = NextAuth({
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        const { prisma } = await import("./lib/prisma");
-        const bcrypt = (await import("bcryptjs")).default;
-
-        if (!credentials?.email || !credentials?.password) return null;
-
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email as string },
-          include: { role: true, company: true },
-        });
-
-        if (!user || !user.password) return null;
-        if (user.status === false) return null;
-
-        const isValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-        if (!isValid) return null;
-
-        let branchIds: string[] = [];
         try {
-          const userBranches = await prisma.userBranch.findMany({
-            where: { userId: user.id },
-            select: { branchId: true },
-          });
-          branchIds = userBranches.map((ub: { branchId: string }) => ub.branchId);
-        } catch (error) {
-          console.warn("UserBranch error:", error);
-        }
-        branchIds = [...new Set(branchIds)];
+          // ✅ استيراد ديناميكي لـ prisma و bcrypt
+          const { prisma } = await import("./lib/prisma");
+          const bcrypt = (await import("bcryptjs")).default;
 
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          role: user.role?.name || "USER",
-          companyId: user.companyId,
-          companyName: user.company?.name,
-          companyNameEn: user.company?.nameEn,
-          branchId: null,
-          branchIds,
-        };
+          if (!credentials?.email || !credentials?.password) {
+            console.error("❌ Missing credentials");
+            return null;
+          }
+
+          const user = await prisma.user.findUnique({
+            where: { email: credentials.email as string },
+            include: { role: true, company: true },
+          });
+
+          if (!user) {
+            console.error(`❌ User not found: ${credentials.email}`);
+            return null;
+          }
+
+          if (!user.password) {
+            console.error(`❌ User has no password: ${credentials.email}`);
+            return null;
+          }
+
+          if (user.status === false) {
+            console.error(`❌ User inactive: ${credentials.email}`);
+            return null;
+          }
+
+          const isValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password
+          );
+
+          if (!isValid) {
+            console.error(`❌ Invalid password for: ${credentials.email}`);
+            return null;
+          }
+
+          let branchIds: string[] = [];
+          try {
+            const userBranches = await prisma.userBranch.findMany({
+              where: { userId: user.id },
+              select: { branchId: true },
+            });
+            branchIds = userBranches.map((ub: { branchId: string }) => ub.branchId);
+          } catch (error) {
+            console.warn("⚠️ UserBranch fetch error:", error);
+          }
+          branchIds = [...new Set(branchIds)];
+
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role?.name || "USER",
+            companyId: user.companyId,
+            companyName: user.company?.name,
+            companyNameEn: user.company?.nameEn,
+            branchId: null,
+            branchIds,
+          };
+        } catch (error) {
+          console.error("❌ Authorize error:", error);
+          return null;
+        }
       },
     }),
   ],

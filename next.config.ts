@@ -8,9 +8,7 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   transpilePackages: ['@prisma/client', 'prisma'],
-  serverExternalPackages: ['bcryptjs'],
-  // ❌ تم حذف كتلة turbopack (غير ضرورية للبناء)
-  // ❌ تم حذف webpack.alias (لم يعد مطلوباً لأن العميل في node_modules)
+  serverExternalPackages: ['bcryptjs', '@prisma/client', 'prisma'],
   webpack: (config: any) => {
     config.externals = config.externals || [];
     if (Array.isArray(config.externals)) {
@@ -18,8 +16,11 @@ const nextConfig: NextConfig = {
         (external: any) => external !== '@prisma/client' && external !== 'prisma'
       );
     }
-    // ✅ تم حذف config.resolve.alias بالكامل
     return config;
+  },
+  // ✅ إضافة إعدادات إضافية لتحسين الأداء في Vercel
+  experimental: {
+    serverMinification: false,
   },
 };
 

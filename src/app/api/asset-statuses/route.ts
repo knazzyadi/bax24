@@ -1,6 +1,5 @@
 // src/app/api/asset-statuses/route.ts
 import { NextResponse } from 'next/server';
-
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
@@ -8,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 async function getAuthAndPermissions() {
   const { auth } = await import('@/auth');
   const { requirePermission } = await import('@/lib/permissions');
-  const session = await getSession();
+  const session = await auth(); // ✅ تصحيح: استخدام auth() بدلاً من getSession()
   if (!session?.user) {
     throw new Error('UNAUTHORIZED');
   }
@@ -19,7 +18,7 @@ async function getAuthAndPermissions() {
 export async function GET() {
   try {
     const { session, requirePermission } = await getAuthAndPermissions();
-    await requirePermission('assets.read');
+    await requirePermission('assets.read', session); // ✅ تمرير session
 
     const companyId = session.user.companyId;
     if (!companyId) {
@@ -33,7 +32,7 @@ export async function GET() {
         id: true,
         name: true,
         nameEn: true,
-        code: true,
+        // ✅ إزالة code
         description: true,
         color: true,
         order: true,
@@ -66,7 +65,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    const { name, nameEn, code, description, color, order, isDefault } = await request.json();
+    const { name, nameEn, description, color, order, isDefault } = await request.json(); // ✅ إزالة code
     if (!name || name.trim() === '') {
       return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
     }
@@ -94,7 +93,7 @@ export async function POST(request: Request) {
       data: {
         name: name.trim(),
         nameEn: nameEn?.trim() || null,
-        code: code?.trim() || null,
+        // ✅ إزالة code
         description: description?.trim() || null,
         color: color || "#64748b",
         order: typeof order === 'number' ? order : 0,
@@ -130,7 +129,7 @@ export async function PUT(request: Request) {
     }
 
     const body = await request.json();
-    const { id, name, nameEn, code, description, color, order, isDefault } = body;
+    const { id, name, nameEn, description, color, order, isDefault } = body; // ✅ إزالة code
     if (!id) {
       return NextResponse.json({ error: 'المعرف مطلوب' }, { status: 400 });
     }
@@ -161,7 +160,7 @@ export async function PUT(request: Request) {
       data: {
         name: name?.trim(),
         nameEn: nameEn?.trim() || null,
-        code: code?.trim() || null,
+        // ✅ إزالة code
         description: description?.trim() || null,
         color: color || existing.color,
         order: order ?? existing.order,

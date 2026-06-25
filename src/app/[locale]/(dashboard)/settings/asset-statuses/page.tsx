@@ -21,8 +21,9 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
-// ✅ قائمة الألوان الثابتة (يمكنك إضافة/إزالة حسب الرغبة)
+// ✅ قائمة الألوان الثابتة
 const COLOR_PALETTE = [
   { value: '#3b82f6', nameAr: 'أزرق', nameEn: 'Blue' },
   { value: '#22c55e', nameAr: 'أخضر', nameEn: 'Green' },
@@ -39,7 +40,6 @@ interface AssetStatus {
   id: string;
   name: string;
   nameEn: string | null;
-  code: string | null;
   color: string | null;
   order: number;
   isDefault: boolean;
@@ -59,8 +59,7 @@ function AssetStatusesPageContent() {
   const [form, setForm] = useState({
     name: '',
     nameEn: '',
-    code: '',
-    color: '#3b82f6',    // لون افتراضي (أزرق)
+    color: '#3b82f6',
     order: 0,
     isDefault: false,
   });
@@ -85,7 +84,7 @@ function AssetStatusesPageContent() {
       const data = await res.json();
       setStatuses(data);
     } catch (err) {
-      toast.error(t('fetchError') || 'حدث خطأ');
+      toast.error(t('fetchError') || 'حدث خطأ في جلب البيانات');
     } finally {
       setLoading(false);
     }
@@ -109,7 +108,7 @@ function AssetStatusesPageContent() {
       if (!res.ok) throw new Error('Failed');
       toast.success(editing ? t('updateSuccess') : t('createSuccess'));
       setEditing(null);
-      setForm({ name: '', nameEn: '', code: '', color: '#3b82f6', order: 0, isDefault: false });
+      setForm({ name: '', nameEn: '', color: '#3b82f6', order: 0, isDefault: false });
       setShowForm(false);
       await fetchStatuses(true);
       router.refresh();
@@ -121,7 +120,7 @@ function AssetStatusesPageContent() {
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('deleteConfirm'))) return;
+    if (!confirm(t('deleteConfirm') || 'هل أنت متأكد؟')) return;
     try {
       const res = await fetch(`/api/asset-statuses/${id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error();
@@ -138,7 +137,6 @@ function AssetStatusesPageContent() {
     setForm({
       name: status.name,
       nameEn: status.nameEn || '',
-      code: status.code || '',
       color: status.color || '#3b82f6',
       order: status.order,
       isDefault: status.isDefault,
@@ -148,11 +146,10 @@ function AssetStatusesPageContent() {
 
   const cancelEdit = () => {
     setEditing(null);
-    setForm({ name: '', nameEn: '', code: '', color: '#3b82f6', order: 0, isDefault: false });
+    setForm({ name: '', nameEn: '', color: '#3b82f6', order: 0, isDefault: false });
     setShowForm(false);
   };
 
-  // دالة للحصول على اسم اللون المترجم
   const getColorLabel = (colorValue: string) => {
     const color = COLOR_PALETTE.find(c => c.value === colorValue);
     if (!color) return colorValue;
@@ -160,58 +157,68 @@ function AssetStatusesPageContent() {
   };
 
   if (status === 'loading') {
-    return <div className="p-6 text-center">{t('loading')}</div>;
+    return <div className="p-6 text-center text-muted-foreground">{t('loading') || 'جاري التحميل...'}</div>;
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* رأس الصفحة */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
-          <p className="text-muted-foreground">{t('subtitle')}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
         {!showForm && (
-          <Button onClick={() => setShowForm(true)} className="gap-2">
+          <Button onClick={() => setShowForm(true)} className="gap-2 shadow-sm">
             <Plus size={18} /> {t('addStatus')}
           </Button>
         )}
       </div>
 
+      {/* نموذج الإضافة/التعديل */}
       {showForm && (
-        <Card className="mb-8">
-          <CardHeader className="flex flex-row justify-between items-center">
-            <CardTitle>{editing ? t('editStatus') : t('addStatus')}</CardTitle>
-            <button onClick={cancelEdit} className="text-muted-foreground hover:text-foreground">
+        <Card className="border shadow-sm">
+          <CardHeader className="flex flex-row justify-between items-center pb-2">
+            <CardTitle className="text-lg font-semibold">
+              {editing ? t('editStatus') : t('addStatus')}
+            </CardTitle>
+            <button
+              onClick={cancelEdit}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
               <X size={20} />
             </button>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
-                <Label>{t('name')} *</Label>
+                <Label className="text-sm font-medium">{t('name')} *</Label>
                 <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  placeholder={isRtl ? 'مثال: نشط' : 'Example: Active'}
                   required
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t('nameEn')}</Label>
+                <Label className="text-sm font-medium">{t('nameEn')}</Label>
                 <Input
                   value={form.nameEn}
                   onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
+                  placeholder="Example: Active"
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t('code')}</Label>
+                <Label className="text-sm font-medium">{t('order')}</Label>
                 <Input
-                  value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  type="number"
+                  value={form.order}
+                  onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
+                  placeholder="0"
                 />
               </div>
-              {/* ✅ قائمة منسدلة للألوان الثابتة بدلاً من منتقي الألوان */}
               <div className="space-y-2">
-                <Label>{t('color')}</Label>
+                <Label className="text-sm font-medium">{t('color')}</Label>
                 <Select
                   value={form.color}
                   onValueChange={(val) => setForm({ ...form, color: val })}
@@ -240,27 +247,21 @@ function AssetStatusesPageContent() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>{t('order')}</Label>
-                <Input
-                  type="number"
-                  value={form.order}
-                  onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
-                />
-              </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
                   id="isDefault"
                   checked={form.isDefault}
                   onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
-                  className="w-4 h-4"
+                  className="w-4 h-4 rounded border-border accent-primary"
                 />
-                <Label htmlFor="isDefault">{t('isDefault')}</Label>
+                <Label htmlFor="isDefault" className="text-sm font-medium cursor-pointer">
+                  {t('isDefault')}
+                </Label>
               </div>
-              <div className="md:col-span-2 flex gap-2 pt-2">
-                <Button type="submit" disabled={submitting}>
-                  {submitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              <div className="md:col-span-3 flex gap-2 pt-2 border-t">
+                <Button type="submit" disabled={submitting} className="gap-2">
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
                   {t('save')}
                 </Button>
                 <Button type="button" variant="outline" onClick={cancelEdit}>
@@ -272,59 +273,73 @@ function AssetStatusesPageContent() {
         </Card>
       )}
 
+      {/* جدول الحالات */}
       {loading ? (
-        <div className="text-center py-8">{t('loading')}</div>
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
       ) : statuses.length === 0 ? (
-        <div className="text-center py-8 text-muted-foreground">{t('noStatuses')}</div>
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="text-muted-foreground">{t('noStatuses') || 'لا توجد حالات مسجلة'}</div>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="border rounded-lg overflow-hidden">
+        <div className="border rounded-xl overflow-hidden shadow-sm">
           <Table>
-            <TableHeader>
+            <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead>{t('name')}</TableHead>
-                <TableHead>{t('nameEn')}</TableHead>
-                <TableHead>{t('code')}</TableHead>
-                <TableHead>{t('color')}</TableHead>
-                <TableHead>{t('order')}</TableHead>
-                <TableHead>{t('isDefault')}</TableHead>
-                <TableHead className="w-24">{t('actions')}</TableHead>
+                <TableHead className="font-semibold">{t('name')}</TableHead>
+                <TableHead className="font-semibold">{t('nameEn')}</TableHead>
+                <TableHead className="font-semibold">{t('color')}</TableHead>
+                <TableHead className="font-semibold text-center">{t('order')}</TableHead>
+                <TableHead className="font-semibold text-center">{t('isDefault')}</TableHead>
+                <TableHead className="font-semibold text-center w-24">{t('actions')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {statuses.map((status) => (
-                <TableRow key={status.id}>
+                <TableRow key={status.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell className="font-medium">{status.name}</TableCell>
                   <TableCell>{status.nameEn || '—'}</TableCell>
-                  <TableCell>{status.code || '—'}</TableCell>
                   <TableCell>
                     <div className="flex items-center gap-2">
                       <div
-                        className="w-5 h-5 rounded-full border border-border"
+                        className="w-5 h-5 rounded-full border border-border shadow-sm"
                         style={{ backgroundColor: status.color || '#6b7280' }}
                       />
-                      <span>{getColorLabel(status.color || '#6b7280')}</span>
+                      <span className="text-sm">{getColorLabel(status.color || '#6b7280')}</span>
                     </div>
                   </TableCell>
-                  <TableCell>{status.order}</TableCell>
-                  <TableCell>{status.isDefault ? '✓' : ''}</TableCell>
+                  <TableCell className="text-center">{status.order}</TableCell>
+                  <TableCell className="text-center">
+                    {status.isDefault ? (
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-bold">
+                        ✓
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center justify-center gap-1">
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => editStatus(status)}
                         title={t('edit')}
+                        className="h-8 w-8 hover:bg-primary/10"
                       >
-                        <Pencil size={16} />
+                        <Pencil size={15} className="text-muted-foreground hover:text-primary" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleDelete(status.id)}
                         title={t('delete')}
-                        className="text-destructive hover:text-destructive"
+                        className="h-8 w-8 hover:bg-destructive/10"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={15} className="text-muted-foreground hover:text-destructive" />
                       </Button>
                     </div>
                   </TableCell>

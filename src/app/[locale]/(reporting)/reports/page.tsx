@@ -1,4 +1,3 @@
-// src/app/[locale]/(reporting)/reports/page.tsx
 "use client";
 
 import { useReportsData } from "@/hooks/useReportsData";
@@ -6,7 +5,7 @@ import { ReportsFilters } from "@/components/reports/ReportsFilters";
 import { ReportsTable } from "@/components/reports/ReportsTable";
 import { ReportsCharts } from "@/components/reports/ReportsCharts";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -14,39 +13,20 @@ import { useEffect, useState } from "react";
 export default function ReportsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { data, isLoading, isError, error } = useReportsData();
   const [mounted, setMounted] = useState(false);
+  const { data, isLoading, isError, error } = useReportsData();
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const handlePageChange = (newPage: number) => {
-    const params = new URLSearchParams(searchParams.toString());
+    const params = new URLSearchParams(searchParams?.toString() || "");
     params.set("page", String(newPage));
     router.push(`/reports?${params.toString()}`, { scroll: false });
   };
 
-  // ✅ منع التصيير الخادمي غير المتطابق
-  if (!mounted) {
-    return (
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i}>
-              <CardContent className="p-6">
-                <Skeleton className="h-12 w-full" />
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-        <Skeleton className="h-[400px] w-full" />
-        <Skeleton className="h-[300px] w-full" />
-      </div>
-    );
-  }
-
-  if (isLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -80,7 +60,6 @@ export default function ReportsPage() {
     );
   }
 
-  // ✅ استخراج البيانات بأمان مع قيم افتراضية
   const reports = data?.data || [];
   const pagination = data?.pagination || {
     total: 0,
@@ -90,7 +69,6 @@ export default function ReportsPage() {
   };
   const summary = data?.summary || { total: 0, completed: 0, pending: 0 };
 
-  // بطاقات الإحصائيات
   const stats = [
     {
       title: "إجمالي التقارير",
@@ -120,7 +98,6 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      {/* بطاقات الـ KPI */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, idx) => (
           <Card key={idx}>
@@ -135,13 +112,10 @@ export default function ReportsPage() {
         ))}
       </div>
 
-      {/* الفلاتر */}
       <ReportsFilters />
 
-      {/* ✅ الرسوم البيانية - تعرض فقط في حالة وجود بيانات */}
       {reports.length > 0 && <ReportsCharts data={reports} />}
 
-      {/* ✅ الجدول - دائماً يعرض مع بيانات أو رسالة "لا توجد تقارير" */}
       <ReportsTable
         data={reports}
         pagination={pagination}

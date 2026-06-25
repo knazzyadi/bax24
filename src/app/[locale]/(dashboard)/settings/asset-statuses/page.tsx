@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Pencil, Trash2, Plus, X, Loader2, Check } from 'lucide-react';
+import { Pencil, Trash2, Plus, X, Loader2 } from 'lucide-react';
 import { AdminGuard } from '@/lib/client-guard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,20 +21,6 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
-
-// ✅ استيرادات Popover و Command
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from '@/components/ui/command';
 
 // ✅ قائمة الألوان الثابتة
 const COLOR_PALETTE = [
@@ -231,48 +217,30 @@ function AssetStatusesPageContent() {
                 />
               </div>
 
-              {/* ✅ قائمة الألوان باستخدام Popover + Command */}
-              <div className="space-y-2">
+              {/* ✅ اختيار اللون عبر أزرار دائرية */}
+              <div className="space-y-2 md:col-span-2">
                 <Label className="text-sm font-medium">{t('color')}</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start gap-2 font-normal"
-                    >
-                      <div
-                        className="w-5 h-5 rounded-full border border-border shrink-0"
-                        style={{ backgroundColor: form.color }}
-                      />
-                      <span className="truncate">{getColorLabel(form.color)}</span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder={isRtl ? 'ابحث عن لون...' : 'Search color...'} />
-                      <CommandEmpty>{isRtl ? 'لا توجد ألوان' : 'No colors'}</CommandEmpty>
-                      <CommandGroup>
-                        {COLOR_PALETTE.map((color) => (
-                          <CommandItem
-                            key={color.value}
-                            value={color.value}
-                            onSelect={() => setForm({ ...form, color: color.value })}
-                            className="flex items-center gap-2 cursor-pointer"
-                          >
-                            <div
-                              className="w-5 h-5 rounded-full border border-border shrink-0"
-                              style={{ backgroundColor: color.value }}
-                            />
-                            <span className="flex-1">{isRtl ? color.nameAr : color.nameEn}</span>
-                            {form.color === color.value && (
-                              <Check className="h-4 w-4 text-primary shrink-0" />
-                            )}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+                <div className="flex flex-wrap gap-2">
+                  {COLOR_PALETTE.map((color) => (
+                    <button
+                      key={color.value}
+                      type="button"
+                      onClick={() => setForm({ ...form, color: color.value })}
+                      className={cn(
+                        "w-8 h-8 rounded-full border-2 transition-all duration-200 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-primary/50",
+                        form.color === color.value
+                          ? "border-primary ring-2 ring-primary/30 scale-110"
+                          : "border-border hover:border-primary/50"
+                      )}
+                      style={{ backgroundColor: color.value }}
+                      title={isRtl ? color.nameAr : color.nameEn}
+                      aria-label={isRtl ? color.nameAr : color.nameEn}
+                    />
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  {isRtl ? 'اللون المحدد:' : 'Selected:'} {getColorLabel(form.color)}
+                </p>
               </div>
 
               <div className="flex items-center gap-2 pt-2">

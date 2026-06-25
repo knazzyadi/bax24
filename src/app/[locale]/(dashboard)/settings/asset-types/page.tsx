@@ -5,19 +5,56 @@ import { useEffect, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Plus, Pencil, Trash2, Check, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AdminGuard } from '@/lib/client-guard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { toast } from 'sonner';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from '@/components/ui/command';
+
+// ✅ قائمة الألوان الثابتة (نفسها المستخدمة في حالات الأصول)
+const COLOR_PALETTE = [
+  { value: '#3b82f6', nameAr: 'أزرق', nameEn: 'Blue' },
+  { value: '#22c55e', nameAr: 'أخضر', nameEn: 'Green' },
+  { value: '#ef4444', nameAr: 'أحمر', nameEn: 'Red' },
+  { value: '#eab308', nameAr: 'أصفر', nameEn: 'Yellow' },
+  { value: '#f97316', nameAr: 'برتقالي', nameEn: 'Orange' },
+  { value: '#8b5cf6', nameAr: 'بنفسجي', nameEn: 'Purple' },
+  { value: '#ec4899', nameAr: 'وردي', nameEn: 'Pink' },
+  { value: '#6b7280', nameAr: 'رمادي', nameEn: 'Gray' },
+  { value: '#06b6d4', nameAr: 'سماوي', nameEn: 'Cyan' },
+];
 
 interface AssetType {
   id: string;
   name: string;
   nameEn?: string;
-  code?: string;
   description?: string;
   order: number;
   isDefault: boolean;
-  companyId?: string;
+  color?: string;
 }
 
 function AssetTypesPageContent() {
@@ -26,42 +63,36 @@ function AssetTypesPageContent() {
   const params = useParams();
   const locale = params?.locale as string;
   const t = useTranslations('AssetTypes');
+  const isRtl = locale === 'ar';
 
   const [types, setTypes] = useState<AssetType[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showModal, setShowModal] = useState(false);
+  const [showForm, setShowForm] = useState(false);
   const [editingType, setEditingType] = useState<AssetType | null>(null);
   const [form, setForm] = useState({
     name: '',
     nameEn: '',
-    code: '',
     description: '',
+    color: '#3b82f6',
     order: 0,
     isDefault: false,
   });
   const [submitting, setSubmitting] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fetchTypes = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/asset-types');
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error('استجابة غير صالحة من الخادم');
-      }
-      if (!res.ok) throw new Error(data.error || 'فشل تحميل البيانات');
+      if (!res.ok) throw new Error('Failed to fetch');
+      const data = await res.json();
       setTypes(Array.isArray(data) ? data : []);
-    } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+    } catch (err) {
+      toast.error(t('fetchError') || 'حدث خطأ في جلب البيانات');
       setTypes([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (status === 'loading') return;
@@ -74,8 +105,8 @@ function AssetTypesPageContent() {
 
   const openCreateModal = () => {
     setEditingType(null);
-    setForm({ name: '', nameEn: '', code: '', description: '', order: 0, isDefault: false });
-    setShowModal(true);
+    setForm({ name: '', nameEn: '', description: '', color: '#3b82f6', order: 0, isDefault: false });
+    setShowForm(true);
   };
 
   const openEditModal = (type: AssetType) => {
@@ -83,16 +114,20 @@ function AssetTypesPageContent() {
     setForm({
       name: type.name,
       nameEn: type.nameEn || '',
-      code: type.code || '',
       description: type.description || '',
+      color: type.color || '#3b82f6',
       order: type.order,
       isDefault: type.isDefault,
     });
-    setShowModal(true);
+    setShowForm(true);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.name.trim()) {
+      toast.error(t('nameRequired') || 'الاسم مطلوب');
+      return;
+    }
     setSubmitting(true);
     try {
       const url = editingType ? `/api/asset-types/${editingType.id}` : '/api/asset-types';
@@ -102,165 +137,257 @@ function AssetTypesPageContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
       });
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error('استجابة غير صالحة من الخادم');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'حدث خطأ');
       }
-      if (!res.ok) throw new Error(data.error || 'حدث خطأ');
-      setMessage({ type: 'success', text: editingType ? t('updateSuccess') : t('createSuccess') });
-      setShowModal(false);
-      fetchTypes();
+      toast.success(editingType ? t('updateSuccess') : t('createSuccess'));
+      setShowForm(false);
+      setEditingType(null);
+      await fetchTypes();
+      router.refresh();
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      toast.error(err.message || (editingType ? t('updateError') : t('createError')));
     } finally {
       setSubmitting(false);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm(t('deleteConfirm'))) return;
+    if (!confirm(t('deleteConfirm') || 'هل أنت متأكد؟')) return;
     try {
       const res = await fetch(`/api/asset-types/${id}`, { method: 'DELETE' });
-      const text = await res.text();
-      let data;
-      try {
-        data = JSON.parse(text);
-      } catch (e) {
-        throw new Error('استجابة غير صالحة من الخادم');
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'فشل الحذف');
       }
-      if (!res.ok) throw new Error(data.error || 'فشل الحذف');
-      setMessage({ type: 'success', text: t('deleteSuccess') });
-      fetchTypes();
+      toast.success(t('deleteSuccess'));
+      await fetchTypes();
+      router.refresh();
     } catch (err: any) {
-      setMessage({ type: 'error', text: err.message });
+      toast.error(err.message || t('deleteError'));
     }
   };
 
-  if (status === 'loading') return <div className="p-6 text-center">{t('loading')}</div>;
+  const cancelForm = () => {
+    setShowForm(false);
+    setEditingType(null);
+    setForm({ name: '', nameEn: '', description: '', color: '#3b82f6', order: 0, isDefault: false });
+  };
+
+  const getColorLabel = (colorValue: string) => {
+    const color = COLOR_PALETTE.find(c => c.value === colorValue);
+    if (!color) return colorValue;
+    return isRtl ? color.nameAr : color.nameEn;
+  };
+
+  if (status === 'loading') {
+    return <div className="p-6 text-center text-muted-foreground">{t('loading') || 'جاري التحميل...'}</div>;
+  }
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* رأس الصفحة */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">{t('title')}</h1>
-          <p className="text-muted-foreground">{t('subtitle')}</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{t('title')}</h1>
+          <p className="text-sm text-muted-foreground">{t('subtitle')}</p>
         </div>
-        <button onClick={openCreateModal} className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2">
-          <Plus size={18} /> {t('addType')}
-        </button>
+        {!showForm && (
+          <Button onClick={openCreateModal} className="gap-2 shadow-sm">
+            <Plus size={18} /> {t('addType')}
+          </Button>
+        )}
       </div>
 
-      {message && (
-        <div className={cn('p-3 mb-4 rounded-md', message.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800')}>
-          {message.text}
-        </div>
-      )}
-
-      {loading ? (
-        <div className="text-center py-8">{t('loading')}</div>
-      ) : (
-        <div className="border rounded-lg overflow-x-auto">
-          <table className="w-full min-w-[600px]">
-            <thead className="bg-muted/50">
-              <tr className="border-b">
-                <th className="p-3 text-right">{t('name')}</th>
-                <th className="p-3 text-right">{t('nameEn')}</th>
-                <th className="p-3 text-right">{t('code')}</th>
-                <th className="p-3 text-right">{t('order')}</th>
-                <th className="p-3 text-right">{t('isDefault')}</th>
-                <th className="p-3 text-right">{t('actions')}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {types.length === 0 ? (
-                <tr><td colSpan={6} className="text-center py-8 text-muted-foreground">{t('noTypes')}</td></tr>
-              ) : (
-                types.map((type) => (
-                  <tr key={type.id} className="border-b hover:bg-muted/30">
-                    <td className="p-3">{type.name}</td>
-                    <td className="p-3">{type.nameEn || '-'}</td>
-                    <td className="p-3">{type.code || '-'}</td>
-                    <td className="p-3">{type.order}</td>
-                    <td className="p-3">{type.isDefault ? <Check size={16} className="text-green-600" /> : <X size={16} className="text-red-500" />}</td>
-                    <td className="p-3 flex gap-2">
-                      <button onClick={() => openEditModal(type)} className="text-yellow-600 hover:opacity-80" title={t('edit')}>
-                        <Pencil size={18} />
-                      </button>
-                      <button onClick={() => handleDelete(type.id)} className="text-red-600 hover:opacity-80" title={t('delete')}>
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {showModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl max-w-md w-full p-6 shadow-xl">
-            <h2 className="text-xl font-semibold mb-4">{editingType ? t('editType') : t('addType')}</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('name')} *</label>
-                <input
-                  type="text"
+      {/* نموذج الإضافة/التعديل */}
+      {showForm && (
+        <Card className="border shadow-sm">
+          <CardHeader className="flex flex-row justify-between items-center pb-2">
+            <CardTitle className="text-lg font-semibold">
+              {editingType ? t('editType') : t('addType')}
+            </CardTitle>
+            <button
+              onClick={cancelForm}
+              className="text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X size={20} />
+            </button>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('name')} *</Label>
+                <Input
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full p-2 border rounded-lg"
+                  placeholder={isRtl ? 'مثال: طبي' : 'Example: Medical'}
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('nameEn')}</label>
-                <input
-                  type="text"
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('nameEn')}</Label>
+                <Input
                   value={form.nameEn}
                   onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
-                  className="w-full p-2 border rounded-lg"
+                  placeholder="Example: Medical"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('code')}</label>
-                <input
-                  type="text"
-                  value={form.code}
-                  onChange={(e) => setForm({ ...form, code: e.target.value })}
-                  className="w-full p-2 border rounded-lg"
-                  placeholder="مثال: MED, HVAC"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">{t('order')}</label>
-                <input
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('order')}</Label>
+                <Input
                   type="number"
                   value={form.order}
-                  onChange={(e) => setForm({ ...form, order: parseInt(e.target.value) || 0 })}
-                  className="w-full p-2 border rounded-lg"
+                  onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
+                  placeholder="0"
                 />
               </div>
-              <div className="flex items-center gap-2">
+
+              {/* ✅ اختيار اللون عبر Popover + Command */}
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('color') || 'اللون'}</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2 font-normal"
+                    >
+                      <div
+                        className="w-5 h-5 rounded-full border border-border shrink-0"
+                        style={{ backgroundColor: form.color }}
+                      />
+                      <span className="truncate">{getColorLabel(form.color)}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder={isRtl ? 'ابحث عن لون...' : 'Search color...'} />
+                      <CommandEmpty>{isRtl ? 'لا توجد ألوان' : 'No colors'}</CommandEmpty>
+                      <CommandGroup>
+                        {COLOR_PALETTE.map((color) => (
+                          <CommandItem
+                            key={color.value}
+                            value={color.value}
+                            onSelect={() => setForm({ ...form, color: color.value })}
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
+                            <div
+                              className="w-5 h-5 rounded-full border border-border shrink-0"
+                              style={{ backgroundColor: color.value }}
+                            />
+                            <span className="flex-1">{isRtl ? color.nameAr : color.nameEn}</span>
+                            {form.color === color.value && (
+                              <Check className="h-4 w-4 text-primary shrink-0" />
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
                   id="isDefault"
                   checked={form.isDefault}
                   onChange={(e) => setForm({ ...form, isDefault: e.target.checked })}
+                  className="w-4 h-4 rounded border-border accent-primary"
                 />
-                <label htmlFor="isDefault" className="text-sm">{t('isDefault')}</label>
+                <Label htmlFor="isDefault" className="text-sm font-medium cursor-pointer">
+                  {t('isDefault')}
+                </Label>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">{t('cancel')}</button>
-                <button type="submit" disabled={submitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
-                  {submitting ? t('saving') : t('save')}
-                </button>
+
+              <div className="md:col-span-3 flex gap-2 pt-2 border-t">
+                <Button type="submit" disabled={submitting} className="gap-2">
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {t('save')}
+                </Button>
+                <Button type="button" variant="outline" onClick={cancelForm}>
+                  {t('cancel')}
+                </Button>
               </div>
             </form>
-          </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* جدول الأنواع */}
+      {loading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : types.length === 0 ? (
+        <Card className="border-dashed">
+          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+            <div className="text-muted-foreground">{t('noTypes') || 'لا توجد أنواع أصول مسجلة'}</div>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="border rounded-xl overflow-hidden shadow-sm">
+          <Table>
+            <TableHeader className="bg-muted/50">
+              <TableRow>
+                <TableHead className="font-semibold">{t('name')}</TableHead>
+                <TableHead className="font-semibold">{t('nameEn')}</TableHead>
+                <TableHead className="font-semibold">{t('color')}</TableHead>
+                <TableHead className="font-semibold text-center">{t('order')}</TableHead>
+                <TableHead className="font-semibold text-center">{t('isDefault')}</TableHead>
+                <TableHead className="font-semibold text-center w-24">{t('actions')}</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {types.map((type) => (
+                <TableRow key={type.id} className="hover:bg-muted/30 transition-colors">
+                  <TableCell className="font-medium">{type.name}</TableCell>
+                  <TableCell>{type.nameEn || '—'}</TableCell>
+                  <TableCell>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-5 h-5 rounded-full border border-border shadow-sm"
+                        style={{ backgroundColor: type.color || '#6b7280' }}
+                      />
+                      <span className="text-sm">{getColorLabel(type.color || '#6b7280')}</span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-center">{type.order}</TableCell>
+                  <TableCell className="text-center">
+                    {type.isDefault ? (
+                      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-sm font-bold">
+                        ✓
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex items-center justify-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditModal(type)}
+                        title={t('edit')}
+                        className="h-8 w-8 hover:bg-primary/10"
+                      >
+                        <Pencil size={15} className="text-muted-foreground hover:text-primary" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(type.id)}
+                        title={t('delete')}
+                        className="h-8 w-8 hover:bg-destructive/10"
+                      >
+                        <Trash2 size={15} className="text-muted-foreground hover:text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

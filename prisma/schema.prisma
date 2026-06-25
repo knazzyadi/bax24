@@ -586,3 +586,20 @@ model OilChangeRequest {
 
   @@map("oil_change_requests")
 }
+model SavedReport {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  modelType   String   // "assets", "workOrders", "tickets", "inventory", "contracts"
+  columns     String   // JSON array of selected column names
+  filters     String?  // JSON object of filters { field, operator, value }
+  sortBy      String?  // JSON array of sort rules
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  companyId   String
+
+  @@index([userId])
+  @@index([companyId])
+  @@map("saved_reports")
+}

@@ -1,3 +1,4 @@
+// src/app/[locale]/(reporting)/reports/page.tsx
 "use client";
 
 import { useReportsData } from "@/hooks/useReportsData";
@@ -9,6 +10,21 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { useEffect, useState } from "react";
+
+// ✅ مكون مساعد لمنع التصيير الخادمي (SSR) للمكونات التي تعتمد على window
+function ClientOnly({ children }: { children: React.ReactNode }) {
+  const [hasMounted, setHasMounted] = useState(false);
+
+  useEffect(() => {
+    setHasMounted(true);
+  }, []);
+
+  if (!hasMounted) {
+    return null;
+  }
+
+  return <>{children}</>;
+}
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -26,6 +42,7 @@ export default function ReportsPage() {
     router.push(`/reports?${params.toString()}`, { scroll: false });
   };
 
+  // ✅ حالة التحميل الأولي (منع Hydration Mismatch)
   if (!mounted || isLoading) {
     return (
       <div className="space-y-6">
@@ -44,6 +61,7 @@ export default function ReportsPage() {
     );
   }
 
+  // ✅ حالة الخطأ
   if (isError) {
     return (
       <Card className="border-destructive">
@@ -60,6 +78,7 @@ export default function ReportsPage() {
     );
   }
 
+  // ✅ استخراج البيانات بأمان
   const reports = data?.data || [];
   const pagination = data?.pagination || {
     total: 0,
@@ -69,6 +88,7 @@ export default function ReportsPage() {
   };
   const summary = data?.summary || { total: 0, completed: 0, pending: 0 };
 
+  // ✅ بطاقات الإحصائيات
   const stats = [
     {
       title: "إجمالي التقارير",
@@ -98,6 +118,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
+      {/* ✅ بطاقات الإحصائيات - آمنة للـ SSR */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, idx) => (
           <Card key={idx}>
@@ -112,15 +133,24 @@ export default function ReportsPage() {
         ))}
       </div>
 
+      {/* ✅ الفلاتر - آمنة للـ SSR */}
       <ReportsFilters />
 
-      {reports.length > 0 && <ReportsCharts data={reports} />}
+      {/* ✅ الرسوم البيانية - تحتاج إلى ClientOnly (تعتمد على recharts) */}
+      {reports.length > 0 && (
+        <ClientOnly>
+          <ReportsCharts data={reports} />
+        </ClientOnly>
+      )}
 
-      <ReportsTable
-        data={reports}
-        pagination={pagination}
-        onPageChange={handlePageChange}
-      />
+      {/* ✅ الجدول - يحتاج إلى ClientOnly (يعتمد على @tanstack/react-table) */}
+      <ClientOnly>
+        <ReportsTable
+          data={reports}
+          pagination={pagination}
+          onPageChange={handlePageChange}
+        />
+      </ClientOnly>
     </div>
   );
 }

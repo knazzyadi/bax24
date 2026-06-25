@@ -5,12 +5,11 @@ import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Pencil, Trash2, Plus, X, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, Plus, X, Loader2, Check } from 'lucide-react';
 import { AdminGuard } from '@/lib/client-guard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Table,
@@ -22,6 +21,20 @@ import {
 } from '@/components/ui/table';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+
+// ✅ استيرادات Popover و Command
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+} from '@/components/ui/command';
 
 // ✅ قائمة الألوان الثابتة
 const COLOR_PALETTE = [
@@ -217,36 +230,51 @@ function AssetStatusesPageContent() {
                   placeholder="0"
                 />
               </div>
+
+              {/* ✅ قائمة الألوان باستخدام Popover + Command */}
               <div className="space-y-2">
                 <Label className="text-sm font-medium">{t('color')}</Label>
-                <Select
-                value={form.color}
-                onValueChange={(val) => setForm({ ...form, color: val })}
-              >
-                <SelectTrigger className="w-full">
-                  <div className="flex items-center gap-2">
-                    <div
-                      className="w-5 h-5 rounded-full border border-border"
-                      style={{ backgroundColor: form.color }}
-                    />
-                    <span>{getColorLabel(form.color)}</span>
-                  </div>
-                </SelectTrigger>
-                <SelectContent sideOffset={4}>
-                  {COLOR_PALETTE.map((color) => (
-                    <SelectItem key={color.value} value={color.value}>
-                      <div className="flex items-center gap-2">
-                        <div
-                          className="w-5 h-5 rounded-full border border-border"
-                          style={{ backgroundColor: color.value }}
-                        />
-                        <span>{isRtl ? color.nameAr : color.nameEn}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start gap-2 font-normal"
+                    >
+                      <div
+                        className="w-5 h-5 rounded-full border border-border shrink-0"
+                        style={{ backgroundColor: form.color }}
+                      />
+                      <span className="truncate">{getColorLabel(form.color)}</span>
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[200px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder={isRtl ? 'ابحث عن لون...' : 'Search color...'} />
+                      <CommandEmpty>{isRtl ? 'لا توجد ألوان' : 'No colors'}</CommandEmpty>
+                      <CommandGroup>
+                        {COLOR_PALETTE.map((color) => (
+                          <CommandItem
+                            key={color.value}
+                            value={color.value}
+                            onSelect={() => setForm({ ...form, color: color.value })}
+                            className="flex items-center gap-2 cursor-pointer"
+                          >
+                            <div
+                              className="w-5 h-5 rounded-full border border-border shrink-0"
+                              style={{ backgroundColor: color.value }}
+                            />
+                            <span className="flex-1">{isRtl ? color.nameAr : color.nameEn}</span>
+                            {form.color === color.value && (
+                              <Check className="h-4 w-4 text-primary shrink-0" />
+                            )}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
+
               <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"

@@ -6,24 +6,16 @@ import { ReportsFilters } from "@/components/reports/ReportsFilters";
 import { ReportsTable } from "@/components/reports/ReportsTable";
 import { ReportsCharts } from "@/components/reports/ReportsCharts";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { TrendingUp, CheckCircle, Clock, AlertCircle, Download, Calendar, Filter } from "lucide-react";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { ClientOnly } from "@/components/shared/ClientOnly";
 
-// ✅ مكون مساعد لمنع التصيير الخادمي (SSR) للمكونات التي تعتمد على window
-function ClientOnly({ children }: { children: React.ReactNode }) {
-  const [hasMounted, setHasMounted] = useState(false);
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
-
-  if (!hasMounted) {
-    return null;
-  }
-
-  return <>{children}</>;
+// ✅ دالة مساعدة لتنسيق الأرقام
+function formatNumber(num: number): string {
+  return new Intl.NumberFormat("ar-SA").format(num);
 }
 
 export default function ReportsPage() {
@@ -42,7 +34,7 @@ export default function ReportsPage() {
     router.push(`/reports?${params.toString()}`, { scroll: false });
   };
 
-  // ✅ حالة التحميل الأولي (منع Hydration Mismatch)
+  // ✅ حالة التحميل الأولي
   if (!mounted || isLoading) {
     return (
       <div className="space-y-6">
@@ -61,24 +53,23 @@ export default function ReportsPage() {
     );
   }
 
-  // ✅ حالة الخطأ
   if (isError) {
     return (
       <Card className="border-destructive">
         <CardContent className="p-6 text-center text-destructive">
           <p>حدث خطأ أثناء تحميل البيانات: {error?.message || "حاول مرة أخرى"}</p>
-          <button
+          <Button
             onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-primary text-white rounded-xl"
+            className="mt-4"
+            variant="outline"
           >
             إعادة المحاولة
-          </button>
+          </Button>
         </CardContent>
       </Card>
     );
   }
 
-  // ✅ استخراج البيانات بأمان
   const reports = data?.data || [];
   const pagination = data?.pagination || {
     total: 0,
@@ -88,62 +79,99 @@ export default function ReportsPage() {
   };
   const summary = data?.summary || { total: 0, completed: 0, pending: 0 };
 
-  // ✅ بطاقات الإحصائيات
+  // ✅ حساب الإحصائيات المتقدمة
+  const completedRate = summary.total > 0 ? Math.round((summary.completed / summary.total) * 100) : 0;
+  const pendingRate = summary.total > 0 ? Math.round((summary.pending / summary.total) * 100) : 0;
+
+  // ✅ بطاقات الإحصائيات المحسّنة
   const stats = [
     {
       title: "إجمالي التقارير",
-      value: summary.total,
+      value: formatNumber(summary.total),
       icon: TrendingUp,
       color: "text-blue-600",
+      bg: "bg-blue-50 dark:bg-blue-950/30",
+      sub: "جميع التقارير المسجلة",
     },
     {
       title: "مكتملة",
-      value: summary.completed,
+      value: formatNumber(summary.completed),
       icon: CheckCircle,
       color: "text-green-600",
+      bg: "bg-green-50 dark:bg-green-950/30",
+      sub: `${completedRate}% من الإجمالي`,
     },
     {
       title: "معلقة",
-      value: summary.pending,
+      value: formatNumber(summary.pending),
       icon: Clock,
       color: "text-yellow-600",
+      bg: "bg-yellow-50 dark:bg-yellow-950/30",
+      sub: `${pendingRate}% من الإجمالي`,
     },
     {
       title: "نسبة الإنجاز",
-      value: summary.total > 0 ? `${Math.round((summary.completed / summary.total) * 100)}%` : "0%",
+      value: `${completedRate}%`,
       icon: AlertCircle,
       color: "text-purple-600",
+      bg: "bg-purple-50 dark:bg-purple-950/30",
+      sub: completedRate >= 80 ? "ممتاز 🎉" : completedRate >= 50 ? "جيد 👍" : "بحاجة إلى تحسين ⚠️",
     },
   ];
 
   return (
-    <div className="space-y-6">
-      {/* ✅ بطاقات الإحصائيات - آمنة للـ SSR */}
+    <div className="space-y-8">
+      {/* ✅ رأس الصفحة */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">التقارير والتحليلات</h1>
+          <p className="text-muted-foreground mt-1">
+            نظرة شاملة على أداء العمليات والصيانة
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Button variant="outline" size="sm" className="gap-2">
+            <Calendar className="h-4 w-4" />
+            هذا الشهر
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2">
+            <Download className="h-4 w-4" />
+            تصدير
+          </Button>
+        </div>
+      </div>
+
+      {/* ✅ بطاقات الإحصائيات */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, idx) => (
-          <Card key={idx}>
-            <CardContent className="flex items-center justify-between p-6">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                <p className="text-2xl font-bold mt-1">{stat.value}</p>
+          <Card key={idx} className="border-l-4 border-l-primary/20 hover:shadow-md transition-shadow">
+            <CardContent className="p-6">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
+                  <p className="text-2xl font-bold mt-1 tracking-tight">{stat.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{stat.sub}</p>
+                </div>
+                <div className={`p-3 rounded-xl ${stat.bg}`}>
+                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
+                </div>
               </div>
-              <stat.icon className={`h-8 w-8 ${stat.color} opacity-70`} />
             </CardContent>
           </Card>
         ))}
       </div>
 
-      {/* ✅ الفلاتر - آمنة للـ SSR */}
+      {/* ✅ الفلاتر */}
       <ReportsFilters />
 
-      {/* ✅ الرسوم البيانية - تحتاج إلى ClientOnly (تعتمد على recharts) */}
+      {/* ✅ الرسوم البيانية */}
       {reports.length > 0 && (
         <ClientOnly>
           <ReportsCharts data={reports} />
         </ClientOnly>
       )}
 
-      {/* ✅ الجدول - يحتاج إلى ClientOnly (يعتمد على @tanstack/react-table) */}
+      {/* ✅ الجدول */}
       <ClientOnly>
         <ReportsTable
           data={reports}
@@ -151,6 +179,12 @@ export default function ReportsPage() {
           onPageChange={handlePageChange}
         />
       </ClientOnly>
+
+      {/* ✅ ملخص سريع في الأسفل */}
+      <div className="flex justify-between items-center p-4 bg-muted/40 rounded-xl text-sm text-muted-foreground">
+        <span>آخر تحديث: {new Date().toLocaleString("ar-SA")}</span>
+        <span>إجمالي السجلات: {formatNumber(pagination.total)}</span>
+      </div>
     </div>
   );
 }

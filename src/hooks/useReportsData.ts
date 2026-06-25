@@ -1,3 +1,4 @@
+// src/hooks/useReportsData.ts
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
@@ -29,10 +30,12 @@ export function useReportsData() {
   const searchParams = useSearchParams();
 
   return useQuery<ReportsResponse>({
-    queryKey: ["reports", searchParams.toString()],
-    queryFn: () => fetchReports(searchParams),
-    placeholderData: (prev) => prev,
+    queryKey: ["reports", searchParams?.toString() || ""],
+    queryFn: () => fetchReports(searchParams || new URLSearchParams()),
+    // ✅ إزالة placeholderData غير الصحيح
     refetchOnWindowFocus: true,
     refetchInterval: 120000,
+    // ✅ إضافة staleTime لتجنب إعادة الجلب غير الضرورية
+    staleTime: 60000,
   });
 }

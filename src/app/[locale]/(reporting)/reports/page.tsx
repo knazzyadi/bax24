@@ -1,4 +1,4 @@
-// app/[locale]/reports/page.tsx
+// src/app/[locale]/(reporting)/reports/page.tsx
 "use client";
 
 import { useReportsData } from "@/hooks/useReportsData";
@@ -9,17 +9,42 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrendingUp, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export default function ReportsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data, isLoading, isError, error } = useReportsData();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const handlePageChange = (newPage: number) => {
     const params = new URLSearchParams(searchParams.toString());
     params.set("page", String(newPage));
     router.push(`/reports?${params.toString()}`, { scroll: false });
   };
+
+  // ✅ منع التصيير الخادمي غير المتطابق
+  if (!mounted) {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          {[...Array(4)].map((_, i) => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <Skeleton className="h-12 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+        <Skeleton className="h-[400px] w-full" />
+        <Skeleton className="h-[300px] w-full" />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -44,16 +69,26 @@ export default function ReportsPage() {
       <Card className="border-destructive">
         <CardContent className="p-6 text-center text-destructive">
           <p>حدث خطأ أثناء تحميل البيانات: {error?.message || "حاول مرة أخرى"}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="mt-4 px-4 py-2 bg-primary text-white rounded-xl"
+          >
+            إعادة المحاولة
+          </button>
         </CardContent>
       </Card>
     );
   }
 
-  const { data: reports, pagination, summary } = data || {
-    data: [],
-    pagination: { total: 0, page: 1, limit: 10, totalPages: 0 },
-    summary: { total: 0, completed: 0, pending: 0 },
+  // ✅ استخراج البيانات بأمان مع قيم افتراضية
+  const reports = data?.data || [];
+  const pagination = data?.pagination || {
+    total: 0,
+    page: 1,
+    limit: 10,
+    totalPages: 0,
   };
+  const summary = data?.summary || { total: 0, completed: 0, pending: 0 };
 
   // بطاقات الإحصائيات
   const stats = [
@@ -103,10 +138,10 @@ export default function ReportsPage() {
       {/* الفلاتر */}
       <ReportsFilters />
 
-      {/* الرسوم البيانية */}
+      {/* ✅ الرسوم البيانية - تعرض فقط في حالة وجود بيانات */}
       {reports.length > 0 && <ReportsCharts data={reports} />}
 
-      {/* الجدول */}
+      {/* ✅ الجدول - دائماً يعرض مع بيانات أو رسالة "لا توجد تقارير" */}
       <ReportsTable
         data={reports}
         pagination={pagination}

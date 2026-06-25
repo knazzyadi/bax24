@@ -1,7 +1,6 @@
-// components/reports/ReportsExport.tsx
+// src/components/reports/ReportsExport.tsx
 "use client";
 
-import * as XLSX from "xlsx";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -10,71 +9,73 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Download, FileSpreadsheet, FileText } from "lucide-react";
-import { formatDate, translateStatus } from "@/lib/reports-utils";
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import type { Report } from "@/types/report";
 
 interface ReportsExportProps {
-  data: any[];
+  data: Report[];
 }
 
 export function ReportsExport({ data }: ReportsExportProps) {
-  // تصدير إلى Excel
   const exportToExcel = () => {
-    // تحويل البيانات إلى صيغة مناسبة
-    const exportData = data.map((item) => ({
-      "المعرف": item.id,
-      "العنوان": item.title,
-      "التصنيف": item.category,
-      "الحالة": translateStatus(item.status),
-      "التاريخ": formatDate(item.createdAt),
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const worksheet = XLSX.utils.json_to_sheet(
+      data.map((item) => ({
+        المعرف: item.id,
+        العنوان: item.title,
+        التصنيف: item.category,
+        الحالة: item.status,
+        "تاريخ الإنشاء": item.createdAt,
+      }))
+    );
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "التقارير");
-    XLSX.writeFile(workbook, `التقارير-${new Date().toISOString().split("T")[0]}.xlsx`);
+    XLSX.writeFile(workbook, "التقارير.xlsx");
   };
 
-  // تصدير إلى CSV (نصي)
-  const exportToCSV = () => {
-    const headers = ["المعرف", "العنوان", "التصنيف", "الحالة", "التاريخ"];
-    const rows = data.map((item) => [
-      item.id,
-      item.title,
-      item.category,
-      translateStatus(item.status),
-      formatDate(item.createdAt),
-    ]);
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const totalPagesExp = "{total_pages_count_string}";
 
-    let csv = headers.join(",") + "\n";
-    rows.forEach((row) => {
-      csv += row.join(",") + "\n";
+    autoTable(doc, {
+      head: [["المعرف", "العنوان", "التصنيف", "الحالة", "تاريخ الإنشاء"]],
+      body: data.map((item) => [
+        item.id,
+        item.title,
+        item.category,
+        item.status,
+        item.createdAt,
+      ]),
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [59, 130, 246] },
+      didDrawPage: function (data) {
+        const str = `الصفحة ${doc.getCurrentPageInfo().pageNumber} من ${totalPagesExp}`;
+        doc.setFontSize(8);
+        doc.text(str, data.settings.margin.left, doc.internal.pageSize.height - 10);
+      },
     });
 
-    const blob = new Blob([csv], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `التقارير-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    // Save the PDF
+    doc.save("التقارير.pdf");
   };
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="gap-2">
+        <Button variant="outline" size="sm" className="gap-2">
           <Download className="h-4 w-4" />
           تصدير
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onClick={exportToExcel} className="gap-2 cursor-pointer">
-          <FileSpreadsheet className="h-4 w-4" />
-          Excel (.xlsx)
+          <FileSpreadsheet className="h-4 w-4 text-green-600" />
+          تصدير إلى Excel
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={exportToCSV} className="gap-2 cursor-pointer">
-          <FileText className="h-4 w-4" />
-          CSV (.csv)
+        <DropdownMenuItem onClick={exportToPDF} className="gap-2 cursor-pointer">
+          <FileText className="h-4 w-4 text-red-600" />
+          تصدير إلى PDF
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -1,13 +1,13 @@
+// src/components/reports/ReportsFiltersAdvanced.tsx
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
-import { CalendarIcon, X } from "lucide-react";
+import { CalendarIcon, X, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
-
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -24,32 +24,22 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 
-export function ReportsFilters() {
+export function ReportsFiltersAdvanced() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mounted, setMounted] = useState(false);
 
-  // حالات محلية
-  const [status, setStatus] = useState("");
-  const [category, setCategory] = useState("");
-  const [search, setSearch] = useState("");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const currentStatus = searchParams.get("status") || "";
+  const currentCategory = searchParams.get("category") || "";
+  const currentSearch = searchParams.get("search") || "";
+  const currentFrom = searchParams.get("from") || "";
+  const currentTo = searchParams.get("to") || "";
 
-  useEffect(() => {
-    setMounted(true);
-    // تحديث الحالات من searchParams بعد التصيير
-    setStatus(searchParams.get("status") || "");
-    setCategory(searchParams.get("category") || "");
-    setSearch(searchParams.get("search") || "");
-    const from = searchParams.get("from");
-    const to = searchParams.get("to");
-    setDateRange({
-      from: from ? new Date(from) : undefined,
-      to: to ? new Date(to) : undefined,
-    });
-  }, [searchParams]);
+  const [date, setDate] = useState<DateRange | undefined>({
+    from: currentFrom ? new Date(currentFrom) : undefined,
+    to: currentTo ? new Date(currentTo) : undefined,
+  });
+  const [searchTerm, setSearchTerm] = useState(currentSearch);
 
-  // تحديث الفلتر في الرابط
   const updateFilter = (key: string, value: string) => {
     const params = new URLSearchParams(searchParams.toString());
     if (value && value.trim() !== "") {
@@ -62,70 +52,49 @@ export function ReportsFilters() {
   };
 
   const applyDateRange = () => {
-    if (dateRange?.from) {
-      updateFilter("from", dateRange.from.toISOString().split("T")[0]);
+    if (date?.from) {
+      updateFilter("from", date.from.toISOString().split("T")[0]);
     } else {
       updateFilter("from", "");
     }
-    if (dateRange?.to) {
-      updateFilter("to", dateRange.to.toISOString().split("T")[0]);
+    if (date?.to) {
+      updateFilter("to", date.to.toISOString().split("T")[0]);
     } else {
       updateFilter("to", "");
     }
   };
 
-  const resetFilters = () => {
-    setDateRange(undefined);
-    setStatus("");
-    setCategory("");
-    setSearch("");
-    router.push("/reports", { scroll: false });
+  const handleSearch = () => {
+    updateFilter("search", searchTerm);
   };
 
-  // أثناء التصيير الخادمي (أو قبل التحميل) نعرض نسخة خفيفة
-  if (!mounted) {
-    return (
-      <div className="flex flex-wrap items-center gap-3 p-4 bg-card rounded-lg border shadow-sm">
-        <div className="flex-1 min-w-[180px]">
-          <Input placeholder="بحث في التقارير..." className="w-full" />
-        </div>
-        <div className="w-[150px]">
-          <Select>
-            <SelectTrigger><SelectValue placeholder="الحالة" /></SelectTrigger>
-          </Select>
-        </div>
-        <div className="w-[150px]">
-          <Select>
-            <SelectTrigger><SelectValue placeholder="التصنيف" /></SelectTrigger>
-          </Select>
-        </div>
-      </div>
-    );
-  }
+  const resetFilters = () => {
+    setDate(undefined);
+    setSearchTerm("");
+    router.push("/reports", { scroll: false });
+  };
 
   return (
     <div className="flex flex-wrap items-center gap-3 p-4 bg-card rounded-lg border shadow-sm">
       {/* بحث */}
-      <div className="flex-1 min-w-[180px]">
+      <div className="flex-1 min-w-[180px] flex gap-2">
         <Input
           placeholder="بحث في التقارير..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            updateFilter("search", e.target.value);
-          }}
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && handleSearch()}
           className="w-full"
         />
+        <Button variant="outline" size="icon" onClick={handleSearch}>
+          <Search className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* فلتر الحالة */}
       <div className="w-[150px]">
         <Select
-          value={status}
-          onValueChange={(val) => {
-            setStatus(val);
-            updateFilter("status", val);
-          }}
+          value={currentStatus}
+          onValueChange={(val) => updateFilter("status", val)}
         >
           <SelectTrigger>
             <SelectValue placeholder="الحالة" />
@@ -143,11 +112,8 @@ export function ReportsFilters() {
       {/* فلتر التصنيف */}
       <div className="w-[150px]">
         <Select
-          value={category}
-          onValueChange={(val) => {
-            setCategory(val);
-            updateFilter("category", val);
-          }}
+          value={currentCategory}
+          onValueChange={(val) => updateFilter("category", val)}
         >
           <SelectTrigger>
             <SelectValue placeholder="التصنيف" />
@@ -171,18 +137,18 @@ export function ReportsFilters() {
               variant="outline"
               className={cn(
                 "justify-start text-left font-normal w-[220px]",
-                !dateRange?.from && !dateRange?.to && "text-muted-foreground"
+                !date?.from && !date?.to && "text-muted-foreground"
               )}
             >
               <CalendarIcon className="ml-2 h-4 w-4" />
-              {dateRange?.from ? (
-                dateRange?.to ? (
+              {date?.from ? (
+                date?.to ? (
                   <>
-                    {format(dateRange.from, "dd/MM/yyyy", { locale: ar })} -{" "}
-                    {format(dateRange.to, "dd/MM/yyyy", { locale: ar })}
+                    {format(date.from, "dd/MM/yyyy", { locale: ar })} -{" "}
+                    {format(date.to, "dd/MM/yyyy", { locale: ar })}
                   </>
                 ) : (
-                  format(dateRange.from, "dd/MM/yyyy", { locale: ar })
+                  format(date.from, "dd/MM/yyyy", { locale: ar })
                 )
               ) : (
                 "اختر النطاق"
@@ -192,10 +158,14 @@ export function ReportsFilters() {
           <PopoverContent className="w-auto p-0" align="start">
             <Calendar
               mode="range"
-              selected={dateRange}
-              onSelect={setDateRange}
+              selected={date}
+              onSelect={setDate}
+              initialFocus
             />
-            <div className="p-2 border-t flex justify-end">
+            <div className="p-2 border-t flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setDate(undefined)}>
+                إلغاء
+              </Button>
               <Button size="sm" onClick={applyDateRange}>
                 تطبيق
               </Button>

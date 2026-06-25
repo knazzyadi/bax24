@@ -1,28 +1,38 @@
 // src/app/[locale]/(reporting)/reports/page.tsx
 "use client";
 
-import { useReportsData } from "@/hooks/useReportsData";
-import { ReportsFilters } from "@/components/reports/ReportsFilters";
-import { ReportsTable } from "@/components/reports/ReportsTable";
-import { ReportsCharts } from "@/components/reports/ReportsCharts";
+import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useReportsData } from "@/hooks/useReportsData";
+import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { TrendingUp, CheckCircle, Clock, AlertCircle, Download, Calendar, Filter } from "lucide-react";
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ClientOnly } from "@/components/shared/ClientOnly";
+import {
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  AlertCircle,
+  Download,
+  Calendar,
+  Filter,
+  BarChart3,
+  PieChart,
+  LineChart,
+} from "lucide-react";
 
-// ✅ دالة مساعدة لتنسيق الأرقام
-function formatNumber(num: number): string {
-  return new Intl.NumberFormat("ar-SA").format(num);
-}
+// مكونات النظام الجديد
+import { ReportsStats } from "@/components/reports/ReportsStats";
+import { ReportsChartsAdvanced } from "@/components/reports/ReportsChartsAdvanced";
+import { ReportsTableAdvanced } from "@/components/reports/ReportsTableAdvanced";
+import { ReportsFiltersAdvanced } from "@/components/reports/ReportsFiltersAdvanced";
+import { ReportsExport } from "@/components/reports/ReportsExport";
 
 export default function ReportsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
-  const { data, isLoading, isError, error } = useReportsData();
+  const { data, isLoading, isError, error, refetch } = useReportsData();
 
   useEffect(() => {
     setMounted(true);
@@ -34,7 +44,6 @@ export default function ReportsPage() {
     router.push(`/reports?${params.toString()}`, { scroll: false });
   };
 
-  // ✅ حالة التحميل الأولي
   if (!mounted || isLoading) {
     return (
       <div className="space-y-6">
@@ -58,11 +67,7 @@ export default function ReportsPage() {
       <Card className="border-destructive">
         <CardContent className="p-6 text-center text-destructive">
           <p>حدث خطأ أثناء تحميل البيانات: {error?.message || "حاول مرة أخرى"}</p>
-          <Button
-            onClick={() => window.location.reload()}
-            className="mt-4"
-            variant="outline"
-          >
+          <Button onClick={() => refetch()} className="mt-4" variant="outline">
             إعادة المحاولة
           </Button>
         </CardContent>
@@ -79,111 +84,60 @@ export default function ReportsPage() {
   };
   const summary = data?.summary || { total: 0, completed: 0, pending: 0 };
 
-  // ✅ حساب الإحصائيات المتقدمة
-  const completedRate = summary.total > 0 ? Math.round((summary.completed / summary.total) * 100) : 0;
-  const pendingRate = summary.total > 0 ? Math.round((summary.pending / summary.total) * 100) : 0;
-
-  // ✅ بطاقات الإحصائيات المحسّنة
-  const stats = [
-    {
-      title: "إجمالي التقارير",
-      value: formatNumber(summary.total),
-      icon: TrendingUp,
-      color: "text-blue-600",
-      bg: "bg-blue-50 dark:bg-blue-950/30",
-      sub: "جميع التقارير المسجلة",
-    },
-    {
-      title: "مكتملة",
-      value: formatNumber(summary.completed),
-      icon: CheckCircle,
-      color: "text-green-600",
-      bg: "bg-green-50 dark:bg-green-950/30",
-      sub: `${completedRate}% من الإجمالي`,
-    },
-    {
-      title: "معلقة",
-      value: formatNumber(summary.pending),
-      icon: Clock,
-      color: "text-yellow-600",
-      bg: "bg-yellow-50 dark:bg-yellow-950/30",
-      sub: `${pendingRate}% من الإجمالي`,
-    },
-    {
-      title: "نسبة الإنجاز",
-      value: `${completedRate}%`,
-      icon: AlertCircle,
-      color: "text-purple-600",
-      bg: "bg-purple-50 dark:bg-purple-950/30",
-      sub: completedRate >= 80 ? "ممتاز 🎉" : completedRate >= 50 ? "جيد 👍" : "بحاجة إلى تحسين ⚠️",
-    },
-  ];
-
   return (
     <div className="space-y-8">
-      {/* ✅ رأس الصفحة */}
+      {/* رأس الصفحة */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">التقارير والتحليلات</h1>
+          <h1 className="text-3xl font-bold tracking-tight">لوحة التقارير والتحليلات</h1>
           <p className="text-muted-foreground mt-1">
-            نظرة شاملة على أداء العمليات والصيانة
+            نظرة شاملة على أداء العمليات والصيانة وإدارة المرافق
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" className="gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2"
+            onClick={() => refetch()}
+          >
             <Calendar className="h-4 w-4" />
-            هذا الشهر
+            تحديث البيانات
           </Button>
-          <Button variant="outline" size="sm" className="gap-2">
-            <Download className="h-4 w-4" />
-            تصدير
-          </Button>
+          <ReportsExport data={reports} />
         </div>
       </div>
 
-      {/* ✅ بطاقات الإحصائيات */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((stat, idx) => (
-          <Card key={idx} className="border-l-4 border-l-primary/20 hover:shadow-md transition-shadow">
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground">{stat.title}</p>
-                  <p className="text-2xl font-bold mt-1 tracking-tight">{stat.value}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{stat.sub}</p>
-                </div>
-                <div className={`p-3 rounded-xl ${stat.bg}`}>
-                  <stat.icon className={`h-5 w-5 ${stat.color}`} />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* الإحصائيات */}
+      <ClientOnly>
+        <ReportsStats summary={summary} />
+      </ClientOnly>
 
-      {/* ✅ الفلاتر */}
-      <ReportsFilters />
+      {/* الفلاتر المتقدمة */}
+      <ClientOnly>
+        <ReportsFiltersAdvanced />
+      </ClientOnly>
 
-      {/* ✅ الرسوم البيانية */}
+      {/* الرسوم البيانية المتقدمة */}
       {reports.length > 0 && (
         <ClientOnly>
-          <ReportsCharts data={reports} />
+          <ReportsChartsAdvanced data={reports} />
         </ClientOnly>
       )}
 
-      {/* ✅ الجدول */}
+      {/* الجدول المتقدم */}
       <ClientOnly>
-        <ReportsTable
+        <ReportsTableAdvanced
           data={reports}
           pagination={pagination}
           onPageChange={handlePageChange}
         />
       </ClientOnly>
 
-      {/* ✅ ملخص سريع في الأسفل */}
+      {/* ملخص */}
       <div className="flex justify-between items-center p-4 bg-muted/40 rounded-xl text-sm text-muted-foreground">
         <span>آخر تحديث: {new Date().toLocaleString("ar-SA")}</span>
-        <span>إجمالي السجلات: {formatNumber(pagination.total)}</span>
+        <span>إجمالي السجلات: {pagination.total}</span>
       </div>
     </div>
   );

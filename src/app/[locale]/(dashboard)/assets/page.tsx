@@ -9,7 +9,7 @@ import type { Asset, AssetType, AssetStatus } from '@/types/assets';
 async function getSessionAndPermissions() {
   const { auth } = await import('@/auth');
   const { requirePermission } = await import('@/lib/permissions');
-  // ✅ استدعاء auth() مباشرة بدلاً من getSession()
+  // ✅ استخدام auth() مباشرة بدلاً من getSession() غير المعرفة
   const session = await auth();
   if (!session?.user) {
     throw new Error('UNAUTHORIZED');
@@ -25,9 +25,11 @@ export default async function AssetsPage({
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ q?: string; typeId?: string; statusId?: string }>;
 }) {
+  // ✅ التحقق من وجود params و searchParams
   const paramsResolved = await params;
   const searchParamsResolved = await searchParams || {};
 
+  // ✅ استخدام الدالة المساعدة
   let session;
   try {
     session = await getSessionAndPermissions();
@@ -39,6 +41,7 @@ export default async function AssetsPage({
   const { q, typeId, statusId } = searchParamsResolved;
   const companyId = session.user.companyId!;
 
+  // بناء شرط where للبحث والفلترة (سيُمرر إلى getAssets)
   const where: any = {};
   if (q) {
     where.OR = [
@@ -50,8 +53,10 @@ export default async function AssetsPage({
   if (typeId && typeId !== 'all') where.typeId = typeId;
   if (statusId && statusId !== 'all') where.statusId = statusId;
 
+  // جلب الأصول (مع تطبيق فلترة الفروع تلقائياً داخل getAssets)
   const assetsRaw = await getAssets(where);
 
+  // تحويل البيانات إلى الشكل المطلوب من قبل AssetsClient
   const transformedAssets: Asset[] = assetsRaw.map((asset: any) => ({
     id: asset.id,
     name: asset.name,
@@ -106,6 +111,7 @@ export default async function AssetsPage({
     updatedAt: asset.updatedAt.toISOString(),
   }));
 
+  // جلب أنواع الأصول وحالاتها (للفلاتر)
   const [assetTypesRaw, assetStatusesRaw] = await Promise.all([
     prisma.assetType.findMany({
       where: { companyId },

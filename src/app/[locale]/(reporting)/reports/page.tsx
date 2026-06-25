@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,8 @@ interface SavedReport {
 
 export default function ReportsPage() {
   const router = useRouter();
+  const params = useParams();
+  const locale = (params?.locale as string) || "ar";
   const { data: session, status } = useSession();
   const [reports, setReports] = useState<SavedReport[]>([]);
   const [loading, setLoading] = useState(true);
@@ -104,7 +106,7 @@ export default function ReportsPage() {
             إدارة وعرض التقارير المخصصة التي قمت بإنشائها
           </p>
         </div>
-        <Link href="/reports/builder">
+        <Link href={`/${locale}/reports/builder`}>
           <Button className="gap-2">
             <PlusCircle className="h-4 w-4" />
             إنشاء تقرير جديد
@@ -121,7 +123,7 @@ export default function ReportsPage() {
             <p className="text-muted-foreground text-sm mt-1 max-w-md">
               قم بإنشاء تقرير جديد باستخدام منشئ التقارير المخصص. اختر البيانات والأعمدة والفلاتر لعرض ما تريد.
             </p>
-            <Link href="/reports/builder" className="mt-4">
+            <Link href={`/${locale}/reports/builder`} className="mt-4">
               <Button>إنشاء تقرير جديد</Button>
             </Link>
           </CardContent>

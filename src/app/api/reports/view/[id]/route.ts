@@ -33,7 +33,6 @@ export async function GET(
     // تحديد الحقول المطلوبة بناءً على modelType
     switch (modelType) {
       case 'assets': {
-        // تعريف الأعمدة المسموحة للنموذج
         const assetFields: Record<string, boolean> = {};
         columns.forEach((col: string) => {
           if (col === 'type') assetFields.type = true;
@@ -50,7 +49,24 @@ export async function GET(
             nameEn: assetFields.nameEn || false,
             type: assetFields.type ? { select: { name: true, nameEn: true } } : false,
             status: assetFields.status ? { select: { name: true, nameEn: true } } : false,
-            room: assetFields.location ? { select: { name: true, nameEn: true } } : false,
+            room: assetFields.location ? {
+              select: {
+                name: true,
+                nameEn: true,
+                floor: {
+                  select: {
+                    name: true,
+                    nameEn: true,
+                    building: {
+                      select: {
+                        name: true,
+                        nameEn: true,
+                      }
+                    }
+                  }
+                }
+              }
+            } : false,
             purchaseDate: assetFields.purchaseDate || false,
             warrantyEnd: assetFields.warrantyEnd || false,
             lastMaintenanceDate: assetFields.lastMaintenanceDate || false,
@@ -58,16 +74,28 @@ export async function GET(
           take: 100,
         });
 
-        data = assets.map((asset: any) => ({
-          code: asset.code || '',
-          name: asset.name || '',
-          type: asset.type?.name || asset.type?.nameEn || '',
-          status: asset.status?.name || asset.status?.nameEn || '',
-          location: asset.room?.name || asset.room?.nameEn || '',
-          purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('ar-SA') : '',
-          warrantyEnd: asset.warrantyEnd ? new Date(asset.warrantyEnd).toLocaleDateString('ar-SA') : '',
-          lastMaintenanceDate: asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate).toLocaleDateString('ar-SA') : '',
-        }));
+        data = assets.map((asset: any) => {
+          // بناء الموقع الكامل (المبنى - الدور - الغرفة)
+          let location = '';
+          if (asset.room) {
+            const buildingName = asset.room.floor?.building?.name || asset.room.floor?.building?.nameEn || '';
+            const floorName = asset.room.floor?.name || asset.room.floor?.nameEn || '';
+            const roomName = asset.room.name || asset.room.nameEn || '';
+            location = [buildingName, floorName, roomName].filter(Boolean).join(' - ');
+          }
+          if (!location) location = 'لا يوجد موقع';
+
+          return {
+            code: asset.code || '',
+            name: asset.name || '',
+            type: asset.type?.name || asset.type?.nameEn || '',
+            status: asset.status?.name || asset.status?.nameEn || '',
+            location: location,
+            purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('ar-SA') : '',
+            warrantyEnd: asset.warrantyEnd ? new Date(asset.warrantyEnd).toLocaleDateString('ar-SA') : '',
+            lastMaintenanceDate: asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate).toLocaleDateString('ar-SA') : '',
+          };
+        });
         break;
       }
 
@@ -157,7 +185,7 @@ export async function GET(
           name: item.name || '',
           quantity: item.quantity || 0,
           unit: item.unit || '',
-          location: item.room?.name || item.room?.nameEn || '',
+          location: item.room?.name || item.room?.nameEn || 'لا يوجد موقع',
         }));
         break;
       }

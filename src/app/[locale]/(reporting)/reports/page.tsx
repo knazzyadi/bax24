@@ -74,10 +74,9 @@ export default function ReportsPage() {
     }
   };
 
-  // عرض التقرير (سيتم تنفيذها لاحقاً)
+  // ✅ عرض التقرير (التوجيه إلى صفحة العرض التفصيلي)
   const handleView = (report: SavedReport) => {
-    // TODO: فتح التقرير في صفحة منفصلة
-    toast.info(`سيتم عرض التقرير: ${report.name}`);
+    router.push(`/${locale}/reports/view/${report.id}`);
   };
 
   if (status === "loading" || loading) {

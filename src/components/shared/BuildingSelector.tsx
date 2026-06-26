@@ -36,16 +36,14 @@ export function BuildingSelector({
     return isRtl ? building.name : (building.nameEn || building.name);
   };
 
-  // ✅ بناء placeholder ديناميكي
+  const selectedBuilding = buildings.find(b => b.id === value);
+  const displayValue = selectedBuilding ? getDisplayName(selectedBuilding) : undefined;
+
   const getPlaceholderText = () => {
     if (loading) return isRtl ? "جاري التحميل..." : "Loading...";
     if (buildings.length === 0) return emptyMessage;
     return placeholder;
   };
-
-  // ✅ الحصول على الاسم المعروض للقيمة المحددة
-  const selectedBuilding = buildings.find(b => b.id === value);
-  const displayValue = selectedBuilding ? getDisplayName(selectedBuilding) : undefined;
 
   return (
     <Select value={value} onValueChange={onValueChange} disabled={isDisabled}>
@@ -55,7 +53,7 @@ export function BuildingSelector({
         </SelectValue>
         {loading && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent position="popper" sideOffset={4}> {/* ✅ إضافة position="popper" */}
         {buildings.map((b) => (
           <SelectItem key={b.id} value={b.id}>
             {getDisplayName(b)}

@@ -1,15 +1,19 @@
 // src/lib/auth-helper.ts
 export async function getSession() {
-  const { getServerSession } = await import('next-auth');
-  const { authOptions } = await import('@/auth');
-  const session = await getServerSession(authOptions);
+  const { auth } = await import('@/auth');
+  const session = await auth();
   return session;
 }
 
-export async function requirePermission(permissionName: string) {
+export async function getAuthenticatedSession() {
   const session = await getSession();
   if (!session?.user) throw new Error('UNAUTHORIZED');
-  const { requirePermission: checkPermission } = await import('@/lib/permissions');
-  await checkPermission(permissionName, session);
+  return session;
+}
+
+export async function checkPermission(permissionName: string) {
+  const session = await getAuthenticatedSession();
+  const { requirePermission } = await import('@/lib/permissions');
+  await requirePermission(permissionName, session);
   return session;
 }

@@ -1,15 +1,13 @@
+// src/app/api/buildings/route.ts
 import { NextResponse } from 'next/server';
-
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
-
-
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await requirePermission('assets.read');
+    // ✅ استخدام الدوال الجديدة
+    const session = await getAuthenticatedSession();
+    await checkPermission('assets.read');
 
     const companyId = session.user.companyId;
     if (!companyId) {
@@ -46,6 +44,12 @@ export async function GET(request: Request) {
     return NextResponse.json(buildings);
   } catch (error: any) {
     console.error('GET /api/buildings error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'خطأ في الخادم' }, { status: 500 });
   }
 }

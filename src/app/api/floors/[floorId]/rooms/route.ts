@@ -1,18 +1,17 @@
+// src/app/api/floors/[floorId]/rooms/route.ts
 import { NextResponse } from 'next/server';
-
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
-
-
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ floorId: string }> }
 ) {
   try {
-    const session = await getSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await requirePermission('assets.read');
+    // ✅ استخدام getAuthenticatedSession بدلاً من getSession
+    const session = await getAuthenticatedSession();
+    // ✅ استخدام checkPermission بدلاً من requirePermission
+    await checkPermission('assets.read');
 
     const { floorId } = await params;
     const companyId = session.user.companyId;
@@ -77,6 +76,15 @@ export async function GET(
     return NextResponse.json(rooms);
   } catch (error: any) {
     console.error('GET /api/floors/[floorId]/rooms error:', error);
+    
+    // ✅ معالجة أخطاء المصادقة بشكل موحد
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
+    
     return NextResponse.json(
       { error: 'حدث خطأ في الخادم', details: error.message },
       { status: 500 }

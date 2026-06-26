@@ -1,21 +1,17 @@
 // src/app/api/asset-types/route.ts
 import { NextResponse } from 'next/server';
-
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
-
-
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 
 // =====================
 // GET: جلب قائمة أنواع الأصول
 // =====================
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    await requirePermission('assets.read');
+    // ✅ استخدام getAuthenticatedSession بدلاً من getSession
+    const session = await getAuthenticatedSession();
+    // ✅ استخدام checkPermission بدلاً من requirePermission
+    await checkPermission('assets.read');
 
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('companyId');
@@ -36,7 +32,7 @@ export async function GET(request: Request) {
         id: true,
         name: true,
         nameEn: true,
-        code: true,        // ✅ أضفنا الكود
+        code: true,
         description: true,
         order: true,
         isDefault: true,
@@ -46,7 +42,10 @@ export async function GET(request: Request) {
     return NextResponse.json(assetTypes);
   } catch (error: any) {
     console.error('GET /api/asset-types error:', error);
-    if (error.message === 'FORBIDDEN') {
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
     return NextResponse.json({ error: 'خطأ في الخادم' }, { status: 500 });
@@ -58,10 +57,8 @@ export async function GET(request: Request) {
 // =====================
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    // ✅ استخدام getAuthenticatedSession بدلاً من getSession
+    const session = await getAuthenticatedSession();
 
     const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
     const isAdmin = session.user.role === 'ADMIN';
@@ -76,7 +73,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'بيانات غير صالحة' }, { status: 400 });
     }
 
-    const { name, nameEn, code, description, order, isDefault, companyId } = body;  // ✅ أضفنا code
+    const { name, nameEn, code, description, order, isDefault, companyId } = body;
 
     if (!name || name.trim() === '') {
       return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
@@ -116,7 +113,7 @@ export async function POST(request: Request) {
       data: {
         name: name.trim(),
         nameEn: nameEn?.trim() || null,
-        code: code?.trim() || null,      // ✅ أضفنا الكود
+        code: code?.trim() || null,
         description: description?.trim() || null,
         order: typeof order === 'number' ? order : 0,
         isDefault: isDefault === true,
@@ -127,6 +124,9 @@ export async function POST(request: Request) {
     return NextResponse.json(newType, { status: 201 });
   } catch (error: any) {
     console.error('POST /api/asset-types error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
     if (error.code === 'P2002') {
       return NextResponse.json(
         { error: 'نوع أصل بنفس الاسم موجود بالفعل لهذه الشركة' },

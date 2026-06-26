@@ -2,23 +2,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-
-// ✅ دالة مساعدة لجلب session والصلاحيات ديناميكياً
-async function getAuthAndPermissions() {
-  const { auth } = await import('@/auth');
-  const { requirePermission } = await import('@/lib/permissions');
-  const session = await auth(); // ✅ تصحيح: استخدام auth() بدلاً من getSession()
-  if (!session?.user) {
-    throw new Error('UNAUTHORIZED');
-  }
-  return { session, requirePermission };
-}
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 
 // GET: جلب قائمة حالات الأصول (للمستخدمين المصرح لهم assets.read)
 export async function GET() {
   try {
-    const { session, requirePermission } = await getAuthAndPermissions();
-    await requirePermission('assets.read', session); // ✅ تمرير session
+    // ✅ استخدام getAuthenticatedSession بدلاً من getAuthAndPermissions
+    const session = await getAuthenticatedSession();
+    // ✅ استخدام checkPermission بدلاً من requirePermission
+    await checkPermission('assets.read');
 
     const companyId = session.user.companyId;
     if (!companyId) {
@@ -32,7 +24,6 @@ export async function GET() {
         id: true,
         name: true,
         nameEn: true,
-        // ✅ إزالة code
         description: true,
         color: true,
         order: true,
@@ -55,7 +46,7 @@ export async function GET() {
 // POST: إضافة حالة أصل جديدة (للأدمن فقط)
 export async function POST(request: Request) {
   try {
-    const { session } = await getAuthAndPermissions();
+    const session = await getAuthenticatedSession();
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية إنشاء حالة' }, { status: 403 });
@@ -65,7 +56,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    const { name, nameEn, description, color, order, isDefault } = await request.json(); // ✅ إزالة code
+    const { name, nameEn, description, color, order, isDefault } = await request.json();
     if (!name || name.trim() === '') {
       return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
     }
@@ -93,7 +84,6 @@ export async function POST(request: Request) {
       data: {
         name: name.trim(),
         nameEn: nameEn?.trim() || null,
-        // ✅ إزالة code
         description: description?.trim() || null,
         color: color || "#64748b",
         order: typeof order === 'number' ? order : 0,
@@ -122,14 +112,14 @@ export async function POST(request: Request) {
 // PUT: تحديث حالة (للأدمن فقط)
 export async function PUT(request: Request) {
   try {
-    const { session } = await getAuthAndPermissions();
+    const session = await getAuthenticatedSession();
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية تحديث الحالة' }, { status: 403 });
     }
 
     const body = await request.json();
-    const { id, name, nameEn, description, color, order, isDefault } = body; // ✅ إزالة code
+    const { id, name, nameEn, description, color, order, isDefault } = body;
     if (!id) {
       return NextResponse.json({ error: 'المعرف مطلوب' }, { status: 400 });
     }
@@ -160,7 +150,6 @@ export async function PUT(request: Request) {
       data: {
         name: name?.trim(),
         nameEn: nameEn?.trim() || null,
-        // ✅ إزالة code
         description: description?.trim() || null,
         color: color || existing.color,
         order: order ?? existing.order,
@@ -182,7 +171,7 @@ export async function PUT(request: Request) {
 // DELETE: حذف حالة (للأدمن فقط)
 export async function DELETE(request: Request) {
   try {
-    const { session } = await getAuthAndPermissions();
+    const session = await getAuthenticatedSession();
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية حذف الحالة' }, { status: 403 });

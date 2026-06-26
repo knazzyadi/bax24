@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation"; // ✅ إضافة useParams
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,8 @@ const MODELS: Record<
 
 export default function ReportBuilderPage() {
   const router = useRouter();
+  const params = useParams(); // ✅ جلب locale
+  const locale = params?.locale as string || "ar"; // ✅ استخدام اللغة الحالية
   const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -127,7 +129,7 @@ export default function ReportBuilderPage() {
       }
 
       toast.success("✅ تم حفظ التقرير بنجاح");
-      router.push("/reports");
+      router.push(`/${locale}/reports`); // ✅ إضافة locale
     } catch (error: any) {
       toast.error(error.message || "حدث خطأ");
     } finally {
@@ -136,12 +138,11 @@ export default function ReportBuilderPage() {
   };
 
   const handlePreview = () => {
-    // معاينة بسيطة: نفتح صفحة التقارير مع بارامترات
     const params = new URLSearchParams({
       model: modelType,
       columns: selectedColumns.join(","),
     });
-    router.push(`/reports/preview?${params.toString()}`);
+    router.push(`/${locale}/reports/preview?${params.toString()}`); // ✅ إضافة locale
   };
 
   const model = MODELS[modelType];
@@ -154,7 +155,7 @@ export default function ReportBuilderPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push("/reports")}
+            onClick={() => router.push(`/${locale}/reports`)} // ✅ إضافة locale
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>

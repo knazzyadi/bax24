@@ -11,6 +11,11 @@ export async function GET(
     const session = await getAuthenticatedSession();
     const { id } = await params;
 
+    const { searchParams } = new URL(request.url);
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const skip = (page - 1) * limit;
+
     const savedReport = await prisma.savedReport.findFirst({
       where: {
         id,
@@ -27,6 +32,7 @@ export async function GET(
     const modelType = savedReport.modelType;
 
     let data: any[] = [];
+    let total = 0;
 
     switch (modelType) {
       case 'assets': {
@@ -39,37 +45,52 @@ export async function GET(
           } else assetFields[col] = true;
         });
 
+        total = await prisma.asset.count({
+          where: { companyId: session.user.companyId! },
+        });
+
+        // ✅ بناء كائن select ديناميكياً
+        const select: any = {
+          code: assetFields.code || false,
+          name: assetFields.name || false,
+          nameEn: assetFields.nameEn || false,
+          purchaseDate: assetFields.purchaseDate || false,
+          warrantyEnd: assetFields.warrantyEnd || false,
+          lastMaintenanceDate: assetFields.lastMaintenanceDate || false,
+        };
+
+        if (assetFields.type) {
+          select.type = { select: { name: true, nameEn: true } };
+        }
+        if (assetFields.status) {
+          select.status = { select: { name: true, nameEn: true } };
+        }
+        if (assetFields.room) {
+          select.room = {
+            select: {
+              name: true,
+              nameEn: true,
+              floor: {
+                select: {
+                  name: true,
+                  nameEn: true,
+                  building: {
+                    select: {
+                      name: true,
+                      nameEn: true,
+                    },
+                  },
+                },
+              },
+            },
+          };
+        }
+
         const assets = await prisma.asset.findMany({
           where: { companyId: session.user.companyId! },
-          select: {
-            code: assetFields.code || false,
-            name: assetFields.name || false,
-            nameEn: assetFields.nameEn || false,
-            type: assetFields.type ? { select: { name: true, nameEn: true } } : false,
-            status: assetFields.status ? { select: { name: true, nameEn: true } } : false,
-            room: assetFields.room ? {
-              select: {
-                name: true,
-                nameEn: true,
-                floor: {
-                  select: {
-                    name: true,
-                    nameEn: true,
-                    building: {
-                      select: {
-                        name: true,
-                        nameEn: true,
-                      }
-                    }
-                  }
-                }
-              }
-            } : false,
-            purchaseDate: assetFields.purchaseDate || false,
-            warrantyEnd: assetFields.warrantyEnd || false,
-            lastMaintenanceDate: assetFields.lastMaintenanceDate || false,
-          },
-          take: 100,
+          select,
+          skip,
+          take: limit,
         });
 
         data = assets.map((asset: any) => {
@@ -87,7 +108,7 @@ export async function GET(
             name: asset.name || '',
             type: asset.type?.name || asset.type?.nameEn || '',
             status: asset.status?.name || asset.status?.nameEn || '',
-            location: location,
+            location,
             purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('ar-SA') : '',
             warrantyEnd: asset.warrantyEnd ? new Date(asset.warrantyEnd).toLocaleDateString('ar-SA') : '',
             lastMaintenanceDate: asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate).toLocaleDateString('ar-SA') : '',
@@ -104,17 +125,31 @@ export async function GET(
           else woFields[col] = true;
         });
 
+        total = await prisma.workOrder.count({
+          where: { companyId: session.user.companyId! },
+        });
+
+        const select: any = {
+          code: woFields.code || false,
+          title: woFields.title || false,
+          createdAt: woFields.createdAt || false,
+        };
+
+        if (woFields.priority) {
+          select.priority = { select: { name: true, nameEn: true } };
+        }
+        if (woFields.status) {
+          select.status = { select: { name: true, nameEn: true } };
+        }
+        if (woFields.assetType) {
+          select.assetType = { select: { name: true, nameEn: true } };
+        }
+
         const workOrders = await prisma.workOrder.findMany({
           where: { companyId: session.user.companyId! },
-          select: {
-            code: woFields.code || false,
-            title: woFields.title || false,
-            priority: woFields.priority ? { select: { name: true, nameEn: true } } : false,
-            status: woFields.status ? { select: { name: true, nameEn: true } } : false,
-            assetType: woFields.assetType ? { select: { name: true, nameEn: true } } : false,
-            createdAt: woFields.createdAt || false,
-          },
-          take: 100,
+          select,
+          skip,
+          take: limit,
         });
 
         data = workOrders.map((wo: any) => ({
@@ -135,17 +170,27 @@ export async function GET(
           else ticketFields[col] = true;
         });
 
+        total = await prisma.ticket.count({
+          where: { companyId: session.user.companyId! },
+        });
+
+        const select: any = {
+          code: ticketFields.code || false,
+          title: ticketFields.title || false,
+          type: ticketFields.type || false,
+          reporterName: ticketFields.reporterName || false,
+          createdAt: ticketFields.createdAt || false,
+        };
+
+        if (ticketFields.status) {
+          select.status = { select: { name: true, nameEn: true } };
+        }
+
         const tickets = await prisma.ticket.findMany({
           where: { companyId: session.user.companyId! },
-          select: {
-            code: ticketFields.code || false,
-            title: ticketFields.title || false,
-            status: ticketFields.status ? { select: { name: true, nameEn: true } } : false,
-            type: ticketFields.type || false,
-            reporterName: ticketFields.reporterName || false,
-            createdAt: ticketFields.createdAt || false,
-          },
-          take: 100,
+          select,
+          skip,
+          take: limit,
         });
 
         data = tickets.map((ticket: any) => ({
@@ -165,16 +210,26 @@ export async function GET(
           invFields[col] = true;
         });
 
+        total = await prisma.inventoryItem.count({
+          where: { companyId: session.user.companyId! },
+        });
+
+        const select: any = {
+          sku: invFields.sku || false,
+          name: invFields.name || false,
+          quantity: invFields.quantity || false,
+          unit: invFields.unit || false,
+        };
+
+        if (invFields.location) {
+          select.room = { select: { name: true, nameEn: true } };
+        }
+
         const inventoryItems = await prisma.inventoryItem.findMany({
           where: { companyId: session.user.companyId! },
-          select: {
-            sku: invFields.sku || false,
-            name: invFields.name || false,
-            quantity: invFields.quantity || false,
-            unit: invFields.unit || false,
-            room: invFields.location ? { select: { name: true, nameEn: true } } : false,
-          },
-          take: 100,
+          select,
+          skip,
+          take: limit,
         });
 
         data = inventoryItems.map((item: any) => ({
@@ -198,6 +253,12 @@ export async function GET(
       modelType,
       columns,
       data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
       createdAt: savedReport.createdAt,
       updatedAt: savedReport.updatedAt,
     });

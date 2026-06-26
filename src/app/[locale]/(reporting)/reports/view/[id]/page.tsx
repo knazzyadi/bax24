@@ -1,13 +1,19 @@
 // src/app/[locale]/(reporting)/reports/view/[id]/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
+import { useEffect, useState, useCallback } from "react";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, ArrowLeft, Calendar, FileText } from "lucide-react";
+import { Loader2, ArrowLeft, Calendar, FileText, ChevronLeft, ChevronRight, Download } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ReportData {
   id: string;
@@ -16,6 +22,12 @@ interface ReportData {
   modelType: string;
   columns: string[];
   data: any[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
   createdAt: string;
   updatedAt: string;
 }
@@ -23,34 +35,75 @@ interface ReportData {
 export default function ViewReportPage() {
   const router = useRouter();
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params?.id as string;
   const locale = params?.locale as string || "ar";
   const [loading, setLoading] = useState(true);
   const [report, setReport] = useState<ReportData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ قراءة الصفحة الحالية من الرابط
+  const currentPage = parseInt(searchParams.get('page') || '1');
+  const limit = 10;
+
+  // ✅ جلب التقرير مع الصفحة المحددة
+  const fetchReport = useCallback(async (page: number) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/reports/view/${id}?page=${page}&limit=${limit}`);
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "فشل تحميل التقرير");
+      }
+      const data = await res.json();
+      setReport(data);
+    } catch (err: any) {
+      setError(err.message);
+      toast.error(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id, limit]);
+
   useEffect(() => {
     if (!id) return;
+    fetchReport(currentPage);
+  }, [id, currentPage, fetchReport]);
 
-    const fetchReport = async () => {
-      try {
-        const res = await fetch(`/api/reports/view/${id}`);
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || "فشل تحميل التقرير");
-        }
-        const data = await res.json();
-        setReport(data);
-      } catch (err: any) {
-        setError(err.message);
-        toast.error(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // ✅ التنقل بين الصفحات
+  const goToPage = (page: number) => {
+    router.push(`/${locale}/reports/view/${id}?page=${page}`);
+  };
 
-    fetchReport();
-  }, [id]);
+  // ✅ تصدير التقرير إلى Excel
+  const exportToExcel = async () => {
+    if (!report) return;
+    try {
+      toast.info("جاري تحميل التقرير...");
+      const res = await fetch(`/api/reports/export/${id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          columns: report.columns,
+          modelType: report.modelType,
+        }),
+      });
+      if (!res.ok) throw new Error("فشل التصدير");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${report.name}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      toast.success("تم تصدير التقرير بنجاح");
+    } catch (error: any) {
+      toast.error(error.message || "حدث خطأ أثناء التصدير");
+    }
+  };
 
   if (loading) {
     return (
@@ -75,10 +128,12 @@ export default function ViewReportPage() {
 
   const columns = report.columns;
   const rows = report.data;
+  const { page, total, totalPages } = report.pagination;
 
   return (
     <div className="max-w-6xl mx-auto p-4 space-y-6">
-      <div className="flex items-center justify-between">
+      {/* رأس الصفحة */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">{report.name}</h1>
           {report.description && (
@@ -89,16 +144,36 @@ export default function ViewReportPage() {
             تم الإنشاء: {new Date(report.createdAt).toLocaleDateString("ar-SA")}
           </p>
         </div>
-        <Button variant="outline" onClick={() => router.push(`/${locale}/reports`)}>
-          <ArrowLeft className="h-4 w-4 ml-2" /> العودة إلى التقارير
-        </Button>
+        <div className="flex items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="gap-2">
+                <Download className="h-4 w-4" />
+                تصدير
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToExcel}>
+                <FileText className="h-4 w-4 ml-2" />
+                تصدير إلى Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button variant="outline" onClick={() => router.push(`/${locale}/reports`)}>
+            <ArrowLeft className="h-4 w-4 ml-2" /> العودة
+          </Button>
+        </div>
       </div>
 
+      {/* الجدول */}
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">
             <FileText className="inline h-5 w-5 ml-2" />
             نموذج: {report.modelType}
+            <span className="text-sm font-normal text-muted-foreground mr-4">
+              إجمالي السجلات: {total}
+            </span>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -114,21 +189,56 @@ export default function ViewReportPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {rows.map((row, idx) => (
-                  <TableRow key={idx}>
-                    {columns.map((col) => (
-                      <TableCell key={col} className="text-center px-4 py-2">
-                        {row[col] ?? "—"}
-                      </TableCell>
-                    ))}
+                {rows.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length} className="text-center py-8 text-muted-foreground">
+                      لا توجد بيانات في هذه الصفحة
+                    </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  rows.map((row, idx) => (
+                    <TableRow key={idx}>
+                      {columns.map((col) => (
+                        <TableCell key={col} className="text-center px-4 py-2">
+                          {row[col] ?? "—"}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </div>
-          <p className="text-sm text-muted-foreground mt-4 text-center">
-            إجمالي السجلات: {rows.length}
-          </p>
+
+          {/* ✅ شريط الترقيم */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between mt-4">
+              <div className="text-sm text-muted-foreground">
+                صفحة {page} من {totalPages} (إجمالي {total} سجل)
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(page - 1)}
+                  disabled={page <= 1}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+                <span className="text-sm font-medium">
+                  {page} / {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => goToPage(page + 1)}
+                  disabled={page >= totalPages}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

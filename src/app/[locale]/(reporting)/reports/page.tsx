@@ -1,7 +1,7 @@
 // src/app/[locale]/(reporting)/reports/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition, useCallback, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -53,9 +53,10 @@ export default function ReportsPage() {
   const [reports, setReports] = useState<SavedReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [, startTransition] = useTransition();
 
   // جلب التقارير المحفوظة
-  const fetchReports = async () => {
+  const fetchReports = useCallback(async () => {
     try {
       const res = await fetch("/api/reports/saved");
       if (res.ok) {
@@ -69,44 +70,60 @@ export default function ReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (status === "authenticated") {
       fetchReports();
     }
-  }, [status]);
+  }, [status, fetchReports]);
 
-  // ✅ حذف تقرير (مع تحسين الأداء - Optimistic UI)
-  const handleDelete = async (id: string, name: string) => {
-    if (!confirm(`هل أنت متأكد من حذف التقرير "${name}"؟`)) return;
+  // ✅ حذف تقرير (مع تحسين الأداء - Optimistic UI + startTransition)
+  const handleDelete = useCallback(
+    async (id: string, name: string) => {
+      if (!confirm(`هل أنت متأكد من حذف التقرير "${name}"؟`)) return;
 
-    // ✅ 1. تحديث متفائل: إزالة التقرير فوراً من الواجهة
-    setReports((prev) => prev.filter((r) => r.id !== id));
-    setDeleting(id);
+      // ✅ استخدام startTransition لتأجيل تحديثات الحالة غير العاجلة
+      startTransition(() => {
+        setReports((prev) => prev.filter((r) => r.id !== id));
+        setDeleting(id);
+      });
 
-    try {
-      const res = await fetch(`/api/reports/saved/${id}`, { method: "DELETE" });
-      if (res.ok) {
-        toast.success("تم حذف التقرير");
-      } else {
-        // ✅ 2. في حالة الفشل، نعيد جلب القائمة لإصلاح البيانات
-        const data = await res.json();
-        toast.error(data.error || "فشل الحذف");
+      try {
+        const res = await fetch(`/api/reports/saved/${id}`, { method: "DELETE" });
+        if (res.ok) {
+          toast.success("تم حذف التقرير");
+        } else {
+          // في حالة الفشل، نعيد التقرير إلى القائمة (Rollback)
+          const data = await res.json();
+          toast.error(data.error || "فشل الحذف");
+          await fetchReports(); // إعادة التزامن
+        }
+      } catch (error) {
+        toast.error("حدث خطأ");
         await fetchReports(); // إعادة التزامن
+      } finally {
+        setDeleting(null);
       }
-    } catch (error) {
-      toast.error("حدث خطأ");
-      await fetchReports(); // إعادة التزامن
-    } finally {
-      setDeleting(null);
-    }
-  };
+    },
+    [fetchReports, startTransition]
+  );
 
   // عرض التقرير
-  const handleView = (report: SavedReport) => {
-    router.push(`/${locale}/reports/view/${report.id}`);
-  };
+  const handleView = useCallback(
+    (report: SavedReport) => {
+      router.push(`/${locale}/reports/view/${report.id}`);
+    },
+    [locale, router]
+  );
+
+  // ✅ حساب عدد الأعمدة (مع memoization لتجنب إعادة الحساب غير الضرورية)
+  const reportsWithColumnCount = useMemo(() => {
+    return reports.map((report) => ({
+      ...report,
+      columnsCount: JSON.parse(report.columns).length,
+    }));
+  }, [reports]);
 
   if (status === "loading" || loading) {
     return (
@@ -143,7 +160,7 @@ export default function ReportsPage() {
       </div>
 
       {/* قائمة التقارير */}
-      {reports.length === 0 ? (
+      {reportsWithColumnCount.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <FileText className="h-12 w-12 text-muted-foreground mb-4" />
@@ -158,10 +175,9 @@ export default function ReportsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {reports.map((report) => {
+          {reportsWithColumnCount.map((report) => {
             const Icon = getModelIcon(report.modelType);
             const colorClass = getModelColor(report.modelType);
-            const columnsCount = JSON.parse(report.columns).length;
 
             return (
               <Card
@@ -191,7 +207,7 @@ export default function ReportsPage() {
                     </span>
                     <span className="inline-flex items-center gap-1">
                       <FileText className="h-3 w-3" />
-                      {columnsCount} عمود
+                      {report.columnsCount} عمود
                     </span>
                   </div>
                 </CardContent>

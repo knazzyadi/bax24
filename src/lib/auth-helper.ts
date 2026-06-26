@@ -17,3 +17,6 @@ export async function checkPermission(permissionName: string) {
   await requirePermission(permissionName, session);
   return session;
 }
+
+// ✅ إضافة alias لـ requirePermission للحفاظ على التوافق مع الصفحات القديمة
+export const requirePermission = checkPermission;

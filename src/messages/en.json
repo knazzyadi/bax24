@@ -237,7 +237,7 @@
       "supervisor": "Supervisor",
       "technician": "Technician",
       "driver": "Driver",
-      "maintenance": "Maintenance",
+      "maintenance": "PPM",
       "contracts": "Contracts",
       "vehicles": "Vehicle Requests",
       "inventory": "Inventory",

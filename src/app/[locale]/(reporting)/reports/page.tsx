@@ -77,21 +77,27 @@ export default function ReportsPage() {
     }
   }, [status]);
 
-  // حذف تقرير
+  // ✅ حذف تقرير (مع تحسين الأداء - Optimistic UI)
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`هل أنت متأكد من حذف التقرير "${name}"؟`)) return;
 
+    // ✅ 1. تحديث متفائل: إزالة التقرير فوراً من الواجهة
+    setReports((prev) => prev.filter((r) => r.id !== id));
     setDeleting(id);
+
     try {
       const res = await fetch(`/api/reports/saved/${id}`, { method: "DELETE" });
       if (res.ok) {
         toast.success("تم حذف التقرير");
-        setReports(reports.filter((r) => r.id !== id));
       } else {
-        toast.error("فشل الحذف");
+        // ✅ 2. في حالة الفشل، نعيد جلب القائمة لإصلاح البيانات
+        const data = await res.json();
+        toast.error(data.error || "فشل الحذف");
+        await fetchReports(); // إعادة التزامن
       }
     } catch (error) {
       toast.error("حدث خطأ");
+      await fetchReports(); // إعادة التزامن
     } finally {
       setDeleting(null);
     }

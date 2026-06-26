@@ -29,11 +29,10 @@ export async function GET(
 
     // بناء استعلام Prisma ديناميكي
     let data: any[] = [];
-    let selectFields: Record<string, boolean> = {};
 
     // تحديد الحقول المطلوبة بناءً على modelType
     switch (modelType) {
-      case 'assets':
+      case 'assets': {
         // تعريف الأعمدة المسموحة للنموذج
         const assetFields: Record<string, boolean> = {};
         columns.forEach((col: string) => {
@@ -56,7 +55,7 @@ export async function GET(
             warrantyEnd: assetFields.warrantyEnd || false,
             lastMaintenanceDate: assetFields.lastMaintenanceDate || false,
           },
-          take: 100, // حد أقصى للعرض
+          take: 100,
         });
 
         data = assets.map((asset: any) => ({
@@ -70,8 +69,99 @@ export async function GET(
           lastMaintenanceDate: asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate).toLocaleDateString('ar-SA') : '',
         }));
         break;
+      }
 
-      // أضف حالات أخرى حسب الحاجة (workOrders, tickets, inventory)
+      case 'workOrders': {
+        const woFields: Record<string, boolean> = {};
+        columns.forEach((col: string) => {
+          if (col === 'priority') woFields.priority = true;
+          else if (col === 'assetType') woFields.assetType = true;
+          else woFields[col] = true;
+        });
+
+        const workOrders = await prisma.workOrder.findMany({
+          where: { companyId: session.user.companyId! },
+          select: {
+            code: woFields.code || false,
+            title: woFields.title || false,
+            priority: woFields.priority ? { select: { name: true, nameEn: true } } : false,
+            status: woFields.status ? { select: { name: true, nameEn: true } } : false,
+            assetType: woFields.assetType ? { select: { name: true, nameEn: true } } : false,
+            createdAt: woFields.createdAt || false,
+          },
+          take: 100,
+        });
+
+        data = workOrders.map((wo: any) => ({
+          code: wo.code || '',
+          title: wo.title || '',
+          priority: wo.priority?.name || wo.priority?.nameEn || '',
+          status: wo.status?.name || wo.status?.nameEn || '',
+          assetType: wo.assetType?.name || wo.assetType?.nameEn || '',
+          createdAt: wo.createdAt ? new Date(wo.createdAt).toLocaleDateString('ar-SA') : '',
+        }));
+        break;
+      }
+
+      case 'tickets': {
+        const ticketFields: Record<string, boolean> = {};
+        columns.forEach((col: string) => {
+          if (col === 'type') ticketFields.type = true;
+          else ticketFields[col] = true;
+        });
+
+        const tickets = await prisma.ticket.findMany({
+          where: { companyId: session.user.companyId! },
+          select: {
+            code: ticketFields.code || false,
+            title: ticketFields.title || false,
+            status: ticketFields.status ? { select: { name: true, nameEn: true } } : false,
+            type: ticketFields.type || false,
+            reporterName: ticketFields.reporterName || false,
+            createdAt: ticketFields.createdAt || false,
+          },
+          take: 100,
+        });
+
+        data = tickets.map((ticket: any) => ({
+          code: ticket.code || '',
+          title: ticket.title || '',
+          status: ticket.status?.name || ticket.status?.nameEn || '',
+          type: ticket.type || '',
+          reporterName: ticket.reporterName || '',
+          createdAt: ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('ar-SA') : '',
+        }));
+        break;
+      }
+
+      case 'inventory': {
+        const invFields: Record<string, boolean> = {};
+        columns.forEach((col: string) => {
+          invFields[col] = true;
+        });
+
+        const inventoryItems = await prisma.inventoryItem.findMany({
+          where: { companyId: session.user.companyId! },
+          select: {
+            sku: invFields.sku || false,
+            name: invFields.name || false,
+            quantity: invFields.quantity || false,
+            unit: invFields.unit || false,
+            room: invFields.location ? { select: { name: true, nameEn: true } } : false,
+          },
+          take: 100,
+        });
+
+        data = inventoryItems.map((item: any) => ({
+          sku: item.sku || '',
+          name: item.name || '',
+          quantity: item.quantity || 0,
+          unit: item.unit || '',
+          location: item.room?.name || item.room?.nameEn || '',
+        }));
+        break;
+      }
+
       default:
         return NextResponse.json({ error: 'نموذج غير مدعوم' }, { status: 400 });
     }

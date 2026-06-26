@@ -1,6 +1,6 @@
 "use client";
 
-import { Select, SelectTrigger, SelectContent, SelectItem } from "@/components/ui/select";
+import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
 import { useLocale } from "next-intl";
 
@@ -36,26 +36,24 @@ export function BuildingSelector({
     return isRtl ? building.name : (building.nameEn || building.name);
   };
 
-  const selectedBuilding = buildings.find((b) => b.id === value);
-  const displayValue = selectedBuilding ? getDisplayName(selectedBuilding) : undefined;
-
+  // ✅ بناء placeholder ديناميكي
   const getPlaceholderText = () => {
     if (loading) return isRtl ? "جاري التحميل..." : "Loading...";
     if (buildings.length === 0) return emptyMessage;
     return placeholder;
   };
 
+  // ✅ الحصول على الاسم المعروض للقيمة المحددة
+  const selectedBuilding = buildings.find(b => b.id === value);
+  const displayValue = selectedBuilding ? getDisplayName(selectedBuilding) : undefined;
+
   return (
     <Select value={value} onValueChange={onValueChange} disabled={isDisabled}>
       <SelectTrigger className={loading ? "opacity-70" : ""}>
-        {loading ? (
-          <div className="flex items-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span>{getPlaceholderText()}</span>
-          </div>
-        ) : (
-          displayValue || getPlaceholderText()
-        )}
+        <SelectValue placeholder={getPlaceholderText()}>
+          {displayValue}
+        </SelectValue>
+        {loading && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
       </SelectTrigger>
       <SelectContent>
         {buildings.map((b) => (

@@ -11,7 +11,6 @@ export async function GET(
     const session = await getAuthenticatedSession();
     const { id } = await params;
 
-    // جلب التقرير المحفوظ
     const savedReport = await prisma.savedReport.findFirst({
       where: {
         id,
@@ -27,18 +26,17 @@ export async function GET(
     const columns = JSON.parse(savedReport.columns);
     const modelType = savedReport.modelType;
 
-    // بناء استعلام Prisma ديناميكي
     let data: any[] = [];
 
-    // تحديد الحقول المطلوبة بناءً على modelType
     switch (modelType) {
       case 'assets': {
         const assetFields: Record<string, boolean> = {};
         columns.forEach((col: string) => {
           if (col === 'type') assetFields.type = true;
           else if (col === 'status') assetFields.status = true;
-          else if (col === 'location') assetFields.room = true;
-          else assetFields[col] = true;
+          else if (col.includes('location') || col.includes('room') || col.includes('site')) {
+            assetFields.room = true;
+          } else assetFields[col] = true;
         });
 
         const assets = await prisma.asset.findMany({
@@ -49,7 +47,7 @@ export async function GET(
             nameEn: assetFields.nameEn || false,
             type: assetFields.type ? { select: { name: true, nameEn: true } } : false,
             status: assetFields.status ? { select: { name: true, nameEn: true } } : false,
-            room: assetFields.location ? {
+            room: assetFields.room ? {
               select: {
                 name: true,
                 nameEn: true,
@@ -75,7 +73,6 @@ export async function GET(
         });
 
         data = assets.map((asset: any) => {
-          // بناء الموقع الكامل (المبنى - الدور - الغرفة)
           let location = '';
           if (asset.room) {
             const buildingName = asset.room.floor?.building?.name || asset.room.floor?.building?.nameEn || '';

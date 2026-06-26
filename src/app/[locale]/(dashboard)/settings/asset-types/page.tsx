@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
 import { Plus, Pencil, Trash2, Check, X, Loader2 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 import { AdminGuard } from '@/lib/client-guard';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,40 +20,15 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { toast } from 'sonner';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-} from '@/components/ui/command';
-
-// ✅ قائمة الألوان الثابتة (نفسها المستخدمة في حالات الأصول)
-const COLOR_PALETTE = [
-  { value: '#3b82f6', nameAr: 'أزرق', nameEn: 'Blue' },
-  { value: '#22c55e', nameAr: 'أخضر', nameEn: 'Green' },
-  { value: '#ef4444', nameAr: 'أحمر', nameEn: 'Red' },
-  { value: '#eab308', nameAr: 'أصفر', nameEn: 'Yellow' },
-  { value: '#f97316', nameAr: 'برتقالي', nameEn: 'Orange' },
-  { value: '#8b5cf6', nameAr: 'بنفسجي', nameEn: 'Purple' },
-  { value: '#ec4899', nameAr: 'وردي', nameEn: 'Pink' },
-  { value: '#6b7280', nameAr: 'رمادي', nameEn: 'Gray' },
-  { value: '#06b6d4', nameAr: 'سماوي', nameEn: 'Cyan' },
-];
 
 interface AssetType {
   id: string;
   name: string;
   nameEn?: string;
+  code?: string;
   description?: string;
   order: number;
   isDefault: boolean;
-  color?: string;
 }
 
 function AssetTypesPageContent() {
@@ -72,8 +46,8 @@ function AssetTypesPageContent() {
   const [form, setForm] = useState({
     name: '',
     nameEn: '',
+    code: '',
     description: '',
-    color: '#3b82f6',
     order: 0,
     isDefault: false,
   });
@@ -105,7 +79,7 @@ function AssetTypesPageContent() {
 
   const openCreateModal = () => {
     setEditingType(null);
-    setForm({ name: '', nameEn: '', description: '', color: '#3b82f6', order: 0, isDefault: false });
+    setForm({ name: '', nameEn: '', code: '', description: '', order: 0, isDefault: false });
     setShowForm(true);
   };
 
@@ -114,8 +88,8 @@ function AssetTypesPageContent() {
     setForm({
       name: type.name,
       nameEn: type.nameEn || '',
+      code: type.code || '',
       description: type.description || '',
-      color: type.color || '#3b82f6',
       order: type.order,
       isDefault: type.isDefault,
     });
@@ -172,13 +146,7 @@ function AssetTypesPageContent() {
   const cancelForm = () => {
     setShowForm(false);
     setEditingType(null);
-    setForm({ name: '', nameEn: '', description: '', color: '#3b82f6', order: 0, isDefault: false });
-  };
-
-  const getColorLabel = (colorValue: string) => {
-    const color = COLOR_PALETTE.find(c => c.value === colorValue);
-    if (!color) return colorValue;
-    return isRtl ? color.nameAr : color.nameEn;
+    setForm({ name: '', nameEn: '', code: '', description: '', order: 0, isDefault: false });
   };
 
   if (status === 'loading') {
@@ -234,6 +202,14 @@ function AssetTypesPageContent() {
                 />
               </div>
               <div className="space-y-2">
+                <Label className="text-sm font-medium">{t('code') || 'الكود'}</Label>
+                <Input
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
+                  placeholder={isRtl ? 'مثال: MED' : 'Example: MED'}
+                />
+              </div>
+              <div className="space-y-2">
                 <Label className="text-sm font-medium">{t('order')}</Label>
                 <Input
                   type="number"
@@ -242,51 +218,6 @@ function AssetTypesPageContent() {
                   placeholder="0"
                 />
               </div>
-
-              {/* ✅ اختيار اللون عبر Popover + Command */}
-              <div className="space-y-2">
-                <Label className="text-sm font-medium">{t('color') || 'اللون'}</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start gap-2 font-normal"
-                    >
-                      <div
-                        className="w-5 h-5 rounded-full border border-border shrink-0"
-                        style={{ backgroundColor: form.color }}
-                      />
-                      <span className="truncate">{getColorLabel(form.color)}</span>
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[200px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder={isRtl ? 'ابحث عن لون...' : 'Search color...'} />
-                      <CommandEmpty>{isRtl ? 'لا توجد ألوان' : 'No colors'}</CommandEmpty>
-                      <CommandGroup>
-                        {COLOR_PALETTE.map((color) => (
-                          <CommandItem
-                            key={color.value}
-                            value={color.value}
-                            onSelect={() => setForm({ ...form, color: color.value })}
-                            className="flex items-center gap-2 cursor-pointer"
-                          >
-                            <div
-                              className="w-5 h-5 rounded-full border border-border shrink-0"
-                              style={{ backgroundColor: color.value }}
-                            />
-                            <span className="flex-1">{isRtl ? color.nameAr : color.nameEn}</span>
-                            {form.color === color.value && (
-                              <Check className="h-4 w-4 text-primary shrink-0" />
-                            )}
-                          </CommandItem>
-                        ))}
-                      </CommandGroup>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
               <div className="flex items-center gap-2 pt-2">
                 <input
                   type="checkbox"
@@ -332,7 +263,7 @@ function AssetTypesPageContent() {
               <TableRow>
                 <TableHead className="font-semibold">{t('name')}</TableHead>
                 <TableHead className="font-semibold">{t('nameEn')}</TableHead>
-                <TableHead className="font-semibold">{t('color')}</TableHead>
+                <TableHead className="font-semibold">{t('code') || 'الكود'}</TableHead>
                 <TableHead className="font-semibold text-center">{t('order')}</TableHead>
                 <TableHead className="font-semibold text-center">{t('isDefault')}</TableHead>
                 <TableHead className="font-semibold text-center w-24">{t('actions')}</TableHead>
@@ -343,15 +274,7 @@ function AssetTypesPageContent() {
                 <TableRow key={type.id} className="hover:bg-muted/30 transition-colors">
                   <TableCell className="font-medium">{type.name}</TableCell>
                   <TableCell>{type.nameEn || '—'}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <div
-                        className="w-5 h-5 rounded-full border border-border shadow-sm"
-                        style={{ backgroundColor: type.color || '#6b7280' }}
-                      />
-                      <span className="text-sm">{getColorLabel(type.color || '#6b7280')}</span>
-                    </div>
-                  </TableCell>
+                  <TableCell>{type.code || '—'}</TableCell>
                   <TableCell className="text-center">{type.order}</TableCell>
                   <TableCell className="text-center">
                     {type.isDefault ? (

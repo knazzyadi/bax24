@@ -7,9 +7,10 @@ import { useSession } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, FileText, Trash2, Eye, Calendar, Loader2 } from "lucide-react";
+import { PlusCircle, FileText, Trash2, Eye, Calendar, Loader2, Database, Package, ClipboardList, Ticket, Box } from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 interface SavedReport {
   id: string;
@@ -20,6 +21,28 @@ interface SavedReport {
   filters: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+// ✅ دالة للحصول على أيقونة النموذج
+function getModelIcon(modelType: string) {
+  switch (modelType) {
+    case "assets": return Package;
+    case "workOrders": return ClipboardList;
+    case "tickets": return Ticket;
+    case "inventory": return Box;
+    default: return Database;
+  }
+}
+
+// ✅ دالة للحصول على لون النموذج
+function getModelColor(modelType: string) {
+  switch (modelType) {
+    case "assets": return "text-blue-500 bg-blue-50 dark:bg-blue-950/30";
+    case "workOrders": return "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30";
+    case "tickets": return "text-amber-500 bg-amber-50 dark:bg-amber-950/30";
+    case "inventory": return "text-purple-500 bg-purple-50 dark:bg-purple-950/30";
+    default: return "text-muted-foreground bg-muted/50";
+  }
 }
 
 export default function ReportsPage() {
@@ -74,7 +97,7 @@ export default function ReportsPage() {
     }
   };
 
-  // ✅ عرض التقرير (التوجيه إلى صفحة العرض التفصيلي)
+  // عرض التقرير
   const handleView = (report: SavedReport) => {
     router.push(`/${locale}/reports/view/${report.id}`);
   };
@@ -88,7 +111,7 @@ export default function ReportsPage() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {[...Array(3)].map((_, i) => (
-            <Skeleton key={i} className="h-48 w-full" />
+            <Skeleton key={i} className="h-48 w-full rounded-xl" />
           ))}
         </div>
       </div>
@@ -100,13 +123,13 @@ export default function ReportsPage() {
       {/* رأس الصفحة */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">التقارير</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground">التقارير</h1>
           <p className="text-muted-foreground mt-1">
             إدارة وعرض التقارير المخصصة التي قمت بإنشائها
           </p>
         </div>
         <Link href={`/${locale}/reports/builder`}>
-          <Button className="gap-2">
+          <Button className="gap-2 shadow-sm">
             <PlusCircle className="h-4 w-4" />
             إنشاء تقرير جديد
           </Button>
@@ -129,45 +152,77 @@ export default function ReportsPage() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {reports.map((report) => (
-            <Card key={report.id} className="hover:shadow-md transition-shadow">
-              <CardHeader>
-                <CardTitle className="text-lg line-clamp-1">{report.name}</CardTitle>
-                <CardDescription className="line-clamp-2">
-                  {report.description || "لا يوجد وصف"}
-                </CardDescription>
-              </CardHeader>
-              <CardFooter className="flex justify-between items-center border-t pt-4">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Calendar className="h-3 w-3" />
-                  {new Date(report.updatedAt).toLocaleDateString("ar-SA")}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => handleView(report)}
-                  >
-                    <Eye className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(report.id, report.name)}
-                    disabled={deleting === report.id}
-                  >
-                    {deleting === report.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Trash2 className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </CardFooter>
-            </Card>
-          ))}
+          {reports.map((report) => {
+            const Icon = getModelIcon(report.modelType);
+            const colorClass = getModelColor(report.modelType);
+            const columnsCount = JSON.parse(report.columns).length;
+
+            return (
+              <Card
+                key={report.id}
+                className="group hover:shadow-md transition-all duration-300 border-border overflow-hidden"
+              >
+                <CardHeader className="pb-2">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("p-2 rounded-lg", colorClass)}>
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <CardTitle className="text-lg font-bold line-clamp-1">
+                        {report.name}
+                      </CardTitle>
+                    </div>
+                  </div>
+                  <CardDescription className="line-clamp-2 text-sm text-muted-foreground/80">
+                    {report.description || "لا يوجد وصف"}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="pb-2">
+                  <div className="flex items-center gap-3 text-xs text-muted-foreground/70">
+                    <span className="inline-flex items-center gap-1">
+                      <Database className="h-3 w-3" />
+                      {report.modelType}
+                    </span>
+                    <span className="inline-flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      {columnsCount} عمود
+                    </span>
+                  </div>
+                </CardContent>
+                <CardFooter className="flex justify-between items-center border-t pt-3">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground/60">
+                    <Calendar className="h-3 w-3" />
+                    {new Date(report.updatedAt).toLocaleDateString("ar-SA")}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full hover:bg-primary/10 text-muted-foreground hover:text-primary transition-all"
+                      onClick={() => handleView(report)}
+                      title="عرض التقرير"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
+                      onClick={() => handleDelete(report.id, report.name)}
+                      disabled={deleting === report.id}
+                      title="حذف التقرير"
+                    >
+                      {deleting === report.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </CardFooter>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>

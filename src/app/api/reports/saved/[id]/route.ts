@@ -1,7 +1,8 @@
 // src/app/api/reports/saved/[id]/route.ts
 import { NextResponse } from 'next/server';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession } from '@/lib/auth-helper';
+
 
 // DELETE: حذف تقرير محفوظ
 export async function DELETE(
@@ -9,7 +10,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

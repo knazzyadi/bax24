@@ -1,8 +1,9 @@
 // src/app/api/assets/route.ts
 import { NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 
@@ -55,12 +56,12 @@ async function generateAssetCode(
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await requirePermission('assets.read');
+    await checkPermission('assets.read');
 
     const { searchParams } = new URL(request.url);
 
@@ -201,12 +202,12 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await requirePermission('assets.create');
+    await checkPermission('assets.create');
 
     const body = await request.json();
 

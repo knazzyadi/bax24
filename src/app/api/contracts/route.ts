@@ -1,16 +1,17 @@
 // src/app/api/contracts/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await requirePermission('contracts.read');
+    await checkPermission('contracts.read');
 
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get('q') || '';
@@ -57,9 +58,9 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await requirePermission('contracts.create');
+    await checkPermission('contracts.create');
 
     const body = await request.json();
     const {

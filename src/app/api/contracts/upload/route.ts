@@ -2,18 +2,19 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 import { uploadFileToR2 } from '@/lib/storage';
 
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission('contracts.create');
+    await checkPermission('contracts.create');
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;

@@ -2,8 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 import { uploadFileToR2 } from "@/lib/storage";
@@ -59,12 +60,12 @@ async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
 // ========== GET ==========
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
-    await requirePermission("tickets.read");
+    await checkPermission("tickets.read");
 
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get("q") || "";
@@ -174,7 +175,7 @@ export async function GET(request: NextRequest) {
 // ========== POST ==========
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }

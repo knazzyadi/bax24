@@ -1,8 +1,9 @@
 // src/app/api/assets/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 
@@ -11,12 +12,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await requirePermission('assets.read');
+    await checkPermission('assets.read');
 
     const { id } = await params;
     const companyId = session.user.companyId;
@@ -83,7 +84,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
 
     const { id } = await params;
@@ -167,7 +168,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
     if (!isAdmin) return NextResponse.json({ error: 'لا تملك الصلاحية للحذف' }, { status: 403 });

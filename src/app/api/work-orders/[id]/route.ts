@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 
@@ -12,11 +13,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("work_orders.read");
+    await checkPermission("work_orders.read");
 
     const { id } = await params;
     const companyId = session.user.companyId;
@@ -86,9 +87,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-    await requirePermission("work_orders.update");
+    await checkPermission("work_orders.update");
 
     const { id } = await params;
     const body = await request.json();
@@ -191,9 +192,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-    await requirePermission("work_orders.delete");
+    await checkPermission("work_orders.delete");
 
     const { id } = await params;
     const companyId = session.user.companyId;

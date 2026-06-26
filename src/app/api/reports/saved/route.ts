@@ -1,12 +1,13 @@
 // src/app/api/reports/saved/route.ts
 import { NextResponse } from 'next/server';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession } from '@/lib/auth-helper';
+
 
 // GET: جلب جميع التقارير المحفوظة للمستخدم الحالي
 export async function GET() {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -29,7 +30,7 @@ export async function GET() {
 // POST: حفظ تقرير جديد
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

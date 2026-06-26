@@ -2,11 +2,12 @@
 import { NextResponse } from 'next/server';
 
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
 // ✅ دالة مساعدة لجلب الجلسة ديناميكياً
 async function getSession() {
   const { auth } = await import('@/auth');
-  const session = await getSession();
+  const session = await getAuthenticatedSession();
   if (!session?.user) {
     throw new Error('UNAUTHORIZED');
   }
@@ -16,7 +17,7 @@ async function getSession() {
 export async function PUT(request: Request) {
   try {
     // ✅ استيراد ديناميكي لـ auth
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
 
     // ✅ التحقق من صلاحية SUPER_ADMIN
     if (session.user.role !== 'SUPER_ADMIN') {

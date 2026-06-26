@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 
@@ -10,9 +11,9 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await requirePermission('contracts.update');
+    await checkPermission('contracts.update');
 
     const { id } = await params;
     const { startDate, endDate } = await request.json();

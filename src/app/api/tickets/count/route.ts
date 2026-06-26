@@ -2,8 +2,9 @@
 import { NextResponse } from "next/server";
 
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 
@@ -12,11 +13,11 @@ const validStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED", "REJECTED", "CANCE
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("tickets.read");
+    await checkPermission("tickets.read");
 
     const { searchParams } = new URL(request.url);
     let status = searchParams.get("status") || "PENDING";

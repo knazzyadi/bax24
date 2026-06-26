@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 // =======================
@@ -12,7 +13,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session || session.user?.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -91,7 +92,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session || session.user?.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

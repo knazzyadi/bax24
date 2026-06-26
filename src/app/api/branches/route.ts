@@ -1,7 +1,8 @@
 // src/app/api/branches/route.ts
 import { NextResponse } from 'next/server';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 import { randomUUID } from 'crypto';
@@ -18,7 +19,7 @@ function generateSlug(text: string): string {
 
 export async function GET() {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user?.id) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -66,7 +67,7 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user?.id) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
 
     const user = await prisma.user.findUnique({

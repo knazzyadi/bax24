@@ -1,20 +1,13 @@
 // src/app/api/admin/invite/route.ts
 import { NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
 
 // ✅ دالة مساعدة لجلب session والصلاحيات ديناميكياً
-async function getAuthAndPermissions() {
-  const { auth } = await import('@/auth');
-  const { requirePermission } = await import('@/lib/permissions');
-  const session = await getSession();
-  if (!session?.user) {
-    throw new Error('UNAUTHORIZED');
-  }
-  return { session, requirePermission };
-}
+
 
 export async function POST(req: Request) {
   try {
@@ -22,7 +15,7 @@ export async function POST(req: Request) {
     const { session, requirePermission } = await getAuthAndPermissions();
 
     // 🔐 صلاحية مركزية بدل role check
-    await requirePermission('users.invite');
+    await checkPermission('users.invite');
 
     const { email, name, roleId, companyId } = await req.json();
 

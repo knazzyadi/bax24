@@ -2,8 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 import { addDays, format } from "date-fns";
@@ -40,11 +41,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("maintenance.execute");
+    await checkPermission("maintenance.execute");
 
     const { id } = await params;
     const companyId = session.user.companyId;

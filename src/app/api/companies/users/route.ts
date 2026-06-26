@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 import crypto from 'crypto';
@@ -12,7 +13,7 @@ import { sendInvitationEmail } from '@/lib/email';
 // GET: جلب جميع المستخدمين (SUPERVISOR و TECHNICIAN) التابعين لشركة الأدمن
 export async function GET() {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -50,7 +51,7 @@ export async function GET() {
 // POST: إضافة مستخدم جديد (إرسال دعوة)
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

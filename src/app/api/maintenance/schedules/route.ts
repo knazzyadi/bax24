@@ -2,8 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 
@@ -28,11 +29,11 @@ function frequencyStringToDays(freq: string): number {
 // GET: جلب قائمة جداول الصيانة الوقائية (مع دعم الفلترة والفروع)
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("maintenance.read");
+    await checkPermission("maintenance.read");
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
@@ -101,11 +102,11 @@ export async function GET(request: NextRequest) {
 // POST: إنشاء جدول صيانة جديد
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("maintenance.create");
+    await checkPermission("maintenance.create");
 
     const body = await request.json();
     const {

@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 import { revalidatePath } from 'next/cache';
 
@@ -35,7 +36,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     console.log('🔍 PUT /api/locations/rooms/[id] - session:', session?.user?.email);
 
     if (!session || session.user?.role !== 'ADMIN') {
@@ -126,7 +127,7 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     console.log('🔍 DELETE /api/locations/rooms/[id] - session:', session?.user?.email);
 
     if (!session || session.user?.role !== 'ADMIN') {

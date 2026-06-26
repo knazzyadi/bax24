@@ -1,19 +1,12 @@
 // src/app/api/asset-types/[id]/route.ts
 import { NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
 // ✅ استيراد requirePermission ديناميكياً (لأنه يستخدم auth)
-async function getAuthAndPermissions() {
-  const { auth } = await import('@/auth');
-  const { requirePermission } = await import('@/lib/permissions');
-  const session = await getSession();
-  if (!session?.user) {
-    throw new Error('UNAUTHORIZED');
-  }
-  return { session, requirePermission };
-}
+
 
 // PUT: تحديث نوع أصل
 export async function PUT(
@@ -22,7 +15,7 @@ export async function PUT(
 ) {
   try {
     const { session, requirePermission } = await getAuthAndPermissions();
-    await requirePermission('assets.write');
+    await checkPermission('assets.write');
 
     const { id } = await params;
     const { name, nameEn, code, description, order, isDefault, companyId } = await request.json();
@@ -104,7 +97,7 @@ export async function DELETE(
 ) {
   try {
     const { session, requirePermission } = await getAuthAndPermissions();
-    await requirePermission('assets.write');
+    await checkPermission('assets.write');
 
     const { id } = await params;
 

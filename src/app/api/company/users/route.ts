@@ -1,8 +1,9 @@
 // src/app/api/company/users/route.ts
 import { NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 // GET: جلب المستخدمين (SUPERVISOR, TECHNICIAN, BRANCH_MANAGER) مع الفروع
 export async function GET() {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
 
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
@@ -85,7 +86,7 @@ export async function GET() {
 // POST: إضافة مستخدم جديد
 export async function POST(request: Request) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
 
     if (!session || session.user?.role !== 'ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });

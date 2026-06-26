@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 export async function GET(request: Request) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
 
     if (!session || session.user?.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });

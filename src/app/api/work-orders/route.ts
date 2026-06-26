@@ -2,8 +2,9 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+
 
 
 import { createWorkOrderWithRetry } from "@/lib/generateCode"; // ✅ استيراد دالة الإنشاء الآمنة
@@ -11,11 +12,11 @@ import { createWorkOrderWithRetry } from "@/lib/generateCode"; // ✅ استير
 // ========== GET: جلب أوامر العمل مع دعم الفلترة والفروع ==========
 export async function GET(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("work_orders.read");
+    await checkPermission("work_orders.read");
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
@@ -101,11 +102,11 @@ export async function GET(request: NextRequest) {
 // ========== POST: إنشاء أمر عمل جديد (يدعم أصول متعددة) ==========
 export async function POST(request: NextRequest) {
   try {
-    const session = await getSession();
+    const session = await getAuthenticatedSession();
     if (!session?.user) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("work_orders.create");
+    await checkPermission("work_orders.create");
 
     const body = await request.json();
     const {

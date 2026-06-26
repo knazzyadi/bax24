@@ -107,7 +107,9 @@ export default function ViewReportPage() {
               <TableHeader>
                 <TableRow>
                   {columns.map((col) => (
-                    <TableHead key={col}>{col}</TableHead>
+                    <TableHead key={col} className="text-center font-semibold text-base px-4 py-3">
+                      {col}
+                    </TableHead>
                   ))}
                 </TableRow>
               </TableHeader>
@@ -115,14 +117,16 @@ export default function ViewReportPage() {
                 {rows.map((row, idx) => (
                   <TableRow key={idx}>
                     {columns.map((col) => (
-                      <TableCell key={col}>{row[col] ?? "—"}</TableCell>
+                      <TableCell key={col} className="text-center px-4 py-2">
+                        {row[col] ?? "—"}
+                      </TableCell>
                     ))}
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-          <p className="text-sm text-muted-foreground mt-4">
+          <p className="text-sm text-muted-foreground mt-4 text-center">
             إجمالي السجلات: {rows.length}
           </p>
         </CardContent>

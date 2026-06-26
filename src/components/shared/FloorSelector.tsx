@@ -19,6 +19,7 @@ interface FloorSelectorProps {
   placeholder?: string;
   emptyMessage?: string;
   loading?: boolean;
+  noBuildingMessage?: string;
 }
 
 export function FloorSelector({ 
@@ -28,7 +29,8 @@ export function FloorSelector({
   buildingId,
   placeholder = "اختر الدور",
   emptyMessage = "لا توجد أدوار",
-  loading = false
+  loading = false,
+  noBuildingMessage = "اختر المبنى أولاً",
 }: FloorSelectorProps) {
   const locale = useLocale();
   const isRtl = locale === "ar";
@@ -43,7 +45,7 @@ export function FloorSelector({
 
   const getPlaceholderText = () => {
     if (loading) return isRtl ? "جاري التحميل..." : "Loading...";
-    if (!buildingId) return isRtl ? "اختر المبنى أولاً" : "Select building first";
+    if (!buildingId) return noBuildingMessage;
     if (floors.length === 0) return emptyMessage;
     return placeholder;
   };

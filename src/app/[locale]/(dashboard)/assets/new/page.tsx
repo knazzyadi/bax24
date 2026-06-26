@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Calendar, MapPin, FileText, Loader2, Plus, ShieldCheck, Info, Globe,
@@ -286,15 +286,9 @@ export default function NewAssetPage() {
                       disabled={types.length === 0}
                     >
                       <SelectTrigger className="w-full h-14 rounded-2xl border-primary bg-background px-6">
-                        <span className="text-foreground">
-                          {types.find(t => t.id.toString() === formData.typeId)
-                            ? (isRtl
-                                ? types.find(t => t.id.toString() === formData.typeId)?.name
-                                : types.find(t => t.id.toString() === formData.typeId)?.nameEn || types.find(t => t.id.toString() === formData.typeId)?.name)
-                            : t('selectType')}
-                        </span>
+                        <SelectValue placeholder={t('selectType')} />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={4}>
                         {types.map((type) => (
                           <SelectItem key={type.id} value={type.id.toString()}>
                             {isRtl ? type.name : (type.nameEn || type.name)}
@@ -313,15 +307,9 @@ export default function NewAssetPage() {
                       disabled={statuses.length === 0}
                     >
                       <SelectTrigger className="w-full h-14 rounded-2xl border-primary bg-background px-6">
-                        <span className="text-foreground">
-                          {statuses.find(s => s.id.toString() === formData.statusId)
-                            ? (isRtl
-                                ? statuses.find(s => s.id.toString() === formData.statusId)?.name
-                                : statuses.find(s => s.id.toString() === formData.statusId)?.nameEn || statuses.find(s => s.id.toString() === formData.statusId)?.name)
-                            : t('selectStatus')}
-                        </span>
+                        <SelectValue placeholder={t('selectStatus')} />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent position="popper" sideOffset={4}>
                         {statuses.map((status) => (
                           <SelectItem key={status.id} value={status.id.toString()}>
                             {isRtl ? status.name : (status.nameEn || status.name)}

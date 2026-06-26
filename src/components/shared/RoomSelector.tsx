@@ -20,6 +20,7 @@ interface RoomSelectorProps {
   placeholder?: string;
   emptyMessage?: string;
   loading?: boolean;
+  noFloorMessage?: string;
 }
 
 export function RoomSelector({ 
@@ -29,7 +30,8 @@ export function RoomSelector({
   floorId,
   placeholder = "اختر الوحدة",
   emptyMessage = "لا توجد وحدات",
-  loading = false
+  loading = false,
+  noFloorMessage = "اختر الدور أولاً",
 }: RoomSelectorProps) {
   const locale = useLocale();
   const isRtl = locale === "ar";
@@ -48,7 +50,7 @@ export function RoomSelector({
 
   const getPlaceholderText = () => {
     if (loading) return isRtl ? "جاري التحميل..." : "Loading...";
-    if (!floorId) return isRtl ? "اختر الدور أولاً" : "Select floor first";
+    if (!floorId) return noFloorMessage;
     if (rooms.length === 0) return emptyMessage;
     return placeholder;
   };

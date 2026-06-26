@@ -35,6 +35,7 @@ const MODELS: Record<
       { key: "location", label: "الموقع" },
       { key: "purchaseDate", label: "تاريخ الشراء" },
       { key: "warrantyEnd", label: "نهاية الضمان" },
+      { key: "lastMaintenanceDate", label: "تاريخ آخر صيانة" },
     ],
   },
   workOrders: {

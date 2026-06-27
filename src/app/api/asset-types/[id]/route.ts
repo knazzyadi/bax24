@@ -1,12 +1,8 @@
 // src/app/api/asset-types/[id]/route.ts
 import { NextResponse } from 'next/server';
-
 import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-
-// ✅ استيراد requirePermission ديناميكياً (لأنه يستخدم auth)
-
 
 // PUT: تحديث نوع أصل
 export async function PUT(
@@ -14,7 +10,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { session, requirePermission } = await getAuthAndPermissions();
+    // ✅ استخدام getAuthenticatedSession بدلاً من getAuthAndPermissions
+    const session = await getAuthenticatedSession();
+    // ✅ استخدام checkPermission بدلاً من requirePermission
     await checkPermission('assets.write');
 
     const { id } = await params;
@@ -96,7 +94,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { session, requirePermission } = await getAuthAndPermissions();
+    // ✅ استخدام getAuthenticatedSession بدلاً من getAuthAndPermissions
+    const session = await getAuthenticatedSession();
+    // ✅ استخدام checkPermission بدلاً من requirePermission
     await checkPermission('assets.write');
 
     const { id } = await params;

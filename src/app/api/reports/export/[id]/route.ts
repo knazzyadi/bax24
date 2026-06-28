@@ -41,22 +41,17 @@ export async function POST(
           } else assetFields[col] = true;
         });
 
-        // ✅ بناء كائن select ديناميكياً
-        const select: any = {
-          code: assetFields.code || false,
-          name: assetFields.name || false,
-          nameEn: assetFields.nameEn || false,
-          purchaseDate: assetFields.purchaseDate || false,
-          warrantyEnd: assetFields.warrantyEnd || false,
-          lastMaintenanceDate: assetFields.lastMaintenanceDate || false,
-        };
+        // ✅ بناء كائن select ديناميكياً (بدون false)
+        const select: any = {};
+        if (assetFields.code) select.code = true;
+        if (assetFields.name) select.name = true;
+        if (assetFields.nameEn) select.nameEn = true;
+        if (assetFields.type) select.type = { select: { name: true, nameEn: true } };
+        if (assetFields.status) select.status = { select: { name: true, nameEn: true } };
+        if (assetFields.purchaseDate) select.purchaseDate = true;
+        if (assetFields.warrantyEnd) select.warrantyEnd = true;
+        if (assetFields.lastMaintenanceDate) select.lastMaintenanceDate = true;
 
-        if (assetFields.type) {
-          select.type = { select: { name: true, nameEn: true } };
-        }
-        if (assetFields.status) {
-          select.status = { select: { name: true, nameEn: true } };
-        }
         if (assetFields.room) {
           select.room = {
             select: {
@@ -78,6 +73,12 @@ export async function POST(
           };
         }
 
+        // ✅ إذا لم يتم تحديد أي حقل، نضيف الحقول الأساسية
+        if (Object.keys(select).length === 0) {
+          select.code = true;
+          select.name = true;
+        }
+
         const assets = await prisma.asset.findMany({
           where: { companyId: session.user.companyId! },
           select,
@@ -93,16 +94,16 @@ export async function POST(
           }
           if (!location) location = 'لا يوجد موقع';
 
-          return {
-            الكود: asset.code || '',
-            الاسم: asset.name || '',
-            النوع: asset.type?.name || asset.type?.nameEn || '',
-            الحالة: asset.status?.name || asset.status?.nameEn || '',
-            الموقع: location,
-            'تاريخ الشراء': asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('ar-SA') : '',
-            'نهاية الضمان': asset.warrantyEnd ? new Date(asset.warrantyEnd).toLocaleDateString('ar-SA') : '',
-            'آخر صيانة': asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate).toLocaleDateString('ar-SA') : '',
-          };
+          const row: any = {};
+          if (assetFields.code) row['الكود'] = asset.code || '';
+          if (assetFields.name) row['الاسم'] = asset.name || '';
+          if (assetFields.type) row['النوع'] = asset.type?.name || asset.type?.nameEn || '';
+          if (assetFields.status) row['الحالة'] = asset.status?.name || asset.status?.nameEn || '';
+          if (assetFields.room) row['الموقع'] = location;
+          if (assetFields.purchaseDate) row['تاريخ الشراء'] = asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('ar-SA') : '';
+          if (assetFields.warrantyEnd) row['نهاية الضمان'] = asset.warrantyEnd ? new Date(asset.warrantyEnd).toLocaleDateString('ar-SA') : '';
+          if (assetFields.lastMaintenanceDate) row['آخر صيانة'] = asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate).toLocaleDateString('ar-SA') : '';
+          return row;
         });
         break;
       }
@@ -115,20 +116,17 @@ export async function POST(
           else woFields[col] = true;
         });
 
-        const select: any = {
-          code: woFields.code || false,
-          title: woFields.title || false,
-          createdAt: woFields.createdAt || false,
-        };
+        const select: any = {};
+        if (woFields.code) select.code = true;
+        if (woFields.title) select.title = true;
+        if (woFields.createdAt) select.createdAt = true;
+        if (woFields.priority) select.priority = { select: { name: true, nameEn: true } };
+        if (woFields.status) select.status = { select: { name: true, nameEn: true } };
+        if (woFields.assetType) select.assetType = { select: { name: true, nameEn: true } };
 
-        if (woFields.priority) {
-          select.priority = { select: { name: true, nameEn: true } };
-        }
-        if (woFields.status) {
-          select.status = { select: { name: true, nameEn: true } };
-        }
-        if (woFields.assetType) {
-          select.assetType = { select: { name: true, nameEn: true } };
+        if (Object.keys(select).length === 0) {
+          select.code = true;
+          select.title = true;
         }
 
         const workOrders = await prisma.workOrder.findMany({
@@ -136,14 +134,16 @@ export async function POST(
           select,
         });
 
-        data = workOrders.map((wo: any) => ({
-          الكود: wo.code || '',
-          العنوان: wo.title || '',
-          الأولوية: wo.priority?.name || wo.priority?.nameEn || '',
-          الحالة: wo.status?.name || wo.status?.nameEn || '',
-          'نوع الأصل': wo.assetType?.name || wo.assetType?.nameEn || '',
-          'تاريخ الإنشاء': wo.createdAt ? new Date(wo.createdAt).toLocaleDateString('ar-SA') : '',
-        }));
+        data = workOrders.map((wo: any) => {
+          const row: any = {};
+          if (woFields.code) row['الكود'] = wo.code || '';
+          if (woFields.title) row['العنوان'] = wo.title || '';
+          if (woFields.priority) row['الأولوية'] = wo.priority?.name || wo.priority?.nameEn || '';
+          if (woFields.status) row['الحالة'] = wo.status?.name || wo.status?.nameEn || '';
+          if (woFields.assetType) row['نوع الأصل'] = wo.assetType?.name || wo.assetType?.nameEn || '';
+          if (woFields.createdAt) row['تاريخ الإنشاء'] = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString('ar-SA') : '';
+          return row;
+        });
         break;
       }
 
@@ -154,16 +154,17 @@ export async function POST(
           else ticketFields[col] = true;
         });
 
-        const select: any = {
-          code: ticketFields.code || false,
-          title: ticketFields.title || false,
-          type: ticketFields.type || false,
-          reporterName: ticketFields.reporterName || false,
-          createdAt: ticketFields.createdAt || false,
-        };
+        const select: any = {};
+        if (ticketFields.code) select.code = true;
+        if (ticketFields.title) select.title = true;
+        if (ticketFields.type) select.type = true;
+        if (ticketFields.reporterName) select.reporterName = true;
+        if (ticketFields.createdAt) select.createdAt = true;
+        if (ticketFields.status) select.status = { select: { name: true, nameEn: true } };
 
-        if (ticketFields.status) {
-          select.status = { select: { name: true, nameEn: true } };
+        if (Object.keys(select).length === 0) {
+          select.code = true;
+          select.title = true;
         }
 
         const tickets = await prisma.ticket.findMany({
@@ -171,14 +172,16 @@ export async function POST(
           select,
         });
 
-        data = tickets.map((ticket: any) => ({
-          الكود: ticket.code || '',
-          العنوان: ticket.title || '',
-          الحالة: ticket.status?.name || ticket.status?.nameEn || '',
-          النوع: ticket.type || '',
-          'اسم المبلغ': ticket.reporterName || '',
-          'تاريخ الإنشاء': ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('ar-SA') : '',
-        }));
+        data = tickets.map((ticket: any) => {
+          const row: any = {};
+          if (ticketFields.code) row['الكود'] = ticket.code || '';
+          if (ticketFields.title) row['العنوان'] = ticket.title || '';
+          if (ticketFields.status) row['الحالة'] = ticket.status?.name || ticket.status?.nameEn || '';
+          if (ticketFields.type) row['النوع'] = ticket.type || '';
+          if (ticketFields.reporterName) row['اسم المبلغ'] = ticket.reporterName || '';
+          if (ticketFields.createdAt) row['تاريخ الإنشاء'] = ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('ar-SA') : '';
+          return row;
+        });
         break;
       }
 
@@ -188,15 +191,16 @@ export async function POST(
           invFields[col] = true;
         });
 
-        const select: any = {
-          sku: invFields.sku || false,
-          name: invFields.name || false,
-          quantity: invFields.quantity || false,
-          unit: invFields.unit || false,
-        };
+        const select: any = {};
+        if (invFields.sku) select.sku = true;
+        if (invFields.name) select.name = true;
+        if (invFields.quantity) select.quantity = true;
+        if (invFields.unit) select.unit = true;
+        if (invFields.location) select.room = { select: { name: true, nameEn: true } };
 
-        if (invFields.location) {
-          select.room = { select: { name: true, nameEn: true } };
+        if (Object.keys(select).length === 0) {
+          select.sku = true;
+          select.name = true;
         }
 
         const inventoryItems = await prisma.inventoryItem.findMany({
@@ -204,18 +208,28 @@ export async function POST(
           select,
         });
 
-        data = inventoryItems.map((item: any) => ({
-          SKU: item.sku || '',
-          الاسم: item.name || '',
-          الكمية: item.quantity || 0,
-          الوحدة: item.unit || '',
-          الموقع: item.room?.name || item.room?.nameEn || 'لا يوجد موقع',
-        }));
+        data = inventoryItems.map((item: any) => {
+          const row: any = {};
+          if (invFields.sku) row['SKU'] = item.sku || '';
+          if (invFields.name) row['الاسم'] = item.name || '';
+          if (invFields.quantity) row['الكمية'] = item.quantity || 0;
+          if (invFields.unit) row['الوحدة'] = item.unit || '';
+          if (invFields.location) row['الموقع'] = item.room?.name || item.room?.nameEn || 'لا يوجد موقع';
+          return row;
+        });
         break;
       }
 
       default:
         return NextResponse.json({ error: 'نموذج غير مدعوم' }, { status: 400 });
+    }
+
+    // ✅ التحقق من وجود بيانات
+    if (data.length === 0) {
+      return NextResponse.json(
+        { error: 'لا توجد بيانات لتصديرها' },
+        { status: 404 }
+      );
     }
 
     // إنشاء ملف Excel
@@ -224,7 +238,8 @@ export async function POST(
     XLSX.utils.book_append_sheet(workbook, worksheet, 'تقرير');
 
     // تنسيق الأعمدة للعربية
-    worksheet['!cols'] = columns.map(() => ({ wch: 20 }));
+    const cols = Object.keys(data[0] || {});
+    worksheet['!cols'] = cols.map(() => ({ wch: 20 }));
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 
@@ -232,13 +247,13 @@ export async function POST(
       status: 200,
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'Content-Disposition': `attachment; filename="${savedReport.name}.xlsx"`,
+        'Content-Disposition': `attachment; filename="${encodeURIComponent(savedReport.name)}.xlsx"`,
       },
     });
   } catch (error: any) {
     console.error('POST /api/reports/export/[id] error:', error);
     return NextResponse.json(
-      { error: 'حدث خطأ أثناء تصدير التقرير' },
+      { error: error?.message || 'حدث خطأ أثناء تصدير التقرير' },
       { status: 500 }
     );
   }

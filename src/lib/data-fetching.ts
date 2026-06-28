@@ -4,7 +4,6 @@ import { prisma } from '@/lib/prisma';
 
 // ========== دوال مساعدة داخلية ==========
 async function getSessionAndCompany() {
-  // ✅ استيراد ديناميكي
   const { auth } = await import('@/auth');
   const session = await auth();
   if (!session?.user) throw new Error('غير مصرح');

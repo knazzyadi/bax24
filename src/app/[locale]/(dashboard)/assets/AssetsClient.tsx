@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import type { Asset, AssetType, AssetStatus } from "@/types/assets";
 import { DataList, type FilterSection, type ItemActions } from "@/components/shared/DataList";
 
+// ✅ دالة الحصول على الموقع الكامل (نفس المستخدمة في التصيير)
 function getFullLocation(asset: Asset, isRtl: boolean): string {
   const room = asset.room;
   if (!room) return isRtl ? "موقع غير محدد" : "Location not set";
@@ -78,15 +79,23 @@ export default function AssetsClient({
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
+  // ✅ دالة للتحقق من تطابق مصطلح البحث مع اسم الأصل أو الكود أو الموقع
+  const assetMatchesSearch = (asset: Asset, term: string): boolean => {
+    const lowerTerm = term.toLowerCase();
+    // بحث في الاسم والكود
+    if (asset.name.toLowerCase().includes(lowerTerm)) return true;
+    if (asset.nameEn?.toLowerCase().includes(lowerTerm)) return true;
+    if (asset.code.toLowerCase().includes(lowerTerm)) return true;
+    // بحث في الموقع (كامل السلسلة)
+    const location = getFullLocation(asset, isRtl);
+    if (location.toLowerCase().includes(lowerTerm)) return true;
+    return false;
+  };
+
   const filteredAssets = useMemo(() => {
     let result = [...initialAssets];
     if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      result = result.filter(asset =>
-        asset.name.toLowerCase().includes(term) ||
-        (asset.nameEn?.toLowerCase().includes(term)) ||
-        asset.code.toLowerCase().includes(term)
-      );
+      result = result.filter(asset => assetMatchesSearch(asset, searchTerm));
     }
     if (selectedTypeId !== "all") {
       result = result.filter(asset => asset.type?.id === selectedTypeId);
@@ -95,13 +104,13 @@ export default function AssetsClient({
       result = result.filter(asset => asset.status?.id === selectedStatusId);
     }
     return result;
-  }, [initialAssets, searchTerm, selectedTypeId, selectedStatusId]);
+  }, [initialAssets, searchTerm, selectedTypeId, selectedStatusId, isRtl]);
 
   const totalItems = filteredAssets.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
   const paginatedItems = filteredAssets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
-  // ✅ دالة الحذف المعدلة (تعرض رسالة الخطأ من الخادم)
+  // دالة الحذف (بدون تغيير)
   const handleDeleteAsset = async (id: string, name: string) => {
     const confirmed = window.confirm(
       isRtl ? `⚠️ هل أنت متأكد من حذف الأصل "${name}"؟ لا يمكن التراجع عن هذا الإجراء.` : `⚠️ Are you sure you want to delete "${name}"? This action cannot be undone.`
@@ -113,7 +122,6 @@ export default function AssetsClient({
       const data = await res.json();
 
       if (!res.ok) {
-        // عرض الرسالة التفصيلية من الخادم (مثل ارتباط بأمر عمل)
         toast.error(data.error || (isRtl ? "فشل الحذف" : "Deletion failed"));
         return;
       }
@@ -249,7 +257,7 @@ export default function AssetsClient({
       icon={<Package size={28} />}
       addButtonLabel={isRtl ? "إضافة أصل جديد" : "Add New Asset"}
       addButtonLink={`/${locale}/assets/new`}
-      searchPlaceholder={isRtl ? "بحث باسم الأصل أو الكود..." : "Search by asset name or code..."}
+      searchPlaceholder={isRtl ? "بحث باسم الأصل، الكود، أو الموقع..." : "Search by asset name, code, or location..."}
       searchValue={searchTerm}
       onSearchChange={setSearchTerm}
       filterSections={filterSections}

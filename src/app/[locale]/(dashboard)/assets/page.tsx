@@ -9,7 +9,6 @@ import type { Asset, AssetType, AssetStatus } from '@/types/assets';
 async function getSessionAndPermissions() {
   const { auth } = await import('@/auth');
   const { requirePermission } = await import('@/lib/permissions');
-  // ✅ استخدام auth() مباشرة بدلاً من getSession() غير المعرفة
   const session = await auth();
   if (!session?.user) {
     throw new Error('UNAUTHORIZED');
@@ -25,11 +24,9 @@ export default async function AssetsPage({
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ q?: string; typeId?: string; statusId?: string }>;
 }) {
-  // ✅ التحقق من وجود params و searchParams
   const paramsResolved = await params;
   const searchParamsResolved = await searchParams || {};
 
-  // ✅ استخدام الدالة المساعدة
   let session;
   try {
     session = await getSessionAndPermissions();
@@ -44,10 +41,19 @@ export default async function AssetsPage({
   // بناء شرط where للبحث والفلترة (سيُمرر إلى getAssets)
   const where: any = {};
   if (q) {
+    // ✅ دعم البحث في الموقع (المبنى، الدور، الغرفة)
     where.OR = [
+      // البحث في اسم الأصل (عربي/إنجليزي) والكود
       { name: { contains: q, mode: 'insensitive' } },
       { nameEn: { contains: q, mode: 'insensitive' } },
       { code: { contains: q, mode: 'insensitive' } },
+      // البحث في الموقع (المبنى، الدور، الغرفة)
+      { room: { name: { contains: q, mode: 'insensitive' } } },
+      { room: { nameEn: { contains: q, mode: 'insensitive' } } },
+      { room: { floor: { name: { contains: q, mode: 'insensitive' } } } },
+      { room: { floor: { nameEn: { contains: q, mode: 'insensitive' } } } },
+      { room: { floor: { building: { name: { contains: q, mode: 'insensitive' } } } } },
+      { room: { floor: { building: { nameEn: { contains: q, mode: 'insensitive' } } } } },
     ];
   }
   if (typeId && typeId !== 'all') where.typeId = typeId;

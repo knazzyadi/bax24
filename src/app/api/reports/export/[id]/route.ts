@@ -41,36 +41,46 @@ export async function POST(
           } else assetFields[col] = true;
         });
 
+        // ✅ بناء كائن select ديناميكياً
+        const select: any = {
+          code: assetFields.code || false,
+          name: assetFields.name || false,
+          nameEn: assetFields.nameEn || false,
+          purchaseDate: assetFields.purchaseDate || false,
+          warrantyEnd: assetFields.warrantyEnd || false,
+          lastMaintenanceDate: assetFields.lastMaintenanceDate || false,
+        };
+
+        if (assetFields.type) {
+          select.type = { select: { name: true, nameEn: true } };
+        }
+        if (assetFields.status) {
+          select.status = { select: { name: true, nameEn: true } };
+        }
+        if (assetFields.room) {
+          select.room = {
+            select: {
+              name: true,
+              nameEn: true,
+              floor: {
+                select: {
+                  name: true,
+                  nameEn: true,
+                  building: {
+                    select: {
+                      name: true,
+                      nameEn: true,
+                    },
+                  },
+                },
+              },
+            },
+          };
+        }
+
         const assets = await prisma.asset.findMany({
           where: { companyId: session.user.companyId! },
-          select: {
-            code: assetFields.code || false,
-            name: assetFields.name || false,
-            nameEn: assetFields.nameEn || false,
-            type: assetFields.type ? { select: { name: true, nameEn: true } } : false,
-            status: assetFields.status ? { select: { name: true, nameEn: true } } : false,
-            room: assetFields.room ? {
-              select: {
-                name: true,
-                nameEn: true,
-                floor: {
-                  select: {
-                    name: true,
-                    nameEn: true,
-                    building: {
-                      select: {
-                        name: true,
-                        nameEn: true,
-                      }
-                    }
-                  }
-                }
-              }
-            } : false,
-            purchaseDate: assetFields.purchaseDate || false,
-            warrantyEnd: assetFields.warrantyEnd || false,
-            lastMaintenanceDate: assetFields.lastMaintenanceDate || false,
-          },
+          select,
         });
 
         data = assets.map((asset: any) => {
@@ -105,16 +115,25 @@ export async function POST(
           else woFields[col] = true;
         });
 
+        const select: any = {
+          code: woFields.code || false,
+          title: woFields.title || false,
+          createdAt: woFields.createdAt || false,
+        };
+
+        if (woFields.priority) {
+          select.priority = { select: { name: true, nameEn: true } };
+        }
+        if (woFields.status) {
+          select.status = { select: { name: true, nameEn: true } };
+        }
+        if (woFields.assetType) {
+          select.assetType = { select: { name: true, nameEn: true } };
+        }
+
         const workOrders = await prisma.workOrder.findMany({
           where: { companyId: session.user.companyId! },
-          select: {
-            code: woFields.code || false,
-            title: woFields.title || false,
-            priority: woFields.priority ? { select: { name: true, nameEn: true } } : false,
-            status: woFields.status ? { select: { name: true, nameEn: true } } : false,
-            assetType: woFields.assetType ? { select: { name: true, nameEn: true } } : false,
-            createdAt: woFields.createdAt || false,
-          },
+          select,
         });
 
         data = workOrders.map((wo: any) => ({
@@ -135,16 +154,21 @@ export async function POST(
           else ticketFields[col] = true;
         });
 
+        const select: any = {
+          code: ticketFields.code || false,
+          title: ticketFields.title || false,
+          type: ticketFields.type || false,
+          reporterName: ticketFields.reporterName || false,
+          createdAt: ticketFields.createdAt || false,
+        };
+
+        if (ticketFields.status) {
+          select.status = { select: { name: true, nameEn: true } };
+        }
+
         const tickets = await prisma.ticket.findMany({
           where: { companyId: session.user.companyId! },
-          select: {
-            code: ticketFields.code || false,
-            title: ticketFields.title || false,
-            status: ticketFields.status ? { select: { name: true, nameEn: true } } : false,
-            type: ticketFields.type || false,
-            reporterName: ticketFields.reporterName || false,
-            createdAt: ticketFields.createdAt || false,
-          },
+          select,
         });
 
         data = tickets.map((ticket: any) => ({
@@ -164,15 +188,20 @@ export async function POST(
           invFields[col] = true;
         });
 
+        const select: any = {
+          sku: invFields.sku || false,
+          name: invFields.name || false,
+          quantity: invFields.quantity || false,
+          unit: invFields.unit || false,
+        };
+
+        if (invFields.location) {
+          select.room = { select: { name: true, nameEn: true } };
+        }
+
         const inventoryItems = await prisma.inventoryItem.findMany({
           where: { companyId: session.user.companyId! },
-          select: {
-            sku: invFields.sku || false,
-            name: invFields.name || false,
-            quantity: invFields.quantity || false,
-            unit: invFields.unit || false,
-            room: invFields.location ? { select: { name: true, nameEn: true } } : false,
-          },
+          select,
         });
 
         data = inventoryItems.map((item: any) => ({
@@ -193,7 +222,7 @@ export async function POST(
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'تقرير');
-    
+
     // تنسيق الأعمدة للعربية
     worksheet['!cols'] = columns.map(() => ({ wch: 20 }));
 

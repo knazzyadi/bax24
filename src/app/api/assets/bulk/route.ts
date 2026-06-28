@@ -1,6 +1,3 @@
-
-
-
 import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
 
@@ -8,9 +5,6 @@ export async function POST(request: NextRequest) {
   try {
     const { roomId, assets } = await request.json();
 
-    // ==============================
-    // Validation
-    // ==============================
     if (!roomId || !Array.isArray(assets) || assets.length === 0) {
       return NextResponse.json(
         { error: 'Invalid input' },
@@ -18,25 +12,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ==============================
-    // جلب بيانات الغرفة + المبنى + الفرع + الشركة
-    // ==============================
     const roomData = await prisma.room.findUnique({
       where: { id: roomId },
       include: {
         building: {
           include: {
             branch: {
-              select: {
-                id: true,
-                code: true,
-              },
+              select: { id: true, code: true },
             },
-            company: {
-              select: {
-                id: true,
-              },
-            },
+            company: { select: { id: true } },
           },
         },
       },
@@ -61,30 +45,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ==============================
-    // Transaction
-    // ==============================
+    // ✅ استخدام any بدلاً من TxClient غير المصدر
     const result = await prisma.$transaction(
-      async (tx: TxClient) => {
+      async (tx: any) => {
         const createdAssets = [];
         const errors: { index: number; assetName?: string; message: string }[] = [];
 
-        // ==============================
-        // جلب جميع أنواع الأصول مرة واحدة
-        // ==============================
+        // جلب أنواع الأصول ورموزها
         const assetTypes = await tx.assetType.findMany({
           select: { id: true, code: true },
         });
-        const assetTypeMap = new Map(
-          assetTypes.map((type) => [
+        const assetTypeMap = new Map<string, string>(
+          assetTypes.map((type: any) => [
             type.id,
             type.code?.trim().toUpperCase() || 'AST',
           ])
         );
 
-        // ==============================
-        // جلب الحالة الافتراضية للشركة (للحالات المفقودة أو غير الصالحة)
-        // ==============================
+        // الحالة الافتراضية
         const defaultStatus = await tx.assetStatus.findFirst({
           where: { companyId, isDefault: true },
         });
@@ -97,9 +75,38 @@ export async function POST(request: NextRequest) {
           fallbackStatusId = anyStatus.id;
         }
 
-        // ==============================
-        // Loop على الأصول
-        // ==============================
+        // التحقق من الأكواد الموجودة للحصول على أعلى قيمة رقمية لكل نوع+فرع
+        const existingAssets = await tx.asset.findMany({
+          where: {
+            branchId,
+            companyId,
+            code: { startsWith: `${branchCode}-` },
+          },
+          select: { code: true, typeId: true },
+        });
+
+        // حساب أعلى قيمة رقمية لكل نوع
+        const maxSeqByType = new Map<string, number>();
+        for (const asset of existingAssets) {
+          const parts = asset.code.split('-');
+          if (parts.length === 3) {
+            const typePrefix = parts[1];
+            const seqNum = parseInt(parts[2], 10);
+            if (!isNaN(seqNum)) {
+              for (const [typeId, prefix] of assetTypeMap) {
+                if (prefix === typePrefix) {
+                  const currentMax = maxSeqByType.get(typeId) || 0;
+                  if (seqNum > currentMax) {
+                    maxSeqByType.set(typeId, seqNum);
+                  }
+                  break;
+                }
+              }
+            }
+          }
+        }
+
+        // loop assets
         for (let i = 0; i < assets.length; i++) {
           const asset = assets[i];
           try {
@@ -108,9 +115,7 @@ export async function POST(request: NextRequest) {
 
             const typePrefix = assetTypeMap.get(asset.typeId) || 'AST';
 
-            // ==============================
-            // التحقق من صحة statusId وتعيين الحالة الافتراضية إذا لزم الأمر
-            // ==============================
+            // التحقق من صحة statusId
             let validStatusId: string | null = null;
             if (asset.statusId) {
               const statusExists = await tx.assetStatus.findFirst({
@@ -120,20 +125,24 @@ export async function POST(request: NextRequest) {
             }
             const finalStatusId = validStatusId || fallbackStatusId;
 
-            // Atomic Counter
-            const counter = await tx.assetCounter.upsert({
+            // استخدام القيمة القصوى من الأكواد الموجودة أو من counter
+            let currentMax = maxSeqByType.get(asset.typeId) || 0;
+            currentMax += 1;
+            maxSeqByType.set(asset.typeId, currentMax);
+
+            // تحديث الـ counter للحفاظ على المزامنة مستقبلاً
+            await tx.assetCounter.upsert({
               where: {
                 typeId_branchId: {
                   typeId: asset.typeId,
                   branchId: branchId,
                 },
               },
-              update: { lastValue: { increment: 1 } },
-              create: { typeId: asset.typeId, branchId: branchId, lastValue: 1 },
+              update: { lastValue: currentMax },
+              create: { typeId: asset.typeId, branchId: branchId, lastValue: currentMax },
             });
 
-            const seqNumber = counter.lastValue;
-            const paddedNumber = seqNumber.toString().padStart(4, '0');
+            const paddedNumber = currentMax.toString().padStart(4, '0');
             const code = `${branchCode}-${typePrefix}-${paddedNumber}`;
 
             const newAsset = await tx.asset.create({
@@ -167,7 +176,7 @@ export async function POST(request: NextRequest) {
 
         return { createdAssets, errors };
       },
-      { timeout: 60000 } // Transaction timeout
+      { timeout: 60000 }
     );
 
     return NextResponse.json({

@@ -1,7 +1,7 @@
 // app/api/reports/route.ts
 import { NextRequest, NextResponse } from "next/server";
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { getServerSession } from "next-auth"; // استيراد مباشر من next-auth
 
 

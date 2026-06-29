@@ -1,7 +1,7 @@
 // src/app/api/work-order-priorities/[id]/route.ts
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -13,13 +13,13 @@ export async function GET(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
     await checkPermission('work_orders.read');
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     // ✅ التحقق من وجود companyId
     if (!companyId) {
@@ -48,11 +48,11 @@ export async function PUT(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
@@ -61,7 +61,7 @@ export async function PUT(
     const body = await request.json();
     const { name, nameEn, order, isDefault, color } = body;
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     // ✅ التحقق من وجود companyId
     if (!companyId) {
@@ -109,17 +109,17 @@ export async function DELETE(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     // ✅ التحقق من وجود companyId
     if (!companyId) {

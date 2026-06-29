@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -17,7 +17,7 @@ export async function PUT(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -108,7 +108,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }

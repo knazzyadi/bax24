@@ -1,7 +1,7 @@
 // src/app/api/floors/[floorId]/rooms/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 
 export async function GET(
   request: Request,
@@ -14,7 +14,7 @@ export async function GET(
     await checkPermission('assets.read');
 
     const { floorId } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -46,7 +46,7 @@ export async function GET(
       return NextResponse.json({ error: 'هذا الدور لا ينتمي لشركتك' }, { status: 403 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       // التحقق من وجود branchId في المبنى
       if (!floor.building.branchId) {
@@ -55,7 +55,7 @@ export async function GET(
           { status: 400 }
         );
       }
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       if (!userBranchIds.includes(floor.building.branchId)) {
         return NextResponse.json({ error: 'لا تملك صلاحية الوصول لهذا الفرع' }, { status: 403 });
       }

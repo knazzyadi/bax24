@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -12,12 +12,12 @@ export async function PATCH(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     await checkPermission('contracts.update');
 
     const { id } = await params;
     const { reason } = await request.json();
-    const companyId = session.user.companyId!;
+    const companyId = session.companyId!;
 
     const contract = await prisma.contract.findFirst({ where: { id, companyId, deletedAt: null } });
     if (!contract) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });

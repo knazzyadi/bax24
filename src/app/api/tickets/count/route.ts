@@ -2,7 +2,7 @@
 import { NextResponse } from "next/server";
 
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -14,7 +14,7 @@ const validStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED", "REJECTED", "CANCE
 export async function GET(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("tickets.read");
@@ -27,13 +27,13 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "قيمة حالة غير صالحة" }, { status: 400 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
 
-    const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
-    const userBranchIds = session.user.branchIds || [];
+    const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
+    const userBranchIds = session.branchIds || [];
 
     const where: any = {
       companyId,

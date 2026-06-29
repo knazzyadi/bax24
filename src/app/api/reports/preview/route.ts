@@ -1,13 +1,13 @@
 // src/app/api/reports/preview/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
 export async function GET(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
 
     // بناء الاستعلام حسب النموذج
     let data: any[] = [];
-    const companyId = session.user.companyId!;
+    const companyId = session.companyId!;
 
     switch (modelType) {
       case 'assets':

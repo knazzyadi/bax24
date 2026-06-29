@@ -2,13 +2,13 @@
 import { NextResponse } from 'next/server';
 
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 // ✅ دالة مساعدة لجلب الجلسة ديناميكياً
-async function getSession() {
+async function getAuthSession() {
   const { auth } = await import('@/auth');
   const session = await getAuthenticatedSession();
-  if (!session?.user) {
+  if (!session) {
     throw new Error('UNAUTHORIZED');
   }
   return session;
@@ -20,7 +20,7 @@ export async function PUT(request: Request) {
     const session = await getAuthenticatedSession();
 
     // ✅ التحقق من صلاحية SUPER_ADMIN
-    if (session.user.role !== 'SUPER_ADMIN') {
+    if (session.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'غير مصرح' },
         { status: 401 }
@@ -39,7 +39,7 @@ export async function PUT(request: Request) {
 
     // جلب المستخدم الحالي
     const currentUser = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: session.id },
     });
 
     if (!currentUser) {
@@ -80,7 +80,7 @@ export async function PUT(request: Request) {
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id: session.user.id },
+      where: { id: session.id },
       data: updateData,
       select: {
         id: true,

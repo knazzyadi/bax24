@@ -1,7 +1,7 @@
 // src/app/api/asset-types/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 
 // =====================
 // GET: جلب قائمة أنواع الأصول
@@ -18,8 +18,8 @@ export async function GET(request: Request) {
     const limit = parseInt(searchParams.get('limit') || '100');
 
     let where: any = {};
-    if (session.user.role !== 'SUPER_ADMIN') {
-      where.companyId = session.user.companyId;
+    if (session.role !== 'SUPER_ADMIN') {
+      where.companyId = session.companyId;
     } else if (companyId) {
       where.companyId = companyId;
     }
@@ -60,8 +60,8 @@ export async function POST(request: Request) {
     // ✅ استخدام getAuthenticatedSession بدلاً من getSession
     const session = await getAuthenticatedSession();
 
-    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
-    const isAdmin = session.user.role === 'ADMIN';
+    const isSuperAdmin = session.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN';
     if (!isSuperAdmin && !isAdmin) {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
 
     let targetCompanyId = companyId;
     if (isAdmin && !isSuperAdmin) {
-      targetCompanyId = session.user.companyId;
+      targetCompanyId = session.companyId;
     }
     if (!targetCompanyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة بهذا المستخدم' }, { status: 400 });

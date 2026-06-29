@@ -1,6 +1,6 @@
 // src/app/api/reports/saved/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -11,7 +11,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -20,8 +20,8 @@ export async function DELETE(
     const report = await prisma.savedReport.findFirst({
       where: {
         id,
-        userId: session.user.id,
-        companyId: session.user.companyId!,
+        userId: session.id,
+        companyId: session.companyId!,
       },
     });
 

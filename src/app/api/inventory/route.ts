@@ -1,7 +1,7 @@
 // src/app/api/inventory/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -10,7 +10,7 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
     await checkPermission('assets.read');
@@ -23,13 +23,13 @@ export async function GET(request: NextRequest) {
     const limit = 10;
     const skip = (page - 1) * limit;
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
-    const branchIds = session.user.branchIds || [];
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const branchIds = session.branchIds || [];
 
     const where: any = {
       companyId,
@@ -155,7 +155,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
     await checkPermission('assets.create');
@@ -167,7 +167,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'الاسم والغرفة إلزاميان' }, { status: 400 });
     }
 
-    const companyId = session.user.companyId!;
+    const companyId = session.companyId!;
 
     // التحقق من أن الغرفة تنتمي إلى الشركة وإلى فرع المستخدم (إذا لم يكن أدمن)
     const room = await prisma.room.findFirst({
@@ -178,9 +178,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'الغرفة غير موجودة أو لا تنتمي لشركتك' }, { status: 400 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       const buildingBranchId = room.floor?.building?.branchId;
       if (!buildingBranchId || !userBranchIds.includes(buildingBranchId)) {
         return NextResponse.json({ error: 'لا تملك صلاحية إضافة صنف في هذه الغرفة' }, { status: 403 });

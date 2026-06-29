@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -8,17 +8,17 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
-    const branchIds = session.user.branchIds || [];
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const branchIds = session.branchIds || [];
 
     const where: any = {
       companyId,

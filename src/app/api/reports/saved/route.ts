@@ -1,6 +1,6 @@
 // src/app/api/reports/saved/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -8,14 +8,14 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const reports = await prisma.savedReport.findMany({
       where: {
-        userId: session.user.id,
-        companyId: session.user.companyId!,
+        userId: session.id,
+        companyId: session.companyId!,
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -31,7 +31,7 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -53,8 +53,8 @@ export async function POST(request: Request) {
         columns: JSON.stringify(columns),
         filters: filters ? JSON.stringify(filters) : null,
         sortBy: sortBy ? JSON.stringify(sortBy) : null,
-        userId: session.user.id,
-        companyId: session.user.companyId!,
+        userId: session.id,
+        companyId: session.companyId!,
       },
     });
 

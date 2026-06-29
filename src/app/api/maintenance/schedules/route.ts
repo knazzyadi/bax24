@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -30,7 +30,7 @@ function frequencyStringToDays(freq: string): number {
 export async function GET(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("maintenance.read");
@@ -42,13 +42,13 @@ export async function GET(request: NextRequest) {
     const q = searchParams.get("q") || "";
     const isActive = searchParams.get("isActive");
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
 
-    const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
-    const branchIds = session.user.branchIds || [];
+    const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
+    const branchIds = session.branchIds || [];
 
     const where: any = { companyId };
 
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("maintenance.create");
@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
       notes,
     } = body;
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }

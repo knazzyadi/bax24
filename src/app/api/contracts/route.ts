@@ -1,7 +1,7 @@
 // src/app/api/contracts/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -10,7 +10,7 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     await checkPermission('contracts.read');
 
     const searchParams = request.nextUrl.searchParams;
@@ -20,9 +20,9 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
-    const branchIds = session.user.branchIds || [];
-    const companyId = session.user.companyId!;
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const branchIds = session.branchIds || [];
+    const companyId = session.companyId!;
 
     const where: any = { companyId, deletedAt: null };
 
@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     await checkPermission('contracts.create');
 
     const body = await request.json();
@@ -77,11 +77,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'يرجى تحديد الفرع' }, { status: 400 });
     }
 
-    const companyId = session.user.companyId!;
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const companyId = session.companyId!;
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
 
     if (!isAdmin) {
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       if (!userBranchIds.includes(branchId)) {
         return NextResponse.json({ error: 'لا تملك صلاحية إضافة عقد لهذا الفرع' }, { status: 403 });
       }
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
         agentEmail: agentEmail || null,
         companyId,
         branchId,
-        createdBy: session.user.id,
+        createdBy: session.id,
       },
     });
 

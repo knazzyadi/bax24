@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -29,7 +29,7 @@ export async function PUT(
       where: { id },
       include: { company: true },
     });
-    if (!user || user.companyId !== session.user.companyId) {
+    if (!user || user.companyId !== session.companyId) {
       return NextResponse.json({ error: 'المستخدم غير موجود أو لا يتبع شركتك' }, { status: 404 });
     }
 
@@ -78,7 +78,7 @@ export async function DELETE(
 
     const { id } = await params;
     const user = await prisma.user.findUnique({ where: { id } });
-    if (!user || user.companyId !== session.user.companyId) {
+    if (!user || user.companyId !== session.companyId) {
       return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
     }
 

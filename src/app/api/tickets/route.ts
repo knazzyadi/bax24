@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -61,7 +61,7 @@ async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
 export async function GET(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
@@ -74,15 +74,15 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const skip = (page - 1) * limit;
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة بالمستخدم" }, { status: 400 });
     }
 
     const isAdmin =
-      session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
+      session.role === "ADMIN" || session.role === "SUPER_ADMIN";
 
-    const branchIds = session.user.branchIds || [];
+    const branchIds = session.branchIds || [];
 
     const where: any = {
       companyId,
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
@@ -201,7 +201,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json(
         { error: "لا توجد شركة مرتبطة بالمستخدم" },
@@ -220,7 +220,7 @@ export async function POST(request: Request) {
       roomId,
       branchId,
       assetId: assetId || null,
-      createdBy: session.user.id,
+      createdBy: session.id,
       status: "PENDING",
     });
 

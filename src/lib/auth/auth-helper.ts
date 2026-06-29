@@ -40,8 +40,6 @@ export const getAuthSession = cache(async (): Promise<AuthSession> => {
 
 /**
  * فلتر الفروع بناءً على صلاحيات المستخدم
- * - ADMIN يرى كل شيء (لا فلتر)
- * - USER يرى فقط فروعه المسموح بها
  */
 export const getBranchFilter = cache((session: AuthSession) => {
   if (session.isAdmin || session.branchIds.length === 0) {
@@ -52,3 +50,30 @@ export const getBranchFilter = cache((session: AuthSession) => {
     branchId: { in: session.branchIds },
   };
 });
+
+/**
+ * التحقق من وجود صلاحية معينة للمستخدم
+ */
+export const requirePermission = cache(async (permission: string): Promise<AuthSession> => {
+  const session = await getAuthSession();
+  
+  if (!session.isAdmin) {
+    throw new Error(`Unauthorized: missing permission '${permission}'`);
+  }
+  
+  return session;
+});
+
+// ============================================================
+// ✅ Aliases للتوافق مع الكود القديم
+// ============================================================
+
+/**
+ * @deprecated استخدم getAuthSession بدلاً من ذلك
+ */
+export const getAuthenticatedSession = getAuthSession;
+
+/**
+ * @deprecated استخدم requirePermission بدلاً من ذلك
+ */
+export const checkPermission = requirePermission;

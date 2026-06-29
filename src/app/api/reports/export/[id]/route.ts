@@ -1,7 +1,7 @@
 // src/app/api/reports/export/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthenticatedSession } from '@/lib/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import * as XLSX from 'xlsx';
 
 export async function POST(
@@ -18,8 +18,8 @@ export async function POST(
     const savedReport = await prisma.savedReport.findFirst({
       where: {
         id,
-        userId: session.user.id,
-        companyId: session.user.companyId!,
+        userId: session.id,
+        companyId: session.companyId!,
       },
     });
 
@@ -80,7 +80,7 @@ export async function POST(
         }
 
         const assets = await prisma.asset.findMany({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
           select,
         });
 
@@ -130,7 +130,7 @@ export async function POST(
         }
 
         const workOrders = await prisma.workOrder.findMany({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
           select,
         });
 
@@ -168,7 +168,7 @@ export async function POST(
         }
 
         const tickets = await prisma.ticket.findMany({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
           select,
         });
 
@@ -204,7 +204,7 @@ export async function POST(
         }
 
         const inventoryItems = await prisma.inventoryItem.findMany({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
           select,
         });
 

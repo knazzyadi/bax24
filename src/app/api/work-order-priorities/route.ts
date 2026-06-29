@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -10,12 +10,12 @@ import { prisma } from '@/lib/prisma';
 export async function GET() {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
     await checkPermission('work_orders.read');
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -38,12 +38,12 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     // Only ADMIN or SUPER_ADMIN can create
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }

@@ -1,7 +1,7 @@
 // src/app/api/buildings/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 
 export async function GET(request: Request) {
   try {
@@ -9,13 +9,13 @@ export async function GET(request: Request) {
     const session = await getAuthenticatedSession();
     await checkPermission('assets.read');
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
-    const userBranchIds = session.user.branchIds || [];
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const userBranchIds = session.branchIds || [];
 
     let where: any = {
       branch: {

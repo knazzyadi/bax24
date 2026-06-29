@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -11,12 +11,12 @@ export async function PUT(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user?.id) {
+    if (!session?.id) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: session.id },
       include: { role: true },
     });
 
@@ -85,12 +85,12 @@ export async function DELETE(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user?.id) {
+    if (!session?.id) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: session.id },
       include: { role: true },
     });
 

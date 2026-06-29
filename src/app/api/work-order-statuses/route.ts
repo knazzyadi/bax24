@@ -1,7 +1,7 @@
 // src/app/api/work-order-statuses/route.ts
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -11,7 +11,7 @@ import { prisma } from '@/lib/prisma';
 export async function GET(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -22,8 +22,8 @@ export async function GET(request: Request) {
     const companyIdParam = searchParams.get('companyId');
 
     let where: any = {};
-    if (session.user.role !== 'SUPER_ADMIN') {
-      where.companyId = session.user.companyId;
+    if (session.role !== 'SUPER_ADMIN') {
+      where.companyId = session.companyId;
     } else if (companyIdParam) {
       where.companyId = companyIdParam;
     }
@@ -47,13 +47,13 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     // صلاحية إدارة الحالات (يمكنك إضافتها في الـ RBAC)
-    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
-    const isAdmin = session.user.role === 'ADMIN';
+    const isSuperAdmin = session.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN';
 
     if (!isSuperAdmin && !isAdmin) {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
@@ -68,7 +68,7 @@ export async function POST(request: Request) {
 
     let targetCompanyId = companyId;
     if (isAdmin && !isSuperAdmin) {
-      targetCompanyId = session.user.companyId;
+      targetCompanyId = session.companyId;
     }
     if (!targetCompanyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });

@@ -1,7 +1,7 @@
 // src/app/api/assets/route.ts
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -57,7 +57,7 @@ async function generateAssetCode(
 export async function GET(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -75,11 +75,11 @@ export async function GET(request: Request) {
     const skip = (page - 1) * limit;
 
     const isAdmin =
-      session.user.role === 'ADMIN' ||
-      session.user.role === 'SUPER_ADMIN';
+      session.role === 'ADMIN' ||
+      session.role === 'SUPER_ADMIN';
 
-    const branchIds = session.user.branchIds || [];
-    const companyId = session.user.companyId;
+    const branchIds = session.branchIds || [];
+    const companyId = session.companyId;
 
     if (!companyId) {
       return NextResponse.json(
@@ -203,7 +203,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -231,7 +231,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     if (!companyId) {
       return NextResponse.json(

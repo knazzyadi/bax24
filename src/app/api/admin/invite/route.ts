@@ -1,7 +1,7 @@
 // src/app/api/admin/invite/route.ts
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
     }
 
     // 🚨 منع التلاعب: لازم الشركة تكون من الجلسة
-    if (session.user.companyId !== companyId && session.user.role !== 'SUPER_ADMIN') {
+    if (session.companyId !== companyId && session.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'غير مصرح لهذه الشركة' },
         { status: 403 }

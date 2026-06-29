@@ -1,7 +1,7 @@
 // src/app/api/work-order-statuses/[id]/route.ts
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -14,8 +14,8 @@ export async function PUT(
     const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
 
-    const isAdmin = session.user.role === 'ADMIN';
-    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN';
+    const isSuperAdmin = session.role === 'SUPER_ADMIN';
     if (!isAdmin && !isSuperAdmin) {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
@@ -27,7 +27,7 @@ export async function PUT(
     const existing = await prisma.workOrderStatus.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ error: 'الحالة غير موجودة' }, { status: 404 });
 
-    if (isAdmin && existing.companyId !== session.user.companyId) {
+    if (isAdmin && existing.companyId !== session.companyId) {
       return NextResponse.json({ error: 'غير مصرح لهذه الشركة' }, { status: 403 });
     }
 
@@ -77,8 +77,8 @@ export async function DELETE(
     const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
 
-    const isAdmin = session.user.role === 'ADMIN';
-    const isSuperAdmin = session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN';
+    const isSuperAdmin = session.role === 'SUPER_ADMIN';
     if (!isAdmin && !isSuperAdmin) {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
@@ -87,7 +87,7 @@ export async function DELETE(
     const existing = await prisma.workOrderStatus.findUnique({ where: { id } });
     if (!existing) return NextResponse.json({ error: 'الحالة غير موجودة' }, { status: 404 });
 
-    if (isAdmin && existing.companyId !== session.user.companyId) {
+    if (isAdmin && existing.companyId !== session.companyId) {
       return NextResponse.json({ error: 'غير مصرح لهذه الشركة' }, { status: 403 });
     }
 

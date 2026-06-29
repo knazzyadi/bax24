@@ -2,7 +2,7 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 
 // GET: جلب قائمة حالات الأصول (للمستخدمين المصرح لهم assets.read)
 export async function GET() {
@@ -12,7 +12,7 @@ export async function GET() {
     // ✅ استخدام checkPermission بدلاً من requirePermission
     await checkPermission('assets.read');
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -47,11 +47,11 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية إنشاء حالة' }, { status: 403 });
     }
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
 export async function PUT(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية تحديث الحالة' }, { status: 403 });
     }
@@ -124,7 +124,7 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'المعرف مطلوب' }, { status: 400 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -172,7 +172,7 @@ export async function PUT(request: Request) {
 export async function DELETE(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية حذف الحالة' }, { status: 403 });
     }
@@ -183,7 +183,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: 'المعرف مطلوب' }, { status: 400 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }

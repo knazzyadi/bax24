@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -12,7 +12,7 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; assetId: string }> }
 ) {
   const session = await getAuthenticatedSession();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   await checkPermission("work_orders.update");
 
   const { id, assetId } = await params;

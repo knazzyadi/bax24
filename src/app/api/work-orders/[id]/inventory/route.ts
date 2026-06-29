@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -16,13 +16,13 @@ export async function GET(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("work_orders.read");
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     // ✅ التحقق من وجود companyId
     if (!companyId) {
@@ -59,7 +59,7 @@ export async function POST(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("work_orders.update");
@@ -72,7 +72,7 @@ export async function POST(
       return NextResponse.json({ error: "بيانات غير صالحة" }, { status: 400 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     // ✅ التحقق من وجود companyId
     if (!companyId) {
@@ -136,7 +136,7 @@ export async function DELETE(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("work_orders.update");
@@ -149,7 +149,7 @@ export async function DELETE(
       return NextResponse.json({ error: "معرف السجل (recordId) مطلوب" }, { status: 400 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     // ✅ التحقق من وجود companyId
     if (!companyId) {

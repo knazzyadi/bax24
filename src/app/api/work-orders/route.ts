@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -13,7 +13,7 @@ import { createWorkOrderWithRetry } from "@/lib/generateCode"; // ✅ استير
 export async function GET(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("work_orders.read");
@@ -27,13 +27,13 @@ export async function GET(request: NextRequest) {
     const assetId = searchParams.get("assetId");
     const q = searchParams.get("q") || "";
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
 
-    const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
-    const branchIds = session.user.branchIds || [];
+    const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
+    const branchIds = session.branchIds || [];
 
     const where: any = {
       companyId,
@@ -103,7 +103,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("work_orders.create");
@@ -122,15 +122,15 @@ export async function POST(request: NextRequest) {
       assetIds,
     } = body;
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
 
     // التحقق من صلاحيات الفرع (لغير المديرين)
-    const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
+    const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
     if (!isAdmin && branchId) {
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       if (!userBranchIds.includes(branchId)) {
         return NextResponse.json({ error: "لا تملك صلاحية إنشاء أمر عمل في هذا الفرع" }, { status: 403 });
       }
@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
       assetTypeId: assetTypeId || null,
       notes: notes || null,
       companyId,
-      createdBy: session.user.id,
+      createdBy: session.id,
       ticketId: null, // لأنه إنشاء مباشر وليس من بلاغ
     };
 

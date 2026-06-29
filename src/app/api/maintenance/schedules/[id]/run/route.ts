@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -42,13 +42,13 @@ export async function POST(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("maintenance.execute");
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
@@ -113,7 +113,7 @@ export async function POST(
         statusId: null,
         branchId: schedule.branchId,
         companyId,
-        createdBy: session.user.id,
+        createdBy: session.id,
         assetTypeId: schedule.assetTypeId,
         code: code,                    // ✅ الكود الفريد
         branchSeqNum: branchSeqNum,    // ✅ الرقم التسلسلي للفرع

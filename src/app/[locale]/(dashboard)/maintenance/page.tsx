@@ -1,6 +1,7 @@
+// src/app/[locale]/(dashboard)/maintenance/page.tsx
 
 import { redirect } from "next/navigation";
-import { getSession, requirePermission } from '@/lib/auth-helper';
+import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from "@/lib/prisma";
 
 import MaintenanceClient from "./MaintenanceClient";
@@ -47,12 +48,8 @@ export default async function MaintenancePage({
     page?: string;
   }>;
 }) {
-  const session = await getSession();
-
-  if (!session?.user) {
-    redirect("/login");
-  }
-
+  const session = await getAuthSession();
+  if (!session) redirect("/login");
   await requirePermission("maintenance.read");
 
   const { locale } = await params;
@@ -63,15 +60,9 @@ export default async function MaintenancePage({
     page = "1",
   } = await searchParams;
 
-  const companyId =
-    session.user.companyId!;
-
-  const isAdmin =
-    session.user.role === "ADMIN" ||
-    session.user.role === "SUPER_ADMIN";
-
-  const branchIds =
-    session.user.branchIds || [];
+  const companyId = session.companyId;
+  const isAdmin = session.isAdmin;
+  const branchIds = session.branchIds || [];
 
   const where: any = {
     companyId,

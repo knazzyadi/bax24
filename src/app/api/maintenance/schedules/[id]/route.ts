@@ -1,7 +1,7 @@
 // src/app/api/maintenance/schedules/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -13,13 +13,13 @@ export async function GET(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
     await checkPermission('maintenance.read');
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     // ✅ التحقق من وجود companyId
     if (!companyId) {
@@ -67,13 +67,13 @@ export async function PUT(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
     await checkPermission('maintenance.update');
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     if (!companyId) {
       return NextResponse.json(
@@ -136,13 +136,13 @@ export async function DELETE(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
     await checkPermission('maintenance.delete');
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     if (!companyId) {
       return NextResponse.json(

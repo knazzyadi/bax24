@@ -1,10 +1,8 @@
+// src/app/[locale]/(super-admin)/super-admin/page.tsx
 
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
-
-
-
+import { getAuthSession } from '@/lib/auth/auth-helper';
 
 export default async function SuperAdminDashboard({
   params,
@@ -12,9 +10,9 @@ export default async function SuperAdminDashboard({
   params: Promise<{ locale: string }>;
 }) {
   const { locale } = await params;
-  const session = await getSession();
+  const session = await getAuthSession();
 
-  if (!session || session.user?.role !== 'SUPER_ADMIN') {
+  if (!session || session.role !== 'SUPER_ADMIN') {
     redirect(`/${locale}/login`);
   }
 

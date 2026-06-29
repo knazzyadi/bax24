@@ -1,7 +1,7 @@
 // src/app/api/contracts/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -15,11 +15,11 @@ export async function GET(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     await checkPermission('contracts.read');
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
 
     const contract = await prisma.contract.findFirst({
@@ -33,9 +33,9 @@ export async function GET(
     if (!contract) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
 
     // التحقق من صلاحية الفرع للمستخدمين غير الأدمن
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       const contractBranchId = contract.branchId;
       if (!contractBranchId || !userBranchIds.includes(contractBranchId)) {
         return NextResponse.json({ error: 'غير مصرح بالوصول إلى هذا العقد' }, { status: 403 });
@@ -68,7 +68,7 @@ export async function PUT(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     await checkPermission('contracts.update');
 
     const { id } = await params;
@@ -83,7 +83,7 @@ export async function PUT(
       return NextResponse.json({ error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة' }, { status: 400 });
     }
 
-    const companyId = session.user.companyId!;
+    const companyId = session.companyId!;
     const existing = await prisma.contract.findFirst({
       where: { id, companyId, deletedAt: null },
       select: { branchId: true, attachments: true },
@@ -106,9 +106,9 @@ export async function PUT(
     }
 
     // التحقق من صلاحية الفرع
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin && branchId) {
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       if (!userBranchIds.includes(branchId)) {
         return NextResponse.json({ error: 'لا تملك صلاحية تعديل عقد لهذا الفرع' }, { status: 403 });
       }
@@ -173,11 +173,11 @@ export async function DELETE(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     await checkPermission('contracts.delete');
 
     const { id } = await params;
-    const companyId = session.user.companyId!;
+    const companyId = session.companyId!;
 
     const existing = await prisma.contract.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -186,9 +186,9 @@ export async function DELETE(
     if (!existing) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
 
     // التحقق من صلاحية الفرع
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin && existing.branchId) {
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       if (!userBranchIds.includes(existing.branchId)) {
         return NextResponse.json({ error: 'لا تملك صلاحية حذف هذا العقد' }, { status: 403 });
       }

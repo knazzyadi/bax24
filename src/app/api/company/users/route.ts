@@ -1,7 +1,7 @@
 // src/app/api/company/users/route.ts
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -19,7 +19,7 @@ export async function GET() {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     if (!companyId) {
       return NextResponse.json(
@@ -92,7 +92,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
 
     if (!companyId) {
       return NextResponse.json(

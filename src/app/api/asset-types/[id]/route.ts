@@ -1,6 +1,6 @@
 // src/app/api/asset-types/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
@@ -26,7 +26,7 @@ export async function PUT(
     const existingType = await prisma.assetType.findFirst({
       where: {
         id,
-        companyId: session.user.companyId!,
+        companyId: session.companyId!,
       },
     });
     if (!existingType) {
@@ -37,7 +37,7 @@ export async function PUT(
     const duplicate = await prisma.assetType.findFirst({
       where: {
         name: name.trim(),
-        companyId: session.user.companyId!,
+        companyId: session.companyId!,
         NOT: { id },
       },
     });
@@ -51,7 +51,7 @@ export async function PUT(
     // إذا كان isDefault true، قم بإلغاء الافتراضي عن الأنواع الأخرى
     if (isDefault === true && !existingType.isDefault) {
       await prisma.assetType.updateMany({
-        where: { companyId: session.user.companyId!, isDefault: true },
+        where: { companyId: session.companyId!, isDefault: true },
         data: { isDefault: false },
       });
     }
@@ -105,7 +105,7 @@ export async function DELETE(
     const assetType = await prisma.assetType.findFirst({
       where: {
         id,
-        companyId: session.user.companyId!,
+        companyId: session.companyId!,
       },
     });
     if (!assetType) {

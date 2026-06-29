@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -14,13 +14,13 @@ export async function GET(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
     await checkPermission("work_orders.read");
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
@@ -50,9 +50,9 @@ export async function GET(
     }
 
     // فلترة الفروع للمستخدمين غير المديرين
-    const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
+    const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
     if (!isAdmin) {
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       if (!workOrder.branchId || !userBranchIds.includes(workOrder.branchId)) {
         return NextResponse.json({ error: "غير مصرح بالوصول إلى هذا الأمر" }, { status: 403 });
       }
@@ -88,7 +88,7 @@ export async function PUT(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    if (!session) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     await checkPermission("work_orders.update");
 
     const { id } = await params;
@@ -108,7 +108,7 @@ export async function PUT(
       assetIds,
     } = body;
 
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
@@ -193,11 +193,11 @@ export async function DELETE(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    if (!session) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     await checkPermission("work_orders.delete");
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }

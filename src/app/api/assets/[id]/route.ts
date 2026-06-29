@@ -1,7 +1,7 @@
 // src/app/api/assets/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -13,14 +13,14 @@ export async function GET(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) {
+    if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     await checkPermission('assets.read');
 
     const { id } = await params;
-    const companyId = session.user.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -48,9 +48,9 @@ export async function GET(
       return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
     }
 
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       let assetBranchId: string | null = null;
       if (asset.room?.floor?.building?.branchId) {
         assetBranchId = asset.room.floor.building.branchId;
@@ -85,13 +85,13 @@ export async function PUT(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
 
     const { id } = await params;
     const body = await request.json();
     const { name, nameEn, typeId, statusId, purchaseDate, warrantyEnd, lastMaintenanceDate, roomId, notes } = body;
-    const companyId = session.user.companyId!;
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    const companyId = session.companyId!;
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
 
     const existingAsset = await prisma.asset.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -108,7 +108,7 @@ export async function PUT(
     if (!existingAsset) return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
 
     if (!isAdmin) {
-      const userBranchIds = session.user.branchIds || [];
+      const userBranchIds = session.branchIds || [];
       let assetBranchId: string | null = null;
       if (existingAsset.room?.floor?.building?.branchId) {
         assetBranchId = existingAsset.room.floor.building.branchId;
@@ -132,7 +132,7 @@ export async function PUT(
       });
       if (!newRoom) return NextResponse.json({ error: 'الغرفة غير موجودة أو لا تنتمي للشركة' }, { status: 400 });
       if (!isAdmin) {
-        const userBranchIds = session.user.branchIds || [];
+        const userBranchIds = session.branchIds || [];
         const newBranchId = newRoom.floor?.building?.branchId;
         if (!newBranchId || !userBranchIds.includes(newBranchId)) {
           return NextResponse.json({ error: 'لا تملك صلاحية نقل الأصل إلى هذه الغرفة' }, { status: 403 });
@@ -169,12 +169,12 @@ export async function DELETE(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
+    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) return NextResponse.json({ error: 'لا تملك الصلاحية للحذف' }, { status: 403 });
 
     const { id } = await params;
-    const companyId = session.user.companyId!;
+    const companyId = session.companyId!;
     const existingAsset = await prisma.asset.findFirst({ where: { id, companyId, deletedAt: null } });
     if (!existingAsset) return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
 

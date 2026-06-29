@@ -1,7 +1,7 @@
 // src/app/api/reports/view/[id]/route.ts
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { getAuthenticatedSession } from '@/lib/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 
 export async function GET(
   request: Request,
@@ -19,8 +19,8 @@ export async function GET(
     const savedReport = await prisma.savedReport.findFirst({
       where: {
         id,
-        userId: session.user.id,
-        companyId: session.user.companyId!,
+        userId: session.id,
+        companyId: session.companyId!,
       },
     });
 
@@ -46,7 +46,7 @@ export async function GET(
         });
 
         total = await prisma.asset.count({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
         });
 
         // ✅ بناء كائن select ديناميكياً
@@ -87,7 +87,7 @@ export async function GET(
         }
 
         const assets = await prisma.asset.findMany({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
           select,
           skip,
           take: limit,
@@ -126,7 +126,7 @@ export async function GET(
         });
 
         total = await prisma.workOrder.count({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
         });
 
         const select: any = {
@@ -146,7 +146,7 @@ export async function GET(
         }
 
         const workOrders = await prisma.workOrder.findMany({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
           select,
           skip,
           take: limit,
@@ -171,7 +171,7 @@ export async function GET(
         });
 
         total = await prisma.ticket.count({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
         });
 
         const select: any = {
@@ -187,7 +187,7 @@ export async function GET(
         }
 
         const tickets = await prisma.ticket.findMany({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
           select,
           skip,
           take: limit,
@@ -211,7 +211,7 @@ export async function GET(
         });
 
         total = await prisma.inventoryItem.count({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
         });
 
         const select: any = {
@@ -226,7 +226,7 @@ export async function GET(
         }
 
         const inventoryItems = await prisma.inventoryItem.findMany({
-          where: { companyId: session.user.companyId! },
+          where: { companyId: session.companyId! },
           select,
           skip,
           take: limit,

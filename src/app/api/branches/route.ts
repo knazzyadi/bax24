@@ -1,6 +1,6 @@
 // src/app/api/branches/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth-helper';
+import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 
@@ -20,19 +20,19 @@ function generateSlug(text: string): string {
 export async function GET() {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user?.id) {
+    if (!session?.id) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: session.id },
       include: { role: true },
     });
 
     if (!user) return NextResponse.json({ error: 'مستخدم غير موجود' }, { status: 404 });
 
     const roleName = user.role?.name;
-    const userBranchIds = session.user.branchIds || [];
+    const userBranchIds = session.branchIds || [];
 
     if (roleName === 'SUPER_ADMIN') {
       const branches = await prisma.branch.findMany({
@@ -68,10 +68,10 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session?.user?.id) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (!session?.id) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
 
     const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
+      where: { id: session.id },
       include: { role: true },
     });
 

@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/contracts/page.tsx
 
 import { redirect } from 'next/navigation';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 import { startOfDay, isBefore } from 'date-fns';
@@ -15,16 +15,16 @@ export default async function ContractsPage({
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ q?: string; status?: string; page?: string }>;
 }) {
-  const session = await getSession();
-  if (!session?.user) redirect('/login');
+  const session = await getAuthSession();
+  if (!session) redirect('/login');
   await requirePermission('contracts.read');
 
   const { locale } = await params;
   const { q, status } = await searchParams;
 
-  const companyId = session.user.companyId!;
-  const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
-  const branchIds = session.user.branchIds || [];
+  const companyId = session.companyId;
+  const isAdmin = session.isAdmin;
+  const branchIds = session.branchIds || [];
 
   const where: any = { companyId, deletedAt: null };
 

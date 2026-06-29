@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/inventory/InventoryClient.tsx
 "use client";
 
 import React, {
@@ -457,6 +458,7 @@ export default function InventoryClient({
       onEdit={handleEdit}
       onDelete={handleDelete}
       itemsPerPage={itemsPerPage}
+      showPagination={false} // ✅ إضافة هذه الخاصية لمنع التكرار
     />
   );
 }

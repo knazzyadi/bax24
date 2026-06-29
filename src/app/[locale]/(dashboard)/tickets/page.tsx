@@ -1,9 +1,8 @@
 // src/app/[locale]/(dashboard)/tickets/page.tsx
 
 import { redirect } from 'next/navigation';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+import { getAuthSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
 import TicketsClient from './TicketsClient';
 import type { Ticket } from './types';
 
@@ -14,17 +13,19 @@ export default async function TicketsPage({
   params: Promise<{ locale: string }>;
   searchParams: Promise<{ page?: string; q?: string; status?: string }>;
 }) {
-  const session = await getSession();
-  if (!session?.user) redirect('/login');
-  await requirePermission('tickets.read');
+  const session = await getAuthSession().catch(() => null);
+  if (!session) redirect('/login');
 
   const { locale } = await params;
-  const { q = "", status = "all" } = await searchParams;
+  const { q = "", status = "all", page = "1" } = await searchParams;
 
-  const companyId = session.user.companyId!;
-  const isAdmin = session.user.role === 'ADMIN' || session.user.role === 'SUPER_ADMIN';
-  const branchIds = session.user.branchIds || [];
+  const companyId = session.companyId;
+  const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+  const branchIds = session.branchIds || [];
 
+  // =========================
+  // Build Where Clause
+  // =========================
   const where: any = { companyId, deletedAt: null };
 
   if (!isAdmin) {
@@ -43,37 +44,63 @@ export default async function TicketsPage({
     }
   }
 
-  if (q) {
+  if (q.trim()) {
     where.OR = [
       { title: { contains: q, mode: 'insensitive' } },
       { code: { contains: q, mode: 'insensitive' } },
+      { reporterName: { contains: q, mode: 'insensitive' } },
+      { reporterEmail: { contains: q, mode: 'insensitive' } },
     ];
   }
   if (status !== "all") where.status = status;
 
-  const tickets = await prisma.ticket.findMany({
-    where,
-    include: {
-      asset: true,
-      room: {
-        include: {
-          floor: {
-            include: { building: true }
-          }
-        }
-      },
-      branch: true,
-      attachments: true,   // ✅ تم التغيير من ticketImages إلى attachments
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+  // =========================
+  // Pagination (offset)
+  // =========================
+  const limit = 10;
+  const currentPage = Math.max(1, parseInt(page, 10) || 1);
+  const skip = (currentPage - 1) * limit;
 
+  // =========================
+  // Fetch Data with Prisma directly (to keep attachments and shape)
+  // =========================
+  const [tickets, total] = await Promise.all([
+    prisma.ticket.findMany({
+      where,
+      include: {
+        asset: true,
+        room: {
+          include: {
+            floor: {
+              include: { building: true }
+            }
+          }
+        },
+        branch: true,
+        attachments: true,
+        workOrder: true, // include workOrder if needed
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: limit,
+    }),
+    prisma.ticket.count({ where }),
+  ]);
+
+  // =========================
+  // Serialize dates
+  // =========================
   const serializedTickets: Ticket[] = tickets.map((t: any) => ({
     ...t,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt?.toISOString(),
   }));
 
+  const totalPages = Math.ceil(total / limit);
+
+  // =========================
+  // Render
+  // =========================
   return (
     <TicketsClient
       initialTickets={serializedTickets}

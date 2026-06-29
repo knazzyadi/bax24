@@ -1,11 +1,11 @@
 // src/app/[locale]/(dashboard)/assets/page.tsx
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { getAssets } from '@/lib/data-fetching';
+import { AssetRepository } from '@/lib/repositories/asset.repository';
 import AssetsClient from './AssetsClient';
 import type { Asset, AssetType, AssetStatus } from '@/types/assets';
+import { Prisma } from '@prisma/client';
 
-// ✅ دوال مساعدة ديناميكية لتجنب تحميل auth أثناء البناء
 async function getSessionAndPermissions() {
   const { auth } = await import('@/auth');
   const { requirePermission } = await import('@/lib/permissions');
@@ -22,7 +22,7 @@ export default async function AssetsPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ q?: string; typeId?: string; statusId?: string }>;
+  searchParams: Promise<{ q?: string; typeId?: string; statusId?: string; cursor?: string; limit?: string }>;
 }) {
   const paramsResolved = await params;
   const searchParamsResolved = await searchParams || {};
@@ -35,19 +35,21 @@ export default async function AssetsPage({
   }
 
   const { locale } = paramsResolved;
-  const { q, typeId, statusId } = searchParamsResolved;
+  const { q, typeId, statusId, cursor, limit = '30' } = searchParamsResolved;
   const companyId = session.user.companyId!;
+  const limitNum = parseInt(limit, 10) || 30;
 
-  // بناء شرط where للبحث والفلترة (سيُمرر إلى getAssets)
-  const where: any = {};
+  // بناء شرط where
+  const where: Prisma.AssetWhereInput = {
+    companyId,
+    deletedAt: null,
+  };
+
   if (q) {
-    // ✅ دعم البحث في الموقع (المبنى، الدور، الغرفة)
     where.OR = [
-      // البحث في اسم الأصل (عربي/إنجليزي) والكود
       { name: { contains: q, mode: 'insensitive' } },
       { nameEn: { contains: q, mode: 'insensitive' } },
       { code: { contains: q, mode: 'insensitive' } },
-      // البحث في الموقع (المبنى، الدور، الغرفة)
       { room: { name: { contains: q, mode: 'insensitive' } } },
       { room: { nameEn: { contains: q, mode: 'insensitive' } } },
       { room: { floor: { name: { contains: q, mode: 'insensitive' } } } },
@@ -59,10 +61,40 @@ export default async function AssetsPage({
   if (typeId && typeId !== 'all') where.typeId = typeId;
   if (statusId && statusId !== 'all') where.statusId = statusId;
 
-  // جلب الأصول (مع تطبيق فلترة الفروع تلقائياً داخل getAssets)
-  const assetsRaw = await getAssets(where);
+  // ✅ جلب العدد الإجمالي أولاً (لحساب startIndex)
+  const totalCount = await AssetRepository.count(where);
 
-  // تحويل البيانات إلى الشكل المطلوب من قبل AssetsClient
+  // ✅ جلب الأصول مع الـ Pagination
+  const result = await AssetRepository.findMany({
+    where,
+    limit: limitNum,
+    cursor: cursor ? { id: cursor } : undefined,
+    orderBy: { createdAt: 'desc' },
+  });
+
+  const { data: assetsRaw, pagination } = result;
+
+  // ✅ حساب startIndex الفعلي
+  let startIndex = 1; // افتراضي للصفحة الأولى
+  if (cursor && assetsRaw.length > 0) {
+    // نأخذ العنصر الأول من الصفحة الحالية (أحدث عنصر في هذه الصفحة)
+    const firstAsset = assetsRaw[0];
+    // عدد العناصر الأحدث من firstAsset (أي التي تأتي قبله في الترتيب التنازلي)
+    const newerCount = await prisma.asset.count({
+      where: {
+        ...where,
+        createdAt: { gt: firstAsset.createdAt },
+      },
+    });
+    startIndex = newerCount + 1;
+  } else if (!cursor && assetsRaw.length > 0) {
+    startIndex = 1;
+  } else {
+    // إذا كانت الصفحة فارغة
+    startIndex = totalCount + 1;
+  }
+
+  // تحويل البيانات
   const transformedAssets: Asset[] = assetsRaw.map((asset: any) => ({
     id: asset.id,
     name: asset.name,
@@ -117,7 +149,7 @@ export default async function AssetsPage({
     updatedAt: asset.updatedAt.toISOString(),
   }));
 
-  // جلب أنواع الأصول وحالاتها (للفلاتر)
+  // جلب أنواع الأصول وحالاتها
   const [assetTypesRaw, assetStatusesRaw] = await Promise.all([
     prisma.assetType.findMany({
       where: { companyId },
@@ -145,6 +177,22 @@ export default async function AssetsPage({
     color: status.color ?? undefined,
   }));
 
+  // بناء روابط التنقل
+  const baseUrl = `/${locale}/assets`;
+  const queryParams = new URLSearchParams();
+  if (q) queryParams.set('q', q);
+  if (typeId && typeId !== 'all') queryParams.set('typeId', typeId);
+  if (statusId && statusId !== 'all') queryParams.set('statusId', statusId);
+  if (limit) queryParams.set('limit', limit);
+
+  const prevCursor = cursor || null;
+  const nextUrl = pagination.hasMore
+    ? `${baseUrl}?${queryParams.toString()}&cursor=${pagination.nextCursor}`
+    : null;
+  const prevUrl = prevCursor
+    ? `${baseUrl}?${queryParams.toString()}&cursor=${prevCursor}`
+    : null;
+
   return (
     <AssetsClient
       initialAssets={transformedAssets}
@@ -154,6 +202,14 @@ export default async function AssetsPage({
       typeId={typeId || ''}
       statusId={statusId || ''}
       locale={locale}
+      pagination={{
+        hasMore: pagination.hasMore,
+        nextUrl,
+        prevUrl,
+        currentCount: assetsRaw.length,
+        totalCount, // ✅ الآن لدينا totalCount
+        startIndex, // ✅ تم حسابه بشكل صحيح
+      }}
     />
   );
 }

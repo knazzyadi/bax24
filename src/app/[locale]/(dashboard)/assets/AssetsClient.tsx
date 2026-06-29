@@ -3,16 +3,26 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useLocale } from "next-intl";
 import {
-  Package, AlertCircle, Wrench, CheckCircle2, MapPin, Calendar,
-  Edit, Trash2, Loader2, ChevronLeft, ChevronRight
+  Package,
+  AlertCircle,
+  Wrench,
+  CheckCircle2,
+  MapPin,
+  Calendar,
+  Edit,
+  Trash2,
+  Loader2,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Asset, AssetType, AssetStatus } from "@/types/assets";
 import { DataList, type FilterSection, type ItemActions } from "@/components/shared/DataList";
 
-// ✅ دالة الحصول على الموقع الكامل (نفس المستخدمة في التصيير)
+// ========== دوال مساعدة ==========
 function getFullLocation(asset: Asset, isRtl: boolean): string {
   const room = asset.room;
   if (!room) return isRtl ? "موقع غير محدد" : "Location not set";
@@ -30,9 +40,14 @@ function getFullLocation(asset: Asset, isRtl: boolean): string {
 
 function getStatusDisplay(status: AssetStatus | null | undefined, isRtl: boolean) {
   if (!status) {
-    return { label: isRtl ? "بدون حالة" : "No status", color: "#6b7280", icon: AlertCircle, hex: "#6b7280" };
+    return {
+      label: isRtl ? "بدون حالة" : "No status",
+      color: "#6b7280",
+      icon: AlertCircle,
+      hex: "#6b7280",
+    };
   }
-  const name = isRtl ? status.name : (status.nameEn || status.name);
+  const name = isRtl ? status.name : status.nameEn || status.name;
   const colorHex = status.color || "#6b7280";
   let Icon = CheckCircle2;
   const nameLower = name.toLowerCase();
@@ -43,7 +58,7 @@ function getStatusDisplay(status: AssetStatus | null | undefined, isRtl: boolean
 
 function getTypeDisplay(type: AssetType | null | undefined, isRtl: boolean) {
   if (!type) return isRtl ? "غير مصنف" : "Uncategorized";
-  return isRtl ? type.name : (type.nameEn || type.name);
+  return isRtl ? type.name : type.nameEn || type.name;
 }
 
 function formatDate(dateStr?: string | null, isRtl?: boolean): string {
@@ -51,6 +66,7 @@ function formatDate(dateStr?: string | null, isRtl?: boolean): string {
   return new Date(dateStr).toLocaleDateString(isRtl ? "ar-SA" : "en-US");
 }
 
+// ========== Props ==========
 interface AssetsClientProps {
   initialAssets: Asset[];
   assetTypes: AssetType[];
@@ -59,8 +75,17 @@ interface AssetsClientProps {
   typeId: string;
   statusId: string;
   locale: string;
+  pagination: {
+    hasMore: boolean;
+    nextUrl: string | null;
+    prevUrl: string | null;
+    currentCount: number;
+    totalCount: number;
+    startIndex: number; // ✅ إضافة startIndex من الخادم
+  };
 }
 
+// ========== المكون الرئيسي ==========
 export default function AssetsClient({
   initialAssets,
   assetTypes,
@@ -69,6 +94,7 @@ export default function AssetsClient({
   typeId,
   statusId,
   locale,
+  pagination,
 }: AssetsClientProps) {
   const router = useRouter();
   const isRtl = locale === "ar";
@@ -76,17 +102,13 @@ export default function AssetsClient({
   const [searchTerm, setSearchTerm] = useState(q);
   const [selectedTypeId, setSelectedTypeId] = useState(typeId || "all");
   const [selectedStatusId, setSelectedStatusId] = useState(statusId || "all");
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
 
-  // ✅ دالة للتحقق من تطابق مصطلح البحث مع اسم الأصل أو الكود أو الموقع
+  // البحث والفلترة
   const assetMatchesSearch = (asset: Asset, term: string): boolean => {
     const lowerTerm = term.toLowerCase();
-    // بحث في الاسم والكود
     if (asset.name.toLowerCase().includes(lowerTerm)) return true;
     if (asset.nameEn?.toLowerCase().includes(lowerTerm)) return true;
     if (asset.code.toLowerCase().includes(lowerTerm)) return true;
-    // بحث في الموقع (كامل السلسلة)
     const location = getFullLocation(asset, isRtl);
     if (location.toLowerCase().includes(lowerTerm)) return true;
     return false;
@@ -95,25 +117,23 @@ export default function AssetsClient({
   const filteredAssets = useMemo(() => {
     let result = [...initialAssets];
     if (searchTerm) {
-      result = result.filter(asset => assetMatchesSearch(asset, searchTerm));
+      result = result.filter((asset) => assetMatchesSearch(asset, searchTerm));
     }
     if (selectedTypeId !== "all") {
-      result = result.filter(asset => asset.type?.id === selectedTypeId);
+      result = result.filter((asset) => asset.type?.id === selectedTypeId);
     }
     if (selectedStatusId !== "all") {
-      result = result.filter(asset => asset.status?.id === selectedStatusId);
+      result = result.filter((asset) => asset.status?.id === selectedStatusId);
     }
     return result;
   }, [initialAssets, searchTerm, selectedTypeId, selectedStatusId, isRtl]);
 
-  const totalItems = filteredAssets.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
-  const paginatedItems = filteredAssets.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
-
-  // دالة الحذف (بدون تغيير)
+  // ===== دوال الحذف والتعديل =====
   const handleDeleteAsset = async (id: string, name: string) => {
     const confirmed = window.confirm(
-      isRtl ? `⚠️ هل أنت متأكد من حذف الأصل "${name}"؟ لا يمكن التراجع عن هذا الإجراء.` : `⚠️ Are you sure you want to delete "${name}"? This action cannot be undone.`
+      isRtl
+        ? `⚠️ هل أنت متأكد من حذف الأصل "${name}"؟ لا يمكن التراجع عن هذا الإجراء.`
+        : `⚠️ Are you sure you want to delete "${name}"? This action cannot be undone.`
     );
     if (!confirmed) return;
 
@@ -138,13 +158,17 @@ export default function AssetsClient({
     router.push(`/${locale}/assets/${id}/edit`);
   };
 
+  // ===== الفلاتر =====
   const filterSections: FilterSection[] = [
     {
       id: "typeId",
       label: isRtl ? "النوع" : "Type",
       options: [
         { value: "all", label: isRtl ? "جميع الأنواع" : "All Types" },
-        ...assetTypes.map(t => ({ value: t.id, label: isRtl ? t.name : (t.nameEn || t.name) }))
+        ...assetTypes.map((t) => ({
+          value: t.id,
+          label: isRtl ? t.name : t.nameEn || t.name,
+        })),
       ],
     },
     {
@@ -152,7 +176,10 @@ export default function AssetsClient({
       label: isRtl ? "الحالة" : "Status",
       options: [
         { value: "all", label: isRtl ? "جميع الحالات" : "All Statuses" },
-        ...assetStatuses.map(s => ({ value: s.id, label: isRtl ? s.name : (s.nameEn || s.name) }))
+        ...assetStatuses.map((s) => ({
+          value: s.id,
+          label: isRtl ? s.name : s.nameEn || s.name,
+        })),
       ],
     },
   ];
@@ -165,9 +192,18 @@ export default function AssetsClient({
   const onFilterChange = (sectionId: string, value: string) => {
     if (sectionId === "typeId") setSelectedTypeId(value);
     else if (sectionId === "statusId") setSelectedStatusId(value);
-    setCurrentPage(1);
+
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (selectedTypeId !== "all" && sectionId !== "typeId")
+      params.set("typeId", selectedTypeId);
+    if (selectedStatusId !== "all" && sectionId !== "statusId")
+      params.set("statusId", selectedStatusId);
+    if (value !== "all") params.set(sectionId, value);
+    router.push(`/${locale}/assets?${params.toString()}`);
   };
 
+  // ===== عرض عنصر الأصل =====
   const renderAssetItem = (asset: Asset, actions: ItemActions) => {
     const statusInfo = getStatusDisplay(asset.status, isRtl);
     const Icon = statusInfo.icon;
@@ -184,14 +220,17 @@ export default function AssetsClient({
         className="group flex flex-col md:flex-row items-start md:items-center gap-6 bg-card hover:bg-secondary/40 border border-border rounded-[2rem] p-5 px-8 transition-all duration-300 cursor-pointer"
         onClick={() => router.push(`/${locale}/assets/${asset.id}`)}
       >
-        <div className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105" style={glowStyle}>
+        <div
+          className="h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-105"
+          style={glowStyle}
+        >
           <Icon size={24} style={{ color: statusColor }} />
         </div>
 
         <div className="flex-1 min-w-0 space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-normal group-hover:text-primary transition-colors duration-200 truncate leading-none text-foreground">
-              {isRtl ? asset.name : (asset.nameEn || asset.name)}
+              {isRtl ? asset.name : asset.nameEn || asset.name}
             </h3>
           </div>
           <div className="flex items-center gap-2 text-[11px] font-normal text-muted-foreground">
@@ -203,11 +242,21 @@ export default function AssetsClient({
             </div>
             <div className="flex items-center gap-2">
               <Calendar size={12} />
-              <span>{asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString(isRtl ? 'ar-SA' : 'en-US') : "—"}</span>
+              <span>
+                {asset.purchaseDate
+                  ? new Date(asset.purchaseDate).toLocaleDateString(
+                      isRtl ? "ar-SA" : "en-US"
+                    )
+                  : "—"}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Wrench size={12} />
-              <span>{asset.lastMaintenanceDate ? formatDate(asset.lastMaintenanceDate, isRtl) : "—"}</span>
+              <span>
+                {asset.lastMaintenanceDate
+                  ? formatDate(asset.lastMaintenanceDate, isRtl)
+                  : "—"}
+              </span>
             </div>
           </div>
         </div>
@@ -219,7 +268,10 @@ export default function AssetsClient({
         </div>
 
         <div className="flex items-center gap-4 shrink-0" onClick={(e) => e.stopPropagation()}>
-          <span className="rounded-full font-black text-sm px-4 py-1.5 border-none shadow-md inline-flex items-center gap-1" style={glowStyle}>
+          <span
+            className="rounded-full font-black text-sm px-4 py-1.5 border-none shadow-md inline-flex items-center gap-1"
+            style={glowStyle}
+          >
             <Icon size={14} style={{ color: statusColor }} /> {statusInfo.label}
           </span>
           <div className="flex items-center gap-2">
@@ -231,7 +283,9 @@ export default function AssetsClient({
               <Edit size={18} />
             </button>
             <button
-              onClick={() => actions.delete(asset.id, isRtl ? asset.name : (asset.nameEn || asset.name))}
+              onClick={() =>
+                actions.delete(asset.id, isRtl ? asset.name : asset.nameEn || asset.name)
+              }
               disabled={actions.isDeleting && actions.deletingId === asset.id}
               className="p-2 rounded-full bg-destructive/10 text-destructive hover:bg-destructive/20 transition-all duration-200 hover:scale-110 disabled:opacity-50"
             >
@@ -250,29 +304,75 @@ export default function AssetsClient({
     );
   };
 
+  // ===== حساب نطاق الأرقام المعروضة باستخدام startIndex من الخادم =====
+  const startIndex = pagination.startIndex;
+  const endIndex = pagination.startIndex + pagination.currentCount - 1;
+
+  // حساب عدد الصفحات الصحيح للـ DataList (لن يستخدم لأننا أخفينا الترقيم)
+  const itemsPerPage = 30;
+  const totalPages = Math.ceil(pagination.totalCount / itemsPerPage);
+
   return (
-    <DataList
-      title={isRtl ? "الأصول والمعدات" : "Assets & Equipment"}
-      subtitle={isRtl ? "إدارة الأصول المركزية ومتابعة الحالة التشغيلية" : "Central asset management and operational status tracking"}
-      icon={<Package size={28} />}
-      addButtonLabel={isRtl ? "إضافة أصل جديد" : "Add New Asset"}
-      addButtonLink={`/${locale}/assets/new`}
-      searchPlaceholder={isRtl ? "بحث باسم الأصل، الكود، أو الموقع..." : "Search by asset name, code, or location..."}
-      searchValue={searchTerm}
-      onSearchChange={setSearchTerm}
-      filterSections={filterSections}
-      filterValues={filterValues}
-      onFilterChange={onFilterChange}
-      items={paginatedItems}
-      total={totalItems}
-      currentPage={currentPage}
-      totalPages={totalPages}
-      onPageChange={setCurrentPage}
-      renderItem={renderAssetItem}
-      emptyMessage={isRtl ? "لا توجد أصول لعرضها" : "No assets to display"}
-      onEdit={handleEditAsset}
-      onDelete={handleDeleteAsset}
-      itemsPerPage={itemsPerPage}
-    />
+    <>
+      <DataList
+        title={isRtl ? "الأصول والمعدات" : "Assets & Equipment"}
+        subtitle={
+          isRtl
+            ? "إدارة الأصول المركزية ومتابعة الحالة التشغيلية"
+            : "Central asset management and operational status tracking"
+        }
+        icon={<Package size={28} />}
+        addButtonLabel={isRtl ? "إضافة أصل جديد" : "Add New Asset"}
+        addButtonLink={`/${locale}/assets/new`}
+        searchPlaceholder={
+          isRtl
+            ? "بحث باسم الأصل، الكود، أو الموقع..."
+            : "Search by asset name, code, or location..."
+        }
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        filterSections={filterSections}
+        filterValues={filterValues}
+        onFilterChange={onFilterChange}
+        items={filteredAssets}
+        total={pagination.totalCount}
+        currentPage={1}
+        totalPages={totalPages}
+        onPageChange={() => {}}
+        renderItem={renderAssetItem}
+        emptyMessage={isRtl ? "لا توجد أصول لعرضها" : "No assets to display"}
+        onEdit={handleEditAsset}
+        onDelete={handleDeleteAsset}
+        itemsPerPage={itemsPerPage}
+        showPagination={false}
+      />
+
+      {/* ===== عرض العدد الصحيح مع startIndex ===== */}
+      <div className="flex items-center justify-between mt-6 px-4">
+        <div className="text-sm text-muted-foreground">
+          {isRtl
+            ? `عرض ${startIndex} - ${endIndex} من ${pagination.totalCount}`
+            : `Showing ${startIndex} - ${endIndex} of ${pagination.totalCount}`}
+        </div>
+        <div className="flex gap-3">
+          {pagination.prevUrl && (
+            <Link
+              href={pagination.prevUrl}
+              className="px-4 py-2 border border-border rounded-xl text-sm font-medium hover:bg-secondary transition-colors"
+            >
+              {isRtl ? "السابق" : "Previous"}
+            </Link>
+          )}
+          {pagination.nextUrl && (
+            <Link
+              href={pagination.nextUrl}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              {isRtl ? "التالي" : "Next"}
+            </Link>
+          )}
+        </div>
+      </div>
+    </>
   );
 }

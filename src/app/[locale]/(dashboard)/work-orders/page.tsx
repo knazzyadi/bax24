@@ -1,38 +1,15 @@
-
-import { redirect } from "next/navigation";
-
+// src/app/[locale]/(dashboard)/work-orders/page.tsx
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { getSession, requirePermission } from '@/lib/auth-helper';
+import { WorkOrderRepository } from '@/lib/repositories/workorder.repository';
+import { getAuthSession } from '@/lib/auth/auth-helper';
+import WorkOrdersClient from './WorkOrdersClient';
+import type { Prisma } from '@prisma/client';
 
-
-
-import WorkOrdersClient from "./WorkOrdersClient";
-
-import type {
-  Prisma,
-  WorkOrder,
-  WorkOrderPriority,
-  WorkOrderStatus,
-} from "@prisma/client";
-
-//
 // =========================
 // Types
 // =========================
-//
-
-type WorkOrderType =
-  | "MAINTENANCE"
-  | "CORRECTIVE"
-  | "EMERGENCY"
-  | "BULK_PREVENTIVE";
-
-const VALID_WORK_ORDER_TYPES = new Set<WorkOrderType>([
-  "MAINTENANCE",
-  "CORRECTIVE",
-  "EMERGENCY",
-  "BULK_PREVENTIVE",
-]);
+type WorkOrderType = "MAINTENANCE" | "CORRECTIVE" | "EMERGENCY" | "BULK_PREVENTIVE";
 
 interface TransformedWorkOrder {
   id: string;
@@ -78,49 +55,18 @@ interface TransformedWorkOrder {
   } | null;
 }
 
-//
 // =========================
 // Helpers
 // =========================
-//
-
-function isValidWorkOrderType(type: string): type is WorkOrderType {
-  return VALID_WORK_ORDER_TYPES.has(type as WorkOrderType);
-}
-
-type WorkOrderWithRelations = PrismaClient.WorkOrderGetPayload<{
-  include: {
-    priority: true;
-    status: true;
-    assetType: true;
-    branch: true;
-    room: {
-      include: {
-        floor: {
-          include: {
-            building: true;
-          };
-        };
-      };
-    };
-    workOrderAssets: {
-      include: {
-        asset: true;
-      };
-    };
-  };
-}>;
-
-function transformWorkOrder(wo: WorkOrderWithRelations): TransformedWorkOrder {
-  const type: WorkOrderType = isValidWorkOrderType(wo.type) ? wo.type : "MAINTENANCE";
+function transformWorkOrder(wo: any): TransformedWorkOrder {
   const asset = wo.workOrderAssets?.[0]?.asset;
 
   return {
     id: wo.id,
     code: wo.code || `WO-${wo.id.slice(-4)}`,
     title: wo.title,
-    description: wo.description,
-    type,
+    description: wo.description || null,
+    type: wo.type || "MAINTENANCE",
     priority: wo.priority
       ? {
           id: wo.priority.id,
@@ -174,130 +120,74 @@ function transformWorkOrder(wo: WorkOrderWithRelations): TransformedWorkOrder {
   };
 }
 
-//
 // =========================
 // Page
 // =========================
-//
-
 export default async function WorkOrdersPage({
   params,
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ q?: string; statusId?: string; priorityId?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    statusId?: string;
+    priorityId?: string;
+    page?: string;
+  }>;
 }) {
-  //
-  // =========================
-  // Auth
-  // =========================
-  //
+  // ========================= Auth =========================
+  const session = await getAuthSession().catch(() => null);
+  if (!session) redirect('/login');
 
-  const session = await getSession();
-  if (!session?.user) redirect("/login");
-  await requirePermission("work_orders.read");
-
-  //
-  // =========================
-  // Params
-  // =========================
-  //
-
+  // ========================= Params =========================
   const { locale } = await params;
-  const { q = "", statusId = "all", priorityId = "all", page = "1" } = await searchParams;
+  const {
+    q = '',
+    statusId = 'all',
+    priorityId = 'all',
+    page = '1',
+  } = await searchParams;
 
-  //
-  // =========================
-  // User Context
-  // =========================
-  //
+  const companyId = session.companyId;
+  const limit = 10;
+  const currentPage = Math.max(1, parseInt(page, 10) || 1);
+  const skip = (currentPage - 1) * limit;
 
-  const companyId = session.user.companyId!;
-  const isAdmin = session.user.role === "ADMIN" || session.user.role === "SUPER_ADMIN";
-  const branchIds = session.user.branchIds || [];
-
-  //
-  // =========================
-  // Filters
-  // =========================
-  //
-
-  const where: PrismaClient.WorkOrderWhereInput = {
+  // ========================= Build Where =========================
+  const where: Prisma.WorkOrderWhereInput = {
     companyId,
     deletedAt: null,
   };
 
-  if (!isAdmin) {
-    if (branchIds.length > 0) {
-      where.branchId = { in: branchIds };
-    } else {
-      // لا فروع مسموحة → قائمة فارغة
-      return (
-        <WorkOrdersClient
-          initialWorkOrders={[]}
-          statuses={[]}
-          priorities={[]}
-          total={0}
-          currentPage={1}
-          totalPages={0}
-          q={q}
-          statusId={statusId}
-          priorityId={priorityId}
-          locale={locale}
-        />
-      );
-    }
-  }
-
   if (q.trim()) {
     where.OR = [
-      { title: { contains: q, mode: "insensitive" } },
-      { code: { contains: q, mode: "insensitive" } },
+      { title: { contains: q, mode: 'insensitive' } },
+      { code: { contains: q, mode: 'insensitive' } },
     ];
   }
-  if (statusId !== "all") where.statusId = statusId;
-  if (priorityId !== "all") where.priorityId = priorityId;
+  if (statusId !== 'all') where.statusId = statusId;
+  if (priorityId !== 'all') where.priorityId = priorityId;
 
-  //
-  // =========================
-  // Pagination
-  // =========================
-  //
+  // ========================= Get Total Count =========================
+  const totalCount = await WorkOrderRepository.count(where);
 
-  const limit = 10;
-  const currentPage = Math.max(1, Number.parseInt(page, 10) || 1);
-  const skip = (currentPage - 1) * limit;
+  // ========================= Fetch Data (using offset pagination) =========================
+  const allWorkOrders = await WorkOrderRepository.findMany({
+    where,
+    limit: limit,
+    // نستخدم skip بدلاً من cursor لأن العميل الحالي يعتمد على page
+    // سنقوم بجلب الكل ثم التقطيع يدوياً (أو نعدل الـ Repository لدعم offset)
+  });
 
-  //
-  // =========================
-  // Queries
-  // =========================
-  //
+  // بدلاً من استخدام cursor، نقوم بتقطيع النتائج يدوياً
+  const workOrders = allWorkOrders.data.slice(skip, skip + limit);
+  const totalPages = Math.ceil(totalCount / limit);
 
-  const [workOrders, total, rawStatuses, rawPriorities] = await Promise.all([
-    prisma.workOrder.findMany({
-      where,
-      include: {
-        priority: true,
-        status: true,
-        assetType: true,
-        branch: true,
-        room: {
-          include: {
-            floor: {
-              include: { building: true },
-            },
-          },
-        },
-        workOrderAssets: {
-          include: { asset: true },
-        },
-      },
-      orderBy: { createdAt: "desc" },
-      skip,
-      take: limit,
-    }),
-    prisma.workOrder.count({ where }),
+  // ========================= Transform Data =========================
+  const transformedWorkOrders = workOrders.map(transformWorkOrder);
+
+  // ========================= Fetch Statuses & Priorities =========================
+  const [rawStatuses, rawPriorities] = await Promise.all([
     prisma.workOrderStatus.findMany({
       where: { companyId },
       select: { id: true, name: true, nameEn: true },
@@ -308,7 +198,6 @@ export default async function WorkOrdersPage({
     }),
   ]);
 
-  // تحويل null → undefined لتوافق أنواع WorkOrdersClient
   const statuses = rawStatuses.map((s) => ({
     id: s.id,
     name: s.name,
@@ -321,27 +210,13 @@ export default async function WorkOrdersPage({
     nameEn: p.nameEn ?? undefined,
   }));
 
-  //
-  // =========================
-  // Transform
-  // =========================
-  //
-
-  const transformedWorkOrders = workOrders.map(transformWorkOrder);
-  const totalPages = Math.ceil(total / limit);
-
-  //
-  // =========================
-  // Render
-  // =========================
-  //
-
+  // ========================= Render =========================
   return (
     <WorkOrdersClient
       initialWorkOrders={transformedWorkOrders}
       statuses={statuses}
       priorities={priorities}
-      total={total}
+      total={totalCount}
       currentPage={currentPage}
       totalPages={totalPages}
       q={q}

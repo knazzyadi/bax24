@@ -123,6 +123,9 @@ model Building {
   vehicles             Vehicle[] // <- إضافة هذا
 
   @@map("buildings")
+  @@index([companyId, deletedAt])
+  @@index([branchId])
+  @@index([createdAt])
 }
 
 model Floor {
@@ -239,6 +242,8 @@ model Asset {
   @@index([buildingId])
   @@index([deletedAt])
   @@map("assets")
+  @@index([companyId, deletedAt]) // فهرس مركب مهم
+  @@index([createdAt])            // لتسريع الترتيب
 }
 
 model AssetCounter {
@@ -277,6 +282,9 @@ model InventoryItem {
   @@index([companyId])
   @@index([roomId])
   @@index([sku])
+  @@index([companyId, deletedAt])
+  @@index([createdAt])   // اختياري لكن مفيد
+  @@map("inventory_items")
 }
 
 model WorkOrderInventory {
@@ -341,6 +349,9 @@ model Contract {
   @@index([status])
   @@index([startDate])
   @@index([endDate])
+  @@index([companyId, deletedAt])
+  @@index([createdAt])
+  @@map("contracts")
 }
 
 model WorkOrder {
@@ -373,11 +384,16 @@ model WorkOrder {
   attachments        WorkOrderAttachment[]
   workOrderInventory WorkOrderInventory[]
 
+  
+  @@index([companyId, deletedAt])
   @@unique([branchId, branchSeqNum])
   @@index([companyId])
   @@index([branchId])
   @@index([roomId])
   @@index([statusId])
+  @@index([priorityId])        // جدد (غير موجود)
+  @@index([createdAt])         // جدد
+  @@map("work_orders") // تحقق من اسم الخريطة الفعلي
 }
 
 model WorkOrderAsset {
@@ -519,6 +535,9 @@ model Ticket {
   @@index([roomId])
   @@index([status])
   @@index([branchSeqNum])
+  @@index([companyId, deletedAt])
+  @@index([createdAt])
+  @@map("tickets")
 }
 
 enum TicketType {

@@ -1,13 +1,10 @@
 // src/components/shared/DataList.tsx
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo, ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { Search, X, ChevronLeft, ChevronRight, Plus, RotateCcw } from "lucide-react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
+import Link from "next/link";
+import { Search, Plus, ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
 
 export interface FilterOption {
   value: string;
@@ -20,84 +17,109 @@ export interface FilterSection {
   options: FilterOption[];
 }
 
-export interface DataListProps<T> {
-  title: string;
-  subtitle?: string;
-  icon?: React.ReactNode;
+export interface ItemActions {
+  edit: (id: string) => void;
+  delete: (id: string, name: string) => void;
+  isDeleting: boolean;
+  deletingId: string | null;
+}
+
+export interface DataListProps<T = any> {
+  // البيانات الأساسية
   items: T[];
   total: number;
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
-  searchValue: string;
-  onSearchChange: (value: string) => void;
-  searchPlaceholder?: string;
-  filterSections?: FilterSection[];
-  filterValues?: Record<string, string>;
-  onFilterChange: (sectionId: string, value: string) => void;
-  sortOptions?: { value: string; label: string }[];
-  sortValue?: string;
-  onSortChange?: (value: string) => void;
-  onReset?: () => void;
+  itemsPerPage?: number;
+
+  // عرض العناصر
+  renderItem: (item: T, actions: ItemActions) => ReactNode;
+
+  // العنوان والوصف
+  title?: string;
+  subtitle?: string;
+  icon?: ReactNode;
+
+  // إضافة جديدة
   addButtonLabel?: string;
   addButtonLink?: string;
-  renderItem: (item: T, actions: ItemActions) => React.ReactNode;
+
+  // البحث
+  searchPlaceholder?: string;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  searchDebounce?: number;
+
+  // الفلاتر
+  filterSections?: FilterSection[];
+  filterValues?: Record<string, string>;
+  onFilterChange?: (sectionId: string, value: string) => void;
+  onReset?: () => void; // ✅ إضافة onReset
+
+  // العمليات
+  onEdit?: (id: string) => void;
+  onDelete?: (id: string, name: string) => Promise<void>;
+
+  // رسائل فارغة
   emptyMessage?: string;
-  onEdit: (id: string) => void;
-  onDelete: (id: string, name: string) => Promise<void>;
-  onView?: (id: string) => void;
-  itemsPerPage?: number;
+
+  // إخفاء الـ Pagination الداخلي
+  showPagination?: boolean;
+
+  // إضافات
   className?: string;
 }
 
-export interface ItemActions {
-  edit: (id: string) => void;
-  delete: (id: string, name: string) => void;
-  view?: (id: string) => void;
-  isDeleting: boolean;
-  deletingId: string | null;
-}
-
-export function DataList<T extends { id: string }>({
-  title,
-  subtitle,
-  icon,
+export function DataList<T extends { id: string; name?: string }>({
   items,
   total,
   currentPage,
   totalPages,
   onPageChange,
-  searchValue,
-  onSearchChange,
+  itemsPerPage = 10,
+
+  renderItem,
+
+  title,
+  subtitle,
+  icon,
+
+  addButtonLabel,
+  addButtonLink,
+
   searchPlaceholder = "بحث...",
+  searchValue = "",
+  onSearchChange,
+  searchDebounce = 300,
+
   filterSections = [],
   filterValues = {},
   onFilterChange,
-  sortOptions,
-  sortValue,
-  onSortChange,
-  onReset,
-  addButtonLabel,
-  addButtonLink,
-  renderItem,
-  emptyMessage = "لا توجد عناصر",
+  onReset, // ✅ استقبال onReset
+
   onEdit,
   onDelete,
-  onView,
-  itemsPerPage = 10,
-  className,
-}: DataListProps<T>) {
+
+  emptyMessage = "لا توجد بيانات",
+
+  showPagination = true,
+
+  className = "",
+}: DataListProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // دالة الحذف
   const handleDelete = async (id: string, name: string) => {
+    if (!onDelete) return;
     setIsDeleting(true);
     setDeletingId(id);
     try {
       await onDelete(id, name);
     } catch (error) {
-      console.error(error);
+      console.error("Delete error:", error);
     } finally {
       setIsDeleting(false);
       setDeletingId(null);
@@ -105,147 +127,132 @@ export function DataList<T extends { id: string }>({
   };
 
   const actions: ItemActions = {
-    edit: onEdit,
-    delete: handleDelete,
-    view: onView,
+    edit: (id: string) => {
+      if (onEdit) onEdit(id);
+    },
+    delete: (id: string, name: string) => {
+      handleDelete(id, name);
+    },
     isDeleting,
     deletingId,
   };
 
-  const startItem = (currentPage - 1) * itemsPerPage + 1;
-  const endItem = Math.min(startItem + itemsPerPage - 1, total);
-
-  const getCurrentFilterLabel = (section: FilterSection): string => {
-    const currentValue = filterValues[section.id] || "all";
-    const option = section.options.find(opt => opt.value === currentValue);
-    return option ? option.label : section.label;
+  // دالة التنقل للصفحات
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages && page !== currentPage) {
+      onPageChange(page);
+    }
   };
 
-  const getCurrentSortLabel = (): string => {
-    if (!sortValue || !sortOptions) return "ترتيب حسب";
-    const option = sortOptions.find(opt => opt.value === sortValue);
-    return option ? option.label : "ترتيب حسب";
-  };
+  // حساب نطاق الأرقام المعروضة
+  const startIndex = total > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
+  const endIndex = Math.min(currentPage * itemsPerPage, total);
 
   return (
-    <div className={cn("space-y-6", className)}>
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          {icon && <div className="text-primary">{icon}</div>}
-          <div>
-            {/* تغيير font-black إلى font-medium */}
-            <h1 className="text-2xl font-medium tracking-tight">{title}</h1>
-            {subtitle && <p className="text-muted-foreground text-sm mt-0.5">{subtitle}</p>}
+    <div className={`space-y-4 ${className}`}>
+      {/* رأس الصفحة */}
+      {(title || addButtonLabel) && (
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div className="flex items-center gap-3">
+            {icon && <div className="text-primary">{icon}</div>}
+            <div>
+              {title && <h2 className="text-2xl font-bold">{title}</h2>}
+              {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+            </div>
           </div>
+          {addButtonLabel && addButtonLink && (
+            <Link
+              href={addButtonLink}
+              className="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-colors"
+            >
+              <Plus size={18} />
+              {addButtonLabel}
+            </Link>
+          )}
         </div>
-        {addButtonLabel && addButtonLink && (
-          // تغيير font-black إلى font-medium
-          <Button onClick={() => router.push(addButtonLink)} className="rounded-full font-medium">
-            {addButtonLabel}
-          </Button>
-        )}
-      </div>
+      )}
 
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder={searchPlaceholder}
-            value={searchValue}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="pl-10 pr-10 rounded-full bg-background border-border"
-          />
-          {searchValue && (
-            <button onClick={() => onSearchChange("")} className="absolute left-3 top-1/2 -translate-y-1/2">
-              <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+      {/* البحث والفلاتر */}
+      {(onSearchChange || filterSections.length > 0 || onReset) && (
+        <div className="flex flex-wrap items-center gap-3">
+          {onSearchChange && (
+            <div className="relative flex-1 min-w-[200px]">
+              <Search className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder={searchPlaceholder}
+                value={searchValue}
+                onChange={(e) => onSearchChange(e.target.value)}
+                className="w-full pr-10 pl-4 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+          )}
+          {filterSections.map((section) => (
+            <div key={section.id} className="flex items-center gap-2">
+              <Filter size={16} className="text-muted-foreground" />
+              <select
+                value={filterValues[section.id] || "all"}
+                onChange={(e) => onFilterChange?.(section.id, e.target.value)}
+                className="px-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                {section.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ))}
+          {onReset && (
+            <button
+              onClick={onReset}
+              className="inline-flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <X size={16} />
+              {searchValue || Object.values(filterValues).some(v => v !== "all") ? "إعادة تعيين" : ""}
             </button>
           )}
         </div>
+      )}
 
-        {filterSections.map((section) => (
-          <Select
-            key={section.id}
-            value={filterValues[section.id] || "all"}
-            onValueChange={(val) => onFilterChange(section.id, val)}
-          >
-            <SelectTrigger className="w-[180px] rounded-full h-10 border-border">
-              {getCurrentFilterLabel(section)}
-            </SelectTrigger>
-            <SelectContent>
-              {section.options.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        ))}
-
-        {sortOptions && sortOptions.length > 0 && onSortChange && (
-          <Select value={sortValue || ""} onValueChange={onSortChange}>
-            <SelectTrigger className="w-[180px] rounded-full h-10 border-border">
-              {getCurrentSortLabel()}
-            </SelectTrigger>
-            <SelectContent>
-              {sortOptions.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value}>
-                  {opt.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-
-        {onReset && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onReset}
-            className="rounded-full h-10 px-3"
-            title="إعادة تعيين الفلاتر"
-          >
-            <RotateCcw className="h-4 w-4" />
-            <span className="hidden md:inline ml-1">إعادة ضبط</span>
-          </Button>
+      {/* قائمة العناصر */}
+      <div className="space-y-3">
+        {items.length === 0 ? (
+          <div className="text-center py-12 text-muted-foreground">{emptyMessage}</div>
+        ) : (
+          items.map((item) => renderItem(item, actions))
         )}
       </div>
 
-      {items.length === 0 ? (
-        <div className="text-center py-12 text-muted-foreground">{emptyMessage}</div>
-      ) : (
-        <div className="space-y-4">{items.map((item) => renderItem(item, actions))}</div>
-      )}
-
-      {total > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-4 pt-4">
+      {/* Pagination الداخلي - يظهر فقط إذا showPagination = true */}
+      {showPagination && totalPages > 1 && (
+        <div className="flex items-center justify-between mt-4 px-4">
           <div className="text-sm text-muted-foreground">
-            عرض {startItem} - {endItem} من {total}
+            عرض {startIndex} - {endIndex} من {total}
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(currentPage - 1)}
+            <button
+              onClick={() => goToPage(currentPage - 1)}
               disabled={currentPage === 1}
-              className="rounded-full h-8 w-8 p-0"
+              className="p-2 rounded-lg border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <span className="text-sm font-medium px-2">
+              <ChevronRight size={18} />
+            </button>
+            <span className="px-3 py-1 text-sm font-medium">
               {currentPage} / {totalPages}
             </span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => onPageChange(currentPage + 1)}
+            <button
+              onClick={() => goToPage(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="rounded-full h-8 w-8 p-0"
+              className="p-2 rounded-lg border border-border hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              <ChevronLeft size={18} />
+            </button>
           </div>
         </div>
       )}
     </div>
   );
 }
+
+export default DataList;

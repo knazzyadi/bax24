@@ -105,7 +105,9 @@ export default function RoomsClient({
       setEditing(null);
       setForm({ name: '', nameEn: '', code: '', order: 0, floorId: '', buildingId: '' });
       setShowForm(false);
-      router.refresh();
+      
+      // ✅ إعادة تحميل الصفحة لعرض البيانات الجديدة
+      router.replace(`/${locale}/locations/rooms`);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {
@@ -124,7 +126,7 @@ export default function RoomsClient({
         return;
       }
       setMessage({ type: 'success', text: t('deleteSuccess') || 'تم الحذف بنجاح' });
-      router.refresh();
+      router.replace(`/${locale}/locations/rooms`);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {

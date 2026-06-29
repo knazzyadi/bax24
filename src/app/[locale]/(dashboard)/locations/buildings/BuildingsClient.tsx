@@ -1,4 +1,4 @@
-// src/app/[locale]/(dashboard)/buildings/BuildingsClient.tsx
+// src/app/[locale]/(dashboard)/locations/buildings/BuildingsClient.tsx
 'use client';
 
 import { useState } from 'react';
@@ -71,7 +71,7 @@ export default function BuildingsClient({
       setEditing(null);
       setForm({ name: '', nameEn: '', code: '', order: 0, branchId: '' });
       setShowForm(false);
-      router.refresh();
+      router.replace(`/${locale}/locations/buildings`);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {
@@ -90,7 +90,7 @@ export default function BuildingsClient({
         return;
       }
       setMessage({ type: 'success', text: t('deleteSuccess') || 'تم الحذف بنجاح' });
-      router.refresh();
+      router.replace(`/${locale}/locations/buildings`);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {

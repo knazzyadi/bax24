@@ -75,7 +75,7 @@ export default function FloorsClient({
       setEditing(null);
       setForm({ name: '', nameEn: '', code: '', order: 0, buildingId: '' });
       setShowForm(false);
-      router.refresh();
+      router.replace(`/${locale}/locations/floors`);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {
@@ -94,7 +94,7 @@ export default function FloorsClient({
         return;
       }
       setMessage({ type: 'success', text: t('deleteSuccess') || 'تم الحذف بنجاح' });
-      router.refresh();
+      router.replace(`/${locale}/locations/floors`);
     } catch (err: any) {
       setMessage({ type: 'error', text: err.message });
     } finally {

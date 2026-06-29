@@ -407,7 +407,9 @@
     "loading": "جاري التحميل...",
     "unauthorized": "غير مصرح",
     "noPermission": "ليس لديك صلاحية للوصول إلى هذه الصفحة.",
-    "manageBuildings": "إدارة المباني"
+    "manageBuildings": "إدارة المباني",
+    "branch": "الفرع",
+    "saveSuccess": "تم الحفظ بنجاح"
   },
   "Companies": {
     "title": "إدارة المنظمات",

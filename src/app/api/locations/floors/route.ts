@@ -1,16 +1,21 @@
+// src/app/api/locations/floors/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import { revalidatePath } from 'next/cache';
 
 // GET: جلب الأدوار (يمكن فلترتها حسب buildingId)
 export async function GET(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    const session = await getAuthSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // التحقق من الصلاحية
+    try {
+      await requirePermission('locations.read');
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -58,11 +63,18 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: إضافة دور جديد (للمدير فقط) - بدون تغيير
+// POST: إضافة دور جديد
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    const session = await getAuthSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // التحقق من الصلاحية
+    try {
+      await requirePermission('locations.write');
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 

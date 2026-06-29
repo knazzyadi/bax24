@@ -1,16 +1,21 @@
+// src/app/api/locations/buildings/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import { revalidatePath } from 'next/cache';
 
 // GET: جلب جميع مباني الشركة (للمدير فقط)
 export async function GET() {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    const session = await getAuthSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // التحقق من الصلاحية (يسمح لـ ADMIN و SUPER_ADMIN)
+    try {
+      await requirePermission('locations.read');
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -20,12 +25,12 @@ export async function GET() {
     }
 
     const buildings = await prisma.building.findMany({
-      where: { companyId },
+      where: { companyId, deletedAt: null },
       include: { branch: { select: { id: true, name: true } } },
       orderBy: { order: 'asc' },
     });
 
-    const formatted = buildings.map((b: any) => ({
+    const formatted = buildings.map((b) => ({
       id: b.id,
       name: b.name,
       nameEn: b.nameEn,
@@ -45,8 +50,15 @@ export async function GET() {
 // POST: إضافة مبنى جديد (للمدير فقط)
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    const session = await getAuthSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // التحقق من الصلاحية
+    try {
+      await requirePermission('locations.write');
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 

@@ -1,16 +1,21 @@
+// src/app/api/locations/rooms/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import { revalidatePath } from 'next/cache';
 
-// GET: جلب جميع الغرف الخاصة بمباني الشركة (للمدير فقط)
+// GET: جلب جميع الغرف الخاصة بمباني الشركة
 export async function GET() {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    const session = await getAuthSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // التحقق من الصلاحية
+    try {
+      await requirePermission('locations.read');
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -48,11 +53,18 @@ export async function GET() {
   }
 }
 
-// POST: إضافة غرفة جديدة (للمدير فقط)
+// POST: إضافة غرفة جديدة
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    const session = await getAuthSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // التحقق من الصلاحية
+    try {
+      await requirePermission('locations.write');
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 

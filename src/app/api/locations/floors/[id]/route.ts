@@ -1,23 +1,20 @@
+// src/app/api/locations/floors/[id]/route.ts
 import { NextResponse } from 'next/server';
-
 import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import { revalidatePath } from 'next/cache';
 
-// PUT: تحديث دور (للمدير فقط)
+// PUT: تحديث دور
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    // ✅ التحقق من الجلسة والصلاحية باستخدام النظام المركزي
+    const session = await getAuthenticatedSession() as any;
+    await checkPermission('locations.write');
 
-    const companyId = session.companyId;
+    const companyId = session?.user?.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -91,24 +88,29 @@ export async function PUT(
 
     revalidatePath('/ar/locations/floors');
     return NextResponse.json(updatedFloor);
-  } catch (error) {
+  } catch (error: any) {
     console.error('PUT /api/locations/floors/[id] error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-// DELETE: حذف دور (للمدير فقط)
+// DELETE: حذف دور
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    // ✅ التحقق من الجلسة والصلاحية باستخدام النظام المركزي
+    const session = await getAuthenticatedSession() as any;
+    await checkPermission('locations.write');
 
-    const companyId = session.companyId;
+    const companyId = session?.user?.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -132,15 +134,26 @@ export async function DELETE(
       );
     }
 
-    // يمكنك إضافة تحقق من وجود غرف مرتبطة لاحقاً
-    // const roomsCount = await prisma.room.count({ where: { floorId: id } });
-    // if (roomsCount > 0) { return NextResponse.json(...) }
+    // التحقق من وجود غرف مرتبطة
+    const roomsCount = await prisma.room.count({ where: { floorId: id } });
+    if (roomsCount > 0) {
+      return NextResponse.json(
+        { error: `لا يمكن حذف الدور لأنه يحتوي على ${roomsCount} غرفة مرتبطة` },
+        { status: 409 }
+      );
+    }
 
     await prisma.floor.delete({ where: { id } });
     revalidatePath('/ar/locations/floors');
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('DELETE /api/locations/floors/[id] error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

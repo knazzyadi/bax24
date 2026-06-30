@@ -1,23 +1,20 @@
+// src/app/api/locations/buildings/[id]/route.ts
 import { NextResponse } from 'next/server';
-
 import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import { revalidatePath } from 'next/cache';
 
-// GET: جلب مبنى واحد (للمدير فقط)
+// GET: جلب مبنى واحد
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    // ✅ التحقق من الجلسة باستخدام النظام المركزي
+    const session = await getAuthenticatedSession() as any;
+    await checkPermission('locations.read');
 
-    const companyId = session.companyId;
+    const companyId = session?.user?.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -40,24 +37,29 @@ export async function GET(
     }
 
     return NextResponse.json(building);
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET /api/locations/buildings/[id] error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-// PUT: تحديث مبنى (للمدير فقط)
+// PUT: تحديث مبنى
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    // ✅ التحقق من الجلسة والصلاحية باستخدام النظام المركزي
+    const session = await getAuthenticatedSession() as any;
+    await checkPermission('locations.write');
 
-    const companyId = session.companyId;
+    const companyId = session?.user?.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -116,24 +118,29 @@ export async function PUT(
 
     revalidatePath('/ar/locations/buildings');
     return NextResponse.json(updated);
-  } catch (error) {
+  } catch (error: any) {
     console.error('PUT /api/locations/buildings/[id] error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-// DELETE: حذف مبنى (للمدير فقط)
+// DELETE: حذف مبنى
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    // ✅ التحقق من الجلسة والصلاحية باستخدام النظام المركزي
+    const session = await getAuthenticatedSession() as any;
+    await checkPermission('locations.write');
 
-    const companyId = session.companyId;
+    const companyId = session?.user?.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -166,8 +173,14 @@ export async function DELETE(
     revalidatePath('/ar/locations/buildings');
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('DELETE /api/locations/buildings/[id] error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

@@ -1,9 +1,7 @@
+// src/app/api/locations/rooms/[id]/route.ts
 import { NextResponse } from 'next/server';
-
 import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import { revalidatePath } from 'next/cache';
 
 // دالة مساعدة للتحقق من ملكية الغرفة وصلاحية التعديل/الحذف
@@ -24,26 +22,21 @@ async function getAuthorizedRoom(id: string, companyId: string) {
       assets: { select: { id: true } },
       workOrders: { select: { id: true } },
       inventoryItems: { select: { id: true } },
-      // ✅ تمت إزالة maintenanceReports لأنه غير موجود في نموذج Prisma
-      // maintenanceReports: { select: { id: true } },
     },
   });
 }
 
-// PUT: تحديث غرفة (للمدير فقط)
+// PUT: تحديث غرفة
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    console.log('🔍 PUT /api/locations/rooms/[id] - session:', session?.email);
+    // ✅ التحقق من الجلسة باستخدام النظام المركزي
+    const session = await getAuthenticatedSession() as any; // تجاهل النوع مؤقتاً
+    await checkPermission('locations.write');
 
-    if (!session || session.user?.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    const companyId = session.companyId;
+    const companyId = session?.user?.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -51,8 +44,6 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
     const { name, nameEn, code, order, floorId, buildingId } = body;
-
-    console.log('📦 PUT room data:', { id, name, nameEn, code, order, floorId, buildingId });
 
     if (!name || !code || !floorId || !buildingId) {
       return NextResponse.json(
@@ -115,32 +106,34 @@ export async function PUT(
 
     revalidatePath('/ar/locations/rooms');
     return NextResponse.json(updatedRoom);
-  } catch (error) {
+  } catch (error: any) {
     console.error('PUT /api/locations/rooms/[id] error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-// DELETE: حذف غرفة (للمدير فقط)
+// DELETE: حذف غرفة
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    console.log('🔍 DELETE /api/locations/rooms/[id] - session:', session?.email);
+    // ✅ التحقق من الجلسة باستخدام النظام المركزي
+    const session = await getAuthenticatedSession() as any; // تجاهل النوع مؤقتاً
+    await checkPermission('locations.write');
 
-    if (!session || session.user?.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    const companyId = session.companyId;
+    const companyId = session?.user?.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
     const { id } = await params;
-    console.log('🗑️ DELETE room id:', id);
 
     const room = await getAuthorizedRoom(id, companyId);
     if (!room) {
@@ -152,8 +145,6 @@ export async function DELETE(
     if (room.assets.length) relations.push(`${room.assets.length} أصل`);
     if (room.workOrders.length) relations.push(`${room.workOrders.length} أمر عمل`);
     if (room.inventoryItems.length) relations.push(`${room.inventoryItems.length} مخزون`);
-    // تم إزالة maintenanceReports لأنه غير موجود
-    // if (room.maintenanceReports?.length) relations.push(`${room.maintenanceReports.length} بلاغ`);
 
     if (relations.length > 0) {
       return NextResponse.json(
@@ -165,8 +156,14 @@ export async function DELETE(
     await prisma.room.delete({ where: { id } });
     revalidatePath('/ar/locations/rooms');
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: any) {
     console.error('DELETE /api/locations/rooms/[id] error:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

@@ -5,7 +5,7 @@ import { Inter, IBM_Plex_Sans_Arabic, Geist } from 'next/font/google';
 import '@/app/globals.css';
 import { Providers } from './providers';
 import { cn } from "@/lib/utils";
-import { SpeedInsights } from "@vercel/speed-insights/next"; // ✅ إضافة الاستيراد
+import { SpeedInsights } from "@vercel/speed-insights/next"; // ✅ استيراد SpeedInsights
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning className={cn(inter.variable, ibmPlexSansArabic.variable, "font-sans", geist.variable)}>
       <body>
         <ThemeProvider defaultTheme="dark">
-          <Providers> {/* ✅ يحتوي على SessionProvider داخل Client Component */}
+          <Providers>
             {children}
           </Providers>
         </ThemeProvider>
@@ -38,7 +38,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         />
-        <SpeedInsights /> {/* ✅ إضافة المكون */}
+        {/* ✅ إضافة SpeedInsights */}
+        <SpeedInsights />
       </body>
     </html>
   );

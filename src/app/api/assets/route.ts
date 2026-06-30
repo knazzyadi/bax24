@@ -1,11 +1,7 @@
 // src/app/api/assets/route.ts
 import { NextResponse } from 'next/server';
-
 import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 
 // ========== دالة توليد كود فريد لكل (فرع + نوع) ==========
 async function generateAssetCode(
@@ -71,7 +67,7 @@ export async function GET(request: Request) {
     const roomId = searchParams.get('roomId');
 
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    const limit = parseInt(searchParams.get('limit') || '10'); // ✅ القيمة الافتراضية 10
     const skip = (page - 1) * limit;
 
     const isAdmin =
@@ -93,7 +89,7 @@ export async function GET(request: Request) {
       deletedAt: null,
     };
 
-    // ✅ تصحيح: البحث مباشرة في branchId بدلاً من building.branchId
+    // تصحيح: البحث مباشرة في branchId بدلاً من building.branchId
     if (!isAdmin) {
       if (branchIds.length > 0) {
         where.branchId = {
@@ -128,10 +124,10 @@ export async function GET(request: Request) {
       where.roomId = effectiveRoomId;
     }
 
-    // إزالة سجلات التصحيح بعد التأكد من عمل النظام (يمكنك حذف هذا السطر لاحقاً)
-    console.log('===== DEBUG START =====');
-    console.log('where:', JSON.stringify(where, null, 2));
-    console.log('===== DEBUG END =====');
+    // ✅ إزالة سجلات التصحيح (كانت للاختبار فقط)
+    // console.log('===== DEBUG START =====');
+    // console.log('where:', JSON.stringify(where, null, 2));
+    // console.log('===== DEBUG END =====');
 
     const [assets, total] = await Promise.all([
       prisma.asset.findMany({
@@ -180,12 +176,24 @@ export async function GET(request: Request) {
       updatedAt: asset.updatedAt.toISOString(),
     }));
 
+    // حساب روابط الترقيم (next/prev) بناءً على الصفحة الحالية والحد الأقصى
+    const totalPages = Math.ceil(total / limit);
+    const baseUrl = `/api/assets?${searchParams.toString()}`;
+    const nextUrl = page < totalPages ? `${baseUrl}&page=${page + 1}` : null;
+    const prevUrl = page > 1 ? `${baseUrl}&page=${page - 1}` : null;
+
     return NextResponse.json({
       assets: serializedAssets,
-      total,
-      currentPage: page,
-      totalPages: Math.ceil(total / limit),
-      limit,
+      pagination: {
+        total,
+        currentPage: page,
+        totalPages,
+        limit,
+        nextUrl,
+        prevUrl,
+        currentCount: assets.length,
+        startIndex: skip + 1,
+      },
     });
   } catch (error: any) {
     console.error('GET /api/assets error:', error);
@@ -275,7 +283,7 @@ export async function POST(request: Request) {
         code,
         typeId,
         statusId: statusId || undefined,
-        roomId,        // ✅ roomId إلزامي الآن
+        roomId,
         buildingId,
         branchId,
         companyId,

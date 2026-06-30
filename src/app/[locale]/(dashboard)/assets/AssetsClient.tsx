@@ -81,7 +81,7 @@ interface AssetsClientProps {
     prevUrl: string | null;
     currentCount: number;
     totalCount: number;
-    startIndex: number; // ✅ إضافة startIndex من الخادم
+    startIndex: number;
   };
 }
 
@@ -308,8 +308,8 @@ export default function AssetsClient({
   const startIndex = pagination.startIndex;
   const endIndex = pagination.startIndex + pagination.currentCount - 1;
 
-  // حساب عدد الصفحات الصحيح للـ DataList (لن يستخدم لأننا أخفينا الترقيم)
-  const itemsPerPage = 30;
+  // ✅ تغيير عدد السجلات لكل صفحة إلى 10 (يتطلب تعديل الـ API أيضاً)
+  const itemsPerPage = 10;
   const totalPages = Math.ceil(pagination.totalCount / itemsPerPage);
 
   return (

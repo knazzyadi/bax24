@@ -5,6 +5,7 @@ import { Inter, IBM_Plex_Sans_Arabic, Geist } from 'next/font/google';
 import '@/app/globals.css';
 import { Providers } from './providers';
 import { cn } from "@/lib/utils";
+import { SpeedInsights } from "@vercel/speed-insights/next"; // ✅ إضافة الاستيراد
 
 const geist = Geist({ subsets: ['latin'], variable: '--font-sans' });
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
@@ -37,6 +38,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             },
           }}
         />
+        <SpeedInsights /> {/* ✅ إضافة المكون */}
       </body>
     </html>
   );

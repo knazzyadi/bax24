@@ -7,10 +7,32 @@ import { useSession } from "next-auth/react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlusCircle, FileText, Trash2, Eye, Calendar, Loader2, Database, Package, ClipboardList, Ticket, Box } from "lucide-react";
+import {
+  PlusCircle,
+  FileText,
+  Trash2,
+  Eye,
+  Calendar,
+  Loader2,
+  Database,
+  Package,
+  ClipboardList,
+  Ticket,
+  Box,
+} from "lucide-react";
 import { toast } from "sonner";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface SavedReport {
   id: string;
@@ -26,22 +48,32 @@ interface SavedReport {
 // ✅ دالة للحصول على أيقونة النموذج
 function getModelIcon(modelType: string) {
   switch (modelType) {
-    case "assets": return Package;
-    case "workOrders": return ClipboardList;
-    case "tickets": return Ticket;
-    case "inventory": return Box;
-    default: return Database;
+    case "assets":
+      return Package;
+    case "workOrders":
+      return ClipboardList;
+    case "tickets":
+      return Ticket;
+    case "inventory":
+      return Box;
+    default:
+      return Database;
   }
 }
 
 // ✅ دالة للحصول على لون النموذج
 function getModelColor(modelType: string) {
   switch (modelType) {
-    case "assets": return "text-blue-500 bg-blue-50 dark:bg-blue-950/30";
-    case "workOrders": return "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30";
-    case "tickets": return "text-amber-500 bg-amber-50 dark:bg-amber-950/30";
-    case "inventory": return "text-purple-500 bg-purple-50 dark:bg-purple-950/30";
-    default: return "text-muted-foreground bg-muted/50";
+    case "assets":
+      return "text-blue-500 bg-blue-50 dark:bg-blue-950/30";
+    case "workOrders":
+      return "text-emerald-500 bg-emerald-50 dark:bg-emerald-950/30";
+    case "tickets":
+      return "text-amber-500 bg-amber-50 dark:bg-amber-950/30";
+    case "inventory":
+      return "text-purple-500 bg-purple-50 dark:bg-purple-950/30";
+    default:
+      return "text-muted-foreground bg-muted/50";
   }
 }
 
@@ -54,6 +86,10 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [, startTransition] = useTransition();
+
+  // ✅ حالة الحوار (بديل لـ confirm)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   // جلب التقارير المحفوظة
   const fetchReports = useCallback(async () => {
@@ -78,36 +114,40 @@ export default function ReportsPage() {
     }
   }, [status, fetchReports]);
 
-  // ✅ حذف تقرير (مع تحسين الأداء - Optimistic UI + startTransition)
-  const handleDelete = useCallback(
-    async (id: string, name: string) => {
-      if (!confirm(`هل أنت متأكد من حذف التقرير "${name}"؟`)) return;
+  // ✅ فتح حوار التأكيد
+  const openDeleteDialog = (id: string, name: string) => {
+    setDeleteTarget({ id, name });
+    setDeleteDialogOpen(true);
+  };
 
-      // ✅ استخدام startTransition لتأجيل تحديثات الحالة غير العاجلة
-      startTransition(() => {
-        setReports((prev) => prev.filter((r) => r.id !== id));
-        setDeleting(id);
-      });
+  // ✅ تنفيذ الحذف (بدون confirm)
+  const handleDelete = useCallback(async () => {
+    if (!deleteTarget) return;
+    const { id, name } = deleteTarget;
 
-      try {
-        const res = await fetch(`/api/reports/saved/${id}`, { method: "DELETE" });
-        if (res.ok) {
-          toast.success("تم حذف التقرير");
-        } else {
-          // في حالة الفشل، نعيد التقرير إلى القائمة (Rollback)
-          const data = await res.json();
-          toast.error(data.error || "فشل الحذف");
-          await fetchReports(); // إعادة التزامن
-        }
-      } catch (error) {
-        toast.error("حدث خطأ");
+    startTransition(() => {
+      setReports((prev) => prev.filter((r) => r.id !== id));
+      setDeleting(id);
+    });
+
+    try {
+      const res = await fetch(`/api/reports/saved/${id}`, { method: "DELETE" });
+      if (res.ok) {
+        toast.success(`✅ تم حذف التقرير "${name}"`);
+      } else {
+        const data = await res.json();
+        toast.error(data.error || "فشل الحذف");
         await fetchReports(); // إعادة التزامن
-      } finally {
-        setDeleting(null);
       }
-    },
-    [fetchReports, startTransition]
-  );
+    } catch (error) {
+      toast.error("حدث خطأ");
+      await fetchReports(); // إعادة التزامن
+    } finally {
+      setDeleting(null);
+      setDeleteDialogOpen(false);
+      setDeleteTarget(null);
+    }
+  }, [deleteTarget, fetchReports, startTransition]);
 
   // عرض التقرير
   const handleView = useCallback(
@@ -117,7 +157,7 @@ export default function ReportsPage() {
     [locale, router]
   );
 
-  // ✅ حساب عدد الأعمدة (مع memoization لتجنب إعادة الحساب غير الضرورية)
+  // ✅ حساب عدد الأعمدة (مع memoization)
   const reportsWithColumnCount = useMemo(() => {
     return reports.map((report) => ({
       ...report,
@@ -230,7 +270,7 @@ export default function ReportsPage() {
                       variant="ghost"
                       size="icon"
                       className="h-8 w-8 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-all"
-                      onClick={() => handleDelete(report.id, report.name)}
+                      onClick={() => openDeleteDialog(report.id, report.name)}
                       disabled={deleting === report.id}
                       title="حذف التقرير"
                     >
@@ -247,6 +287,29 @@ export default function ReportsPage() {
           })}
         </div>
       )}
+
+      {/* ✅ حوار تأكيد الحذف (بديل لـ confirm) */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>هل أنت متأكد؟</AlertDialogTitle>
+            <AlertDialogDescription>
+              {deleteTarget
+                ? `أنت على وشك حذف التقرير "${deleteTarget.name}". هذا الإجراء لا يمكن التراجع عنه.`
+                : "هل أنت متأكد من حذف هذا التقرير؟"}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeleteDialogOpen(false)}>إلغاء</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              حذف
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

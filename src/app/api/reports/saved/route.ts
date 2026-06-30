@@ -1,28 +1,27 @@
 // src/app/api/reports/saved/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
 
 // GET: جلب جميع التقارير المحفوظة للمستخدم الحالي
 export async function GET() {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const session = await requirePermission('reports.view');
 
     const reports = await prisma.savedReport.findMany({
       where: {
-        userId: session.id,
-        companyId: session.companyId!,
+        userId: session.userId,
+        companyId: session.companyId,
       },
       orderBy: { updatedAt: 'desc' },
     });
 
     return NextResponse.json(reports);
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET /api/reports/saved error:', error);
+    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
     return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 });
   }
 }
@@ -30,10 +29,7 @@ export async function GET() {
 // POST: حفظ تقرير جديد
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const session = await requirePermission('reports.create');
 
     const body = await request.json();
     const { name, description, modelType, columns, filters, sortBy } = body;
@@ -53,14 +49,20 @@ export async function POST(request: Request) {
         columns: JSON.stringify(columns),
         filters: filters ? JSON.stringify(filters) : null,
         sortBy: sortBy ? JSON.stringify(sortBy) : null,
-        userId: session.id,
-        companyId: session.companyId!,
+        userId: session.userId,
+        companyId: session.companyId,
       },
     });
 
     return NextResponse.json(report, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST /api/reports/saved error:', error);
-    return NextResponse.json({ error: 'حدث خطأ' }, { status: 500 });
+    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message?.includes('permission')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

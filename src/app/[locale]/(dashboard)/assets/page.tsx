@@ -35,9 +35,9 @@ export default async function AssetsPage({
   }
 
   const { locale } = paramsResolved;
-  const { q, typeId, statusId, cursor, limit = '30' } = searchParamsResolved;
+  const { q, typeId, statusId, cursor, limit = '10' } = searchParamsResolved; // ✅ تغيير القيمة الافتراضية إلى 10
   const companyId = session.user.companyId!;
-  const limitNum = parseInt(limit, 10) || 30;
+  const limitNum = parseInt(limit, 10) || 10; // ✅ تعيين القيمة الافتراضية 10
 
   // بناء شرط where
   const where: Prisma.AssetWhereInput = {
@@ -61,10 +61,10 @@ export default async function AssetsPage({
   if (typeId && typeId !== 'all') where.typeId = typeId;
   if (statusId && statusId !== 'all') where.statusId = statusId;
 
-  // ✅ جلب العدد الإجمالي أولاً (لحساب startIndex)
+  // جلب العدد الإجمالي أولاً (لحساب startIndex)
   const totalCount = await AssetRepository.count(where);
 
-  // ✅ جلب الأصول مع الـ Pagination
+  // جلب الأصول مع الـ Pagination
   const result = await AssetRepository.findMany({
     where,
     limit: limitNum,
@@ -74,7 +74,7 @@ export default async function AssetsPage({
 
   const { data: assetsRaw, pagination } = result;
 
-  // ✅ حساب startIndex الفعلي
+  // حساب startIndex الفعلي
   let startIndex = 1; // افتراضي للصفحة الأولى
   if (cursor && assetsRaw.length > 0) {
     // نأخذ العنصر الأول من الصفحة الحالية (أحدث عنصر في هذه الصفحة)
@@ -207,8 +207,8 @@ export default async function AssetsPage({
         nextUrl,
         prevUrl,
         currentCount: assetsRaw.length,
-        totalCount, // ✅ الآن لدينا totalCount
-        startIndex, // ✅ تم حسابه بشكل صحيح
+        totalCount,
+        startIndex,
       }}
     />
   );

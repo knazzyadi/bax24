@@ -52,7 +52,7 @@ export const getBranchFilter = cache((session: AuthSession) => {
 });
 
 /**
- * التحقق من وجود صلاحية معينة للمستخدم
+ * التحقق من وجود صلاحية معينة للمستخدم وإعادة الجلسة
  */
 export const requirePermission = cache(async (permission: string): Promise<AuthSession> => {
   const session = await getAuthSession();

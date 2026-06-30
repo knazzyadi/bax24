@@ -1,6 +1,6 @@
 // src/app/api/locations/floors/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
@@ -10,11 +10,10 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ التحقق من الجلسة والصلاحية باستخدام النظام المركزي
-    const session = await getAuthenticatedSession() as any;
-    await checkPermission('locations.write');
+    // ✅ استخدام requirePermission للحصول على الجلسة مع التحقق من الصلاحية
+    const session = await requirePermission('locations.write');
 
-    const companyId = session?.user?.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -90,10 +89,10 @@ export async function PUT(
     return NextResponse.json(updatedFloor);
   } catch (error: any) {
     console.error('PUT /api/locations/floors/[id] error:', error);
-    if (error.message === 'UNAUTHORIZED') {
+    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+    if (error.message?.includes('permission')) {
       return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
@@ -106,11 +105,10 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ التحقق من الجلسة والصلاحية باستخدام النظام المركزي
-    const session = await getAuthenticatedSession() as any;
-    await checkPermission('locations.write');
+    // ✅ استخدام requirePermission للحصول على الجلسة مع التحقق من الصلاحية
+    const session = await requirePermission('locations.write');
 
-    const companyId = session?.user?.companyId;
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -148,10 +146,10 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('DELETE /api/locations/floors/[id] error:', error);
-    if (error.message === 'UNAUTHORIZED') {
+    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
+    if (error.message?.includes('permission')) {
       return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });

@@ -620,5 +620,6 @@ model SavedReport {
 
   @@index([userId])
   @@index([companyId])
+  @@index([userId, companyId, updatedAt(sort: Desc)])
   @@map("saved_reports")
 }

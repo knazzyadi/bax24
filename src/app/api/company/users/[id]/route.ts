@@ -1,10 +1,7 @@
 // src/app/api/company/users/[id]/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import { sendInvitationEmail } from '@/lib/email';
 import crypto from 'crypto';
 
@@ -15,9 +12,20 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // ✅ التحقق من صلاحية ADMIN
+    if (session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 
     const companyId = session.companyId;
@@ -40,20 +48,29 @@ export async function PUT(
     });
 
     if (!user || user.companyId !== companyId) {
-      return NextResponse.json({ error: 'المستخدم غير موجود أو لا ينتمي لشركتك' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'المستخدم غير موجود أو لا ينتمي لشركتك' },
+        { status: 404 }
+      );
     }
 
     // تحديث البيانات العامة
     if (action === 'update') {
       if (!name || !email || !roleName) {
-        return NextResponse.json({ error: 'الاسم والبريد والدور مطلوبة' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'الاسم والبريد والدور مطلوبة' },
+          { status: 400 }
+        );
       }
 
       const existing = await prisma.user.findFirst({
         where: { email, NOT: { id } },
       });
       if (existing) {
-        return NextResponse.json({ error: 'البريد الإلكتروني مستخدم بالفعل' }, { status: 409 });
+        return NextResponse.json(
+          { error: 'البريد الإلكتروني مستخدم بالفعل' },
+          { status: 409 }
+        );
       }
 
       let role = await prisma.role.findUnique({ where: { name: roleName } });
@@ -128,9 +145,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // ✅ التحقق من صلاحية ADMIN
+    if (session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 
     const companyId = session.companyId;
@@ -148,7 +176,10 @@ export async function DELETE(
       select: { companyId: true },
     });
     if (!user || user.companyId !== companyId) {
-      return NextResponse.json({ error: 'المستخدم غير موجود أو لا ينتمي لشركتك' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'المستخدم غير موجود أو لا ينتمي لشركتك' },
+        { status: 404 }
+      );
     }
 
     await prisma.user.delete({ where: { id } });

@@ -9,7 +9,25 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بهذا الحساب' },
+        { status: 400 }
+      );
+    }
+
     const { id } = await params;
     const body = await request.json();
     const { columns, modelType } = body;
@@ -18,8 +36,8 @@ export async function POST(
     const savedReport = await prisma.savedReport.findFirst({
       where: {
         id,
-        userId: session.id,
-        companyId: session.companyId!,
+        userId: session.userId, // ✅ استخدام userId بدلاً من id
+        companyId: companyId,
       },
     });
 
@@ -41,7 +59,7 @@ export async function POST(
           } else assetFields[col] = true;
         });
 
-        // ✅ بناء كائن select ديناميكياً (بدون false)
+        // بناء كائن select ديناميكياً
         const select: any = {};
         if (assetFields.code) select.code = true;
         if (assetFields.name) select.name = true;
@@ -73,14 +91,14 @@ export async function POST(
           };
         }
 
-        // ✅ إذا لم يتم تحديد أي حقل، نضيف الحقول الأساسية
+        // إذا لم يتم تحديد أي حقل، نضيف الحقول الأساسية
         if (Object.keys(select).length === 0) {
           select.code = true;
           select.name = true;
         }
 
         const assets = await prisma.asset.findMany({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
           select,
         });
 
@@ -130,7 +148,7 @@ export async function POST(
         }
 
         const workOrders = await prisma.workOrder.findMany({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
           select,
         });
 
@@ -168,7 +186,7 @@ export async function POST(
         }
 
         const tickets = await prisma.ticket.findMany({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
           select,
         });
 
@@ -204,7 +222,7 @@ export async function POST(
         }
 
         const inventoryItems = await prisma.inventoryItem.findMany({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
           select,
         });
 
@@ -224,7 +242,7 @@ export async function POST(
         return NextResponse.json({ error: 'نموذج غير مدعوم' }, { status: 400 });
     }
 
-    // ✅ التحقق من وجود بيانات
+    // التحقق من وجود بيانات
     if (data.length === 0) {
       return NextResponse.json(
         { error: 'لا توجد بيانات لتصديرها' },

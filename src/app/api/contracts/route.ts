@@ -1,17 +1,20 @@
 // src/app/api/contracts/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await checkPermission('contracts.read');
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get('q') || '';
@@ -22,7 +25,14 @@ export async function GET(request: NextRequest) {
 
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     const branchIds = session.branchIds || [];
-    const companyId = session.companyId!;
+    const companyId = session.companyId;
+
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
+    }
 
     const where: any = { companyId, deletedAt: null };
 
@@ -49,7 +59,13 @@ export async function GET(request: NextRequest) {
     });
     const total = await prisma.contract.count({ where });
 
-    return NextResponse.json({ contracts, total, currentPage: page, totalPages: Math.ceil(total / limit), limit });
+    return NextResponse.json({
+      contracts,
+      total,
+      currentPage: page,
+      totalPages: Math.ceil(total / limit),
+      limit,
+    });
   } catch (error: any) {
     console.error('GET /api/contracts error:', error);
     return NextResponse.json({ error: 'خطأ في جلب العقود' }, { status: 500 });
@@ -58,32 +74,52 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await checkPermission('contracts.create');
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
     const body = await request.json();
     const {
       code, title, supplier, value, startDate, endDate, description, branchId,
       attachmentIds, notes,
-      agentName, agentPhone, agentEmail  // ✅ حقول المندوب
+      agentName, agentPhone, agentEmail
     } = body;
 
     if (!title || !supplier || !startDate || !endDate) {
-      return NextResponse.json({ error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة' },
+        { status: 400 }
+      );
     }
 
     if (!branchId) {
       return NextResponse.json({ error: 'يرجى تحديد الفرع' }, { status: 400 });
     }
 
-    const companyId = session.companyId!;
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
+    }
+
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
 
     if (!isAdmin) {
       const userBranchIds = session.branchIds || [];
       if (!userBranchIds.includes(branchId)) {
-        return NextResponse.json({ error: 'لا تملك صلاحية إضافة عقد لهذا الفرع' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'لا تملك صلاحية إضافة عقد لهذا الفرع' },
+          { status: 403 }
+        );
       }
     }
 
@@ -104,7 +140,7 @@ export async function POST(request: NextRequest) {
         agentEmail: agentEmail || null,
         companyId,
         branchId,
-        createdBy: session.id,
+        createdBy: session.userId, // ✅ استخدام userId بدلاً من id
       },
     });
 

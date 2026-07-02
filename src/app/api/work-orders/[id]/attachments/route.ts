@@ -1,10 +1,7 @@
+// src/app/api/work-orders/[id]/attachments/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import { uploadFileToR2, deleteFileFromR2 } from "@/lib/storage";
 
 // GET: جلب جميع مرفقات أمر العمل
@@ -13,7 +10,13 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
@@ -38,7 +41,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
@@ -47,7 +56,7 @@ export async function POST(
 
     const formData = await req.formData();
     const file = formData.get("file") as File;
-    const fileName = formData.get("fileName") as string; // الاسم المخصص من المستخدم
+    const fileName = formData.get("fileName") as string;
 
     if (!file || !fileName) {
       return NextResponse.json({ error: "الملف والاسم مطلوبان" }, { status: 400 });
@@ -77,7 +86,7 @@ export async function POST(
         provider: "CLOUDFLARE_R2",
         mimeType: uploaded.mimeType,
         size: uploaded.size,
-        uploadedBy: session.id,
+        uploadedBy: session.userId, // ✅ استخدام userId بدلاً من id
       },
     });
 
@@ -94,7 +103,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }

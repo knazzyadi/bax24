@@ -1,8 +1,7 @@
 // src/app/api/reports/saved/[id]/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
 
 // DELETE: حذف تقرير محفوظ
 export async function DELETE(
@@ -10,9 +9,23 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بهذا الحساب' },
+        { status: 400 }
+      );
     }
 
     const { id } = await params;
@@ -20,8 +33,8 @@ export async function DELETE(
     const report = await prisma.savedReport.findFirst({
       where: {
         id,
-        userId: session.id,
-        companyId: session.companyId!,
+        userId: session.userId, // ✅ استخدام userId بدلاً من id
+        companyId: companyId,
       },
     });
 

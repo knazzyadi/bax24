@@ -1,15 +1,19 @@
+// src/app/api/users/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 
 export async function GET(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    if (!session || session.user?.role !== 'SUPER_ADMIN') {
+    // ✅ التعديل الجوهري: استخدام session.role مباشرةً
+    if (!session || session.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 

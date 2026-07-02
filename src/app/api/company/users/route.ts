@@ -1,10 +1,7 @@
 // src/app/api/company/users/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
 
@@ -13,10 +10,20 @@ export const dynamic = 'force-dynamic';
 // GET: جلب المستخدمين (SUPERVISOR, TECHNICIAN, BRANCH_MANAGER) مع الفروع
 export async function GET() {
   try {
-    const session = await getAuthenticatedSession();
-
-    if (!session || session.user?.role !== 'ADMIN') {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // ✅ التحقق من صلاحية ADMIN
+    if (session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 
     const companyId = session.companyId;
@@ -86,10 +93,20 @@ export async function GET() {
 // POST: إضافة مستخدم جديد
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-
-    if (!session || session.user?.role !== 'ADMIN') {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // ✅ التحقق من صلاحية ADMIN
+    if (session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 
     const companyId = session.companyId;

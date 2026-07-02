@@ -1,14 +1,9 @@
+// src/app/api/companies/users/[id]/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
-
-
 
 // PUT: تحديث حالة المستخدم أو إعادة إرسال الدعوة
 export async function PUT(
@@ -16,9 +11,20 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // ✅ التحقق من صلاحية ADMIN فقط (وليس SUPER_ADMIN)
+    if (session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 
     const { id } = await params;
@@ -30,7 +36,10 @@ export async function PUT(
       include: { company: true },
     });
     if (!user || user.companyId !== session.companyId) {
-      return NextResponse.json({ error: 'المستخدم غير موجود أو لا يتبع شركتك' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'المستخدم غير موجود أو لا يتبع شركتك' },
+        { status: 404 }
+      );
     }
 
     if (action === 'toggleStatus') {
@@ -60,7 +69,7 @@ export async function PUT(
 
     return NextResponse.json({ error: 'إجراء غير معروف' }, { status: 400 });
   } catch (error) {
-    console.error(error);
+    console.error('PUT /api/companies/users/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
@@ -71,15 +80,29 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'ADMIN') {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // ✅ التحقق من صلاحية ADMIN
+    if (session.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
     }
 
     const { id } = await params;
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user || user.companyId !== session.companyId) {
-      return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
+      return NextResponse.json(
+        { error: 'المستخدم غير موجود' },
+        { status: 404 }
+      );
     }
 
     // منع حذف المستخدم إذا كان له علاقات (مثل أوامر عمل)
@@ -88,7 +111,7 @@ export async function DELETE(
     await prisma.user.delete({ where: { id } });
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error(error);
+    console.error('DELETE /api/companies/users/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

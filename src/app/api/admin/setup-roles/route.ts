@@ -1,16 +1,19 @@
+// src/app/api/admin/setup-roles/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 
 // GET: جلب جميع الأدوار
 export async function GET() {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    if (!session || session.user?.role !== 'SUPER_ADMIN') {
+    if (!session || session.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -21,7 +24,7 @@ export async function GET() {
 
     return NextResponse.json(roles);
   } catch (error) {
-    console.error(error);
+    console.error('GET /api/admin/setup-roles error:', error);
     return NextResponse.json({ error: 'خطأ في جلب الأدوار' }, { status: 500 });
   }
 }
@@ -29,9 +32,14 @@ export async function GET() {
 // POST: إنشاء الأدوار
 export async function POST() {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    if (!session || session.user?.role !== 'SUPER_ADMIN') {
+    if (!session || session.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -50,13 +58,12 @@ export async function POST() {
         update: {},
         create: role,
       });
-
       results.push(result);
     }
 
     return NextResponse.json({ success: true, created: results });
   } catch (error) {
-    console.error(error);
+    console.error('POST /api/admin/setup-roles error:', error);
     return NextResponse.json({ error: 'فشل في تهيئة الأدوار' }, { status: 500 });
   }
 }

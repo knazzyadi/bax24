@@ -1,29 +1,27 @@
 // src/app/api/admin/profile/route.ts
 import { NextResponse } from 'next/server';
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-// ✅ دالة مساعدة لجلب الجلسة ديناميكياً
-async function getAuthSession() {
-  const { auth } = await import('@/auth');
-  const session = await getAuthenticatedSession();
-  if (!session) {
-    throw new Error('UNAUTHORIZED');
-  }
-  return session;
-}
+import bcrypt from 'bcryptjs';
 
 export async function PUT(request: Request) {
   try {
-    // ✅ استيراد ديناميكي لـ auth
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    // ✅ التحقق من صلاحية SUPER_ADMIN
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // التحقق من صلاحية SUPER_ADMIN
     if (session.role !== 'SUPER_ADMIN') {
       return NextResponse.json(
         { error: 'غير مصرح' },
-        { status: 401 }
+        { status: 403 } // 403 أفضل من 401 لأن المصادقة ناجحة لكن الصلاحية غير كافية
       );
     }
 
@@ -37,9 +35,9 @@ export async function PUT(request: Request) {
       );
     }
 
-    // جلب المستخدم الحالي
+    // جلب المستخدم الحالي باستخدام session.userId
     const currentUser = await prisma.user.findUnique({
-      where: { id: session.id },
+      where: { id: session.userId }, // ✅ استخدام userId بدلاً من id
     });
 
     if (!currentUser) {
@@ -73,14 +71,12 @@ export async function PUT(request: Request) {
     };
 
     // تحديث كلمة المرور فقط إذا تم إدخالها
-    if (password) {
-      // ✅ استيراد bcrypt ديناميكياً
-      const bcrypt = (await import('bcryptjs')).default;
+    if (password && password.trim() !== '') {
       updateData.password = await bcrypt.hash(password, 10);
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id: session.id },
+      where: { id: session.userId }, // ✅ استخدام userId
       data: updateData,
       select: {
         id: true,
@@ -96,14 +92,6 @@ export async function PUT(request: Request) {
 
   } catch (error: any) {
     console.error('PROFILE_UPDATE_ERROR:', error);
-    
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json(
-        { error: 'غير مصرح' },
-        { status: 401 }
-      );
-    }
-
     return NextResponse.json(
       { error: 'خطأ في تحديث الملف الشخصي' },
       { status: 500 }

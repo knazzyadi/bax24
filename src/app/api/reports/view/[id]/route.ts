@@ -8,9 +8,26 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    const { id } = await params;
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بهذا الحساب' },
+        { status: 400 }
+      );
+    }
+
+    const { id } = await params;
     const { searchParams } = new URL(request.url);
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
@@ -19,8 +36,8 @@ export async function GET(
     const savedReport = await prisma.savedReport.findFirst({
       where: {
         id,
-        userId: session.id,
-        companyId: session.companyId!,
+        userId: session.userId, // ✅ استخدام userId بدلاً من id
+        companyId: companyId,
       },
     });
 
@@ -46,18 +63,17 @@ export async function GET(
         });
 
         total = await prisma.asset.count({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
         });
 
-        // ✅ بناء كائن select ديناميكياً
-        const select: any = {
-          code: assetFields.code || false,
-          name: assetFields.name || false,
-          nameEn: assetFields.nameEn || false,
-          purchaseDate: assetFields.purchaseDate || false,
-          warrantyEnd: assetFields.warrantyEnd || false,
-          lastMaintenanceDate: assetFields.lastMaintenanceDate || false,
-        };
+        // بناء كائن select ديناميكياً
+        const select: any = {};
+        if (assetFields.code) select.code = true;
+        if (assetFields.name) select.name = true;
+        if (assetFields.nameEn) select.nameEn = true;
+        if (assetFields.purchaseDate) select.purchaseDate = true;
+        if (assetFields.warrantyEnd) select.warrantyEnd = true;
+        if (assetFields.lastMaintenanceDate) select.lastMaintenanceDate = true;
 
         if (assetFields.type) {
           select.type = { select: { name: true, nameEn: true } };
@@ -86,8 +102,14 @@ export async function GET(
           };
         }
 
+        // إذا لم يتم تحديد أي حقل، نضيف الحقول الأساسية
+        if (Object.keys(select).length === 0) {
+          select.code = true;
+          select.name = true;
+        }
+
         const assets = await prisma.asset.findMany({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
           select,
           skip,
           take: limit,
@@ -126,14 +148,13 @@ export async function GET(
         });
 
         total = await prisma.workOrder.count({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
         });
 
-        const select: any = {
-          code: woFields.code || false,
-          title: woFields.title || false,
-          createdAt: woFields.createdAt || false,
-        };
+        const select: any = {};
+        if (woFields.code) select.code = true;
+        if (woFields.title) select.title = true;
+        if (woFields.createdAt) select.createdAt = true;
 
         if (woFields.priority) {
           select.priority = { select: { name: true, nameEn: true } };
@@ -145,8 +166,13 @@ export async function GET(
           select.assetType = { select: { name: true, nameEn: true } };
         }
 
+        if (Object.keys(select).length === 0) {
+          select.code = true;
+          select.title = true;
+        }
+
         const workOrders = await prisma.workOrder.findMany({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
           select,
           skip,
           take: limit,
@@ -171,23 +197,27 @@ export async function GET(
         });
 
         total = await prisma.ticket.count({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
         });
 
-        const select: any = {
-          code: ticketFields.code || false,
-          title: ticketFields.title || false,
-          type: ticketFields.type || false,
-          reporterName: ticketFields.reporterName || false,
-          createdAt: ticketFields.createdAt || false,
-        };
+        const select: any = {};
+        if (ticketFields.code) select.code = true;
+        if (ticketFields.title) select.title = true;
+        if (ticketFields.type) select.type = true;
+        if (ticketFields.reporterName) select.reporterName = true;
+        if (ticketFields.createdAt) select.createdAt = true;
 
         if (ticketFields.status) {
           select.status = { select: { name: true, nameEn: true } };
         }
 
+        if (Object.keys(select).length === 0) {
+          select.code = true;
+          select.title = true;
+        }
+
         const tickets = await prisma.ticket.findMany({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
           select,
           skip,
           take: limit,
@@ -211,22 +241,26 @@ export async function GET(
         });
 
         total = await prisma.inventoryItem.count({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
         });
 
-        const select: any = {
-          sku: invFields.sku || false,
-          name: invFields.name || false,
-          quantity: invFields.quantity || false,
-          unit: invFields.unit || false,
-        };
+        const select: any = {};
+        if (invFields.sku) select.sku = true;
+        if (invFields.name) select.name = true;
+        if (invFields.quantity) select.quantity = true;
+        if (invFields.unit) select.unit = true;
 
         if (invFields.location) {
           select.room = { select: { name: true, nameEn: true } };
         }
 
+        if (Object.keys(select).length === 0) {
+          select.sku = true;
+          select.name = true;
+        }
+
         const inventoryItems = await prisma.inventoryItem.findMany({
-          where: { companyId: session.companyId! },
+          where: { companyId: companyId },
           select,
           skip,
           take: limit,

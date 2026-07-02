@@ -1,39 +1,41 @@
 // src/app/api/admin/invite/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
 
-// ✅ دالة مساعدة لجلب session والصلاحيات ديناميكياً
-
-
 export async function POST(req: Request) {
   try {
-    // ✅ استيراد ديناميكي لـ auth و requirePermission
-    const { session, requirePermission } = await getAuthAndPermissions();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    // 🔐 صلاحية مركزية بدل role check
-    await checkPermission('users.invite');
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // ✅ التحقق من الصلاحية: فقط SUPER_ADMIN يمكنه دعوة مستخدمين جدد
+    if (session.role !== 'SUPER_ADMIN') {
+      return NextResponse.json(
+        { error: 'لا تملك الصلاحية المطلوبة' },
+        { status: 403 }
+      );
+    }
 
     const { email, name, roleId, companyId } = await req.json();
 
     if (!email || !name || !roleId || !companyId) {
       return NextResponse.json(
-        { error: 'بيانات ناقصة' },
+        { error: 'بيانات ناقصة (البريد، الاسم، الدور، والشركة مطلوبة)' },
         { status: 400 }
       );
     }
 
-    // 🚨 منع التلاعب: لازم الشركة تكون من الجلسة
-    if (session.companyId !== companyId && session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json(
-        { error: 'غير مصرح لهذه الشركة' },
-        { status: 403 }
-      );
-    }
-
+    // التحقق من وجود المستخدم مسبقاً
     const existing = await prisma.user.findUnique({
       where: { email },
     });
@@ -45,9 +47,35 @@ export async function POST(req: Request) {
       );
     }
 
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    // التحقق من وجود الشركة
+    const company = await prisma.company.findUnique({
+      where: { id: companyId },
+    });
 
+    if (!company) {
+      return NextResponse.json(
+        { error: 'الشركة غير موجودة' },
+        { status: 404 }
+      );
+    }
+
+    // التحقق من وجود الدور
+    const role = await prisma.role.findUnique({
+      where: { id: roleId },
+    });
+
+    if (!role) {
+      return NextResponse.json(
+        { error: 'الدور غير موجود' },
+        { status: 404 }
+      );
+    }
+
+    // توليد رمز الدعوة
+    const token = crypto.randomBytes(32).toString('hex');
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 ساعة
+
+    // إنشاء المستخدم
     const user = await prisma.user.create({
       data: {
         email,
@@ -56,38 +84,32 @@ export async function POST(req: Request) {
         companyId,
         invitationToken: token,
         invitationExpires: expires,
-        status: false,
+        status: false, // الحساب غير نشط حتى يتم تفعيله عبر الدعوة
+        password: null, // لا توجد كلمة مرور حتى يتم تعيينها
       },
     });
 
-    const company = await prisma.company.findUnique({
-      where: { id: companyId },
-    });
-
+    // إرسال البريد الإلكتروني للدعوة
     await sendInvitationEmail(
       email,
       token,
-      company?.name || 'الشركة'
+      company.name
     );
 
-    return NextResponse.json({ success: true, user });
+    return NextResponse.json({
+      success: true,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        roleId: user.roleId,
+        companyId: user.companyId,
+        status: user.status,
+        createdAt: user.createdAt,
+      },
+    });
   } catch (error: any) {
     console.error('POST /api/admin/invite error:', error);
-    
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json(
-        { error: 'غير مصرح' },
-        { status: 401 }
-      );
-    }
-    
-    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
-      return NextResponse.json(
-        { error: 'لا تملك الصلاحية المطلوبة' },
-        { status: 403 }
-      );
-    }
-
     return NextResponse.json(
       { error: 'حدث خطأ في الخادم' },
       { status: 500 }

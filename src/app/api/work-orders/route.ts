@@ -1,22 +1,22 @@
 // src/app/api/work-orders/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
-import { createWorkOrderWithRetry } from "@/lib/generateCode"; // ✅ استيراد دالة الإنشاء الآمنة
+import { createWorkOrderWithRetry } from "@/lib/generateCode";
 
 // ========== GET: جلب أوامر العمل مع دعم الفلترة والفروع ==========
 export async function GET(request: NextRequest) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("work_orders.read");
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
@@ -102,11 +102,16 @@ export async function GET(request: NextRequest) {
 // ========== POST: إنشاء أمر عمل جديد (يدعم أصول متعددة) ==========
 export async function POST(request: NextRequest) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("work_orders.create");
 
     const body = await request.json();
     const {
@@ -183,8 +188,8 @@ export async function POST(request: NextRequest) {
       assetTypeId: assetTypeId || null,
       notes: notes || null,
       companyId,
-      createdBy: session.id,
-      ticketId: null, // لأنه إنشاء مباشر وليس من بلاغ
+      createdBy: session.userId, // ✅ استخدام userId بدلاً من id
+      ticketId: null,
     };
 
     // ✅ استخدام الدالة الآمنة لإنشاء أمر العمل (مع إعادة المحاولة و branchSeqNum)

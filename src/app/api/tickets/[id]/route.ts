@@ -1,14 +1,9 @@
 // src/app/api/tickets/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 import { uploadFileToR2, deleteFileFromR2 } from "@/lib/storage";
-import { createWorkOrderWithRetry } from "@/lib/generateCode"; // ✅ استيراد الدالة مع إعادة المحاولة
+import { createWorkOrderWithRetry } from "@/lib/generateCode";
 
 const allowedTicketTypes = ["MAINTENANCE", "INCIDENT"];
 const allowedTicketStatuses = ["PENDING", "APPROVED", "REJECTED"];
@@ -21,16 +16,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("tickets.read");
 
     const { id } = await params;
     const companyId = session.companyId;
 
-    // ✅ التحقق من وجود companyId
     if (!companyId) {
       return NextResponse.json(
         { error: "لا توجد شركة مرتبطة بالمستخدم" },
@@ -55,7 +54,7 @@ export async function GET(
 
     return NextResponse.json(ticket);
   } catch (error) {
-    console.error(error);
+    console.error("GET /api/tickets/[id] error:", error);
     return NextResponse.json({ error: "خطأ في جلب التذكرة" }, { status: 500 });
   }
 }
@@ -68,16 +67,20 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("tickets.update");
 
     const { id } = await params;
     const companyId = session.companyId;
 
-    // ✅ التحقق من وجود companyId
     if (!companyId) {
       return NextResponse.json(
         { error: "لا توجد شركة مرتبطة بالمستخدم" },
@@ -192,7 +195,7 @@ export async function PUT(
               roomId: existingTicket.roomId,
               branchId: existingTicket.branchId,
               companyId,
-              createdBy: session.id,
+              createdBy: session.userId, // ✅ استخدام userId بدلاً من id
               ticketId: existingTicket.id,
             });
           }
@@ -272,7 +275,7 @@ export async function PUT(
               roomId: existingTicket.roomId,
               branchId: existingTicket.branchId,
               companyId,
-              createdBy: session.id,
+              createdBy: session.userId, // ✅ استخدام userId بدلاً من id
               ticketId: existingTicket.id,
             });
           }
@@ -290,7 +293,7 @@ export async function PUT(
 
     return NextResponse.json(updatedTicket);
   } catch (error: any) {
-    console.error(error);
+    console.error("PUT /api/tickets/[id] error:", error);
     return NextResponse.json({ error: error.message || "فشل التحديث" }, { status: 500 });
   }
 }
@@ -303,16 +306,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("tickets.delete");
 
     const { id } = await params;
     const companyId = session.companyId;
 
-    // ✅ التحقق من وجود companyId
     if (!companyId) {
       return NextResponse.json(
         { error: "لا توجد شركة مرتبطة بالمستخدم" },
@@ -343,7 +350,7 @@ export async function DELETE(
 
     return NextResponse.json({ message: "تم حذف التذكرة وجميع مرفقاتها" });
   } catch (error) {
-    console.error(error);
+    console.error("DELETE /api/tickets/[id] error:", error);
     return NextResponse.json({ error: "فشل الحذف" }, { status: 500 });
   }
 }

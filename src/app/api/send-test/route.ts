@@ -1,14 +1,18 @@
+// src/app/api/send-test/route.ts
 import { NextResponse } from 'next/server';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 export async function POST(req: Request) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
     // 🔐 حماية: فقط المستخدمين المسجلين
-    if (!session || !session.user?.id) {
+    if (!session || !session.userId) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -54,7 +58,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: true, data });
   } catch (error: any) {
     console.error('SEND_TEST_ERROR:', error);
-
     return NextResponse.json(
       { error: error?.message || 'خطأ غير معروف' },
       { status: 500 }

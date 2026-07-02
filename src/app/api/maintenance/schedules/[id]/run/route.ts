@@ -1,12 +1,7 @@
 // src/app/api/maintenance/schedules/[id]/run/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 import { addDays, format } from "date-fns";
 
 // ==============================
@@ -41,11 +36,16 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("maintenance.execute");
 
     const { id } = await params;
     const companyId = session.companyId;
@@ -113,14 +113,14 @@ export async function POST(
         statusId: null,
         branchId: schedule.branchId,
         companyId,
-        createdBy: session.id,
+        createdBy: session.userId, // ✅ استخدام userId بدلاً من id
         assetTypeId: schedule.assetTypeId,
-        code: code,                    // ✅ الكود الفريد
-        branchSeqNum: branchSeqNum,    // ✅ الرقم التسلسلي للفرع
+        code: code,
+        branchSeqNum: branchSeqNum,
         workOrderAssets: {
           create: targetAssets.map((asset: any) => ({
             assetId: asset.id,
-            quantity: 1,               // ✅ إضافة الكمية الافتراضية
+            quantity: 1,
           })),
         },
       },

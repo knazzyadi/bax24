@@ -1,12 +1,7 @@
 // src/app/api/tickets/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 import { uploadFileToR2 } from "@/lib/storage";
 
 // ========== دالة توليد كود فريد لكل فرع ==========
@@ -60,12 +55,16 @@ async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
 // ========== GET ==========
 export async function GET(request: NextRequest) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
-    await checkPermission("tickets.read");
+    if (!session) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
 
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get("q") || "";
@@ -127,8 +126,6 @@ export async function GET(request: NextRequest) {
             },
           },
           branch: true,
-
-          // ✅ التعديل المطلوب
           attachments: {
             select: {
               id: true,
@@ -175,7 +172,13 @@ export async function GET(request: NextRequest) {
 // ========== POST ==========
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
@@ -220,7 +223,7 @@ export async function POST(request: Request) {
       roomId,
       branchId,
       assetId: assetId || null,
-      createdBy: session.id,
+      createdBy: session.userId, // ✅ استخدام userId بدلاً من id
       status: "PENDING",
     });
 

@@ -40,6 +40,8 @@ export default function EditAssetPage() {
   const [formData, setFormData] = useState({
     name: "",
     nameEn: "",
+    description: "",      // ✅ وصف عربي
+    descriptionEn: "",    // ✅ وصف إنجليزي
     typeId: "",
     statusId: "",
     purchaseDate: "",
@@ -80,6 +82,8 @@ export default function EditAssetPage() {
         setFormData({
           name: asset.name || "",
           nameEn: asset.nameEn || "",
+          description: asset.description || "",        // ✅ وصف عربي
+          descriptionEn: asset.descriptionEn || "",    // ✅ وصف إنجليزي
           typeId: asset.typeId || "",
           statusId: asset.statusId || "",
           purchaseDate: asset.purchaseDate ? asset.purchaseDate.split('T')[0] : "",
@@ -179,7 +183,9 @@ export default function EditAssetPage() {
       const payload = {
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
-        typeId: formData.typeId || null,    // يمكن إرسال نفس القيمة (لن تتغير)
+        description: formData.description.trim() || null,        // ✅ وصف عربي
+        descriptionEn: formData.descriptionEn.trim() || null,    // ✅ وصف إنجليزي
+        typeId: formData.typeId || null,
         statusId: formData.statusId || null,
         purchaseDate: formData.purchaseDate || null,
         warrantyEnd: formData.warrantyEnd || null,
@@ -236,14 +242,61 @@ export default function EditAssetPage() {
           <div className="lg:col-span-2 space-y-6">
             <InfoCard title={t('basicInfo')} icon={<FileText className="h-5 w-5" />}>
               <div className="space-y-6">
+                {/* الاسم العربي */}
                 <div className="space-y-2">
                   <Label className="text-sm font-black text-muted-foreground/70">{t('name')} *</Label>
-                  <Input name="name" value={formData.name} onChange={handleChange} placeholder={t('namePlaceholder')} required className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6" />
+                  <Input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder={t('namePlaceholder')}
+                    required
+                    className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6"
+                  />
                 </div>
+
+                {/* ✅ الوصف العربي (جديد) */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-1"><Globe className="h-4 w-4" /> {t('nameEn')}</Label>
-                  <Input name="nameEn" value={formData.nameEn} onChange={handleChange} placeholder={t('nameEnPlaceholder')} className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6" />
+                  <Label className="text-sm font-black text-muted-foreground/70">
+                    {isRtl ? "الوصف (عربي)" : "Description (Arabic)"}
+                  </Label>
+                  <Textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل وصفاً عربياً للأصل (اختياري)" : "Enter an Arabic description (optional)"}
+                    className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-4 resize-none min-h-[80px]"
+                  />
                 </div>
+
+                {/* الاسم الإنجليزي */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-1">
+                    <Globe className="h-4 w-4" /> {t('nameEn')}
+                  </Label>
+                  <Input
+                    name="nameEn"
+                    value={formData.nameEn}
+                    onChange={handleChange}
+                    placeholder={t('nameEnPlaceholder')}
+                    className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6"
+                  />
+                </div>
+
+                {/* ✅ الوصف الإنجليزي (جديد) */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-1">
+                    <Globe className="h-4 w-4" /> {isRtl ? "الوصف (English)" : "Description (English)"}
+                  </Label>
+                  <Textarea
+                    name="descriptionEn"
+                    value={formData.descriptionEn}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل وصفاً إنجليزياً للأصل (اختياري)" : "Enter an English description (optional)"}
+                    className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-4 resize-none min-h-[80px]"
+                  />
+                </div>
+
                 <div className="grid md:grid-cols-2 gap-6">
                   {/* ========== نوع الأصل (معطل) ========== */}
                   <div className="space-y-2">
@@ -254,32 +307,40 @@ export default function EditAssetPage() {
                     <Select 
                       value={formData.typeId} 
                       onValueChange={(v) => handleSelectChange("typeId", v)} 
-                      disabled  // ✅ منع التعديل
+                      disabled
                     >
                       <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-gray-100 dark:bg-gray-800 text-muted-foreground cursor-not-allowed px-6">
                         {getTypeName(formData.typeId) || <SelectValue placeholder={t('selectType')} />}
                       </SelectTrigger>
                       <SelectContent>
                         {types.map((type) => (
-                          <SelectItem key={type.id} value={type.id}>{isRtl ? type.name : (type.nameEn || type.name)}</SelectItem>
+                          <SelectItem key={type.id} value={type.id}>
+                            {isRtl ? type.name : (type.nameEn || type.name)}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground/70 flex items-center gap-1 mt-1">
                       <AlertTriangle className="h-3 w-3" />
-                      {isRtl ? "لا يمكن تغيير نوع الأصل بعد الإنشاء. إذا أردت تغيير النوع، احذف الأصل وأعد إنشاءه." : "Asset type cannot be changed after creation. To change the type, delete the asset and recreate it."}
+                      {isRtl ? "لا يمكن تغيير نوع الأصل بعد الإنشاء." : "Asset type cannot be changed after creation."}
                     </p>
                   </div>
                   {/* ========== الحالة ========== */}
                   <div className="space-y-2">
                     <Label className="text-muted-foreground/70">{t('status')}</Label>
-                    <Select value={formData.statusId} onValueChange={(v) => handleSelectChange("statusId", v)} disabled={statuses.length === 0}>
+                    <Select
+                      value={formData.statusId}
+                      onValueChange={(v) => handleSelectChange("statusId", v)}
+                      disabled={statuses.length === 0}
+                    >
                       <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background font-black px-6">
                         {getStatusName(formData.statusId) || <SelectValue placeholder={t('selectStatus')} />}
                       </SelectTrigger>
                       <SelectContent>
                         {statuses.map((status) => (
-                          <SelectItem key={status.id} value={status.id}>{isRtl ? status.name : (status.nameEn || status.name)}</SelectItem>
+                          <SelectItem key={status.id} value={status.id}>
+                            {isRtl ? status.name : (status.nameEn || status.name)}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
@@ -321,11 +382,29 @@ export default function EditAssetPage() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="text-muted-foreground/70">{t('purchaseDate')}</Label>
-                  <div className="relative"><Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" /><Input name="purchaseDate" type="date" value={formData.purchaseDate} onChange={handleChange} className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-primary font-black w-full" /></div>
+                  <div className="relative">
+                    <Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" />
+                    <Input
+                      name="purchaseDate"
+                      type="date"
+                      value={formData.purchaseDate}
+                      onChange={handleChange}
+                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-primary font-black w-full"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-muted-foreground/70">{t('warrantyEnd')}</Label>
-                  <div className="relative"><ShieldCheck className="absolute right-4 top-4 h-5 w-5 text-emerald-500/70" /><Input name="warrantyEnd" type="date" value={formData.warrantyEnd} onChange={handleChange} className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-emerald-500/50 font-black w-full" /></div>
+                  <div className="relative">
+                    <ShieldCheck className="absolute right-4 top-4 h-5 w-5 text-emerald-500/70" />
+                    <Input
+                      name="warrantyEnd"
+                      type="date"
+                      value={formData.warrantyEnd}
+                      onChange={handleChange}
+                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-emerald-500/50 font-black w-full"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-muted-foreground/70 flex items-center gap-2">
@@ -349,13 +428,36 @@ export default function EditAssetPage() {
           <div className="space-y-6">
             <InfoCard title={t('notes')} icon={<Info className="h-5 w-5" />}>
               <div className="space-y-4">
-                <Textarea name="notes" value={formData.notes} onChange={handleChange} placeholder={t('notesPlaceholder')} className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-6 resize-none leading-relaxed min-h-[120px] w-full" />
-                <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 border border-primary/10"><Info className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" /><p className="text-[11px] font-bold text-primary/70 leading-tight italic">{t('infoText')}</p></div>
+                <Textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  placeholder={t('notesPlaceholder')}
+                  className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-6 resize-none leading-relaxed min-h-[120px] w-full"
+                />
+                <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 border border-primary/10">
+                  <Info className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
+                  <p className="text-[11px] font-bold text-primary/70 leading-tight italic">{t('infoText')}</p>
+                </div>
               </div>
             </InfoCard>
             <div className="flex gap-3">
-              <Button type="button" onClick={() => router.back()} variant="outline" className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-black">{t('cancel') || (isRtl ? "إلغاء" : "Cancel")}</Button>
-              <Button type="submit" disabled={saving} className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black h-12">{saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}{t('submit')}</Button>
+              <Button
+                type="button"
+                onClick={() => router.back()}
+                variant="outline"
+                className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-black"
+              >
+                {t('cancel') || (isRtl ? "إلغاء" : "Cancel")}
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black h-12"
+              >
+                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+                {t('submit')}
+              </Button>
             </div>
           </div>
         </div>

@@ -58,12 +58,11 @@ export default function BulkImportAssetsPage() {
     }
   };
 
-  // تحميل قالب CSV (مع تحسين الـ statusId example)
+  // تحميل قالب CSV (مع إضافة عمودي الوصف)
   const downloadTemplate = () => {
-    const headers = ["name", "nameEn", "typeId", "statusId", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
-    // الحصول على أول statusId متاح من القائمة لإضافته كمثال (اختياري)
+    const headers = ["name", "nameEn", "description", "descriptionEn", "typeId", "statusId", "purchaseDate", "warrantyEnd", "lastMaintenanceDate", "notes"];
     const exampleStatusId = statuses.length > 0 ? statuses[0].id : "status_id_here";
-    const csvContent = headers.join(",") + `\nExample Asset,Example EN,type_id_here,${exampleStatusId},2025-01-01,2026-01-01,2025-06-01,notes\n`;
+    const csvContent = headers.join(",") + `\nExample Asset,Example EN,وصف عربي,English description,type_id_here,${exampleStatusId},2025-01-01,2026-01-01,2025-06-01,notes\n`;
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -90,7 +89,7 @@ export default function BulkImportAssetsPage() {
     return true;
   };
 
-  // حفظ جميع الأصول دفعة واحدة باستخدام API الجديد
+  // حفظ جميع الأصول دفعة واحدة
   const saveAll = async () => {
     if (!validateRows()) return;
     setIsSaving(true);
@@ -98,6 +97,8 @@ export default function BulkImportAssetsPage() {
     const assetsToSend = rows.map((row) => ({
       name: row.name.trim(),
       nameEn: row.nameEn?.trim() || null,
+      description: row.description?.trim() || null,        // ✅ وصف عربي
+      descriptionEn: row.descriptionEn?.trim() || null,    // ✅ وصف إنجليزي
       typeId: row.typeId,
       statusId: row.statusId || null,
       purchaseDate: formatDate(row.purchaseDate),
@@ -205,14 +206,14 @@ export default function BulkImportAssetsPage() {
             </Button>
           </div>
 
-          {/* جدول سطح المكتب مع تحسينات الوضع الليلي */}
+          {/* جدول سطح المكتب */}
           <div className="hidden lg:block border rounded-xl overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-muted">
                 <tr>
-                  {["name", "nameEn", "type", "status", "purchaseDate", "warrantyEnd", "lastMaintenance", "notes", ""].map((h) => (
+                  {["name", "nameEn", "description", "descriptionEn", "type", "status", "purchaseDate", "warrantyEnd", "lastMaintenance", "notes", ""].map((h) => (
                     <th key={h} className="p-2 text-left">
-                      {t(h)}
+                      {t(h) || h}
                     </th>
                   ))}
                 </tr>
@@ -234,6 +235,22 @@ export default function BulkImportAssetsPage() {
                         value={row.nameEn}
                         onChange={(e) => updateRow(idx, "nameEn", e.target.value)}
                         placeholder={t("nameEnPlaceholder")}
+                      />
+                    </td>
+                    <td className="p-1">
+                      <input
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={row.description || ""}
+                        onChange={(e) => updateRow(idx, "description", e.target.value)}
+                        placeholder={isRtl ? "وصف عربي" : "Arabic description"}
+                      />
+                    </td>
+                    <td className="p-1">
+                      <input
+                        className="w-full rounded-md border border-input bg-background px-3 py-1 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                        value={row.descriptionEn || ""}
+                        onChange={(e) => updateRow(idx, "descriptionEn", e.target.value)}
+                        placeholder={isRtl ? "وصف إنجليزي" : "English description"}
                       />
                     </td>
                     <td className="p-1">

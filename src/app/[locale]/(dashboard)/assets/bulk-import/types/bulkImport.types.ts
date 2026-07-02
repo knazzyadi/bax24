@@ -6,6 +6,8 @@ const emptyToUndefined = (val: unknown) => (val === '' ? undefined : val);
 export const AssetRowSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   nameEn: z.string().optional(),
+  description: z.string().optional(),        // ✅ وصف عربي
+  descriptionEn: z.string().optional(),      // ✅ وصف إنجليزي
   typeId: z.string().min(1, 'Type ID is required'),
   statusId: z.string().optional(),
   purchaseDate: z
@@ -14,7 +16,7 @@ export const AssetRowSchema = z.object({
     .transform(emptyToUndefined)
     .refine(
       (val) => {
-        if (!val) return true;               // القيمة الفارغة مقبولة
+        if (!val) return true;
         if (typeof val !== 'string') return false;
         return !isNaN(Date.parse(val));
       },

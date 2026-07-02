@@ -10,6 +10,8 @@ export function useBulkAssets(initialRows?: BulkAssetRow[]) {
         id: generateId(),
         name: '',
         nameEn: '',
+        description: '',      // ✅ وصف عربي
+        descriptionEn: '',    // ✅ وصف إنجليزي
         typeId: '',
         statusId: '',
         purchaseDate: '',
@@ -27,6 +29,8 @@ export function useBulkAssets(initialRows?: BulkAssetRow[]) {
         id: generateId(),
         name: '',
         nameEn: '',
+        description: '',      // ✅ وصف عربي
+        descriptionEn: '',    // ✅ وصف إنجليزي
         typeId: '',
         statusId: '',
         purchaseDate: '',

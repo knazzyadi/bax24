@@ -45,7 +45,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ استخدام any بدلاً من TxClient غير المصدر
     const result = await prisma.$transaction(
       async (tx: any) => {
         const createdAssets = [];
@@ -149,6 +148,8 @@ export async function POST(request: NextRequest) {
               data: {
                 name: asset.name.trim(),
                 nameEn: asset.nameEn?.trim() || null,
+                description: asset.description?.trim() || null,        // ✅ وصف عربي
+                descriptionEn: asset.descriptionEn?.trim() || null,    // ✅ وصف إنجليزي
                 code,
                 typeId: asset.typeId,
                 statusId: finalStatusId,

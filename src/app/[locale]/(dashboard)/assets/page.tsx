@@ -5,17 +5,7 @@ import { AssetRepository } from '@/lib/repositories/asset.repository';
 import AssetsClient from './AssetsClient';
 import type { Asset, AssetType, AssetStatus } from '@/types/assets';
 import { Prisma } from '@prisma/client';
-
-async function getSessionAndPermissions() {
-  const { auth } = await import('@/auth');
-  const { requirePermission } = await import('@/lib/permissions');
-  const session = await auth();
-  if (!session?.user) {
-    throw new Error('UNAUTHORIZED');
-  }
-  await requirePermission('assets.read');
-  return session;
-}
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 
 export default async function AssetsPage({
   params,
@@ -27,17 +17,34 @@ export default async function AssetsPage({
   const paramsResolved = await params;
   const searchParamsResolved = await searchParams || {};
 
+  // ✅ الحصول على الجلسة مع معالجة الأخطاء
   let session;
   try {
-    session = await getSessionAndPermissions();
-  } catch (error) {
+    session = await getAuthenticatedSession();
+  } catch {
+    redirect('/login');
+  }
+
+  if (!session) {
+    redirect('/login');
+  }
+
+  // ✅ التحقق من الصلاحية
+  if (session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN') {
+    // يمكنك إضافة صلاحية مخصصة للقراءة هنا إذا أردت
     redirect('/login');
   }
 
   const { locale } = paramsResolved;
-  const { q, typeId, statusId, cursor, limit = '10' } = searchParamsResolved; // ✅ تغيير القيمة الافتراضية إلى 10
-  const companyId = session.user.companyId!;
-  const limitNum = parseInt(limit, 10) || 10; // ✅ تعيين القيمة الافتراضية 10
+  const { q, typeId, statusId, cursor, limit = '10' } = searchParamsResolved;
+  const companyId = session.companyId; // ✅ استخدام companyId مباشرة
+
+  // ✅ التحقق من وجود companyId
+  if (!companyId) {
+    redirect('/login');
+  }
+
+  const limitNum = parseInt(limit, 10) || 10;
 
   // بناء شرط where
   const where: Prisma.AssetWhereInput = {
@@ -75,11 +82,9 @@ export default async function AssetsPage({
   const { data: assetsRaw, pagination } = result;
 
   // حساب startIndex الفعلي
-  let startIndex = 1; // افتراضي للصفحة الأولى
+  let startIndex = 1;
   if (cursor && assetsRaw.length > 0) {
-    // نأخذ العنصر الأول من الصفحة الحالية (أحدث عنصر في هذه الصفحة)
     const firstAsset = assetsRaw[0];
-    // عدد العناصر الأحدث من firstAsset (أي التي تأتي قبله في الترتيب التنازلي)
     const newerCount = await prisma.asset.count({
       where: {
         ...where,
@@ -90,7 +95,6 @@ export default async function AssetsPage({
   } else if (!cursor && assetsRaw.length > 0) {
     startIndex = 1;
   } else {
-    // إذا كانت الصفحة فارغة
     startIndex = totalCount + 1;
   }
 
@@ -99,6 +103,8 @@ export default async function AssetsPage({
     id: asset.id,
     name: asset.name,
     nameEn: asset.nameEn ?? undefined,
+    description: asset.description ?? undefined,      // ✅ وصف عربي
+    descriptionEn: asset.descriptionEn ?? undefined,  // ✅ وصف إنجليزي
     code: asset.code,
     type: asset.type
       ? {

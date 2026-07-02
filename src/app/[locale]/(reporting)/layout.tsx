@@ -22,7 +22,10 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       <Sidebar />
       <div className="flex flex-col w-full">
         {isAdmin && !isSuperAdmin && <Topbar />}
-        <main className="p-6 overflow-auto">{children}</main>
+        <main className="p-6 overflow-auto">
+          {/* ✅ تم إزالة أي عناوين ثابتة من هنا، الصفحة تتحكم بعنوانها الخاص */}
+          {children}
+        </main>
       </div>
     </div>
   );

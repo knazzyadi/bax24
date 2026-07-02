@@ -183,7 +183,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      {/* رأس الصفحة */}
+      {/* ✅ رأس الصفحة - العنوان والوصف المطلوب فقط */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-foreground">التقارير</h1>

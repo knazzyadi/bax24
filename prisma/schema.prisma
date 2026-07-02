@@ -210,6 +210,8 @@ model Asset {
   code                String           @unique @default(cuid())
   name                String
   nameEn              String?
+  description String?  // ✅ وصف عربي
+  descriptionEn String? // ✅ وصف إنجليزي
   typeId              String?
   statusId            String?
   roomId              String

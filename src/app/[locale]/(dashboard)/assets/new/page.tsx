@@ -25,7 +25,6 @@ import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import type { AssetStatus, AssetType, Building, Floor, Room } from '@/types/assets';
 
-// ✅ التعديل: إضافة roomId كمعامل ثانٍ
 const generateSequentialCode = async (typeId: string | null, roomId: string): Promise<string> => {
   const params = new URLSearchParams();
   if (typeId) params.append('typeId', typeId);
@@ -59,6 +58,8 @@ export default function NewAssetPage() {
   const [formData, setFormData] = useState({
     name: "",
     nameEn: "",
+    description: "",      // ✅ وصف عربي
+    descriptionEn: "",    // ✅ وصف إنجليزي
     typeId: "",
     statusId: "",
     purchaseDate: "",
@@ -204,7 +205,6 @@ export default function NewAssetPage() {
 
     setLoading(true);
     try {
-      // ✅ التعديل: تمرير roomId مع typeId
       const sequentialCode = await generateSequentialCode(formData.typeId || null, roomId);
       const cleanTypeId = formData.typeId && formData.typeId !== "all" ? formData.typeId : null;
       const cleanStatusId = formData.statusId && formData.statusId !== "all" ? formData.statusId : null;
@@ -212,6 +212,8 @@ export default function NewAssetPage() {
       const payload = {
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
+        description: formData.description.trim() || null,      // ✅ وصف عربي
+        descriptionEn: formData.descriptionEn.trim() || null,  // ✅ وصف إنجليزي
         code: sequentialCode,
         typeId: cleanTypeId,
         statusId: cleanStatusId,
@@ -268,16 +270,63 @@ export default function NewAssetPage() {
           <div className="lg:col-span-2 space-y-6">
             <InfoCard title={t('basicInfo')} icon={<FileText className="h-5 w-5" />}>
               <div className="space-y-6">
+                {/* الاسم العربي */}
                 <div className="space-y-2">
                   <Label className="text-sm font-medium text-muted-foreground/70">{t('name')} *</Label>
-                  <Input name="name" value={formData.name} onChange={handleChange} placeholder={t('namePlaceholder')} required className="h-14 rounded-2xl border-primary bg-background text-lg px-6" />
+                  <Input
+                    name="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    placeholder={t('namePlaceholder')}
+                    required
+                    className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
+                  />
                 </div>
+
+                {/* ✅ الوصف العربي (جديد) */}
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-1"><Globe className="h-4 w-4" /> {t('nameEn')}</Label>
-                  <Input name="nameEn" value={formData.nameEn} onChange={handleChange} placeholder={t('nameEnPlaceholder')} className="h-14 rounded-2xl border-primary bg-background text-lg px-6" />
+                  <Label className="text-sm font-medium text-muted-foreground/70">
+                    الوصف (عربي)
+                  </Label>
+                  <Textarea
+                    name="description"
+                    value={formData.description}
+                    onChange={handleChange}
+                    placeholder="أدخل وصفاً عربياً للأصل (اختياري)"
+                    className="rounded-2xl border-primary bg-background p-4 resize-none min-h-[80px]"
+                  />
                 </div>
+
+                {/* الاسم الإنجليزي */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-1">
+                    <Globe className="h-4 w-4" /> {t('nameEn')}
+                  </Label>
+                  <Input
+                    name="nameEn"
+                    value={formData.nameEn}
+                    onChange={handleChange}
+                    placeholder={t('nameEnPlaceholder')}
+                    className="h-14 rounded-2xl border-primary bg-background text-lg px-6"
+                  />
+                </div>
+
+                {/* ✅ الوصف الإنجليزي (جديد) */}
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium text-muted-foreground/70 flex items-center gap-1">
+                    <Globe className="h-4 w-4" /> الوصف (English)
+                  </Label>
+                  <Textarea
+                    name="descriptionEn"
+                    value={formData.descriptionEn}
+                    onChange={handleChange}
+                    placeholder="Enter an English description for the asset (optional)"
+                    className="rounded-2xl border-primary bg-background p-4 resize-none min-h-[80px]"
+                  />
+                </div>
+
+                {/* النوع والحالة */}
                 <div className="grid md:grid-cols-2 gap-6">
-                  {/* ===== نوع الأصل ===== */}
                   <div className="space-y-2">
                     <Label className="text-muted-foreground/70">{t('type')} *</Label>
                     <Select
@@ -298,7 +347,6 @@ export default function NewAssetPage() {
                     </Select>
                   </div>
 
-                  {/* ===== الحالة ===== */}
                   <div className="space-y-2">
                     <Label className="text-muted-foreground/70">{t('status')}</Label>
                     <Select
@@ -320,15 +368,41 @@ export default function NewAssetPage() {
                   </div>
                 </div>
 
+                {/* الموقع */}
                 <div className={containerClass}>
                   <div className="space-y-3">
                     <h3 className="text-foreground font-medium text-lg uppercase tracking-widest flex items-center gap-2">
                       <MapPin size={16} /> {t('locationDetails')} <span className="text-red-500 text-sm">*</span>
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <BuildingSelector value={buildingId} onValueChange={handleBuildingChange} buildings={buildings.map(normalizeBuilding)} loading={buildings.length === 0} placeholder={t('selectBuilding')} emptyMessage={t('noBuildings')} />
-                      <FloorSelector value={floorId} onValueChange={handleFloorChange} floors={floors.map(normalizeFloor)} buildingId={buildingId} loading={loadingFloors} placeholder={t('selectFloor')} emptyMessage={t('noFloors')} noBuildingMessage={t('selectBuildingFirst')} />
-                      <RoomSelector value={roomId} onValueChange={handleRoomChange} rooms={rooms.map(normalizeRoom)} floorId={floorId} loading={loadingRooms} placeholder={t('selectRoom')} emptyMessage={t('noRooms')} noFloorMessage={t('selectFloorFirst')} />
+                      <BuildingSelector
+                        value={buildingId}
+                        onValueChange={handleBuildingChange}
+                        buildings={buildings.map(normalizeBuilding)}
+                        loading={buildings.length === 0}
+                        placeholder={t('selectBuilding')}
+                        emptyMessage={t('noBuildings')}
+                      />
+                      <FloorSelector
+                        value={floorId}
+                        onValueChange={handleFloorChange}
+                        floors={floors.map(normalizeFloor)}
+                        buildingId={buildingId}
+                        loading={loadingFloors}
+                        placeholder={t('selectFloor')}
+                        emptyMessage={t('noFloors')}
+                        noBuildingMessage={t('selectBuildingFirst')}
+                      />
+                      <RoomSelector
+                        value={roomId}
+                        onValueChange={handleRoomChange}
+                        rooms={rooms.map(normalizeRoom)}
+                        floorId={floorId}
+                        loading={loadingRooms}
+                        placeholder={t('selectRoom')}
+                        emptyMessage={t('noRooms')}
+                        noFloorMessage={t('selectFloorFirst')}
+                      />
                     </div>
                     {selectedRoomFullCode && (
                       <div className="mt-5 relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-lg">
@@ -348,15 +422,44 @@ export default function NewAssetPage() {
               <div className="grid md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <Label className="text-muted-foreground/70">{t('purchaseDate')}</Label>
-                  <div className="relative"><Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" /><Input name="purchaseDate" type="date" value={formData.purchaseDate} onChange={handleChange} className="h-14 rounded-2xl border-primary bg-background pr-12 w-full" /></div>
+                  <div className="relative">
+                    <Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" />
+                    <Input
+                      name="purchaseDate"
+                      type="date"
+                      value={formData.purchaseDate}
+                      onChange={handleChange}
+                      className="h-14 rounded-2xl border-primary bg-background pr-12 w-full"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <Label className="text-muted-foreground/70">{t('warrantyEnd')}</Label>
-                  <div className="relative"><ShieldCheck className="absolute right-4 top-4 h-5 w-5 text-emerald-500/70" /><Input name="warrantyEnd" type="date" value={formData.warrantyEnd} onChange={handleChange} className="h-14 rounded-2xl border-primary bg-background pr-12 w-full" /></div>
+                  <div className="relative">
+                    <ShieldCheck className="absolute right-4 top-4 h-5 w-5 text-emerald-500/70" />
+                    <Input
+                      name="warrantyEnd"
+                      type="date"
+                      value={formData.warrantyEnd}
+                      onChange={handleChange}
+                      className="h-14 rounded-2xl border-primary bg-background pr-12 w-full"
+                    />
+                  </div>
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-muted-foreground/70 flex items-center gap-2"><Wrench className="h-4 w-4" /> {t('lastMaintenance')}</Label>
-                  <div className="relative"><Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" /><Input name="lastMaintenanceDate" type="date" value={formData.lastMaintenanceDate} onChange={handleChange} className="h-14 rounded-2xl border-primary bg-background pr-12 w-full" /></div>
+                  <Label className="text-muted-foreground/70 flex items-center gap-2">
+                    <Wrench className="h-4 w-4" /> {t('lastMaintenance')}
+                  </Label>
+                  <div className="relative">
+                    <Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" />
+                    <Input
+                      name="lastMaintenanceDate"
+                      type="date"
+                      value={formData.lastMaintenanceDate}
+                      onChange={handleChange}
+                      className="h-14 rounded-2xl border-primary bg-background pr-12 w-full"
+                    />
+                  </div>
                   <p className="text-[11px] text-muted-foreground mt-1 italic">{t('lastMaintenanceHint')}</p>
                 </div>
               </div>
@@ -366,7 +469,13 @@ export default function NewAssetPage() {
           <div className="space-y-6">
             <InfoCard title={t('notes')} icon={<Info className="h-5 w-5" />}>
               <div className="space-y-4">
-                <Textarea name="notes" value={formData.notes} onChange={handleChange} placeholder={t('notesPlaceholder')} className="rounded-2xl border-primary bg-background p-6 resize-none min-h-[120px] w-full" />
+                <Textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  placeholder={t('notesPlaceholder')}
+                  className="rounded-2xl border-primary bg-background p-6 resize-none min-h-[120px] w-full"
+                />
                 <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 border border-primary/10">
                   <Info className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
                   <p className="text-[11px] font-medium text-primary/70 leading-tight italic">{t('infoText')}</p>
@@ -374,10 +483,19 @@ export default function NewAssetPage() {
               </div>
             </InfoCard>
             <div className="flex gap-3">
-              <Button type="button" onClick={() => router.back()} variant="outline" className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium">
+              <Button
+                type="button"
+                onClick={() => router.back()}
+                variant="outline"
+                className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-medium"
+              >
                 {t('cancel')}
               </Button>
-              <Button type="submit" disabled={loading} className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-12">
+              <Button
+                type="submit"
+                disabled={loading}
+                className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-medium h-12"
+              >
                 {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
                 {t('submit')}
               </Button>

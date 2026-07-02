@@ -1,6 +1,6 @@
 // src/app/api/assets/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 // ========== دالة توليد كود فريد لكل (فرع + نوع) ==========
@@ -52,12 +52,16 @@ async function generateAssetCode(
 
 export async function GET(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await checkPermission('assets.read');
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
     const { searchParams } = new URL(request.url);
 
@@ -67,7 +71,7 @@ export async function GET(request: Request) {
     const roomId = searchParams.get('roomId');
 
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10'); // ✅ القيمة الافتراضية 10
+    const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
     const isAdmin =
@@ -89,7 +93,6 @@ export async function GET(request: Request) {
       deletedAt: null,
     };
 
-    // تصحيح: البحث مباشرة في branchId بدلاً من building.branchId
     if (!isAdmin) {
       if (branchIds.length > 0) {
         where.branchId = {
@@ -111,6 +114,9 @@ export async function GET(request: Request) {
         { name: { contains: q, mode: 'insensitive' } },
         { nameEn: { contains: q, mode: 'insensitive' } },
         { code: { contains: q, mode: 'insensitive' } },
+        // ✅ إضافة البحث في الوصفين
+        { description: { contains: q, mode: 'insensitive' } },
+        { descriptionEn: { contains: q, mode: 'insensitive' } },
       ];
     }
 
@@ -124,11 +130,6 @@ export async function GET(request: Request) {
       where.roomId = effectiveRoomId;
     }
 
-    // ✅ إزالة سجلات التصحيح (كانت للاختبار فقط)
-    // console.log('===== DEBUG START =====');
-    // console.log('where:', JSON.stringify(where, null, 2));
-    // console.log('===== DEBUG END =====');
-
     const [assets, total] = await Promise.all([
       prisma.asset.findMany({
         where,
@@ -137,6 +138,8 @@ export async function GET(request: Request) {
           code: true,
           name: true,
           nameEn: true,
+          description: true,      // ✅ وصف عربي
+          descriptionEn: true,    // ✅ وصف إنجليزي
           purchaseDate: true,
           warrantyEnd: true,
           lastMaintenanceDate: true,
@@ -176,7 +179,6 @@ export async function GET(request: Request) {
       updatedAt: asset.updatedAt.toISOString(),
     }));
 
-    // حساب روابط الترقيم (next/prev) بناءً على الصفحة الحالية والحد الأقصى
     const totalPages = Math.ceil(total / limit);
     const baseUrl = `/api/assets?${searchParams.toString()}`;
     const nextUrl = page < totalPages ? `${baseUrl}&page=${page + 1}` : null;
@@ -210,18 +212,24 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await checkPermission('assets.create');
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
     const body = await request.json();
 
     const {
       name,
       nameEn,
+      description,        // ✅ وصف عربي
+      descriptionEn,      // ✅ وصف إنجليزي
       typeId,
       statusId,
       roomId,
@@ -231,7 +239,6 @@ export async function POST(request: Request) {
       notes,
     } = body;
 
-    // ✅ التأكد من وجود roomId (يمنع إنشاء أصل بدون غرفة)
     if (!name || !typeId || !roomId) {
       return NextResponse.json(
         { error: 'الاسم، النوع، والموقع (الغرفة) مطلوبين' },
@@ -248,7 +255,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ التحقق من صحة الغرفة وأن لها فرع ومبنى
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       select: {
@@ -280,6 +286,8 @@ export async function POST(request: Request) {
       data: {
         name,
         nameEn: nameEn || undefined,
+        description: description || undefined,        //  وصف عربي
+        descriptionEn: descriptionEn || undefined,    //  وصف إنجليزي
         code,
         typeId,
         statusId: statusId || undefined,

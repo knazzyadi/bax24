@@ -920,7 +920,9 @@
     "editTitle": "Edit Asset",
     "editSubtitle": "Edit asset details",
     "updateSuccess": "Asset updated successfully",
-    "updateError": "An error occurred while updating the asset"
+    "updateError": "An error occurred while updating the asset",
+    "description": "Description",
+    "descriptionEn": "English Description"
   },
   "AssetDetail": {
     "headerBadge": "Central Asset Management",

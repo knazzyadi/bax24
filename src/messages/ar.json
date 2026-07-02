@@ -928,7 +928,9 @@
     "editSubtitle": "تعديل بيانات الأصل",
     "updateSuccess": "تم تحديث الأصل بنجاح",
     "updateError": "حدث خطأ أثناء تحديث الأصل",
-    "location": "الموقع"
+    "location": "الموقع",
+    "description": "الوصف",
+    "descriptionEn": "الوصف بالإنجليزية"
   },
   "AssetDetail": {
     "headerBadge": "إدارة الأصول المركزية",

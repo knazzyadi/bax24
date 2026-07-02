@@ -1,26 +1,8 @@
 import { NextResponse } from 'next/server';
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
 import bcrypt from 'bcryptjs';
 
-// ============================================
-// Prisma Singleton (احترافي)
-// ============================================
-const globalForPrisma = globalThis as unknown as {
-  prisma: PrismaClient | undefined;
-};
-
-
-
-
-
-// ============================================
-// Types
-// ============================================
 type UpdateCompanyBody = {
   name?: string;
   nameEn?: string;
@@ -31,26 +13,26 @@ type UpdateCompanyBody = {
   adminPassword?: string;
 };
 
-// ============================================
-// PUT - Update Company + Admin
-// ============================================
 export async function PUT(
   request: Request,
-  { params }: { params: Promise<{ id: string }> } // ✅ params هي Promise
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-
-    if (!session || session.user?.role !== 'SUPER_ADMIN') {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const { id } = await params; // ✅ استخدام await لاستخراج id
+    if (!session || session.role !== 'SUPER_ADMIN') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const { id } = await params;
     const body: UpdateCompanyBody = await request.json();
 
-    // ============================================
-    // 1. تحديث بيانات الشركة فقط
-    // ============================================
+    // بناء كائن التحديث للشركة
     const updateData: Record<string, any> = {};
 
     if (body.name !== undefined) updateData.name = body.name;
@@ -72,14 +54,13 @@ export async function PUT(
       updateData.isActive = body.isActive;
     }
 
+    // تحديث الشركة
     const updatedCompany = await prisma.company.update({
       where: { id },
       data: updateData,
     });
 
-    // ============================================
-    // 2. تحديث مدير الشركة (ADMIN)
-    // ============================================
+    // تحديث مدير الشركة (ADMIN) إذا توفرت بيانات
     const adminUser = await prisma.user.findFirst({
       where: {
         companyId: id,
@@ -87,42 +68,34 @@ export async function PUT(
       },
     });
 
-    if (!adminUser) {
-      return NextResponse.json(updatedCompany);
-    }
+    if (adminUser) {
+      const userUpdateData: Record<string, any> = {};
 
-    const userUpdateData: Record<string, any> = {};
-
-    // Email update with validation
-    if (
-      body.adminEmail &&
-      body.adminEmail !== adminUser.email
-    ) {
-      const existingUser = await prisma.user.findUnique({
-        where: { email: body.adminEmail },
-      });
-
-      if (existingUser && existingUser.id !== adminUser.id) {
-        return NextResponse.json(
-          { error: 'البريد الإلكتروني مستخدم مسبقاً' },
-          { status: 409 }
-        );
+      // تحديث البريد الإلكتروني
+      if (body.adminEmail && body.adminEmail !== adminUser.email) {
+        const existingUser = await prisma.user.findUnique({
+          where: { email: body.adminEmail },
+        });
+        if (existingUser && existingUser.id !== adminUser.id) {
+          return NextResponse.json(
+            { error: 'البريد الإلكتروني مستخدم مسبقاً' },
+            { status: 409 }
+          );
+        }
+        userUpdateData.email = body.adminEmail;
       }
 
-      userUpdateData.email = body.adminEmail;
-    }
+      // تحديث كلمة المرور
+      if (body.adminPassword && body.adminPassword.trim() !== '') {
+        userUpdateData.password = await bcrypt.hash(body.adminPassword, 10);
+      }
 
-    // Password update
-    if (body.adminPassword && body.adminPassword.trim() !== '') {
-      userUpdateData.password = await bcrypt.hash(body.adminPassword, 10);
-    }
-
-    // Apply user update
-    if (Object.keys(userUpdateData).length > 0) {
-      await prisma.user.update({
-        where: { id: adminUser.id },
-        data: userUpdateData,
-      });
+      if (Object.keys(userUpdateData).length > 0) {
+        await prisma.user.update({
+          where: { id: adminUser.id },
+          data: userUpdateData,
+        });
+      }
     }
 
     return NextResponse.json(updatedCompany);

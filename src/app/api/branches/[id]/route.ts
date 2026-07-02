@@ -1,28 +1,23 @@
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session?.id) {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.id },
-      include: { role: true },
-    });
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    if (!user) return NextResponse.json({ error: 'مستخدم غير موجود' }, { status: 404 });
-
-    // استخراج id من params
     const { id } = await params;
     if (!id) {
       return NextResponse.json({ error: 'معرف الفرع مطلوب' }, { status: 400 });
@@ -35,7 +30,7 @@ export async function PUT(
       return NextResponse.json({ error: 'اسم الفرع والكود مطلوبان' }, { status: 400 });
     }
 
-    // جلب الفرع الحالي باستخدام id الصحيح
+    // جلب الفرع الحالي
     const existingBranch = await prisma.branch.findUnique({
       where: { id },
     });
@@ -44,10 +39,11 @@ export async function PUT(
       return NextResponse.json({ error: 'الفرع غير موجود' }, { status: 404 });
     }
 
-    const roleName = user.role?.name;
+    const roleName = session.role;
+    const userCompanyId = session.companyId;
 
     // التحقق من الصلاحية
-    if (roleName !== 'SUPER_ADMIN' && existingBranch.companyId !== user.companyId) {
+    if (roleName !== 'SUPER_ADMIN' && existingBranch.companyId !== userCompanyId) {
       return NextResponse.json({ error: 'لا تملك صلاحية تعديل هذا الفرع' }, { status: 403 });
     }
 
@@ -84,17 +80,16 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session?.id) {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.id },
-      include: { role: true },
-    });
-
-    if (!user) return NextResponse.json({ error: 'مستخدم غير موجود' }, { status: 404 });
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
     const { id } = await params;
     if (!id) {
@@ -109,8 +104,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'الفرع غير موجود' }, { status: 404 });
     }
 
-    const roleName = user.role?.name;
-    if (roleName !== 'SUPER_ADMIN' && branch.companyId !== user.companyId) {
+    const roleName = session.role;
+    const userCompanyId = session.companyId;
+
+    if (roleName !== 'SUPER_ADMIN' && branch.companyId !== userCompanyId) {
       return NextResponse.json({ error: 'لا تملك صلاحية حذف هذا الفرع' }, { status: 403 });
     }
 

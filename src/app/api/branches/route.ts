@@ -1,39 +1,38 @@
 // src/app/api/branches/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 import { randomUUID } from 'crypto';
 
-// دالة لتحويل النص إلى slug صالح للـ URL (أحرف لاتينية، أرقام، شرطات فقط)
+// دالة لتحويل النص إلى slug صالح للـ URL
 function generateSlug(text: string): string {
   return text
     .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // إزالة علامات التشكيل (مثل é => e)
-    .replace(/[^a-z0-9]/g, "-") // إزالة كل ما ليس حرفًا إنجليزيًا أو رقمًا (بما فيها العربية)
-    .replace(/-+/g, "-")        // استبدال عدة شرطات بواحدة
-    .replace(/^-|-$/g, "");     // إزالة الشرطات من البداية والنهاية
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 export async function GET() {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session?.id) {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.id },
-      include: { role: true },
-    });
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    if (!user) return NextResponse.json({ error: 'مستخدم غير موجود' }, { status: 404 });
-
-    const roleName = user.role?.name;
+    // التحقق من الصلاحيات باستخدام معلومات الجلسة مباشرة
+    const roleName = session.role;
     const userBranchIds = session.branchIds || [];
+    const companyId = session.companyId;
 
+    // سوبر أدمن: جلب كل الفروع
     if (roleName === 'SUPER_ADMIN') {
       const branches = await prisma.branch.findMany({
         include: { company: { select: { name: true } } },
@@ -42,14 +41,17 @@ export async function GET() {
       return NextResponse.json(branches);
     }
 
-    if (user.companyId) {
-      let where: any = { companyId: user.companyId };
-      const isAdmin = roleName === 'ADMIN';
+    // للمستخدمين العاديين أو الإداريين: فلترة حسب الشركة والصلاحيات
+    if (companyId) {
+      let where: any = { companyId: companyId };
+      const isAdmin = roleName === 'ADMIN' || roleName === 'SUPER_ADMIN';
+      
       if (!isAdmin && userBranchIds.length > 0) {
         where.id = { in: userBranchIds };
       } else if (!isAdmin && userBranchIds.length === 0) {
         return NextResponse.json([]);
       }
+
       const branches = await prisma.branch.findMany({
         where,
         include: { company: { select: { name: true } } },
@@ -58,6 +60,7 @@ export async function GET() {
       return NextResponse.json(branches);
     }
 
+    // إذا لم تكن هناك شركة مرتبطة
     return NextResponse.json([]);
   } catch (error) {
     console.error('GET /api/branches error:', error);
@@ -67,17 +70,18 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session?.id) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    const user = await prisma.user.findUnique({
-      where: { id: session.id },
-      include: { role: true },
-    });
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    if (!user) return NextResponse.json({ error: 'مستخدم غير موجود' }, { status: 404 });
-
-    const roleName = user.role?.name;
+    const roleName = session.role;
     const { name, nameEn, code, companyId } = await request.json();
 
     if (!name || !code) {
@@ -86,8 +90,10 @@ export async function POST(request: Request) {
 
     let targetCompanyId = companyId;
     if (roleName !== 'SUPER_ADMIN') {
-      if (!user.companyId) return NextResponse.json({ error: 'الشركة غير محددة' }, { status: 400 });
-      targetCompanyId = user.companyId;
+      if (!session.companyId) {
+        return NextResponse.json({ error: 'الشركة غير محددة' }, { status: 400 });
+      }
+      targetCompanyId = session.companyId;
     }
 
     if (!targetCompanyId) {
@@ -102,10 +108,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الكود موجود مسبقاً في هذه الشركة' }, { status: 409 });
     }
 
-    // إنشاء slug من النص الإنجليزي (nameEn) إذا وُجد، وإلا من name (العربي سيُزال)
+    // إنشاء slug من النص الإنجليزي (nameEn) إذا وُجد، وإلا من name
     const baseText = nameEn && nameEn.trim() ? nameEn : name;
     let baseSlug = generateSlug(baseText);
-    // إذا أصبح baseSlug فارغًا (مثلاً لو كان النص عربيًا فقط وتمت إزالته)، نستخدم "branch"
     if (!baseSlug) baseSlug = "branch";
     
     let slug = baseSlug;
@@ -115,7 +120,6 @@ export async function POST(request: Request) {
       counter++;
     }
 
-    // توليد publicToken (حتى لو كان هناك default، نضمن وجود قيمة)
     const publicToken = randomUUID();
 
     const newBranch = await prisma.branch.create({

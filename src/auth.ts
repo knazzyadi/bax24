@@ -60,7 +60,7 @@ export const authOptions: AuthOptions = {
     signIn: "/login",
   },
   session: {
-    strategy: "jwt" as const, // ✅ إضافة as const لحل مشكلة النوع
+    strategy: "jwt" as const,
   },
   callbacks: {
     async jwt({ token, user }) {
@@ -91,10 +91,12 @@ export const authOptions: AuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
 };
 
-// ✅ في v4، نُصدّر NextAuth handler كافتراضي
-export default NextAuth(authOptions);
+// ✅ تصدير NextAuth handler كافتراضي للـ API Routes
+const handler = NextAuth(authOptions);
+export { handler as GET, handler as POST };
 
-// ✅ دالة مساعدة للحصول على الجلسة (تُستخدم في الصفحات)
+// ✅ دالة مساعدة للحصول على الجلسة في Server Components و Route Handlers
+// في Next.js 14، يمكن استخدامها مباشرة في Route Handlers دون تمرير السياق
 export async function auth() {
   return getServerSession(authOptions);
 }

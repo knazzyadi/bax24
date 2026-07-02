@@ -1,6 +1,6 @@
 // src/lib/auth/auth-helper.ts
-import { auth } from '@/auth';
-import { cache } from 'react';
+import { auth } from "@/auth";
+import { cache } from "react";
 
 export interface AuthSession {
   userId: string;
@@ -14,14 +14,14 @@ export interface AuthSession {
 }
 
 export const getAuthSession = cache(async (): Promise<AuthSession> => {
-  const session = await auth();
-  
+  const session = await auth(); // ✅ الآن تستخدم auth() التي تعتمد على getServerSession
+
   if (!session?.user) {
     throw new Error('غير مصرح به - يرجى تسجيل الدخول');
   }
 
   const user = session.user;
-  
+
   if (!user.companyId) {
     throw new Error('المستخدم غير مرتبط بشركة');
   }
@@ -38,42 +38,24 @@ export const getAuthSession = cache(async (): Promise<AuthSession> => {
   };
 });
 
-/**
- * فلتر الفروع بناءً على صلاحيات المستخدم
- */
+// باقي الدوال كما هي...
 export const getBranchFilter = cache((session: AuthSession) => {
   if (session.isAdmin || session.branchIds.length === 0) {
     return {};
   }
-  
   return {
     branchId: { in: session.branchIds },
   };
 });
 
-/**
- * التحقق من وجود صلاحية معينة للمستخدم وإعادة الجلسة
- */
 export const requirePermission = cache(async (permission: string): Promise<AuthSession> => {
   const session = await getAuthSession();
-  
   if (!session.isAdmin) {
     throw new Error(`Unauthorized: missing permission '${permission}'`);
   }
-  
   return session;
 });
 
-// ============================================================
-// ✅ Aliases للتوافق مع الكود القديم
-// ============================================================
-
-/**
- * @deprecated استخدم getAuthSession بدلاً من ذلك
- */
+// Aliases
 export const getAuthenticatedSession = getAuthSession;
-
-/**
- * @deprecated استخدم requirePermission بدلاً من ذلك
- */
 export const checkPermission = requirePermission;

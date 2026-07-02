@@ -1,21 +1,23 @@
 ﻿// src/app/api/companies/route.ts
 import { NextResponse } from 'next/server';
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
-
 
 export const dynamic = 'force-dynamic';
 
 // GET: جلب جميع الشركات مع بيانات المدير (ADMIN)
 export async function GET() {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'SUPER_ADMIN') {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session || session.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -59,8 +61,14 @@ export async function GET() {
 // POST: إنشاء شركة جديدة مع مديرها (ADMIN) وإرسال دعوة عبر البريد
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session || session.user?.role !== 'SUPER_ADMIN') {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session || session.role !== 'SUPER_ADMIN') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
@@ -74,7 +82,10 @@ export async function POST(request: Request) {
     } = await request.json();
 
     if (!companyNameAr || !adminName || !adminEmail) {
-      return NextResponse.json({ error: 'بيانات ناقصة (اسم الشركة، اسم المدير، البريد الإلكتروني مطلوبة)' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'بيانات ناقصة (اسم الشركة، اسم المدير، البريد الإلكتروني مطلوبة)' },
+        { status: 400 }
+      );
     }
 
     // التحقق من عدم وجود شركة بنفس الاسم
@@ -119,7 +130,7 @@ export async function POST(request: Request) {
     const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 ساعة
 
     // إنشاء الشركة والمستخدم في معاملة واحدة
-    const result = await prisma.$transaction(async (tx: TxClient) => {
+    const result = await prisma.$transaction(async (tx) => {
       const company = await tx.company.create({
         data: {
           name: companyNameAr,
@@ -134,10 +145,10 @@ export async function POST(request: Request) {
         data: {
           name: adminName,
           email: adminEmail,
-          password: null, // لا توجد كلمة مرور حتى يتم تفعيل الحساب عبر الدعوة
+          password: null,
           role: { connect: { id: adminRole.id } },
           company: { connect: { id: company.id } },
-          status: false, // الحساب غير نشط
+          status: false,
           invitationToken: token,
           invitationExpires: expires,
         },

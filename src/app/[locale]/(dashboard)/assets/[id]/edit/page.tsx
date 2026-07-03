@@ -349,7 +349,7 @@ export default function EditAssetPage() {
                     </p>
                   </div>
 
-                  {/* ========== الحالة (محسّنة) ========== */}
+                  {/* ========== الحالة (المعدلة) ========== */}
                   <div className="space-y-2">
                     <Label className="text-muted-foreground/70">{t('status')}</Label>
                     {loadingStatuses ? (
@@ -380,7 +380,7 @@ export default function EditAssetPage() {
                         onValueChange={(v) => handleSelectChange("statusId", v)}
                       >
                         <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background font-black px-6">
-                          {getStatusName(formData.statusId) || <SelectValue placeholder={t('selectStatus')} />}
+                          <SelectValue placeholder={t('selectStatus')} />
                         </SelectTrigger>
                         <SelectContent sideOffset={4} className="max-h-[300px]">
                           {statuses.map((status) => (

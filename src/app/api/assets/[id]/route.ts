@@ -1,28 +1,34 @@
 // src/app/api/assets/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await checkPermission('assets.read');
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
     const { id } = await params;
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    }
+
+    // التحقق من الصلاحية: السماح لـ ADMIN و SUPER_ADMIN
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(session.role)) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
     }
 
     const asset = await prisma.asset.findFirst({
@@ -48,8 +54,8 @@ export async function GET(
       return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
     }
 
-    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
-    if (!isAdmin) {
+    // التحقق الإضافي من صلاحية الفرع للمستخدمين غير المدراء
+    if (!allowedRoles.includes(session.role)) {
       const userBranchIds = session.branchIds || [];
       let assetBranchId: string | null = null;
       if (asset.room?.floor?.building?.branchId) {
@@ -75,7 +81,7 @@ export async function GET(
     return NextResponse.json(serializedAsset);
   } catch (error: any) {
     console.error('GET /api/assets/[id] error:', error);
-    return NextResponse.json({ error: 'خطأ في الخادم', details: error.message }, { status: 500 });
+    return NextResponse.json({ error: 'خطأ في الخادم' }, { status: 500 });
   }
 }
 
@@ -84,14 +90,27 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
     const { id } = await params;
     const body = await request.json();
-    const { name, nameEn, typeId, statusId, purchaseDate, warrantyEnd, lastMaintenanceDate, roomId, notes } = body;
-    const companyId = session.companyId!;
-    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const { name, nameEn, description, descriptionEn, typeId, statusId, purchaseDate, warrantyEnd, lastMaintenanceDate, roomId, notes } = body;
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    }
+
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
+    const isAdmin = allowedRoles.includes(session.role);
 
     const existingAsset = await prisma.asset.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -105,7 +124,9 @@ export async function PUT(
         }
       }
     });
-    if (!existingAsset) return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
+    if (!existingAsset) {
+      return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
+    }
 
     if (!isAdmin) {
       const userBranchIds = session.branchIds || [];
@@ -130,7 +151,9 @@ export async function PUT(
         where: { id: roomId, floor: { building: { companyId } } },
         include: { floor: { include: { building: true } } }
       });
-      if (!newRoom) return NextResponse.json({ error: 'الغرفة غير موجودة أو لا تنتمي للشركة' }, { status: 400 });
+      if (!newRoom) {
+        return NextResponse.json({ error: 'الغرفة غير موجودة أو لا تنتمي للشركة' }, { status: 400 });
+      }
       if (!isAdmin) {
         const userBranchIds = session.branchIds || [];
         const newBranchId = newRoom.floor?.building?.branchId;
@@ -146,6 +169,8 @@ export async function PUT(
       data: {
         name: name?.trim(),
         nameEn: nameEn?.trim() || null,
+        description: description?.trim() || null,
+        descriptionEn: descriptionEn?.trim() || null,
         typeId: typeId || null,
         statusId: statusId || null,
         purchaseDate: purchaseDate ? new Date(purchaseDate) : null,
@@ -168,15 +193,34 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
-    if (!isAdmin) return NextResponse.json({ error: 'لا تملك الصلاحية للحذف' }, { status: 403 });
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(session.role)) {
+      return NextResponse.json({ error: 'لا تملك الصلاحية للحذف' }, { status: 403 });
+    }
 
     const { id } = await params;
-    const companyId = session.companyId!;
-    const existingAsset = await prisma.asset.findFirst({ where: { id, companyId, deletedAt: null } });
-    if (!existingAsset) return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    }
+
+    const existingAsset = await prisma.asset.findFirst({
+      where: { id, companyId, deletedAt: null }
+    });
+    if (!existingAsset) {
+      return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
+    }
 
     // فحص جميع الارتباطات مع رسالة مفصلة
     const [workOrderAsset, ticket, scheduleAsset] = await Promise.all([

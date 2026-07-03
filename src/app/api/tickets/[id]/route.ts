@@ -188,7 +188,7 @@ export async function PUT(
             // ✅ استخدام دالة الإنشاء مع إعادة المحاولة (تستخدم branchSeqNum)
             await createWorkOrderWithRetry({
               title: existingTicket.title,
-              description: existingTicket.description,
+              description: existingTicket.description ?? undefined,
               type: workOrderType,
               priorityId: defaultPriority.id,
               statusId: defaultStatus.id,
@@ -268,7 +268,7 @@ export async function PUT(
             // ✅ استخدام دالة الإنشاء مع إعادة المحاولة (تستخدم branchSeqNum)
             await createWorkOrderWithRetry({
               title: existingTicket.title,
-              description: existingTicket.description,
+              description: existingTicket.description ?? undefined,
               type: workOrderType,
               priorityId: defaultPriority.id,
               statusId: defaultStatus.id,

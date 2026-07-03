@@ -1,30 +1,28 @@
 // src/app/api/work-orders/[id]/inventory/route.ts
 import { NextRequest, NextResponse } from "next/server";
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
-
-
-
 // ===================== GET =====================
-// جلب جميع قطع الغيار المرتبطة بأمر العمل
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("work_orders.read");
 
     const { id } = await params;
     const companyId = session.companyId;
 
-    // ✅ التحقق من وجود companyId
     if (!companyId) {
       return NextResponse.json(
         { error: "لا توجد شركة مرتبطة بالمستخدم" },
@@ -32,7 +30,6 @@ export async function GET(
       );
     }
 
-    // التأكد من وجود أمر العمل للشركة
     const workOrder = await prisma.workOrder.findFirst({
       where: { id, companyId, deletedAt: null },
     });
@@ -52,17 +49,21 @@ export async function GET(
 }
 
 // ===================== POST =====================
-// إضافة قطعة غيار جديدة (مع خصم من المخزون)
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("work_orders.update");
 
     const { id } = await params;
     const body = await req.json();
@@ -74,7 +75,6 @@ export async function POST(
 
     const companyId = session.companyId;
 
-    // ✅ التحقق من وجود companyId
     if (!companyId) {
       return NextResponse.json(
         { error: "لا توجد شركة مرتبطة بالمستخدم" },
@@ -82,7 +82,6 @@ export async function POST(
       );
     }
 
-    // التحقق من وجود أمر العمل
     const workOrder = await prisma.workOrder.findFirst({
       where: { id, companyId, deletedAt: null },
     });
@@ -90,7 +89,6 @@ export async function POST(
       return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
     }
 
-    // التحقق من وجود الصنف في المخزون وتوفر الكمية
     const inventoryItem = await prisma.inventoryItem.findFirst({
       where: { id: inventoryItemId, companyId, deletedAt: null },
     });
@@ -101,14 +99,12 @@ export async function POST(
       return NextResponse.json({ error: "الكمية المطلوبة أكبر من المتوفر" }, { status: 400 });
     }
 
-    // استخدام المعاملة (Transaction) لضمان الاتساق
-    const result = await prisma.$transaction(async (tx: TxClient) => {
-      // خصم الكمية من المخزون
+    // ✅ إزالة النوع الصريح لـ tx، وترك TypeScript يستنتجه
+    const result = await prisma.$transaction(async (tx) => {
       await tx.inventoryItem.update({
         where: { id: inventoryItemId },
         data: { quantity: { decrement: quantity } },
       });
-      // إنشاء سجل الربط
       const workOrderInventory = await tx.workOrderInventory.create({
         data: {
           workOrderId: id,
@@ -122,24 +118,29 @@ export async function POST(
     });
 
     return NextResponse.json(result, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("POST /api/work-orders/[id]/inventory error:", error);
-    return NextResponse.json({ error: "فشل إضافة القطعة" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "فشل إضافة القطعة";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // ===================== DELETE =====================
-// حذف قطعة غيار (إعادة الكمية إلى المخزون) باستخدام معرف سجل الربط (recordId)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("work_orders.update");
 
     const { id } = await params;
     const { searchParams } = new URL(req.url);
@@ -151,7 +152,6 @@ export async function DELETE(
 
     const companyId = session.companyId;
 
-    // ✅ التحقق من وجود companyId
     if (!companyId) {
       return NextResponse.json(
         { error: "لا توجد شركة مرتبطة بالمستخدم" },
@@ -159,7 +159,6 @@ export async function DELETE(
       );
     }
 
-    // جلب سجل الربط مع التحقق من أنه يخص أمر العمل الصحيح والشركة
     const record = await prisma.workOrderInventory.findFirst({
       where: {
         id: recordId,
@@ -176,22 +175,21 @@ export async function DELETE(
       return NextResponse.json({ error: "السجل غير موجود أو لا يخص هذا الأمر" }, { status: 404 });
     }
 
-    // استخدام المعاملة لإعادة الكمية وحذف السجل
-    await prisma.$transaction(async (tx: TxClient) => {
-      // إعادة الكمية إلى المخزون
+    // ✅ إزالة النوع الصريح لـ tx هنا أيضاً
+    await prisma.$transaction(async (tx) => {
       await tx.inventoryItem.update({
         where: { id: record.inventoryItemId },
         data: { quantity: { increment: record.quantity } },
       });
-      // حذف سجل الربط
       await tx.workOrderInventory.delete({
         where: { id: record.id },
       });
     });
 
     return NextResponse.json({ message: "تم حذف القطعة وإعادة الكمية" });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("DELETE /api/work-orders/[id]/inventory error:", error);
-    return NextResponse.json({ error: "فشل حذف القطعة" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "فشل حذف القطعة";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

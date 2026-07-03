@@ -1,10 +1,12 @@
-import { prisma, TxClient } from "@/lib/prisma";
+import { prisma } from "@/lib/prisma";
+import type { Prisma, WorkOrderType } from "@prisma/client";
 
+// ========== دالة توليد كود أمر العمل ==========
 export async function generateWorkOrderCode(
   branchId: string
 ): Promise<{ code: string; branchSeqNum: number }> {
-  // استخدام المعاملة (transaction) مع TxClient
-  const result = await prisma.$transaction(async (tx: TxClient) => {
+  // ✅ بدون تحويل (as)، وبدون تحديد نوع tx
+  const result = await prisma.$transaction(async (tx) => {
     const counter = await tx.workOrderCounter.upsert({
       where: { branchId },
       update: { lastValue: { increment: 1 } },
@@ -21,13 +23,27 @@ export async function generateWorkOrderCode(
     return { code, branchSeqNum: counter.lastValue };
   });
 
-  return result;
+  return result; // TypeScript يستنتج النوع الصحيح تلقائياً
 }
 
+// ========== إنشاء أمر عمل مع إعادة المحاولة ==========
 export async function createWorkOrderWithRetry(
-  data: any,
+  data: {
+    title: string;
+    description?: string;
+    type: string;
+    priorityId: string;
+    statusId: string;
+    roomId?: string | null;
+    branchId: string;
+    companyId: string;
+    createdBy: string;
+    ticketId?: string | null;
+    assetTypeId?: string | null;
+    notes?: string | null;
+  },
   maxRetries = 3
-): Promise<any> {
+) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const { code, branchSeqNum } = await generateWorkOrderCode(data.branchId);
@@ -36,11 +52,18 @@ export async function createWorkOrderWithRetry(
           ...data,
           code,
           branchSeqNum,
+          type: data.type as WorkOrderType,
+          roomId: data.roomId ?? undefined,
+          ticketId: data.ticketId ?? undefined,
+          assetTypeId: data.assetTypeId ?? undefined,
+          notes: data.notes ?? undefined,
+          description: data.description ?? undefined,
         },
       });
       return workOrder;
-    } catch (error: any) {
-      if (error.code === "P2002" && attempt < maxRetries) {
+    } catch (error: unknown) {
+      const isPrismaError = typeof error === 'object' && error !== null && 'code' in error;
+      if (isPrismaError && error.code === "P2002" && attempt < maxRetries) {
         console.log(`⚠️ Duplicate work order code, retrying (attempt ${attempt + 1})...`);
         continue;
       }

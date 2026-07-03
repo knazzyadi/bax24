@@ -1,6 +1,8 @@
 // src/lib/prisma.ts
-import { PrismaClient } from '@prisma/client'; // ✅ مسار قياسي بعد إعادة التوليد إلى node_modules
+import { PrismaClient, Prisma } from '@prisma/client';
 import { RequestContext } from './request-context';
+
+export type TxClient = Prisma.TransactionClient;
 
 const SKIP_MODELS = ['User', 'Role', 'Permission', 'Company'] as const;
 const MODELS_WITHOUT_COMPANY_ID = [

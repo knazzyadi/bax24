@@ -160,7 +160,6 @@ export function ReportsFiltersAdvanced() {
               mode="range"
               selected={date}
               onSelect={setDate}
-              initialFocus
             />
             <div className="p-2 border-t flex justify-end gap-2">
               <Button size="sm" variant="ghost" onClick={() => setDate(undefined)}>

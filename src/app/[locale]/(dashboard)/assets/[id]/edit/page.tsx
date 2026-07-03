@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/assets/[id]/edit/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations, useLocale } from 'next-intl';
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar, MapPin, FileText, Loader2, ShieldCheck, Info, Globe, Save, ArrowLeft, ArrowRight, Wrench, AlertTriangle } from "lucide-react";
+import { Calendar, MapPin, FileText, Loader2, ShieldCheck, Info, Globe, Save, ArrowLeft, ArrowRight, Wrench, AlertTriangle, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { PageContainer } from "@/components/shared/detail/PageContainer";
 import { DetailHeader } from "@/components/shared/detail/DetailHeader";
@@ -29,6 +29,8 @@ export default function EditAssetPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
+  const [loadingStatuses, setLoadingStatuses] = useState(true);
+  const [statusesError, setStatusesError] = useState<string | null>(null);
   const [types, setTypes] = useState<AssetType[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [selectedBuildingId, setSelectedBuildingId] = useState<string>("");
@@ -40,8 +42,8 @@ export default function EditAssetPage() {
   const [formData, setFormData] = useState({
     name: "",
     nameEn: "",
-    description: "",      // ✅ وصف عربي
-    descriptionEn: "",    // ✅ وصف إنجليزي
+    description: "",
+    descriptionEn: "",
     typeId: "",
     statusId: "",
     purchaseDate: "",
@@ -53,26 +55,53 @@ export default function EditAssetPage() {
 
   const containerClass = "bg-card border border-border rounded-md p-6 shadow-sm hover:shadow-md transition-all";
 
-  // جلب البيانات الأساسية (الحالات، الأنواع، المباني)
-  useEffect(() => {
-    const fetchMeta = async () => {
-      try {
-        const [statusesRes, typesRes, buildingsRes] = await Promise.all([
-          fetch(`/api/asset-statuses?locale=${locale}`),
-          fetch(`/api/asset-types?locale=${locale}`),
-          fetch(`/api/buildings`),
-        ]);
-        if (statusesRes.ok) setStatuses(await statusesRes.json());
-        if (typesRes.ok) setTypes(await typesRes.json());
-        if (buildingsRes.ok) setBuildings(await buildingsRes.json());
-      } catch (err) {
-        toast.error(t('fetchError'));
-      }
-    };
-    fetchMeta();
-  }, [locale, t]);
+  // ========== تحسين: useMemo لخريطة أسماء الحالات ==========
+  const statusNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    statuses.forEach(s => {
+      map.set(s.id, isRtl ? s.name : (s.nameEn || s.name));
+    });
+    return map;
+  }, [statuses, isRtl]);
 
-  // جلب بيانات الأصل الحالي
+  const getStatusName = useCallback((statusId: string) => {
+    return statusNameMap.get(statusId) || t('selectStatus');
+  }, [statusNameMap, t]);
+
+  // ========== جلب البيانات الأساسية (الحالات، الأنواع، المباني) ==========
+  const fetchMeta = useCallback(async () => {
+    setLoadingStatuses(true);
+    setStatusesError(null);
+    
+    try {
+      const [statusesRes, typesRes, buildingsRes] = await Promise.all([
+        fetch(`/api/asset-statuses?locale=${locale}`),
+        fetch(`/api/asset-types?locale=${locale}`),
+        fetch(`/api/buildings`),
+      ]);
+      
+      if (statusesRes.ok) {
+        const data = await statusesRes.json();
+        setStatuses(data);
+      } else {
+        setStatusesError(isRtl ? 'فشل تحميل الحالات' : 'Failed to load statuses');
+      }
+      
+      if (typesRes.ok) setTypes(await typesRes.json());
+      if (buildingsRes.ok) setBuildings(await buildingsRes.json());
+    } catch (err) {
+      setStatusesError(isRtl ? 'خطأ في الاتصال بالخادم' : 'Server connection error');
+      toast.error(t('fetchError'));
+    } finally {
+      setLoadingStatuses(false);
+    }
+  }, [locale, isRtl, t]);
+
+  useEffect(() => {
+    fetchMeta();
+  }, [fetchMeta]);
+
+  // ========== جلب بيانات الأصل الحالي ==========
   useEffect(() => {
     const fetchAsset = async () => {
       try {
@@ -82,8 +111,8 @@ export default function EditAssetPage() {
         setFormData({
           name: asset.name || "",
           nameEn: asset.nameEn || "",
-          description: asset.description || "",        // ✅ وصف عربي
-          descriptionEn: asset.descriptionEn || "",    // ✅ وصف إنجليزي
+          description: asset.description || "",
+          descriptionEn: asset.descriptionEn || "",
           typeId: asset.typeId || "",
           statusId: asset.statusId || "",
           purchaseDate: asset.purchaseDate ? asset.purchaseDate.split('T')[0] : "",
@@ -109,7 +138,7 @@ export default function EditAssetPage() {
     if (assetId) fetchAsset();
   }, [assetId, t]);
 
-  // عند تغيير الموقع من LocationSelector
+  // ========== عند تغيير الموقع ==========
   const handleLocationChange = (location: LocationValue) => {
     setSelectedBuildingId(location.buildingId);
     setSelectedFloorId(location.floorId);
@@ -117,7 +146,7 @@ export default function EditAssetPage() {
     setFormData(prev => ({ ...prev, roomId: location.roomId }));
   };
 
-  // جلب تفاصيل الغرفة المختارة لعرض الكود والاسم
+  // ========== جلب تفاصيل الغرفة ==========
   useEffect(() => {
     if (!roomId) {
       setSelectedRoomFullCode("");
@@ -161,12 +190,6 @@ export default function EditAssetPage() {
     return isRtl ? type.name : (type.nameEn || type.name);
   };
 
-  const getStatusName = (statusId: string) => {
-    const status = statuses.find(s => s.id === statusId);
-    if (!status) return t('selectStatus');
-    return isRtl ? status.name : (status.nameEn || status.name);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
@@ -183,8 +206,8 @@ export default function EditAssetPage() {
       const payload = {
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
-        description: formData.description.trim() || null,        // ✅ وصف عربي
-        descriptionEn: formData.descriptionEn.trim() || null,    // ✅ وصف إنجليزي
+        description: formData.description.trim() || null,
+        descriptionEn: formData.descriptionEn.trim() || null,
         typeId: formData.typeId || null,
         statusId: formData.statusId || null,
         purchaseDate: formData.purchaseDate || null,
@@ -255,7 +278,7 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* ✅ الوصف العربي (جديد) */}
+                {/* الوصف العربي */}
                 <div className="space-y-2">
                   <Label className="text-sm font-black text-muted-foreground/70">
                     {isRtl ? "الوصف (عربي)" : "Description (Arabic)"}
@@ -283,7 +306,7 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* ✅ الوصف الإنجليزي (جديد) */}
+                {/* الوصف الإنجليزي */}
                 <div className="space-y-2">
                   <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-1">
                     <Globe className="h-4 w-4" /> {isRtl ? "الوصف (English)" : "Description (English)"}
@@ -325,25 +348,59 @@ export default function EditAssetPage() {
                       {isRtl ? "لا يمكن تغيير نوع الأصل بعد الإنشاء." : "Asset type cannot be changed after creation."}
                     </p>
                   </div>
-                  {/* ========== الحالة ========== */}
+
+                  {/* ========== الحالة (محسّنة) ========== */}
                   <div className="space-y-2">
                     <Label className="text-muted-foreground/70">{t('status')}</Label>
-                    <Select
-                      value={formData.statusId}
-                      onValueChange={(v) => handleSelectChange("statusId", v)}
-                      disabled={statuses.length === 0}
-                    >
-                      <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background font-black px-6">
-                        {getStatusName(formData.statusId) || <SelectValue placeholder={t('selectStatus')} />}
-                      </SelectTrigger>
-                      <SelectContent>
-                        {statuses.map((status) => (
-                          <SelectItem key={status.id} value={status.id}>
-                            {isRtl ? status.name : (status.nameEn || status.name)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    {loadingStatuses ? (
+                      <div className="w-full min-w-[180px] h-14 rounded-2xl border border-primary/30 bg-muted/50 flex items-center px-6 text-muted-foreground animate-pulse">
+                        {isRtl ? 'جاري تحميل الحالات...' : 'Loading statuses...'}
+                      </div>
+                    ) : statusesError ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-full min-w-[180px] h-14 rounded-2xl border border-destructive/50 bg-destructive/5 flex items-center px-6 text-destructive">
+                          {statusesError}
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          onClick={fetchMeta}
+                          className="shrink-0 h-14 px-4"
+                        >
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : statuses.length === 0 ? (
+                      <div className="w-full min-w-[180px] h-14 rounded-2xl border border-destructive/50 bg-destructive/5 flex items-center px-6 text-destructive">
+                        {isRtl ? 'لا توجد حالات. يرجى إضافة حالة أولاً.' : 'No statuses available. Please add one.'}
+                      </div>
+                    ) : (
+                      <Select
+                        value={formData.statusId}
+                        onValueChange={(v) => handleSelectChange("statusId", v)}
+                      >
+                        <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background font-black px-6">
+                          {getStatusName(formData.statusId) || <SelectValue placeholder={t('selectStatus')} />}
+                        </SelectTrigger>
+                        <SelectContent sideOffset={4} className="max-h-[300px]">
+                          {statuses.map((status) => (
+                            <SelectItem 
+                              key={status.id} 
+                              value={status.id}
+                              className="cursor-pointer hover:bg-primary/10"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span 
+                                  className="w-3 h-3 rounded-full shrink-0" 
+                                  style={{ backgroundColor: status.color || '#6b7280' }}
+                                />
+                                {isRtl ? status.name : (status.nameEn || status.name)}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
                   </div>
                 </div>
                 

@@ -4,17 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import * as XLSX from 'xlsx';
 
-// ========== دالة لعرض القيم باللغتين معاً ==========
-function formatBilingual(arValue?: string | null, enValue?: string | null): string {
-  const ar = arValue?.trim() || '';
-  const en = enValue?.trim() || '';
-  if (!ar && !en) return '';
-  if (!en) return ar;
-  if (!ar) return en;
-  return `${ar} (${en})`;
-}
-
-// ========== دالة لتنسيق التاريخ (تبقى بالعربية) ==========
+// ========== دالة لتنسيق التاريخ ==========
 function formatDate(dateStr?: string | null): string {
   if (!dateStr) return '';
   try {
@@ -135,20 +125,45 @@ export async function POST(
           }
 
           const row: any = {};
+          
+          // ✅ الكود (منفرد)
           if (assetFields.code) row['الكود'] = asset.code || '';
-          if (assetFields.name) row['الاسم'] = formatBilingual(asset.name, asset.nameEn);
-          if (assetFields.description) row['الوصف'] = formatBilingual(asset.description, asset.descriptionEn);
-          if (assetFields.type) row['النوع'] = formatBilingual(asset.type?.name, asset.type?.nameEn);
-          if (assetFields.status) row['الحالة'] = formatBilingual(asset.status?.name, asset.status?.nameEn);
-          if (assetFields.room) {
-            // عرض الموقع باللغتين معاً
-            row['الموقع'] = locationAr && locationEn
-              ? `${locationAr} (${locationEn})`
-              : locationAr || locationEn || 'لا يوجد موقع';
+
+          // ✅ الاسم: عمودين منفصلين
+          if (assetFields.name) {
+            row['الاسم (عربي)'] = asset.name || '';
+            row['الاسم (إنجليزي)'] = asset.nameEn || '';
           }
+
+          // ✅ الوصف: عمودين منفصلين
+          if (assetFields.description) {
+            row['الوصف (عربي)'] = asset.description || '';
+            row['الوصف (إنجليزي)'] = asset.descriptionEn || '';
+          }
+
+          // ✅ النوع: عمودين منفصلين
+          if (assetFields.type) {
+            row['النوع (عربي)'] = asset.type?.name || '';
+            row['النوع (إنجليزي)'] = asset.type?.nameEn || '';
+          }
+
+          // ✅ الحالة: عمودين منفصلين
+          if (assetFields.status) {
+            row['الحالة (عربي)'] = asset.status?.name || '';
+            row['الحالة (إنجليزي)'] = asset.status?.nameEn || '';
+          }
+
+          // ✅ الموقع: عمودين منفصلين
+          if (assetFields.room) {
+            row['الموقع (عربي)'] = locationAr || 'لا يوجد موقع';
+            row['الموقع (إنجليزي)'] = locationEn || 'No location';
+          }
+
+          // ✅ التواريخ (تنسيق عربي)
           if (assetFields.purchaseDate) row['تاريخ الشراء'] = formatDate(asset.purchaseDate);
           if (assetFields.warrantyEnd) row['نهاية الضمان'] = formatDate(asset.warrantyEnd);
           if (assetFields.lastMaintenanceDate) row['آخر صيانة'] = formatDate(asset.lastMaintenanceDate);
+
           return row;
         });
         break;
@@ -184,9 +199,18 @@ export async function POST(
           const row: any = {};
           if (woFields.code) row['الكود'] = wo.code || '';
           if (woFields.title) row['العنوان'] = wo.title || '';
-          if (woFields.priority) row['الأولوية'] = formatBilingual(wo.priority?.name, wo.priority?.nameEn);
-          if (woFields.status) row['الحالة'] = formatBilingual(wo.status?.name, wo.status?.nameEn);
-          if (woFields.assetType) row['نوع الأصل'] = formatBilingual(wo.assetType?.name, wo.assetType?.nameEn);
+          if (woFields.priority) {
+            row['الأولوية (عربي)'] = wo.priority?.name || '';
+            row['الأولوية (إنجليزي)'] = wo.priority?.nameEn || '';
+          }
+          if (woFields.status) {
+            row['الحالة (عربي)'] = wo.status?.name || '';
+            row['الحالة (إنجليزي)'] = wo.status?.nameEn || '';
+          }
+          if (woFields.assetType) {
+            row['نوع الأصل (عربي)'] = wo.assetType?.name || '';
+            row['نوع الأصل (إنجليزي)'] = wo.assetType?.nameEn || '';
+          }
           if (woFields.createdAt) row['تاريخ الإنشاء'] = formatDate(wo.createdAt);
           return row;
         });
@@ -222,7 +246,10 @@ export async function POST(
           const row: any = {};
           if (ticketFields.code) row['الكود'] = ticket.code || '';
           if (ticketFields.title) row['العنوان'] = ticket.title || '';
-          if (ticketFields.status) row['الحالة'] = formatBilingual(ticket.status?.name, ticket.status?.nameEn);
+          if (ticketFields.status) {
+            row['الحالة (عربي)'] = ticket.status?.name || '';
+            row['الحالة (إنجليزي)'] = ticket.status?.nameEn || '';
+          }
           if (ticketFields.type) row['النوع'] = ticket.type || '';
           if (ticketFields.reporterName) row['اسم المبلغ'] = ticket.reporterName || '';
           if (ticketFields.createdAt) row['تاريخ الإنشاء'] = formatDate(ticket.createdAt);
@@ -258,11 +285,15 @@ export async function POST(
         data = inventoryItems.map((item: any) => {
           const row: any = {};
           if (invFields.sku) row['SKU'] = item.sku || '';
-          if (invFields.name) row['الاسم'] = formatBilingual(item.name, item.nameEn);
+          if (invFields.name) {
+            row['الاسم (عربي)'] = item.name || '';
+            row['الاسم (إنجليزي)'] = item.nameEn || '';
+          }
           if (invFields.quantity) row['الكمية'] = item.quantity || 0;
           if (invFields.unit) row['الوحدة'] = item.unit || '';
           if (invFields.location) {
-            row['الموقع'] = formatBilingual(item.room?.name, item.room?.nameEn) || 'لا يوجد موقع';
+            row['الموقع (عربي)'] = item.room?.name || 'لا يوجد موقع';
+            row['الموقع (إنجليزي)'] = item.room?.nameEn || 'No location';
           }
           return row;
         });
@@ -286,7 +317,7 @@ export async function POST(
 
     // تنسيق الأعمدة
     const cols = Object.keys(data[0] || {});
-    worksheet['!cols'] = cols.map(() => ({ wch: 30 })); // زيادة العرض لاستيعاب النص المزدوج
+    worksheet['!cols'] = cols.map(() => ({ wch: 25 }));
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 

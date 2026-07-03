@@ -1,23 +1,29 @@
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 import { revalidatePath } from 'next/cache';
 
-// GET: جلب حالة أصل واحدة (لجميع المستخدمين المصرح لهم بقراءة الأصول)
+// GET: جلب حالة أصل واحدة
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await checkPermission('assets.read');
+
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(session.role)) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
 
     const { id } = await params;
     const companyId = session.companyId;
@@ -56,7 +62,13 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -120,7 +132,6 @@ export async function PUT(
       },
     });
 
-    // إعادة التحقق من مسار الصفحة (يمكن تحسينه لاحقاً ليدعم اللغة)
     revalidatePath('/ar/settings/asset-statuses');
     revalidatePath('/en/settings/asset-statuses');
     return NextResponse.json(updated);
@@ -142,7 +153,13 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }

@@ -2,15 +2,27 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 
-// GET: جلب قائمة حالات الأصول (للمستخدمين المصرح لهم assets.read)
+// GET: جلب قائمة حالات الأصول (للمستخدمين المصرح لهم)
 export async function GET() {
   try {
-    // ✅ استخدام getAuthenticatedSession بدلاً من getAuthAndPermissions
-    const session = await getAuthenticatedSession();
-    // ✅ استخدام checkPermission بدلاً من requirePermission
-    await checkPermission('assets.read');
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // ✅ التحقق من الصلاحية: السماح لـ ADMIN و SUPER_ADMIN و أي دور لديه صلاحية القراءة
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
+    if (!allowedRoles.includes(session.role)) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
 
     const companyId = session.companyId;
     if (!companyId) {
@@ -30,15 +42,10 @@ export async function GET() {
         isDefault: true,
       },
     });
+
     return NextResponse.json(statuses);
   } catch (error: any) {
     console.error('GET /api/asset-statuses error:', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    if (error.message === 'FORBIDDEN' || error.message?.includes('FORBIDDEN')) {
-      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
@@ -46,11 +53,22 @@ export async function GET() {
 // POST: إضافة حالة أصل جديدة (للأدمن فقط)
 export async function POST(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية إنشاء حالة' }, { status: 403 });
     }
+
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
@@ -96,9 +114,6 @@ export async function POST(request: Request) {
     return NextResponse.json(newStatus, { status: 201 });
   } catch (error: any) {
     console.error('POST /api/asset-statuses error:', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
     if (error.code === 'P2002') {
       return NextResponse.json(
         { error: 'حالة أصل بنفس الاسم موجودة بالفعل' },
@@ -112,7 +127,17 @@ export async function POST(request: Request) {
 // PUT: تحديث حالة (للأدمن فقط)
 export async function PUT(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية تحديث الحالة' }, { status: 403 });
@@ -161,9 +186,6 @@ export async function PUT(request: Request) {
     return NextResponse.json(updated);
   } catch (error: any) {
     console.error('PUT /api/asset-statuses error:', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
@@ -171,7 +193,17 @@ export async function PUT(request: Request) {
 // DELETE: حذف حالة (للأدمن فقط)
 export async function DELETE(request: Request) {
   try {
-    const session = await getAuthenticatedSession();
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       return NextResponse.json({ error: 'لا تملك صلاحية حذف الحالة' }, { status: 403 });
@@ -200,9 +232,6 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('DELETE /api/asset-statuses error:', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

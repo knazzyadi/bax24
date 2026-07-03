@@ -39,11 +39,13 @@ interface AssetDetail {
   code: string;
   name: string;
   nameEn?: string;
+  description?: string;        // ✅ وصف عربي
+  descriptionEn?: string;      // ✅ وصف إنجليزي
   type?: { id: string; name: string; nameEn?: string };
   status?: { id: string; name: string; nameEn?: string; color?: string };
   purchaseDate?: string;
   warrantyEnd?: string;
-  lastMaintenanceDate?: string;      // ✅ إضافة تاريخ آخر صيانة
+  lastMaintenanceDate?: string;
   notes?: string;
   room?: {
     id: string;
@@ -84,7 +86,7 @@ export default function AssetDetailPage() {
         const [assetRes, workOrdersRes, maintenanceRes] = await Promise.all([
           fetch(`/api/assets/${assetId}`),
           fetch(`/api/work-orders?assetId=${assetId}`),
-          fetch(`/api/assets/${assetId}/maintenance-history`) // قد تحتاج إلى إنشاء هذا الـ API
+          fetch(`/api/assets/${assetId}/maintenance-history`)
         ]);
 
         if (!assetRes.ok) {
@@ -192,28 +194,53 @@ export default function AssetDetailPage() {
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* العمود الأيسر - المعلومات الأساسية والملاحظات وأوامر العمل المرتبطة */}
+        {/* العمود الأيسر */}
         <div className="lg:col-span-2 space-y-8">
           <InfoCard title={t('basicInfo')} icon={<FileText className="h-5 w-5" />}>
             <div className="grid md:grid-cols-2 gap-6">
+              {/* الاسم العربي */}
               <div>
                 <Label className="text-muted-foreground text-sm">{t('name')}</Label>
                 <p className="font-bold text-lg">{asset.name}</p>
-                {asset.nameEn && (
-                  <>
-                    <Label className="text-muted-foreground text-sm mt-2">{t('nameEn')}</Label>
-                    <p className="font-bold">{asset.nameEn}</p>
-                  </>
-                )}
               </div>
+
+              {/* ✅ الوصف العربي (جديد) */}
+              {asset.description && (
+                <div className="md:col-span-2">
+                  <Label className="text-muted-foreground text-sm">{isRtl ? "الوصف (عربي)" : "Description (Arabic)"}</Label>
+                  <p className="text-base whitespace-pre-wrap">{asset.description}</p>
+                </div>
+              )}
+
+              {/* الاسم الإنجليزي */}
+              {asset.nameEn && (
+                <div>
+                  <Label className="text-muted-foreground text-sm">{t('nameEn')}</Label>
+                  <p className="font-bold">{asset.nameEn}</p>
+                </div>
+              )}
+
+              {/* ✅ الوصف الإنجليزي (جديد) */}
+              {asset.descriptionEn && (
+                <div className="md:col-span-2">
+                  <Label className="text-muted-foreground text-sm">{isRtl ? "الوصف (English)" : "Description (English)"}</Label>
+                  <p className="text-base whitespace-pre-wrap">{asset.descriptionEn}</p>
+                </div>
+              )}
+
+              {/* الكود */}
               <div>
                 <Label className="text-muted-foreground text-sm">{t('code')}</Label>
                 <p className="font-mono font-bold text-lg">{asset.code}</p>
               </div>
+
+              {/* النوع */}
               <div>
                 <Label className="text-muted-foreground text-sm">{t('type')}</Label>
                 <p>{asset.type ? (isRtl ? asset.type.name : (asset.type.nameEn || asset.type.name)) : "—"}</p>
               </div>
+
+              {/* الحالة */}
               <div>
                 <Label className="text-muted-foreground text-sm">{t('status')}</Label>
                 <div>{getStatusBadge(asset.status)}</div>
@@ -227,7 +254,7 @@ export default function AssetDetailPage() {
             </InfoCard>
           )}
 
-          {/* أوامر العمل المرتبطة (تبقى في اليسار) */}
+          {/* أوامر العمل المرتبطة */}
           <SidebarCard title={isRtl ? "أوامر العمل المرتبطة" : "Related Work Orders"} icon={<Wrench className="h-5 w-5" />}>
             {workOrders.length === 0 ? (
               <p className="text-muted-foreground text-sm">{isRtl ? "لا توجد أوامر عمل لهذا الأصل" : "No work orders for this asset"}</p>
@@ -254,7 +281,7 @@ export default function AssetDetailPage() {
             )}
           </SidebarCard>
 
-          {/* سجل الصيانة (صيانات سابقة) - يمكن إضافة مزيد من التفاصيل لاحقاً */}
+          {/* سجل الصيانة */}
           <SidebarCard title={isRtl ? "سجل الصيانة" : "Maintenance History"} icon={<History className="h-5 w-5" />}>
             {maintenanceHistory.length === 0 ? (
               <p className="text-muted-foreground text-sm">{isRtl ? "لا توجد صيانات مسجلة" : "No maintenance records"}</p>
@@ -273,7 +300,7 @@ export default function AssetDetailPage() {
           </SidebarCard>
         </div>
 
-        {/* العمود الأيمن - الموقع، دورة الحياة، الأزرار */}
+        {/* العمود الأيمن */}
         <div className="space-y-8">
           <SidebarCard title={t('location')} icon={<MapPin className="h-5 w-5" />}>
             <div className="flex items-center gap-2">
@@ -298,7 +325,6 @@ export default function AssetDetailPage() {
                   <span>{formatDate(asset.warrantyEnd)}</span>
                 </div>
               </div>
-              {/* ✅ إضافة تاريخ آخر صيانة */}
               <div>
                 <Label className="text-muted-foreground text-sm">{isRtl ? "آخر صيانة" : "Last Maintenance"}</Label>
                 <div className="flex items-center gap-2">

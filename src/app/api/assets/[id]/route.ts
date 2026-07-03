@@ -72,12 +72,16 @@ export async function GET(
       }
     }
 
+    // ✅ إضافة description و descriptionEn صراحةً
     const serializedAsset = {
       ...asset,
+      description: asset.description ?? null,
+      descriptionEn: asset.descriptionEn ?? null,
       purchaseDate: asset.purchaseDate?.toISOString()?.split('T')[0] || null,
       warrantyEnd: asset.warrantyEnd?.toISOString()?.split('T')[0] || null,
       lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString()?.split('T')[0] || null,
     };
+
     return NextResponse.json(serializedAsset);
   } catch (error: any) {
     console.error('GET /api/assets/[id] error:', error);

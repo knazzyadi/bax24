@@ -4,6 +4,26 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import * as XLSX from 'xlsx';
 
+// ========== دالة لعرض القيم باللغتين معاً ==========
+function formatBilingual(arValue?: string | null, enValue?: string | null): string {
+  const ar = arValue?.trim() || '';
+  const en = enValue?.trim() || '';
+  if (!ar && !en) return '';
+  if (!en) return ar;
+  if (!ar) return en;
+  return `${ar} (${en})`;
+}
+
+// ========== دالة لتنسيق التاريخ (تبقى بالعربية) ==========
+function formatDate(dateStr?: string | null): string {
+  if (!dateStr) return '';
+  try {
+    return new Date(dateStr).toLocaleDateString('ar-SA');
+  } catch {
+    return dateStr;
+  }
+}
+
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -32,11 +52,10 @@ export async function POST(
     const body = await request.json();
     const { columns, modelType } = body;
 
-    // جلب التقرير المحفوظ للتحقق
     const savedReport = await prisma.savedReport.findFirst({
       where: {
         id,
-        userId: session.userId, // ✅ استخدام userId بدلاً من id
+        userId: session.userId,
         companyId: companyId,
       },
     });
@@ -45,7 +64,6 @@ export async function POST(
       return NextResponse.json({ error: 'التقرير غير موجود' }, { status: 404 });
     }
 
-    // جلب جميع البيانات (بدون ترقيم)
     let data: any[] = [];
 
     switch (modelType) {
@@ -59,11 +77,10 @@ export async function POST(
           } else assetFields[col] = true;
         });
 
-        // بناء كائن select ديناميكياً
         const select: any = {};
         if (assetFields.code) select.code = true;
-        if (assetFields.name) select.name = true;
-        if (assetFields.nameEn) select.nameEn = true;
+        if (assetFields.name) { select.name = true; select.nameEn = true; }
+        if (assetFields.description) { select.description = true; select.descriptionEn = true; }
         if (assetFields.type) select.type = { select: { name: true, nameEn: true } };
         if (assetFields.status) select.status = { select: { name: true, nameEn: true } };
         if (assetFields.purchaseDate) select.purchaseDate = true;
@@ -91,10 +108,10 @@ export async function POST(
           };
         }
 
-        // إذا لم يتم تحديد أي حقل، نضيف الحقول الأساسية
         if (Object.keys(select).length === 0) {
           select.code = true;
           select.name = true;
+          select.nameEn = true;
         }
 
         const assets = await prisma.asset.findMany({
@@ -103,24 +120,35 @@ export async function POST(
         });
 
         data = assets.map((asset: any) => {
-          let location = '';
+          // بناء الموقع باللغتين
+          let locationAr = '';
+          let locationEn = '';
           if (asset.room) {
-            const buildingName = asset.room.floor?.building?.name || asset.room.floor?.building?.nameEn || '';
-            const floorName = asset.room.floor?.name || asset.room.floor?.nameEn || '';
-            const roomName = asset.room.name || asset.room.nameEn || '';
-            location = [buildingName, floorName, roomName].filter(Boolean).join(' - ');
+            const buildingAr = asset.room.floor?.building?.name || '';
+            const buildingEn = asset.room.floor?.building?.nameEn || '';
+            const floorAr = asset.room.floor?.name || '';
+            const floorEn = asset.room.floor?.nameEn || '';
+            const roomAr = asset.room.name || '';
+            const roomEn = asset.room.nameEn || '';
+            locationAr = [buildingAr, floorAr, roomAr].filter(Boolean).join(' - ');
+            locationEn = [buildingEn, floorEn, roomEn].filter(Boolean).join(' - ');
           }
-          if (!location) location = 'لا يوجد موقع';
 
           const row: any = {};
           if (assetFields.code) row['الكود'] = asset.code || '';
-          if (assetFields.name) row['الاسم'] = asset.name || '';
-          if (assetFields.type) row['النوع'] = asset.type?.name || asset.type?.nameEn || '';
-          if (assetFields.status) row['الحالة'] = asset.status?.name || asset.status?.nameEn || '';
-          if (assetFields.room) row['الموقع'] = location;
-          if (assetFields.purchaseDate) row['تاريخ الشراء'] = asset.purchaseDate ? new Date(asset.purchaseDate).toLocaleDateString('ar-SA') : '';
-          if (assetFields.warrantyEnd) row['نهاية الضمان'] = asset.warrantyEnd ? new Date(asset.warrantyEnd).toLocaleDateString('ar-SA') : '';
-          if (assetFields.lastMaintenanceDate) row['آخر صيانة'] = asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate).toLocaleDateString('ar-SA') : '';
+          if (assetFields.name) row['الاسم'] = formatBilingual(asset.name, asset.nameEn);
+          if (assetFields.description) row['الوصف'] = formatBilingual(asset.description, asset.descriptionEn);
+          if (assetFields.type) row['النوع'] = formatBilingual(asset.type?.name, asset.type?.nameEn);
+          if (assetFields.status) row['الحالة'] = formatBilingual(asset.status?.name, asset.status?.nameEn);
+          if (assetFields.room) {
+            // عرض الموقع باللغتين معاً
+            row['الموقع'] = locationAr && locationEn
+              ? `${locationAr} (${locationEn})`
+              : locationAr || locationEn || 'لا يوجد موقع';
+          }
+          if (assetFields.purchaseDate) row['تاريخ الشراء'] = formatDate(asset.purchaseDate);
+          if (assetFields.warrantyEnd) row['نهاية الضمان'] = formatDate(asset.warrantyEnd);
+          if (assetFields.lastMaintenanceDate) row['آخر صيانة'] = formatDate(asset.lastMaintenanceDate);
           return row;
         });
         break;
@@ -156,10 +184,10 @@ export async function POST(
           const row: any = {};
           if (woFields.code) row['الكود'] = wo.code || '';
           if (woFields.title) row['العنوان'] = wo.title || '';
-          if (woFields.priority) row['الأولوية'] = wo.priority?.name || wo.priority?.nameEn || '';
-          if (woFields.status) row['الحالة'] = wo.status?.name || wo.status?.nameEn || '';
-          if (woFields.assetType) row['نوع الأصل'] = wo.assetType?.name || wo.assetType?.nameEn || '';
-          if (woFields.createdAt) row['تاريخ الإنشاء'] = wo.createdAt ? new Date(wo.createdAt).toLocaleDateString('ar-SA') : '';
+          if (woFields.priority) row['الأولوية'] = formatBilingual(wo.priority?.name, wo.priority?.nameEn);
+          if (woFields.status) row['الحالة'] = formatBilingual(wo.status?.name, wo.status?.nameEn);
+          if (woFields.assetType) row['نوع الأصل'] = formatBilingual(wo.assetType?.name, wo.assetType?.nameEn);
+          if (woFields.createdAt) row['تاريخ الإنشاء'] = formatDate(wo.createdAt);
           return row;
         });
         break;
@@ -194,10 +222,10 @@ export async function POST(
           const row: any = {};
           if (ticketFields.code) row['الكود'] = ticket.code || '';
           if (ticketFields.title) row['العنوان'] = ticket.title || '';
-          if (ticketFields.status) row['الحالة'] = ticket.status?.name || ticket.status?.nameEn || '';
+          if (ticketFields.status) row['الحالة'] = formatBilingual(ticket.status?.name, ticket.status?.nameEn);
           if (ticketFields.type) row['النوع'] = ticket.type || '';
           if (ticketFields.reporterName) row['اسم المبلغ'] = ticket.reporterName || '';
-          if (ticketFields.createdAt) row['تاريخ الإنشاء'] = ticket.createdAt ? new Date(ticket.createdAt).toLocaleDateString('ar-SA') : '';
+          if (ticketFields.createdAt) row['تاريخ الإنشاء'] = formatDate(ticket.createdAt);
           return row;
         });
         break;
@@ -211,7 +239,7 @@ export async function POST(
 
         const select: any = {};
         if (invFields.sku) select.sku = true;
-        if (invFields.name) select.name = true;
+        if (invFields.name) { select.name = true; select.nameEn = true; }
         if (invFields.quantity) select.quantity = true;
         if (invFields.unit) select.unit = true;
         if (invFields.location) select.room = { select: { name: true, nameEn: true } };
@@ -219,6 +247,7 @@ export async function POST(
         if (Object.keys(select).length === 0) {
           select.sku = true;
           select.name = true;
+          select.nameEn = true;
         }
 
         const inventoryItems = await prisma.inventoryItem.findMany({
@@ -229,10 +258,12 @@ export async function POST(
         data = inventoryItems.map((item: any) => {
           const row: any = {};
           if (invFields.sku) row['SKU'] = item.sku || '';
-          if (invFields.name) row['الاسم'] = item.name || '';
+          if (invFields.name) row['الاسم'] = formatBilingual(item.name, item.nameEn);
           if (invFields.quantity) row['الكمية'] = item.quantity || 0;
           if (invFields.unit) row['الوحدة'] = item.unit || '';
-          if (invFields.location) row['الموقع'] = item.room?.name || item.room?.nameEn || 'لا يوجد موقع';
+          if (invFields.location) {
+            row['الموقع'] = formatBilingual(item.room?.name, item.room?.nameEn) || 'لا يوجد موقع';
+          }
           return row;
         });
         break;
@@ -242,7 +273,6 @@ export async function POST(
         return NextResponse.json({ error: 'نموذج غير مدعوم' }, { status: 400 });
     }
 
-    // التحقق من وجود بيانات
     if (data.length === 0) {
       return NextResponse.json(
         { error: 'لا توجد بيانات لتصديرها' },
@@ -250,14 +280,13 @@ export async function POST(
       );
     }
 
-    // إنشاء ملف Excel
     const worksheet = XLSX.utils.json_to_sheet(data);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'تقرير');
 
-    // تنسيق الأعمدة للعربية
+    // تنسيق الأعمدة
     const cols = Object.keys(data[0] || {});
-    worksheet['!cols'] = cols.map(() => ({ wch: 20 }));
+    worksheet['!cols'] = cols.map(() => ({ wch: 30 })); // زيادة العرض لاستيعاب النص المزدوج
 
     const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
 

@@ -22,6 +22,7 @@ import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
 
+// ========== أنواع البيانات ==========
 interface AssetType {
   id: string;
   name: string;
@@ -51,14 +52,14 @@ interface Building {
   id: string;
   name: string;
   nameEn?: string;
-  code?: string;   // أضف code اختياري
+  code?: string;
 }
 
 interface Floor {
   id: string;
   name: string;
   nameEn?: string;
-  code?: string;   // أضف code اختياري
+  code?: string;
   buildingId: string;
 }
 
@@ -74,6 +75,7 @@ interface Room {
 
 type LocationLevel = "building" | "floor" | "room";
 
+// ========== المكون الرئيسي ==========
 export default function EditWorkOrderPage() {
   const params = useParams();
   const router = useRouter();
@@ -86,13 +88,21 @@ export default function EditWorkOrderPage() {
   const [saving, setSaving] = useState(false);
   const [locationLevel, setLocationLevel] = useState<LocationLevel>("building");
 
-  // قوائم القيم
+  // القوائم المنسدلة
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
+  
+  // الأصول المتاحة للاختيار (في الحوار)
   const [assetsList, setAssetsList] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
+  
+  // الأصول المحددة (المعرفات فقط)
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
+  
+  // ✅ تفاصيل الأصول المحددة (للعرض)
+  const [selectedAssetsDetails, setSelectedAssetsDetails] = useState<Asset[]>([]);
+  const [loadingSelectedAssets, setLoadingSelectedAssets] = useState(false);
 
   // بيانات الموقع
   const [branchId, setBranchId] = useState<string>("");
@@ -121,7 +131,7 @@ export default function EditWorkOrderPage() {
     notes: "",
   });
 
-  // جلب البيانات الأولية (أولويات، حالات، أنواع أصول، مباني، وأمر العمل)
+  // ====== 1. جلب البيانات الأولية (أولويات، حالات، أنواع أصول، مباني، وأمر العمل) ======
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -149,7 +159,7 @@ export default function EditWorkOrderPage() {
         setAssetTypes(Array.isArray(typesData) ? typesData : []);
         setBuildings(buildingsData);
 
-        // الأصول المرتبطة (من workOrderAssets أو legacy assetId)
+        // استخراج معرفات الأصول
         let assetIds: string[] = [];
         if (workOrderData.workOrderAssets && workOrderData.workOrderAssets.length) {
           assetIds = workOrderData.workOrderAssets.map((wa: any) => wa.assetId);
@@ -168,7 +178,7 @@ export default function EditWorkOrderPage() {
           notes: workOrderData.notes || "",
         });
 
-        // تعيين الموقع حسب البيانات المتوفرة
+        // تعيين الموقع
         if (workOrderData.room) {
           setRoomId(workOrderData.room.id);
           setLocationLevel("room");
@@ -200,7 +210,37 @@ export default function EditWorkOrderPage() {
     fetchData();
   }, [id, router, locale, t]);
 
-  // جلب الأدوار عند تغيير المبنى
+  // ====== 2. جلب تفاصيل الأصول المحددة ======
+  useEffect(() => {
+    if (selectedAssetIds.length === 0) {
+      setSelectedAssetsDetails([]);
+      return;
+    }
+
+    const fetchSelectedAssets = async () => {
+      setLoadingSelectedAssets(true);
+      try {
+        // جلب كل أصل على حدة (يمكن تحسينه بإضافة API واحد يجلب عدة أصول)
+        const assetPromises = selectedAssetIds.map(assetId =>
+          fetch(`/api/assets/${assetId}`).then(res => {
+            if (!res.ok) throw new Error(`Failed to fetch asset ${assetId}`);
+            return res.json();
+          })
+        );
+        const assets = await Promise.all(assetPromises);
+        setSelectedAssetsDetails(assets);
+      } catch (error) {
+        console.error("Error fetching selected assets:", error);
+        toast.error(t("fetchAssetsError") || "فشل تحميل الأصول المحددة");
+      } finally {
+        setLoadingSelectedAssets(false);
+      }
+    };
+
+    fetchSelectedAssets();
+  }, [selectedAssetIds, t]);
+
+  // ====== 3. جلب الأدوار والغرف (كما هي) ======
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -221,7 +261,6 @@ export default function EditWorkOrderPage() {
     fetchFloors();
   }, [buildingId]);
 
-  // جلب الغرف عند تغيير الدور
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -254,7 +293,7 @@ export default function EditWorkOrderPage() {
     fetchRooms();
   }, [floorId, buildingId, buildings, floors]);
 
-  // جلب الأصول المتاحة فقط عند اختيار مستوى غرفة
+  // ====== 4. جلب الأصول المتاحة (للحوار) ======
   useEffect(() => {
     if (locationLevel !== "room" || !roomId) {
       setAssetsList([]);
@@ -279,9 +318,11 @@ export default function EditWorkOrderPage() {
     fetchAssets();
   }, [roomId, formData.assetTypeId, locationLevel]);
 
+  // ====== دوال التحكم ======
   const handleLocationLevelChange = (level: LocationLevel) => {
     setLocationLevel(level);
-    setSelectedAssetIds([]); // إعادة تعيين الأصول
+    setSelectedAssetIds([]);
+    setSelectedAssetsDetails([]);
     if (level !== "room") {
       setRoomId("");
       setFormData(prev => ({ ...prev, assetTypeId: "" }));
@@ -290,6 +331,22 @@ export default function EditWorkOrderPage() {
     if (level !== "building") setBuildingId("");
   };
 
+  const openAssetDialog = () => {
+    setTempSelectedAssetIds([...selectedAssetIds]);
+    setAssetDialogOpen(true);
+  };
+
+  const confirmAssetSelection = () => {
+    setSelectedAssetIds(tempSelectedAssetIds);
+    setAssetDialogOpen(false);
+  };
+
+  const removeAsset = (assetId: string) => {
+    setSelectedAssetIds(prev => prev.filter(id => id !== assetId));
+    setSelectedAssetsDetails(prev => prev.filter(asset => asset.id !== assetId));
+  };
+
+  // ====== الإرسال ======
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title.trim()) {
@@ -346,18 +403,7 @@ export default function EditWorkOrderPage() {
     }
   };
 
-  const openAssetDialog = () => {
-    setTempSelectedAssetIds([...selectedAssetIds]);
-    setAssetDialogOpen(true);
-  };
-  const confirmAssetSelection = () => {
-    setSelectedAssetIds(tempSelectedAssetIds);
-    setAssetDialogOpen(false);
-  };
-  const removeAsset = (assetId: string) => {
-    setSelectedAssetIds(prev => prev.filter(id => id !== assetId));
-  };
-
+  // ====== دوال عرض النصوص ======
   const getTypeLabel = (type: string) => {
     switch (type) {
       case "MAINTENANCE": return t("type_maintenance");
@@ -554,27 +600,33 @@ export default function EditWorkOrderPage() {
                     >
                       <Plus size={16} />
                       {selectedAssetIds.length > 0
-                        ? `${selectedAssetIds.length} ${t("assetsSelected") || t("assetsSelected")}`
+                        ? `${selectedAssetIds.length} ${t("assetsSelected") || "أصل محدد"}`
                         : t("selectAssets")}
                     </Button>
                   </div>
-                  {selectedAssetIds.length > 0 && (
+
+                  {/* ✅ عرض الأصول المحددة باستخدام التفاصيل المجلوبة */}
+                  {selectedAssetsDetails.length > 0 && (
                     <div className="space-y-2">
-                      {selectedAssetIds.map(assetId => {
-                        const asset = assetsList.find(a => a.id === assetId);
-                        if (!asset) return null;
-                        return (
-                          <div key={assetId} className="flex justify-between items-center p-3 rounded-xl border border-primary/20 bg-primary/5">
-                            <div>
-                              <p className="font-bold">{isRtl ? asset.name : asset.nameEn || asset.name}</p>
-                              <p className="text-xs text-muted-foreground font-mono">{asset.code}</p>
-                            </div>
-                            <button type="button" onClick={() => removeAsset(assetId)} className="text-red-500">
-                              <X size={18} />
-                            </button>
+                      {selectedAssetsDetails.map(asset => (
+                        <div key={asset.id} className="flex justify-between items-center p-3 rounded-xl border border-primary/20 bg-primary/5">
+                          <div>
+                            <p className="font-bold">{isRtl ? asset.name : asset.nameEn || asset.name}</p>
+                            <p className="text-xs text-muted-foreground font-mono">{asset.code}</p>
                           </div>
-                        );
-                      })}
+                          <button type="button" onClick={() => removeAsset(asset.id)} className="text-red-500">
+                            <X size={18} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* عرض رسالة أثناء تحميل تفاصيل الأصول */}
+                  {loadingSelectedAssets && (
+                    <div className="flex items-center justify-center py-2">
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                      <span className="mr-2 text-sm text-muted-foreground">جاري تحميل الأصول...</span>
                     </div>
                   )}
                 </div>

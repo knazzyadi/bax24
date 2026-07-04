@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger } from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { FileText, MapPin, User, Info, Save, X, Loader2, Image as ImageIcon, Upload, Trash2 } from "lucide-react";
 import { PageContainer } from "@/components/shared/detail/PageContainer";
@@ -296,7 +296,7 @@ export default function EditTicketPage() {
                   <Label className="text-sm font-black text-muted-foreground">{t('type')} *</Label>
                   <Select value={formData.type} onValueChange={(v) => setFormData({...formData, type: v})}>
                     <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6 w-full">
-                      {getTicketTypeLabel(formData.type)}
+                      <SelectValue placeholder={t('selectType')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="MAINTENANCE">{t('type_maintenance')}</SelectItem>
@@ -337,7 +337,7 @@ export default function EditTicketPage() {
                     onValueChange={(v) => setFormData({...formData, assetTypeId: v, assetId: ""})}
                   >
                     <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6 disabled:opacity-60 w-full">
-                      {formData.assetTypeId ? getAssetTypeLabel(formData.assetTypeId) : <span className="text-muted-foreground">{t('selectAssetType')}</span>}
+                      <SelectValue placeholder={t('selectAssetType')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">{t('none')}</SelectItem>
@@ -359,7 +359,7 @@ export default function EditTicketPage() {
                     onValueChange={(v) => setFormData({...formData, assetId: v})}
                   >
                     <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6 disabled:opacity-60 w-full">
-                      {formData.assetId ? getAssetLabel(formData.assetId) : <span className="text-muted-foreground">{t('selectAsset')}</span>}
+                      <SelectValue placeholder={t('selectAsset')} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">{t('none')}</SelectItem>

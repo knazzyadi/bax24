@@ -389,7 +389,7 @@ export default function NewWorkOrderPage() {
             <FormField label={t("type")}>
               <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
                 <SelectTrigger className="h-12 rounded-xl">
-                  {formData.type ? getTypeLabel(formData.type) : <SelectValue placeholder={t("selectType")} />}
+                  <SelectValue placeholder={t("selectType")} />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="MAINTENANCE">{t("type_maintenance")}</SelectItem>
@@ -404,7 +404,7 @@ export default function NewWorkOrderPage() {
             <FormField label={t("priority")}>
               <Select value={formData.priorityId} onValueChange={(v) => setFormData({ ...formData, priorityId: v })}>
                 <SelectTrigger className="h-12 rounded-xl">
-                  {formData.priorityId ? getPriorityLabel(formData.priorityId) : <SelectValue placeholder={t("selectPriority")} />}
+                  <SelectValue placeholder={t("selectPriority")} />
                 </SelectTrigger>
                 <SelectContent>
                   {priorities.map(p => (
@@ -416,7 +416,7 @@ export default function NewWorkOrderPage() {
             <FormField label={t("status")}>
               <Select value={formData.statusId} onValueChange={(v) => setFormData({ ...formData, statusId: v })}>
                 <SelectTrigger className="h-12 rounded-xl">
-                  {formData.statusId ? getStatusLabel(formData.statusId) : <SelectValue placeholder={t("selectStatus")} />}
+                  <SelectValue placeholder={t("selectStatus")} />
                 </SelectTrigger>
                 <SelectContent>
                   {statuses.map(s => (

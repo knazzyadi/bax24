@@ -3,7 +3,7 @@
 import { useSearchParams, useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, FileText } from "lucide-react";
 
 export default function SuccessPage() {
   const searchParams = useSearchParams();
@@ -11,6 +11,18 @@ export default function SuccessPage() {
   const locale = useLocale();
   const isRtl = locale === "ar";
   const ticketId = searchParams.get("id");
+  const slug = searchParams.get("slug");
+  const token = searchParams.get("token");
+
+  // زر تقديم بلاغ جديد
+  const handleNewTicket = () => {
+    if (slug && token) {
+      router.push(`/${locale}/tickets/public/${slug}/${token}`);
+    } else {
+      // إذا لم توجد slug/token، نذهب إلى الصفحة الرئيسية أو نموذج عام
+      router.push(`/${locale}`);
+    }
+  };
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background to-muted">
@@ -25,7 +37,8 @@ export default function SuccessPage() {
         </h1>
         {ticketId && (
           <p className="text-sm text-muted-foreground mb-4">
-            {isRtl ? "رقم التذكرة:" : "Ticket ID:"} <span className="font-mono font-bold">{ticketId}</span>
+            {isRtl ? "رقم التذكرة:" : "Ticket ID:"}{" "}
+            <span className="font-mono font-bold">{ticketId}</span>
           </p>
         )}
         <p className="text-muted-foreground mb-6">
@@ -33,9 +46,19 @@ export default function SuccessPage() {
             ? "شكراً لك. سيتم مراجعة البلاغ في أقرب وقت وسيتم التواصل معك."
             : "Thank you. Your ticket will be reviewed shortly and you will be contacted."}
         </p>
-        <Button onClick={() => router.push(`/${locale}`)} className="w-full">
-          {isRtl ? "العودة للرئيسية" : "Back to Home"}
-        </Button>
+
+        {/* ✅ زرين بدلاً من زر واحد */}
+        <div className="space-y-3">
+          {slug && token && (
+            <Button onClick={handleNewTicket} variant="outline" className="w-full gap-2">
+              <FileText className="h-4 w-4" />
+              {isRtl ? "تقديم بلاغ جديد" : "Submit Another Ticket"}
+            </Button>
+          )}
+          <Button onClick={() => router.push(`/${locale}`)} className="w-full">
+            {isRtl ? "العودة للرئيسية" : "Back to Home"}
+          </Button>
+        </div>
       </div>
     </div>
   );

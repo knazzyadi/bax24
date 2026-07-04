@@ -590,7 +590,7 @@ export default function EditWorkOrderPage() {
                   <Label className="text-sm font-black">{t("type")}</Label>
                   <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
                     <SelectTrigger className="w-full h-14 rounded-2xl border-primary font-black px-6">
-                      {getTypeLabel(formData.type)}
+                      <SelectValue placeholder={t("selectType")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="MAINTENANCE">{t("type_maintenance")}</SelectItem>
@@ -604,7 +604,7 @@ export default function EditWorkOrderPage() {
                   <Label className="text-sm font-black">{t("priority")}</Label>
                   <Select value={formData.priorityId} onValueChange={(v) => setFormData({ ...formData, priorityId: v })}>
                     <SelectTrigger className="w-full h-14 rounded-2xl border-primary font-black px-6">
-                      {formData.priorityId ? getPriorityLabel(formData.priorityId) : <span className="text-muted-foreground">{t("selectPriority")}</span>}
+                      <SelectValue placeholder={t("selectPriority")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">{t("none")}</SelectItem>
@@ -621,7 +621,7 @@ export default function EditWorkOrderPage() {
                   <Label className="text-sm font-black">{t("status")}</Label>
                   <Select value={formData.statusId} onValueChange={(v) => setFormData({ ...formData, statusId: v })}>
                     <SelectTrigger className="w-full h-14 rounded-2xl border-primary font-black px-6">
-                      {formData.statusId ? getStatusLabel(formData.statusId) : <span className="text-muted-foreground">{t("selectStatus")}</span>}
+                      <SelectValue placeholder={t("selectStatus")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">{t("none")}</SelectItem>

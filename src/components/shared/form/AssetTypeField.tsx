@@ -1,5 +1,4 @@
 // src/components/shared/form/AssetTypeField.tsx
-//اختيار نوع الأصل
 "use client";
 
 import { Label } from "@/components/ui/label";
@@ -32,10 +31,6 @@ export function AssetTypeField({
   disabled = false,
   placeholder = "اختر النوع",
 }: AssetTypeFieldProps) {
-  // العثور على النوع المحدد لعرضه في الـ trigger بشكل مخصص (اختياري)
-  const selectedType = assetTypes.find(t => t.id === value);
-  const displayValue = selectedType ? `${selectedType.name} (${selectedType.code || ''})` : '';
-
   return (
     <div className="space-y-2">
       <Label className="text-sm font-black text-muted-foreground/70">نوع الأصل</Label>
@@ -45,7 +40,7 @@ export function AssetTypeField({
         disabled={disabled}
       >
         <SelectTrigger className="w-full h-12 rounded-2xl border-primary bg-background font-black px-6">
-          {displayValue || <SelectValue placeholder={placeholder} />}
+          <SelectValue placeholder={placeholder} />
         </SelectTrigger>
         <SelectContent>
           {assetTypes.map((type) => (

@@ -1,3 +1,4 @@
+// src/components/shared/BranchSelector.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -7,6 +8,7 @@ import {
   SelectContent,
   SelectItem,
   SelectTrigger,
+  SelectValue,
 } from "@/components/ui/select";
 
 interface Branch {
@@ -35,18 +37,11 @@ export function BranchSelector({ value, onValueChange, disabled = false }: Branc
       .finally(() => setLoading(false));
   }, []);
 
-  const getSelectedBranchName = () => {
-    if (!value) return isRtl ? "اختر الفرع" : "Select branch";
-    const branch = branches.find(b => b.id === value);
-    if (!branch) return isRtl ? "اختر الفرع" : "Select branch";
-    return isRtl ? branch.name : (branch.nameEn || branch.name);
-  };
-
   if (loading) {
     return (
       <Select value={value} onValueChange={onValueChange} disabled>
         <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black text-base px-6">
-          <span>{isRtl ? "جاري التحميل..." : "Loading..."}</span>
+          <SelectValue placeholder={isRtl ? "جاري التحميل..." : "Loading..."} />
         </SelectTrigger>
       </Select>
     );
@@ -55,7 +50,7 @@ export function BranchSelector({ value, onValueChange, disabled = false }: Branc
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
       <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black text-base px-6">
-        <span className="truncate">{getSelectedBranchName()}</span>
+        <SelectValue placeholder={isRtl ? "اختر الفرع" : "Select branch"} />
       </SelectTrigger>
       <SelectContent>
         {branches.map((branch) => (

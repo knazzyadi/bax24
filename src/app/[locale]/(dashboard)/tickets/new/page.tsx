@@ -322,14 +322,14 @@ export default function NewTicketPage() {
                 {isRtl ? "نوع البلاغ *" : "Ticket Type *"}
               </Label>
               <Select value={formData.type} onValueChange={(v) => setFormData({...formData, type: v})}>
-                <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6">
-                  {ticketTypeMap[formData.type] || (isRtl ? "اختر نوع البلاغ" : "Select ticket type")}
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MAINTENANCE">{ticketTypeMap.MAINTENANCE}</SelectItem>
-                  <SelectItem value="INCIDENT">{ticketTypeMap.INCIDENT}</SelectItem>
-                </SelectContent>
-              </Select>
+              <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6">
+                <SelectValue placeholder={isRtl ? "اختر نوع البلاغ" : "Select ticket type"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="MAINTENANCE">{ticketTypeMap.MAINTENANCE}</SelectItem>
+                <SelectItem value="INCIDENT">{ticketTypeMap.INCIDENT}</SelectItem>
+              </SelectContent>
+            </Select>
             </div>
             <div className="space-y-2">
               <Label className="text-sm font-black text-muted-foreground">{isRtl ? "العنوان *" : "Title *"}</Label>
@@ -437,29 +437,26 @@ export default function NewTicketPage() {
                 {isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}
               </Label>
               <Select
-                value={formData.assetId}
-                onValueChange={(val) => setFormData(prev => ({ ...prev, assetId: val }))}
-                disabled={!roomId || loadingAssets}
-              >
-                <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6">
-                  {/* ✅ عرض اسم الأصل بدلاً من المعرف */}
-                  <span className="truncate">
-                    {formData.assetId && assets.find(a => a.id === formData.assetId)
-                      ? assets.find(a => a.id === formData.assetId)?.name
-                      : loadingAssets ? (isRtl ? "جار التحميل..." : "Loading...") :
-                        !roomId ? (isRtl ? "اختر الموقع أولاً" : "Select location first") :
-                        assets.length === 0 ? (isRtl ? "لا توجد أصول في هذا الموقع" : "No assets at this location") :
-                        (isRtl ? "اختر الأصل" : "Select asset")}
-                  </span>
-                </SelectTrigger>
-                <SelectContent className="z-50">
-                  {assets.map(asset => (
-                    <SelectItem key={asset.id} value={asset.id}>
-                      {asset.name} ({asset.code})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              value={formData.assetId}
+              onValueChange={(val) => setFormData(prev => ({ ...prev, assetId: val }))}
+              disabled={!roomId || loadingAssets}
+            >
+              <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black px-6">
+                <SelectValue placeholder={
+                  loadingAssets ? (isRtl ? "جار التحميل..." : "Loading...") :
+                  !roomId ? (isRtl ? "اختر الموقع أولاً" : "Select location first") :
+                  assets.length === 0 ? (isRtl ? "لا توجد أصول في هذا الموقع" : "No assets at this location") :
+                  (isRtl ? "اختر الأصل" : "Select asset")
+                } />
+              </SelectTrigger>
+              <SelectContent className="z-50">
+                {assets.map(asset => (
+                  <SelectItem key={asset.id} value={asset.id}>
+                    {asset.name} ({asset.code})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
               {roomId && !loadingAssets && (
                 <p className="text-xs text-muted-foreground mt-1">
                   {assets.length} {isRtl ? "أصل متاح" : "asset(s) available"}

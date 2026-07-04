@@ -41,7 +41,7 @@ export async function createWorkOrderWithRetry(
     ticketId?: string | null;
     assetTypeId?: string | null;
     notes?: string | null;
-    assetId?: string | null; // ✅ إضافة معرف الأصل المراد ربطه
+    assetId?: string | null; // ✅ معرف الأصل المراد ربطه (منفصل)
   },
   maxRetries = 3
 ) {
@@ -49,27 +49,30 @@ export async function createWorkOrderWithRetry(
     try {
       const { code, branchSeqNum } = await generateWorkOrderCode(data.branchId);
       
-      // إنشاء أمر العمل أولاً
+      // ✅ استخراج assetId من data لتجنب تمريره إلى prisma.workOrder.create
+      const { assetId, ...workOrderData } = data;
+
+      // إنشاء أمر العمل (بدون assetId)
       const workOrder = await prisma.workOrder.create({
         data: {
-          ...data,
+          ...workOrderData,
           code,
           branchSeqNum,
-          type: data.type as WorkOrderType,
-          roomId: data.roomId ?? undefined,
-          ticketId: data.ticketId ?? undefined,
-          assetTypeId: data.assetTypeId ?? undefined,
-          notes: data.notes ?? undefined,
-          description: data.description ?? undefined,
+          type: workOrderData.type as WorkOrderType,
+          roomId: workOrderData.roomId ?? undefined,
+          ticketId: workOrderData.ticketId ?? undefined,
+          assetTypeId: workOrderData.assetTypeId ?? undefined,
+          notes: workOrderData.notes ?? undefined,
+          description: workOrderData.description ?? undefined,
         },
       });
 
       // ✅ إذا تم تمرير assetId، نقوم بربط الأصل بأمر العمل
-      if (data.assetId) {
+      if (assetId) {
         await prisma.workOrderAsset.create({
           data: {
             workOrderId: workOrder.id,
-            assetId: data.assetId,
+            assetId: assetId,
           },
         });
       }

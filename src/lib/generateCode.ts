@@ -1,3 +1,4 @@
+// src/lib/generateCode.ts
 import { prisma } from "@/lib/prisma";
 import type { Prisma, WorkOrderType } from "@prisma/client";
 
@@ -5,7 +6,6 @@ import type { Prisma, WorkOrderType } from "@prisma/client";
 export async function generateWorkOrderCode(
   branchId: string
 ): Promise<{ code: string; branchSeqNum: number }> {
-  // ✅ بدون تحويل (as)، وبدون تحديد نوع tx
   const result = await prisma.$transaction(async (tx) => {
     const counter = await tx.workOrderCounter.upsert({
       where: { branchId },
@@ -23,10 +23,10 @@ export async function generateWorkOrderCode(
     return { code, branchSeqNum: counter.lastValue };
   });
 
-  return result; // TypeScript يستنتج النوع الصحيح تلقائياً
+  return result;
 }
 
-// ========== إنشاء أمر عمل مع إعادة المحاولة ==========
+// ========== إنشاء أمر عمل مع إعادة المحاولة (مع دعم ربط الأصول) ==========
 export async function createWorkOrderWithRetry(
   data: {
     title: string;
@@ -41,12 +41,15 @@ export async function createWorkOrderWithRetry(
     ticketId?: string | null;
     assetTypeId?: string | null;
     notes?: string | null;
+    assetId?: string | null; // ✅ إضافة معرف الأصل المراد ربطه
   },
   maxRetries = 3
 ) {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const { code, branchSeqNum } = await generateWorkOrderCode(data.branchId);
+      
+      // إنشاء أمر العمل أولاً
       const workOrder = await prisma.workOrder.create({
         data: {
           ...data,
@@ -60,6 +63,17 @@ export async function createWorkOrderWithRetry(
           description: data.description ?? undefined,
         },
       });
+
+      // ✅ إذا تم تمرير assetId، نقوم بربط الأصل بأمر العمل
+      if (data.assetId) {
+        await prisma.workOrderAsset.create({
+          data: {
+            workOrderId: workOrder.id,
+            assetId: data.assetId,
+          },
+        });
+      }
+
       return workOrder;
     } catch (error: unknown) {
       const isPrismaError = typeof error === 'object' && error !== null && 'code' in error;

@@ -1,3 +1,5 @@
+// src/app/[locale]/tickets/public/[slug]/[token]/page.tsx
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -95,16 +97,54 @@ export default function PublicTicketPage() {
     setTheme(initial);
     document.documentElement.classList.toggle("dark", initial === "dark");
   }, []);
+  
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
+  
   const switchLanguage = () => {
     const newLocale = locale === "ar" ? "en" : "ar";
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
   };
+
+  // ========== دالة إعادة تعيين النموذج بالكامل ==========
+  const resetForm = useCallback(() => {
+    // 1. إعادة تعيين الملفات
+    resetFiles();
+    
+    // 2. إعادة تعيين بيانات النموذج
+    setForm({
+      title: "",
+      description: "",
+      reporterName: "",
+      reporterEmail: "",
+      phone: "",
+      type: "MAINTENANCE",
+      assetTypeId: "",
+      assetId: "none",
+    });
+
+    // 3. إعادة تعيين الموقع (استخدام الدالة الجديدة من hook)
+    if (location.resetLocation) {
+      location.resetLocation();
+    } else {
+      // حل بديل إذا لم تكن الدالة موجودة
+      location.handleBuildingChange("");
+      location.handleFloorChange("");
+      location.handleRoomChange("");
+    }
+
+    // 4. إعادة تعيين بيانات الأصول (استخدام الدالة الجديدة من hook)
+    if (assetData.resetAssetData) {
+      assetData.resetAssetData();
+    }
+
+    // 5. إغلاق حوار النجاح
+    setShowSuccessDialog(false);
+  }, [resetFiles, location, assetData]);
 
   // Branch validation & fetch asset types
   useEffect(() => {
@@ -139,25 +179,6 @@ export default function PublicTicketPage() {
     fetchBranch();
     return () => controller.abort();
   }, [slug, token, isRtl, assetData.fetchAssetTypes]);
-
-  // Reset form
-  const resetForm = () => {
-    resetFiles();
-    setForm({
-      title: "",
-      description: "",
-      reporterName: "",
-      reporterEmail: "",
-      phone: "",
-      type: "MAINTENANCE",
-      assetTypeId: "",
-      assetId: "none",
-    });
-    location.handleBuildingChange("");
-    location.handleFloorChange("");
-    location.handleRoomChange("");
-    setShowSuccessDialog(false);
-  };
 
   // Submit
   const handleSubmit = async () => {
@@ -201,6 +222,7 @@ export default function PublicTicketPage() {
       const res = await fetch("/api/public/tickets", { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok) {
+        // ✅ عرض حوار النجاح بدلاً من رسالة toast
         setShowSuccessDialog(true);
       } else {
         toast.error(data.error || (isRtl ? "فشل الإرسال" : "Submission failed"));
@@ -437,7 +459,7 @@ export default function PublicTicketPage() {
         </div>
       </div>
 
-      {/* Success Dialog */}
+      {/* ✅ Success Dialog - مع زر "تقديم بلاغ آخر" الذي يعيد تعيين النموذج بالكامل */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="sm:max-w-md text-center">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">

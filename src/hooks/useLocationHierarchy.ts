@@ -141,6 +141,19 @@ export function useLocationHierarchy({
     setRoomId(val);
   };
 
+  // ========== ✅ دالة إعادة تعيين الموقع بالكامل ==========
+  const resetLocation = useCallback(() => {
+    setBuildingId("");
+    setFloorId("");
+    setRoomId("");
+    setBuildings([]);
+    setFloors([]);
+    setRooms([]);
+    setLoadingBuildings(false);
+    setLoadingFloors(false);
+    setLoadingRooms(false);
+  }, []);
+
   return {
     buildingId,
     floorId,
@@ -155,5 +168,6 @@ export function useLocationHierarchy({
     handleFloorChange,
     handleRoomChange,
     setRoomId, // might be needed for manual reset
+    resetLocation, // ✅ دالة إعادة التعيين الجديدة
   };
 }

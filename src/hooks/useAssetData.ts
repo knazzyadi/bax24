@@ -61,7 +61,6 @@ export function useAssetData({ slug, token, roomId, assetTypeId, isRtl }: UseAss
       if (assetTypeId && assetTypeId !== "none" && assetTypeId !== "") {
         params.append('typeId', assetTypeId);
       }
-      // ✅ استخدام API العام للأصول مع تمرير slug و token
       const res = await fetch(`/api/public/assets?${params.toString()}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
@@ -77,11 +76,20 @@ export function useAssetData({ slug, token, roomId, assetTypeId, isRtl }: UseAss
     fetchAssets();
   }, [fetchAssets]);
 
+  // ========== ✅ دالة إعادة تعيين بيانات الأصول بالكامل ==========
+  const resetAssetData = useCallback(() => {
+    setAssetTypes([]);
+    setAssets([]);
+    setLoadingAssetTypes(false);
+    setLoadingAssets(false);
+  }, []);
+
   return {
     assetTypes,
     assets,
     loadingAssetTypes,
     loadingAssets,
     fetchAssetTypes,
+    resetAssetData, // ✅ دالة إعادة التعيين الجديدة
   };
 }

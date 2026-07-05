@@ -12,7 +12,7 @@ export default async function AssetsPage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-  searchParams: Promise<{ q?: string; typeId?: string; statusId?: string; cursor?: string; limit?: string }>;
+  searchParams: Promise<{ q?: string; typeId?: string; statusId?: string; page?: string; limit?: string }>;
 }) {
   const paramsResolved = await params;
   const searchParamsResolved = await searchParams || {};
@@ -31,20 +31,20 @@ export default async function AssetsPage({
 
   // ✅ التحقق من الصلاحية
   if (session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN') {
-    // يمكنك إضافة صلاحية مخصصة للقراءة هنا إذا أردت
     redirect('/login');
   }
 
   const { locale } = paramsResolved;
-  const { q, typeId, statusId, cursor, limit = '10' } = searchParamsResolved;
-  const companyId = session.companyId; // ✅ استخدام companyId مباشرة
+  const { q, typeId, statusId, page = '1', limit = '10' } = searchParamsResolved;
+  const companyId = session.companyId;
 
-  // ✅ التحقق من وجود companyId
   if (!companyId) {
     redirect('/login');
   }
 
+  const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 10;
+  const skip = (pageNum - 1) * limitNum;
 
   // بناء شرط where
   const where: Prisma.AssetWhereInput = {
@@ -68,43 +68,29 @@ export default async function AssetsPage({
   if (typeId && typeId !== 'all') where.typeId = typeId;
   if (statusId && statusId !== 'all') where.statusId = statusId;
 
-  // جلب العدد الإجمالي أولاً (لحساب startIndex)
+  // ✅ جلب العدد الإجمالي (بعد تطبيق الفلاتر)
   const totalCount = await AssetRepository.count(where);
 
-  // جلب الأصول مع الـ Pagination
+  // ✅ جلب الأصول مع الترقيم المبني على الصفحة
   const result = await AssetRepository.findMany({
     where,
     limit: limitNum,
-    cursor: cursor ? { id: cursor } : undefined,
+    skip, // ✅ استخدام skip بدلاً من cursor
     orderBy: { createdAt: 'desc' },
   });
 
-  const { data: assetsRaw, pagination } = result;
+  const { data: assetsRaw } = result;
 
-  // حساب startIndex الفعلي
-  let startIndex = 1;
-  if (cursor && assetsRaw.length > 0) {
-    const firstAsset = assetsRaw[0];
-    const newerCount = await prisma.asset.count({
-      where: {
-        ...where,
-        createdAt: { gt: firstAsset.createdAt },
-      },
-    });
-    startIndex = newerCount + 1;
-  } else if (!cursor && assetsRaw.length > 0) {
-    startIndex = 1;
-  } else {
-    startIndex = totalCount + 1;
-  }
+  // ✅ حساب startIndex الفعلي
+  const startIndex = totalCount > 0 ? skip + 1 : 0;
 
   // تحويل البيانات
   const transformedAssets: Asset[] = assetsRaw.map((asset: any) => ({
     id: asset.id,
     name: asset.name,
     nameEn: asset.nameEn ?? undefined,
-    description: asset.description ?? undefined,      // ✅ وصف عربي
-    descriptionEn: asset.descriptionEn ?? undefined,  // ✅ وصف إنجليزي
+    description: asset.description ?? undefined,
+    descriptionEn: asset.descriptionEn ?? undefined,
     code: asset.code,
     type: asset.type
       ? {
@@ -183,7 +169,7 @@ export default async function AssetsPage({
     color: status.color ?? undefined,
   }));
 
-  // بناء روابط التنقل
+  // ✅ بناء روابط التنقل مع الحفاظ على معاملات البحث
   const baseUrl = `/${locale}/assets`;
   const queryParams = new URLSearchParams();
   if (q) queryParams.set('q', q);
@@ -191,12 +177,12 @@ export default async function AssetsPage({
   if (statusId && statusId !== 'all') queryParams.set('statusId', statusId);
   if (limit) queryParams.set('limit', limit);
 
-  const prevCursor = cursor || null;
-  const nextUrl = pagination.hasMore
-    ? `${baseUrl}?${queryParams.toString()}&cursor=${pagination.nextCursor}`
+  const totalPages = Math.ceil(totalCount / limitNum);
+  const nextUrl = pageNum < totalPages
+    ? `${baseUrl}?${queryParams.toString()}&page=${pageNum + 1}`
     : null;
-  const prevUrl = prevCursor
-    ? `${baseUrl}?${queryParams.toString()}&cursor=${prevCursor}`
+  const prevUrl = pageNum > 1
+    ? `${baseUrl}?${queryParams.toString()}&page=${pageNum - 1}`
     : null;
 
   return (
@@ -209,12 +195,14 @@ export default async function AssetsPage({
       statusId={statusId || ''}
       locale={locale}
       pagination={{
-        hasMore: pagination.hasMore,
+        hasMore: pageNum < totalPages,
         nextUrl,
         prevUrl,
         currentCount: assetsRaw.length,
         totalCount,
         startIndex,
+        currentPage: pageNum,
+        totalPages,
       }}
     />
   );

@@ -82,6 +82,8 @@ interface AssetsClientProps {
     currentCount: number;
     totalCount: number;
     startIndex: number;
+    currentPage: number; // ✅ أضف هذا
+    totalPages: number;  // ✅ أضف هذا
   };
 }
 

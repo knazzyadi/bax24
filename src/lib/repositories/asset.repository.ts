@@ -20,6 +20,7 @@ export interface AssetFindManyOptions {
   where?: Prisma.AssetWhereInput;
   select?: Prisma.AssetSelect;
   limit?: number;
+  skip?: number; // ✅ أضف هذا
   cursor?: { id: string } | undefined;
   orderBy?: Prisma.AssetOrderByWithRelationInput;
 }
@@ -36,6 +37,7 @@ export class AssetRepository {
       where = {},
       select = assetListSelect,
       limit = 30,
+      skip, // ✅ أضف skip إلى عملية التدمير
       cursor,
       orderBy = { createdAt: 'desc' },
     } = options;
@@ -51,6 +53,7 @@ export class AssetRepository {
       where: baseWhere,
       select,
       take: limit,
+      skip, // ✅ استخدم skip
       orderBy,
     };
 

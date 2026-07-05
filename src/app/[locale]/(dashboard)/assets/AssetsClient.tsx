@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/assets/AssetsClient.tsx
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocale } from "next-intl";
@@ -21,9 +21,9 @@ import {
 import { toast } from "sonner";
 import type { Asset, AssetType, AssetStatus } from "@/types/assets";
 import { DataList, type FilterSection, type ItemActions } from "@/components/shared/DataList";
-import { useDebounce } from "@/hooks/useDebounce";
+import { useDebounce } from "@/hooks/useDebounce"; // ✅ استيراد useDebounce
 
-// ========== دوال مساعدة (بدون تغيير) ==========
+// ========== دوال مساعدة ==========
 function getFullLocation(asset: Asset, isRtl: boolean): string {
   const room = asset.room;
   if (!room) return isRtl ? "موقع غير محدد" : "Location not set";
@@ -106,20 +106,45 @@ export default function AssetsClient({
   const [selectedTypeId, setSelectedTypeId] = useState(typeId || "all");
   const [selectedStatusId, setSelectedStatusId] = useState(statusId || "all");
 
-  // ✅ استخدام debounce لتأخير إرسال البحث إلى الخادم
+  // ✅ استخدام useDebounce بدلاً من setTimeout
   const debouncedSearch = useDebounce(searchTerm, 500);
 
-  // ✅ عند تغيير البحث أو الفلاتر، ننتقل إلى الصفحة الأولى مع إرسال المعاملات إلى الخادم
+  // ✅ عند تغيير البحث أو الفلاتر، ننتقل إلى الصفحة الأولى مع الحفاظ على المعاملات
   useEffect(() => {
     const params = new URLSearchParams();
     if (debouncedSearch) params.set('q', debouncedSearch);
     if (selectedTypeId !== 'all') params.set('typeId', selectedTypeId);
     if (selectedStatusId !== 'all') params.set('statusId', selectedStatusId);
-    params.set('page', '1');
+    params.set('page', '1'); // ✅ إعادة تعيين إلى الصفحة الأولى عند البحث أو تغيير الفلتر
     router.push(`/${locale}/assets?${params.toString()}`);
   }, [debouncedSearch, selectedTypeId, selectedStatusId, locale, router]);
 
-  // ===== دوال الحذف والتعديل (بدون تغيير) =====
+  // البحث والفلترة (على البيانات القادمة من الخادم)
+  const assetMatchesSearch = (asset: Asset, term: string): boolean => {
+    const lowerTerm = term.toLowerCase();
+    if (asset.name.toLowerCase().includes(lowerTerm)) return true;
+    if (asset.nameEn?.toLowerCase().includes(lowerTerm)) return true;
+    if (asset.code.toLowerCase().includes(lowerTerm)) return true;
+    const location = getFullLocation(asset, isRtl);
+    if (location.toLowerCase().includes(lowerTerm)) return true;
+    return false;
+  };
+
+  const filteredAssets = useMemo(() => {
+    let result = [...initialAssets];
+    if (searchTerm) {
+      result = result.filter((asset) => assetMatchesSearch(asset, searchTerm));
+    }
+    if (selectedTypeId !== "all") {
+      result = result.filter((asset) => asset.type?.id === selectedTypeId);
+    }
+    if (selectedStatusId !== "all") {
+      result = result.filter((asset) => asset.status?.id === selectedStatusId);
+    }
+    return result;
+  }, [initialAssets, searchTerm, selectedTypeId, selectedStatusId, isRtl]);
+
+  // ===== دوال الحذف والتعديل =====
   const handleDeleteAsset = async (id: string, name: string) => {
     const confirmed = window.confirm(
       isRtl
@@ -183,17 +208,9 @@ export default function AssetsClient({
   const onFilterChange = (sectionId: string, value: string) => {
     if (sectionId === "typeId") setSelectedTypeId(value);
     else if (sectionId === "statusId") setSelectedStatusId(value);
-
-    const params = new URLSearchParams();
-    if (searchTerm) params.set("q", searchTerm);
-    if (selectedTypeId !== "all") params.set("typeId", selectedTypeId);
-    if (selectedStatusId !== "all") params.set("statusId", selectedStatusId);
-    if (value !== "all") params.set(sectionId, value);
-    params.set("page", "1");
-    router.push(`/${locale}/assets?${params.toString()}`);
   };
 
-  // ===== عرض عنصر الأصل (بدون تغيير) =====
+  // ===== عرض عنصر الأصل =====
   const renderAssetItem = (asset: Asset, actions: ItemActions) => {
     const statusInfo = getStatusDisplay(asset.status, isRtl);
     const Icon = statusInfo.icon;
@@ -297,16 +314,7 @@ export default function AssetsClient({
   // ===== حساب نطاق الأرقام المعروضة =====
   const startIndex = pagination.startIndex;
   const endIndex = pagination.startIndex + pagination.currentCount - 1;
-
-  // ✅ التنقل بين الصفحات مع الحفاظ على معاملات البحث والفلاتر
-  const goToPage = (page: number) => {
-    const params = new URLSearchParams();
-    if (searchTerm) params.set('q', searchTerm);
-    if (selectedTypeId !== 'all') params.set('typeId', selectedTypeId);
-    if (selectedStatusId !== 'all') params.set('statusId', selectedStatusId);
-    params.set('page', String(page));
-    router.push(`/${locale}/assets?${params.toString()}`);
-  };
+  const itemsPerPage = 10;
 
   return (
     <>
@@ -330,17 +338,24 @@ export default function AssetsClient({
         filterSections={filterSections}
         filterValues={filterValues}
         onFilterChange={onFilterChange}
-        items={initialAssets} // ✅ نعرض البيانات القادمة من الخادم (مفلترة مسبقاً)
+        items={filteredAssets}
         total={pagination.totalCount}
         currentPage={pagination.currentPage}
         totalPages={pagination.totalPages}
-        onPageChange={goToPage}
+        onPageChange={(page) => {
+          const params = new URLSearchParams();
+          if (searchTerm) params.set('q', searchTerm);
+          if (selectedTypeId !== 'all') params.set('typeId', selectedTypeId);
+          if (selectedStatusId !== 'all') params.set('statusId', selectedStatusId);
+          params.set('page', String(page));
+          router.push(`/${locale}/assets?${params.toString()}`);
+        }}
         renderItem={renderAssetItem}
         emptyMessage={isRtl ? "لا توجد أصول لعرضها" : "No assets to display"}
         onEdit={handleEditAsset}
         onDelete={handleDeleteAsset}
-        itemsPerPage={10}
-        showPagination={true} // ✅ استخدام الترقيم المدمج في DataList
+        itemsPerPage={itemsPerPage}
+        showPagination={true}
       />
     </>
   );

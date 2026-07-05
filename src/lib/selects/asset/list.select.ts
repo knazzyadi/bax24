@@ -14,13 +14,8 @@ export const assetListSelect = {
   updatedAt: true,
   deletedAt: true,
   lastMaintenanceDate: true,
-  // ✅ جلب الحقول الأساسية فقط من العلاقات (بدون تداخل)
-  typeId: true, // سنستخدم هذا لاحقًا لجلب الاسم بطريقة منفصلة أو في العرض
-  statusId: true, // نفس الشيء
-  roomId: true, // نفس الشيء
-  buildingId: true,
-  branchId: true,
-  // ✅ علاقات خفيفة: فقط المعرفات والبيانات الأساسية للعرض
+
+  // ✅ تبسيط العلاقات: احتفظ بالحقوق الأساسية فقط
   type: {
     select: {
       id: true,
@@ -36,17 +31,17 @@ export const assetListSelect = {
       color: true,
     },
   },
-  // ✅ تبسيط الـ room: فقط المعرف والاسم والكود (بدون تداخل floor/building)
+  // ✅ تبسيط الـ room: لا تتداخل مع floor أو building هنا
   room: {
     select: {
       id: true,
       name: true,
       nameEn: true,
       code: true,
-      // ❌ إزالة floor و building من هنا
+      // ❌ تم إزالة floor (والذي كان يجلب building و branch)
     },
   },
-  // ✅ جلب building و branch بشكل منفصل (بدون تداخل)
+  // ✅ جلب building بشكل منفصل (بدون تداخل)
   building: {
     select: {
       id: true,

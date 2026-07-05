@@ -106,7 +106,7 @@ export default function AssetsClient({
   const [selectedTypeId, setSelectedTypeId] = useState(typeId || "all");
   const [selectedStatusId, setSelectedStatusId] = useState(statusId || "all");
 
-  // ✅ استخدام useDebounce بدلاً من setTimeout
+  // ✅ استخدام useDebounce لتأخير إرسال البحث
   const debouncedSearch = useDebounce(searchTerm, 500);
 
   // ✅ عند تغيير البحث أو الفلاتر، ننتقل إلى الصفحة الأولى مع الحفاظ على المعاملات
@@ -115,34 +115,10 @@ export default function AssetsClient({
     if (debouncedSearch) params.set('q', debouncedSearch);
     if (selectedTypeId !== 'all') params.set('typeId', selectedTypeId);
     if (selectedStatusId !== 'all') params.set('statusId', selectedStatusId);
-    params.set('page', '1'); // ✅ إعادة تعيين إلى الصفحة الأولى عند البحث أو تغيير الفلتر
+    // ✅ إعادة تعيين إلى الصفحة الأولى عند البحث أو تغيير الفلتر
+    params.set('page', '1');
     router.push(`/${locale}/assets?${params.toString()}`);
   }, [debouncedSearch, selectedTypeId, selectedStatusId, locale, router]);
-
-  // البحث والفلترة (على البيانات القادمة من الخادم)
-  const assetMatchesSearch = (asset: Asset, term: string): boolean => {
-    const lowerTerm = term.toLowerCase();
-    if (asset.name.toLowerCase().includes(lowerTerm)) return true;
-    if (asset.nameEn?.toLowerCase().includes(lowerTerm)) return true;
-    if (asset.code.toLowerCase().includes(lowerTerm)) return true;
-    const location = getFullLocation(asset, isRtl);
-    if (location.toLowerCase().includes(lowerTerm)) return true;
-    return false;
-  };
-
-  const filteredAssets = useMemo(() => {
-    let result = [...initialAssets];
-    if (searchTerm) {
-      result = result.filter((asset) => assetMatchesSearch(asset, searchTerm));
-    }
-    if (selectedTypeId !== "all") {
-      result = result.filter((asset) => asset.type?.id === selectedTypeId);
-    }
-    if (selectedStatusId !== "all") {
-      result = result.filter((asset) => asset.status?.id === selectedStatusId);
-    }
-    return result;
-  }, [initialAssets, searchTerm, selectedTypeId, selectedStatusId, isRtl]);
 
   // ===== دوال الحذف والتعديل =====
   const handleDeleteAsset = async (id: string, name: string) => {
@@ -311,11 +287,6 @@ export default function AssetsClient({
     );
   };
 
-  // ===== حساب نطاق الأرقام المعروضة =====
-  const startIndex = pagination.startIndex;
-  const endIndex = pagination.startIndex + pagination.currentCount - 1;
-  const itemsPerPage = 10;
-
   return (
     <>
       <DataList
@@ -338,7 +309,8 @@ export default function AssetsClient({
         filterSections={filterSections}
         filterValues={filterValues}
         onFilterChange={onFilterChange}
-        items={filteredAssets}
+        // ✅ استخدام البيانات القادمة من الخادم مباشرة (مفلترة مسبقاً)
+        items={initialAssets}
         total={pagination.totalCount}
         currentPage={pagination.currentPage}
         totalPages={pagination.totalPages}
@@ -354,7 +326,7 @@ export default function AssetsClient({
         emptyMessage={isRtl ? "لا توجد أصول لعرضها" : "No assets to display"}
         onEdit={handleEditAsset}
         onDelete={handleDeleteAsset}
-        itemsPerPage={itemsPerPage}
+        itemsPerPage={10}
         showPagination={true}
       />
     </>

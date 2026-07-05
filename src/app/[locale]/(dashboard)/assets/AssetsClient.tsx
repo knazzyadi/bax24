@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/assets/AssetsClient.tsx
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useLocale } from "next-intl";
@@ -21,8 +21,9 @@ import {
 import { toast } from "sonner";
 import type { Asset, AssetType, AssetStatus } from "@/types/assets";
 import { DataList, type FilterSection, type ItemActions } from "@/components/shared/DataList";
+import { useDebounce } from "@/hooks/useDebounce";
 
-// ========== دوال مساعدة ==========
+// ========== دوال مساعدة (بدون تغيير) ==========
 function getFullLocation(asset: Asset, isRtl: boolean): string {
   const room = asset.room;
   if (!room) return isRtl ? "موقع غير محدد" : "Location not set";
@@ -82,8 +83,8 @@ interface AssetsClientProps {
     currentCount: number;
     totalCount: number;
     startIndex: number;
-    currentPage: number; // ✅ أضف هذا
-    totalPages: number;  // ✅ أضف هذا
+    currentPage: number;
+    totalPages: number;
   };
 }
 
@@ -105,32 +106,20 @@ export default function AssetsClient({
   const [selectedTypeId, setSelectedTypeId] = useState(typeId || "all");
   const [selectedStatusId, setSelectedStatusId] = useState(statusId || "all");
 
-  // البحث والفلترة
-  const assetMatchesSearch = (asset: Asset, term: string): boolean => {
-    const lowerTerm = term.toLowerCase();
-    if (asset.name.toLowerCase().includes(lowerTerm)) return true;
-    if (asset.nameEn?.toLowerCase().includes(lowerTerm)) return true;
-    if (asset.code.toLowerCase().includes(lowerTerm)) return true;
-    const location = getFullLocation(asset, isRtl);
-    if (location.toLowerCase().includes(lowerTerm)) return true;
-    return false;
-  };
+  // ✅ استخدام debounce لتأخير إرسال البحث إلى الخادم
+  const debouncedSearch = useDebounce(searchTerm, 500);
 
-  const filteredAssets = useMemo(() => {
-    let result = [...initialAssets];
-    if (searchTerm) {
-      result = result.filter((asset) => assetMatchesSearch(asset, searchTerm));
-    }
-    if (selectedTypeId !== "all") {
-      result = result.filter((asset) => asset.type?.id === selectedTypeId);
-    }
-    if (selectedStatusId !== "all") {
-      result = result.filter((asset) => asset.status?.id === selectedStatusId);
-    }
-    return result;
-  }, [initialAssets, searchTerm, selectedTypeId, selectedStatusId, isRtl]);
+  // ✅ عند تغيير البحث أو الفلاتر، ننتقل إلى الصفحة الأولى مع إرسال المعاملات إلى الخادم
+  useEffect(() => {
+    const params = new URLSearchParams();
+    if (debouncedSearch) params.set('q', debouncedSearch);
+    if (selectedTypeId !== 'all') params.set('typeId', selectedTypeId);
+    if (selectedStatusId !== 'all') params.set('statusId', selectedStatusId);
+    params.set('page', '1');
+    router.push(`/${locale}/assets?${params.toString()}`);
+  }, [debouncedSearch, selectedTypeId, selectedStatusId, locale, router]);
 
-  // ===== دوال الحذف والتعديل =====
+  // ===== دوال الحذف والتعديل (بدون تغيير) =====
   const handleDeleteAsset = async (id: string, name: string) => {
     const confirmed = window.confirm(
       isRtl
@@ -196,16 +185,15 @@ export default function AssetsClient({
     else if (sectionId === "statusId") setSelectedStatusId(value);
 
     const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (selectedTypeId !== "all" && sectionId !== "typeId")
-      params.set("typeId", selectedTypeId);
-    if (selectedStatusId !== "all" && sectionId !== "statusId")
-      params.set("statusId", selectedStatusId);
+    if (searchTerm) params.set("q", searchTerm);
+    if (selectedTypeId !== "all") params.set("typeId", selectedTypeId);
+    if (selectedStatusId !== "all") params.set("statusId", selectedStatusId);
     if (value !== "all") params.set(sectionId, value);
+    params.set("page", "1");
     router.push(`/${locale}/assets?${params.toString()}`);
   };
 
-  // ===== عرض عنصر الأصل =====
+  // ===== عرض عنصر الأصل (بدون تغيير) =====
   const renderAssetItem = (asset: Asset, actions: ItemActions) => {
     const statusInfo = getStatusDisplay(asset.status, isRtl);
     const Icon = statusInfo.icon;
@@ -306,13 +294,19 @@ export default function AssetsClient({
     );
   };
 
-  // ===== حساب نطاق الأرقام المعروضة باستخدام startIndex من الخادم =====
+  // ===== حساب نطاق الأرقام المعروضة =====
   const startIndex = pagination.startIndex;
   const endIndex = pagination.startIndex + pagination.currentCount - 1;
 
-  // ✅ تغيير عدد السجلات لكل صفحة إلى 10 (يتطلب تعديل الـ API أيضاً)
-  const itemsPerPage = 10;
-  const totalPages = Math.ceil(pagination.totalCount / itemsPerPage);
+  // ✅ التنقل بين الصفحات مع الحفاظ على معاملات البحث والفلاتر
+  const goToPage = (page: number) => {
+    const params = new URLSearchParams();
+    if (searchTerm) params.set('q', searchTerm);
+    if (selectedTypeId !== 'all') params.set('typeId', selectedTypeId);
+    if (selectedStatusId !== 'all') params.set('statusId', selectedStatusId);
+    params.set('page', String(page));
+    router.push(`/${locale}/assets?${params.toString()}`);
+  };
 
   return (
     <>
@@ -336,45 +330,18 @@ export default function AssetsClient({
         filterSections={filterSections}
         filterValues={filterValues}
         onFilterChange={onFilterChange}
-        items={filteredAssets}
+        items={initialAssets} // ✅ نعرض البيانات القادمة من الخادم (مفلترة مسبقاً)
         total={pagination.totalCount}
-        currentPage={1}
-        totalPages={totalPages}
-        onPageChange={() => {}}
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        onPageChange={goToPage}
         renderItem={renderAssetItem}
         emptyMessage={isRtl ? "لا توجد أصول لعرضها" : "No assets to display"}
         onEdit={handleEditAsset}
         onDelete={handleDeleteAsset}
-        itemsPerPage={itemsPerPage}
-        showPagination={false}
+        itemsPerPage={10}
+        showPagination={true} // ✅ استخدام الترقيم المدمج في DataList
       />
-
-      {/* ===== عرض العدد الصحيح مع startIndex ===== */}
-      <div className="flex items-center justify-between mt-6 px-4">
-        <div className="text-sm text-muted-foreground">
-          {isRtl
-            ? `عرض ${startIndex} - ${endIndex} من ${pagination.totalCount}`
-            : `Showing ${startIndex} - ${endIndex} of ${pagination.totalCount}`}
-        </div>
-        <div className="flex gap-3">
-          {pagination.prevUrl && (
-            <Link
-              href={pagination.prevUrl}
-              className="px-4 py-2 border border-border rounded-xl text-sm font-medium hover:bg-secondary transition-colors"
-            >
-              {isRtl ? "السابق" : "Previous"}
-            </Link>
-          )}
-          {pagination.nextUrl && (
-            <Link
-              href={pagination.nextUrl}
-              className="px-4 py-2 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/90 transition-colors"
-            >
-              {isRtl ? "التالي" : "Next"}
-            </Link>
-          )}
-        </div>
-      </div>
     </>
   );
 }

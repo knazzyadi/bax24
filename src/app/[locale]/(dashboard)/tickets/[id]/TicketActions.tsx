@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/tickets/[id]/TicketActions.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -17,6 +18,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useState } from "react";
 import { toast } from "sonner";
+import { cn } from "@/lib/utils";
 
 interface TicketActionsProps {
   ticketId: string;
@@ -53,14 +55,12 @@ export function TicketActions({ ticketId, currentStatus }: TicketActionsProps) {
         );
       }
 
-      // عرض إشعار النجاح
       toast.success(
         isRtl
           ? "✅ تم قبول البلاغ"
           : "✅ Ticket accepted"
       );
 
-      // تأخير بسيط لضمان ظهور الإشعار ثم الانتقال إلى صفحة البلاغات
       setTimeout(() => {
         router.push(`/${locale}/tickets`);
       }, 500);
@@ -110,7 +110,6 @@ export function TicketActions({ ticketId, currentStatus }: TicketActionsProps) {
 
       setRejectDialogOpen(false);
 
-      // تأخير بسيط ثم الانتقال
       setTimeout(() => {
         router.push(`/${locale}/tickets`);
       }, 500);
@@ -126,72 +125,75 @@ export function TicketActions({ ticketId, currentStatus }: TicketActionsProps) {
 
   return (
     <div className="space-y-3" dir={isRtl ? "rtl" : "ltr"}>
-      {/* ✅ زر قبول */}
+      {/* ✅ زر قبول - بتدرج indigo → purple */}
       <Button
         onClick={handleApprove}
         disabled={isApproving || isRejecting}
-        className="w-full h-14 rounded-full bg-primary hover:bg-primary/90 text-white font-black text-base gap-2 shadow-md"
+        className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 gap-2"
       >
         {isApproving ? (
           <Loader2 className="h-5 w-5 animate-spin" />
         ) : (
-          <Check size={20} />
+          <Check className="h-5 w-5" />
         )}
         {isRtl ? "قبول واعتماد البلاغ" : "Accept & Create Work Order"}
       </Button>
 
-      {/* ❌ زر رفض */}
+      {/* ❌ زر رفض - مع AlertDialog */}
       <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
         <AlertDialogTrigger
           disabled={isApproving || isRejecting}
-          className="w-full h-14 rounded-full border-red-500/30 text-red-500 hover:bg-red-500/5 font-black text-base gap-2 inline-flex items-center justify-center"
+          className={cn(
+            "w-full h-12 rounded-xl border border-rose-300 dark:border-rose-700 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 font-medium transition-all duration-200 flex items-center justify-center gap-2",
+            (isApproving || isRejecting) && "opacity-50 cursor-not-allowed"
+          )}
         >
-          <Ban size={20} />
+          <Ban className="h-5 w-5" />
           {isRtl ? "رفض البلاغ" : "Reject Ticket"}
         </AlertDialogTrigger>
 
         <AlertDialogContent
-          className="bg-card border-border rounded-2xl max-w-[400px]"
+          className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-xl max-w-[400px]"
           dir={isRtl ? "rtl" : "ltr"}
         >
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-foreground text-xl font-black text-right">
+            <AlertDialogTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">
               {isRtl ? "رفض البلاغ" : "Reject Ticket"}
             </AlertDialogTitle>
 
-            <AlertDialogDescription className="text-muted-foreground font-bold text-right">
+            <AlertDialogDescription className="text-sm text-slate-500 dark:text-slate-400 font-medium">
               {isRtl
                 ? "يرجى كتابة سبب الرفض ليتم توثيقه في سجل النظام."
                 : "Please provide a reason for rejection to be recorded."}
             </AlertDialogDescription>
           </AlertDialogHeader>
 
-          <div className="py-2">
+          <div className="py-4">
             <Textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder={
                 isRtl ? "اكتب التوضيح هنا..." : "Write your reason here..."
               }
-              className="rounded-2xl bg-background border-border min-h-[100px] font-bold text-right"
+              className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[100px] resize-none"
             />
           </div>
 
-          <AlertDialogFooter className="flex flex-col gap-2 pt-4">
+          <AlertDialogFooter className="flex flex-col gap-3 pt-2">
             <Button
               onClick={handleReject}
               disabled={isRejecting || !rejectReason.trim()}
-              className="bg-red-500 hover:bg-red-600 text-white rounded-full font-black h-11 w-full"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-rose-600 to-rose-500 hover:from-rose-700 hover:to-rose-600 text-white font-medium shadow-lg shadow-rose-500/20 hover:shadow-rose-500/30 transition-all duration-200"
             >
               {isRejecting ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 isRtl ? "تأكيد الرفض" : "Confirm Rejection"
               )}
             </Button>
 
-            <AlertDialogCancel className="rounded-full font-black h-11 w-full border-none hover:bg-secondary">
-              {isRtl ? "تراجع" : "Cancel"}
+            <AlertDialogCancel className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 font-medium transition-all duration-200">
+              {isRtl ? "إلغاء" : "Cancel"}
             </AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>

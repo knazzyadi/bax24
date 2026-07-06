@@ -27,10 +27,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-import { PageContainer } from "@/components/shared/detail/PageContainer";
-import { DetailHeader } from "@/components/shared/detail/DetailHeader";
-import { InfoCard } from "@/components/shared/detail/InfoCard";
-import { SidebarCard } from "@/components/shared/detail/SidebarCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TicketActions } from "./TicketActions";
 
@@ -97,6 +93,12 @@ function getFullLocation(room: any, isRtl: boolean): string {
 }
 
 // =========================
+// تنسيقات موحدة
+// =========================
+const glassCard =
+  "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
+
+// =========================
 // Props
 // =========================
 interface TicketDetailsPageProps {
@@ -113,10 +115,6 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
   const isRtl = locale === "ar";
   const [ticket, setTicket] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
-
-  // كرت الخلفية الزجاجي
-  const glassCard =
-    "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
   React.useEffect(() => {
     const fetchTicket = async () => {

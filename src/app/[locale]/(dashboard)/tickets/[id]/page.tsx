@@ -18,6 +18,9 @@ import {
   AlertCircle,
   ImageIcon,
   ArrowLeft,
+  Sparkles,
+  Clock,
+  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -31,28 +34,78 @@ import { SidebarCard } from "@/components/shared/detail/SidebarCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TicketActions } from "./TicketActions";
 
-/**
- * ملاحظة: حالات التذكرة وفقاً للنظام المعدل:
- * - PENDING   : معلق (افتراضي عند الإنشاء)
- * - APPROVED  : مقبول (يتم تحويله إلى أمر عمل)
- * - REJECTED  : ملغي/مرفوض (لا يتم تحويله إلى أمر عمل)
- */
+// =========================
+// تكوين الحالات
+// =========================
+const STATUS_CONFIG: Record<
+  string,
+  { label: { ar: string; en: string }; hex: string; icon: any; glow: string; bg: string }
+> = {
+  PENDING: {
+    label: { ar: "معلق", en: "Pending" },
+    hex: "#f59e0b",
+    icon: Clock,
+    glow: "shadow-amber-500/20",
+    bg: "bg-amber-50 dark:bg-amber-950/30",
+  },
+  APPROVED: {
+    label: { ar: "مقبول", en: "Approved" },
+    hex: "#10b981",
+    icon: CheckCircle2,
+    glow: "shadow-emerald-500/20",
+    bg: "bg-emerald-50 dark:bg-emerald-950/30",
+  },
+  REJECTED: {
+    label: { ar: "مرفوض", en: "Rejected" },
+    hex: "#ef4444",
+    icon: XCircle,
+    glow: "shadow-rose-500/20",
+    bg: "bg-rose-50 dark:bg-rose-950/30",
+  },
+};
 
-interface TicketDetailsPageProps {
-  params: Promise<{ id: string }>;
+// =========================
+// دوال مساعدة
+// =========================
+function getStatusDisplay(status: string, isRtl: boolean) {
+  const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
+  return {
+    label: isRtl ? config.label.ar : config.label.en,
+    hex: config.hex,
+    icon: config.icon,
+    glow: config.glow,
+    bg: config.bg,
+  };
 }
 
 function getFullLocation(room: any, isRtl: boolean): string {
   if (!room) return "—";
   const floor = room.floor;
   const building = floor?.building;
-  const buildingName = building ? (isRtl ? building.name : building.nameEn || building.name) : "";
-  const floorName = floor ? (isRtl ? floor.name : floor.nameEn || floor.name) : "";
+  const buildingName = building
+    ? isRtl
+      ? building.name
+      : building.nameEn || building.name
+    : "";
+  const floorName = floor
+    ? isRtl
+      ? floor.name
+      : floor.nameEn || floor.name
+    : "";
   const roomName = isRtl ? room.name : room.nameEn || room.name;
-  const parts = [buildingName, floorName, roomName].filter(p => p);
-  return parts.join(" - ");
+  return [buildingName, floorName, roomName].filter(Boolean).join(" - ");
 }
 
+// =========================
+// Props
+// =========================
+interface TicketDetailsPageProps {
+  params: Promise<{ id: string }>;
+}
+
+// =========================
+// المكون الرئيسي
+// =========================
 export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
   const { id } = use(params);
   const router = useRouter();
@@ -60,6 +113,10 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
   const isRtl = locale === "ar";
   const [ticket, setTicket] = React.useState<any>(null);
   const [loading, setLoading] = React.useState(true);
+
+  // كرت الخلفية الزجاجي
+  const glassCard =
+    "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
   React.useEffect(() => {
     const fetchTicket = async () => {
@@ -87,258 +144,377 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="relative min-h-[60vh] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500 dark:text-indigo-400" />
       </div>
     );
   }
   if (!ticket) return null;
 
-  const statusObj = ticket.status
-    ? {
-        name: ticket.status,
-        label:
-          ticket.status === "PENDING"
-            ? isRtl ? "معلق" : "Pending"
-            : ticket.status === "APPROVED"
-            ? isRtl ? "مقبول" : "Approved"
-            : isRtl ? "مرفوض" : "Rejected",
-      }
-    : null;
-
+  const statusInfo = getStatusDisplay(ticket.status, isRtl);
+  const StatusIcon = statusInfo.icon;
   const ticketType =
     ticket.type === "MAINTENANCE"
-      ? isRtl ? "تذكرة صيانة" : "Maintenance Ticket"
+      ? isRtl
+        ? "تذكرة صيانة"
+        : "Maintenance Ticket"
       : ticket.type === "INCIDENT"
-      ? isRtl ? "تذكرة حادث" : "Incident Ticket"
+      ? isRtl
+        ? "تذكرة حادث"
+        : "Incident Ticket"
       : ticket.type || (isRtl ? "غير محدد" : "Not specified");
 
-  // استخدام attachments بدلاً من ticketImages و imageUrl
   const images = ticket.attachments || [];
   const hasImages = Array.isArray(images) && images.length > 0;
 
   return (
-    <PageContainer>
-      <DetailHeader
-        icon={<ShieldAlert size={28} />}
-        title={`${isRtl ? "تذكرة" : "Ticket"} ${ticket.code || ticket.id.slice(-6)}`}
-        subtitle={isRtl ? "تفاصيل ومعالجة التذكرة" : "Ticket details and handling"}
-        actions={null}
-      />
+    <div className="relative space-y-8 p-6">
+      {/* خلفية متدرجة خفيفة */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+
+      {/* رأس الصفحة */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <ShieldAlert className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                {isRtl ? "تذكرة" : "Ticket"} {ticket.code || ticket.id.slice(-6)}
+              </h1>
+              <span
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border border-slate-200/30 dark:border-slate-700/30 shadow-sm"
+                style={{
+                  backgroundColor: `${statusInfo.hex}20`,
+                  color: statusInfo.hex,
+                  boxShadow: `0 0 15px ${statusInfo.hex}25`,
+                }}
+              >
+                <StatusIcon size={14} />
+                {statusInfo.label}
+              </span>
+            </div>
+            <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
+              {isRtl ? "تفاصيل ومعالجة التذكرة" : "Ticket details and handling"}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => router.push(`/${locale}/tickets`)}
+          className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
+        >
+          <ArrowLeft className="h-4 w-4 ml-2" />
+          {isRtl ? "العودة إلى البلاغات" : "Back to Tickets"}
+        </Button>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* العمود الأيمن (المعلومات الرئيسية) */}
+        {/* العمود الرئيسي (2/3) */}
         <div className="lg:col-span-2 space-y-8">
-          <InfoCard title={isRtl ? "تفاصيل التذكرة" : "Ticket Details"} icon={<FileText className="h-5 w-5" />}>
+          {/* تفاصيل التذكرة */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
+                <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {isRtl ? "تفاصيل التذكرة" : "Ticket Details"}
+              </h2>
+            </div>
+
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid sm:grid-cols-2 gap-5">
                 <div className="space-y-1">
-                  <div className="text-xs font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> {isRtl ? "نوع التذكرة" : "Ticket Type"}
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {isRtl ? "نوع التذكرة" : "Ticket Type"}
                   </div>
-                  <p className="font-bold text-foreground">{ticketType}</p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
+                    {ticketType}
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                    <ShieldAlert className="h-3 w-3" /> {isRtl ? "حالة التذكرة" : "Status"}
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <ShieldAlert className="h-3.5 w-3.5" />
+                    {isRtl ? "حالة التذكرة" : "Status"}
                   </div>
-                  <StatusBadge status={statusObj} />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <div className="text-xs font-black text-muted-foreground uppercase tracking-wider">
-                  {isRtl ? "موضوع التذكرة" : "Ticket Title"}
-                </div>
-                <p className="font-black text-lg text-foreground">{ticket.title}</p>
-              </div>
-
-              <div className="space-y-1">
-                <div className="text-xs font-black text-muted-foreground uppercase tracking-wider">
-                  {isRtl ? "وصف التذكرة" : "Description"}
-                </div>
-                <p className="text-base leading-relaxed text-foreground/80">{ticket.description}</p>
-              </div>
-
-              <div className="pt-2 border-t border-primary/20">
-                <div className="flex items-center gap-2 mb-3 text-muted-foreground">
-                  <ImageIcon className="h-4 w-4 text-primary" />
-                  <span className="font-black text-xs uppercase tracking-widest">
-                    {isRtl ? "المرفقات" : "Attachments"}
+                  <span
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border border-slate-200/30 dark:border-slate-700/30 shadow-sm"
+                    style={{
+                      backgroundColor: `${statusInfo.hex}20`,
+                      color: statusInfo.hex,
+                      boxShadow: `0 0 15px ${statusInfo.hex}25`,
+                    }}
+                  >
+                    <StatusIcon size={14} />
+                    {statusInfo.label}
                   </span>
                 </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  {isRtl ? "موضوع التذكرة" : "Ticket Title"}
+                </div>
+                <p className="font-semibold text-lg text-slate-800 dark:text-slate-100">
+                  {ticket.title}
+                </p>
+              </div>
+
+              <div className="space-y-1">
+                <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  {isRtl ? "وصف التذكرة" : "Description"}
+                </div>
+                <div className="p-4 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/30 dark:border-slate-700/30 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {ticket.description}
+                </div>
+              </div>
+
+              {/* المرفقات */}
+              <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
+                <div className="flex items-center gap-2 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">
+                  <ImageIcon className="h-3.5 w-3.5 text-indigo-400" />
+                  {isRtl ? "المرفقات" : "Attachments"}
+                </div>
                 {hasImages ? (
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {images.map((img: any) => (
                       <a
                         key={img.id}
                         href={img.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="block overflow-hidden rounded-xl border border-primary/20 hover:shadow-md transition-shadow"
+                        className="block overflow-hidden rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
                       >
                         <img
                           src={img.url}
                           alt={img.originalName || (isRtl ? "مرفق" : "Attachment")}
-                          className="w-full h-32 object-cover hover:scale-105 transition-transform duration-200"
+                          className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300"
                         />
                       </a>
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-secondary/20 rounded-xl p-4 text-center text-muted-foreground text-sm font-medium">
+                  <div className="p-4 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/30 dark:border-slate-700/30 text-center text-sm text-slate-400 dark:text-slate-500">
                     {isRtl ? "لا توجد مرفقات لهذه التذكرة" : "No attachments for this ticket"}
                   </div>
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-6 pt-2 border-t border-primary/20">
+              {/* الموقع والأصل */}
+              <div className="grid sm:grid-cols-2 gap-5 pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
                 <div className="space-y-1">
-                  <div className="text-xs font-black text-muted-foreground flex items-center gap-2">
-                    <MapPin className="h-3 w-3" /> {isRtl ? "الموقع" : "Location"}
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <MapPin className="h-3.5 w-3.5" />
+                    {isRtl ? "الموقع" : "Location"}
                   </div>
-                  <p className="font-bold text-foreground">{getFullLocation(ticket.room, isRtl)}</p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
+                    {getFullLocation(ticket.room, isRtl)}
+                  </p>
                 </div>
                 <div className="space-y-1">
-                  <div className="text-xs font-black text-muted-foreground flex items-center gap-2">
-                    <Package className="h-3 w-3" /> {isRtl ? "الأصل المرتبط" : "Associated Asset"}
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <Package className="h-3.5 w-3.5" />
+                    {isRtl ? "الأصل المرتبط" : "Associated Asset"}
                   </div>
-                  <p className="font-bold text-foreground">
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
                     {ticket.asset?.name || (isRtl ? "لا يوجد" : "None")}
                     {ticket.asset?.code && ` (${ticket.asset.code})`}
                   </p>
                 </div>
               </div>
-            </div>
-          </InfoCard>
 
-          <InfoCard title={isRtl ? "معلومات إضافية" : "Additional Info"} icon={<Calendar className="h-5 w-5" />}>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center py-2">
-                <span className="text-sm font-bold text-muted-foreground">{isRtl ? "تاريخ الإنشاء" : "Created At"}</span>
-                <span className="font-bold">
-                  {new Date(ticket.createdAt).toLocaleDateString(isRtl ? "ar-SA" : "en-US")}
+              {/* سبب الرفض (إذا كان مرفوض) */}
+              {ticket.status === "REJECTED" && ticket.rejectionReason && (
+                <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                    <Ban className="h-3.5 w-3.5 text-rose-400" />
+                    {isRtl ? "سبب الرفض" : "Rejection Reason"}
+                  </div>
+                  <div className="p-4 rounded-xl bg-rose-50/50 dark:bg-rose-950/20 border border-rose-200/50 dark:border-rose-800/30 text-sm text-rose-700 dark:text-rose-300 font-medium leading-relaxed">
+                    {ticket.rejectionReason}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* معلومات إضافية */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
+                <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {isRtl ? "معلومات إضافية" : "Additional Info"}
+              </h3>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center py-2 border-b border-slate-200/30 dark:border-slate-800/30">
+                <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                  {isRtl ? "تاريخ الإنشاء" : "Created At"}
+                </span>
+                <span className="font-semibold text-slate-700 dark:text-slate-300">
+                  {new Date(ticket.createdAt).toLocaleDateString(
+                    isRtl ? "ar-SA" : "en-US"
+                  )}
                 </span>
               </div>
               {ticket.updatedAt !== ticket.createdAt && (
-                <div className="flex justify-between items-center py-2 border-t border-primary/20 mt-2 pt-2">
-                  <span className="text-sm font-bold text-muted-foreground">{isRtl ? "آخر تحديث" : "Last Updated"}</span>
-                  <span className="font-bold">
-                    {new Date(ticket.updatedAt).toLocaleDateString(isRtl ? "ar-SA" : "en-US")}
+                <div className="flex justify-between items-center py-2">
+                  <span className="text-sm font-medium text-slate-500 dark:text-slate-400">
+                    {isRtl ? "آخر تحديث" : "Last Updated"}
+                  </span>
+                  <span className="font-semibold text-slate-700 dark:text-slate-300">
+                    {new Date(ticket.updatedAt).toLocaleDateString(
+                      isRtl ? "ar-SA" : "en-US"
+                    )}
                   </span>
                 </div>
               )}
             </div>
-          </InfoCard>
-
-          {ticket.status === "REJECTED" && ticket.rejectionReason && (
-            <InfoCard title={isRtl ? "سبب الرفض" : "Rejection Reason"} icon={<Ban className="h-5 w-5" />}>
-              <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-800">
-                <p className="text-red-700 dark:text-red-300 font-medium whitespace-pre-wrap">
-                  {ticket.rejectionReason}
-                </p>
-              </div>
-            </InfoCard>
-          )}
-        </div>
-
-        {/* العمود الأيسر (البيانات الجانبية) */}
-        <div className="space-y-8">
-          <SidebarCard title={isRtl ? "بيانات المبلّغ" : "Reporter Info"} icon={<User className="h-5 w-5" />}>
-            <div className="space-y-5">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <User size={24} />
-                </div>
-                <div>
-                  <p className="text-xs font-black text-muted-foreground uppercase">{isRtl ? "الاسم" : "Name"}</p>
-                  <p className="font-black text-lg">{ticket.reporterName}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-xl bg-muted/20 flex items-center justify-center text-muted-foreground">
-                  <Calendar size={24} />
-                </div>
-                <div>
-                  <p className="text-xs font-black text-muted-foreground uppercase">{isRtl ? "تاريخ التذكرة" : "Ticket Date"}</p>
-                  <p className="font-black text-lg">
-                    {new Date(ticket.createdAt).toLocaleDateString(isRtl ? "ar-SA" : "en-US")}
-                  </p>
-                </div>
-              </div>
-              {ticket.reporterEmail && (
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-muted/20 flex items-center justify-center text-muted-foreground">
-                    <FileText size={24} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-muted-foreground uppercase">{isRtl ? "البريد الإلكتروني" : "Email"}</p>
-                    <p className="font-bold">{ticket.reporterEmail}</p>
-                  </div>
-                </div>
-              )}
-              {ticket.phone && (
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-xl bg-muted/20 flex items-center justify-center text-muted-foreground">
-                    <FileText size={24} />
-                  </div>
-                  <div>
-                    <p className="text-xs font-black text-muted-foreground uppercase">{isRtl ? "رقم الهاتف" : "Phone"}</p>
-                    <p className="font-bold">{ticket.phone}</p>
-                  </div>
-                </div>
-              )}
-
-              <TicketActions ticketId={ticket.id} currentStatus={ticket.status} />
-
-              {ticket.status !== "PENDING" && (
-                <div
-                  className={cn(
-                    "p-3 rounded-xl border text-center font-bold mt-4",
-                    ticket.status === "APPROVED"
-                      ? "bg-green-500/10 text-green-600 border-green-500/20"
-                      : "bg-red-500/10 text-red-500 border-red-500/20"
-                  )}
-                >
-                  {ticket.status === "APPROVED"
-                    ? (isRtl ? "✅ تم اعتماد هذه التذكرة مسبقاً" : "✅ This ticket has been approved")
-                    : (isRtl ? "❌ تم رفض هذه التذكرة" : "❌ This ticket has been rejected")}
-                </div>
-              )}
-
-              {ticket.workOrder && (
-                <div className="mt-4 p-3 bg-primary/10 rounded-xl">
-                  <p className="text-sm font-bold">
-                    {isRtl ? "أمر العمل المرتبط:" : "Associated Work Order:"}
-                    <Link href={`/${locale}/work-orders/${ticket.workOrder.id}`} className="text-primary underline ml-2">
-                      {ticket.workOrder.code || ticket.workOrder.id}
-                    </Link>
-                  </p>
-                </div>
-              )}
-            </div>
-          </SidebarCard>
-
-          <div className="space-y-4">
-            <div className="p-5 rounded-2xl bg-primary/10 border border-primary/30 flex items-start gap-3">
-              <Info className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-              <div className="text-xs font-bold text-muted-foreground">
-                {isRtl
-                  ? "بعد قبول التذكرة سيتم إنشاء طلب عمل تلقائياً لمتابعة الإجراء."
-                  : "Upon approval, a work order will be automatically created for further processing."}
-              </div>
-            </div>
-            <Button
-              onClick={() => router.push(`/${locale}/tickets`)}
-              variant="outline"
-              className="w-full rounded-full border-primary text-primary hover:bg-primary/10 font-black h-11 gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              {isRtl ? "عودة إلى قائمة البلاغات" : "Back to Tickets"}
-            </Button>
           </div>
         </div>
+
+        {/* العمود الجانبي (1/3) */}
+        <div className="space-y-6">
+          {/* بيانات المبلّغ */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
+                <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {isRtl ? "بيانات المبلّغ" : "Reporter Info"}
+              </h3>
+            </div>
+            <div className="space-y-5">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950/40 dark:to-purple-950/40 flex items-center justify-center">
+                  <User className="h-6 w-6 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    {isRtl ? "الاسم" : "Name"}
+                  </p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
+                    {ticket.reporterName}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-slate-50 dark:bg-slate-800/30 flex items-center justify-center">
+                  <Calendar className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                </div>
+                <div>
+                  <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    {isRtl ? "تاريخ التذكرة" : "Ticket Date"}
+                  </p>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
+                    {new Date(ticket.createdAt).toLocaleDateString(
+                      isRtl ? "ar-SA" : "en-US"
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              {ticket.reporterEmail && (
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-slate-50 dark:bg-slate-800/30 flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                      {isRtl ? "البريد الإلكتروني" : "Email"}
+                    </p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-300 break-all">
+                      {ticket.reporterEmail}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {ticket.phone && (
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-xl bg-slate-50 dark:bg-slate-800/30 flex items-center justify-center">
+                    <FileText className="h-6 w-6 text-slate-400 dark:text-slate-500" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                      {isRtl ? "رقم الهاتف" : "Phone"}
+                    </p>
+                    <p className="font-semibold text-slate-700 dark:text-slate-300">
+                      {ticket.phone}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* الإجراءات */}
+          <TicketActions ticketId={ticket.id} currentStatus={ticket.status} />
+
+          {/* حالة القبول/الرفض */}
+          {ticket.status !== "PENDING" && (
+            <div
+              className={cn(
+                "p-4 rounded-2xl border text-center font-semibold",
+                ticket.status === "APPROVED"
+                  ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200/50 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-300"
+                  : "bg-rose-50/50 dark:bg-rose-950/20 border-rose-200/50 dark:border-rose-800/30 text-rose-700 dark:text-rose-300"
+              )}
+            >
+              {ticket.status === "APPROVED"
+                ? isRtl
+                  ? "✅ تم اعتماد هذه التذكرة مسبقاً"
+                  : "✅ This ticket has been approved"
+                : isRtl
+                ? "❌ تم رفض هذه التذكرة"
+                : "❌ This ticket has been rejected"}
+            </div>
+          )}
+
+          {/* أمر العمل المرتبط */}
+          {ticket.workOrder && (
+            <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-800/30">
+              <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                {isRtl ? "أمر العمل المرتبط:" : "Associated Work Order:"}
+                <Link
+                  href={`/${locale}/work-orders/${ticket.workOrder.id}`}
+                  className="text-indigo-600 dark:text-indigo-400 underline ml-2 font-semibold hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                >
+                  {ticket.workOrder.code || ticket.workOrder.id}
+                </Link>
+              </p>
+            </div>
+          )}
+
+          {/* مساعدة سريعة */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
+            <Info className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+            <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
+              {isRtl
+                ? "بعد قبول التذكرة سيتم إنشاء طلب عمل تلقائياً لمتابعة الإجراء."
+                : "Upon approval, a work order will be automatically created for further processing."}
+            </div>
+          </div>
+
+          {/* زر العودة */}
+          <Button
+            onClick={() => router.push(`/${locale}/tickets`)}
+            variant="outline"
+            className="w-full rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 font-medium h-11 transition-all duration-200"
+          >
+            <ArrowLeft className="h-4 w-4 ml-2" />
+            {isRtl ? "عودة إلى قائمة البلاغات" : "Back to Tickets"}
+          </Button>
+        </div>
       </div>
-    </PageContainer>
+    </div>
   );
 }

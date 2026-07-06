@@ -1,27 +1,14 @@
+// src/app/[locale]/(dashboard)/inventory/[id]/edit/page.tsx
 "use client";
 
-import {
-  useState,
-  useEffect,
-  useCallback,
-} from "react";
-
-import {
-  useRouter,
-  useParams,
-} from "next/navigation";
-
-import {
-  useTranslations,
-  useLocale,
-} from "next-intl";
-
+import { useState, useEffect, useCallback } from "react";
+import { useRouter, useParams } from "next/navigation";
+import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-
 import {
   Package,
   Hash,
@@ -32,11 +19,8 @@ import {
   Save,
   Info,
   Settings2,
+  ArrowLeft,
 } from "lucide-react";
-
-import { PageContainer } from "@/components/shared/detail/PageContainer";
-import { DetailHeader } from "@/components/shared/detail/DetailHeader";
-import { InfoCard } from "@/components/shared/detail/InfoCard";
 import {
   LocationSelector,
   type LocationValue,
@@ -53,6 +37,12 @@ type InventoryForm = {
   roomId: string;
   notes: string;
 };
+
+// =========================
+// تنسيقات موحدة
+// =========================
+const glassCard =
+  "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
 export default function EditInventoryPage() {
   const router = useRouter();
@@ -170,7 +160,6 @@ export default function EditInventoryPage() {
 
       if (res.ok) {
         toast.success(t("updateSuccess"));
-        // ✅ التغيير المطلوب: التوجيه إلى صفحة القائمة بدلاً من التفاصيل
         router.push(`/${locale}/inventory`);
         router.refresh();
       } else {
@@ -186,39 +175,63 @@ export default function EditInventoryPage() {
 
   if (fetching) {
     return (
-      <PageContainer>
-        <div className="flex justify-center items-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </PageContainer>
+      <div className="relative min-h-[60vh] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500 dark:text-indigo-400" />
+      </div>
     );
   }
 
   return (
-    <PageContainer>
-      <DetailHeader
-        icon={<Settings2 size={28} />}
-        title={t("editTitle")}
-        subtitle={t("editSubtitle")}
-        actions={
-          <Button
-            variant="outline"
-            onClick={() => router.back()}
-            className="rounded-full border-primary text-primary hover:bg-primary/10 font-black"
-          >
-            {isRtl ? "إلغاء" : "Cancel"}
-          </Button>
-        }
-      />
+    <div className="relative space-y-8 p-6">
+      {/* خلفية متدرجة خفيفة */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      {/* رأس الصفحة */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <Settings2 className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {t("editTitle")}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t("editSubtitle")}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => router.back()}
+          className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
+        >
+          <ArrowLeft className="h-4 w-4 ml-2" />
+          {isRtl ? "العودة" : "Back"}
+        </Button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="relative space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* العمود الرئيسي (2/3) */}
           <div className="lg:col-span-2 space-y-8">
-            <InfoCard title={t("identity")} icon={<Package className="h-5 w-5" />}>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">
-                    {t("name")} *
+            {/* بطاقة الهوية */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
+                  <Package className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {t("identity")}
+                </h2>
+              </div>
+
+              <div className="space-y-5">
+                {/* الاسم */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t("name")} <span className="text-rose-500">*</span>
                   </Label>
                   <Input
                     name="name"
@@ -226,109 +239,155 @@ export default function EditInventoryPage() {
                     onChange={handleChange}
                     placeholder={t("namePlaceholder")}
                     required
-                    className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6"
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   />
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">
-                    {t("sku")} *
+                {/* SKU */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t("sku")} <span className="text-rose-500">*</span>
                   </Label>
                   <div className="relative">
-                    <Hash className="absolute right-4 top-4 h-5 w-5 text-muted-foreground" />
+                    <Hash className="absolute right-3 top-3.5 h-5 w-5 text-slate-400 dark:text-slate-500" />
                     <Input
                       name="sku"
                       value={formData.sku}
                       onChange={handleChange}
                       placeholder={t("skuPlaceholder")}
                       required
-                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-primary font-bold tracking-widest"
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4 pr-10 uppercase tracking-wider"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">
-                    {t("location")}
-                  </Label>
+                {/* الموقع */}
+                <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+                      <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <h3 className="text-md font-semibold text-slate-800 dark:text-slate-100">
+                      {t("location")} <span className="text-rose-500">*</span>
+                    </h3>
+                  </div>
+
                   <LocationSelector
                     value={selectedLocation}
                     onChange={handleLocationChange}
                   />
                 </div>
               </div>
-            </InfoCard>
+            </div>
 
-            <InfoCard title={t("stockAndPricing")} icon={<BarChart3 className="h-5 w-5" />}>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground/70">{t("quantity")}</Label>
+            {/* بطاقة المخزون والتسعير */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
+                  <BarChart3 className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {t("stockAndPricing")}
+                </h2>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t("quantity")}
+                  </Label>
                   <Input
                     name="quantity"
                     type="number"
                     value={formData.quantity}
                     onChange={handleChange}
-                    className="h-14 rounded-2xl border-primary bg-background font-black text-xl"
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-destructive/80">{t("minStockAlert")}</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-rose-600 dark:text-rose-400">
+                    {t("minStockAlert")}
+                  </Label>
                   <Input
                     name="minQuantity"
                     type="number"
                     value={formData.minQuantity}
                     onChange={handleChange}
-                    className="h-14 rounded-2xl border-primary bg-background font-black text-xl text-destructive"
+                    className="h-12 rounded-xl border-rose-200 dark:border-rose-800 bg-rose-50/30 dark:bg-rose-950/20 focus:ring-2 focus:ring-rose-500/50 transition-all text-base px-4"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-emerald-500/80">{t("unitPrice")}</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-emerald-600 dark:text-emerald-400">
+                    {t("unitPrice")}
+                  </Label>
                   <div className="relative">
-                    <Banknote className="absolute right-4 top-4 h-5 w-5 text-emerald-500" />
+                    <Banknote className="absolute right-3 top-3.5 h-5 w-5 text-emerald-400 dark:text-emerald-500" />
                     <Input
                       name="unitPrice"
                       type="number"
                       step="0.01"
                       value={formData.unitPrice}
                       onChange={handleChange}
-                      className="h-14 rounded-2xl border-primary bg-background pr-12 font-black text-xl text-emerald-500"
+                      className="h-12 rounded-xl border-emerald-200 dark:border-emerald-800 bg-emerald-50/30 dark:bg-emerald-950/20 focus:ring-2 focus:ring-emerald-500/50 transition-all text-base px-4 pr-10"
                     />
                   </div>
                 </div>
               </div>
-            </InfoCard>
+            </div>
           </div>
 
-          <div className="space-y-8">
-            <InfoCard title={t("notes")} icon={<FileText className="h-5 w-5" />}>
+          {/* العمود الجانبي (1/3) */}
+          <div className="space-y-6">
+            {/* بطاقة الملاحظات */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
+                  <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {t("notes")}
+                </h3>
+              </div>
+
               <div className="space-y-4">
                 <Textarea
                   name="notes"
                   value={formData.notes}
                   onChange={handleChange}
                   placeholder={t("notesPlaceholder")}
-                  className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-6 resize-none min-h-[120px]"
+                  className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[120px] resize-none"
                 />
-                <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 border border-primary/10">
-                  <Info className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
-                  <p className="text-[11px] font-bold text-primary/70 leading-tight italic">
+                <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-800/30 flex items-start gap-3">
+                  <Info className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
                     {t("auditNote")}
                   </p>
                 </div>
               </div>
-            </InfoCard>
+            </div>
 
+            {/* مساعدة سريعة */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
+              <Info className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+              <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
+                {isRtl
+                  ? "تأكد من تحديث جميع الحقول المطلوبة قبل الحفظ."
+                  : "Make sure to update all required fields before saving."}
+              </div>
+            </div>
+
+            {/* الأزرار */}
             <Button
               type="submit"
               disabled={loading}
-              className="w-full h-12 rounded-full bg-primary hover:bg-primary/90 font-black"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
             >
-              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5 ml-2" />}
               {t("save")}
             </Button>
           </div>
         </div>
       </form>
-    </PageContainer>
+    </div>
   );
 }

@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/work-orders/WorkOrdersClient.tsx
 "use client";
 
 import React, {
@@ -8,6 +9,7 @@ import React, {
   useTransition,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useLocale } from "next-intl";
 import {
   Wrench,
   AlertCircle,
@@ -85,7 +87,7 @@ interface WorkOrder {
 
 interface WorkOrdersClientProps {
   initialWorkOrders: WorkOrder[];
-  statuses: { id: string; name: string; nameEn?: string; code?: string }[]; // ✅ أضفنا code اختياري
+  statuses: { id: string; name: string; nameEn?: string; code?: string }[];
   priorities: { id: string; name: string; nameEn?: string }[];
   total: number;
   currentPage: number;
@@ -416,26 +418,37 @@ export default function WorkOrdersClient({
   // =========================
 
   return (
-    <div className="relative space-y-6">
+    <div className="relative space-y-8 p-6">
+      {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      <DataList
-        title={isRtl ? "أوامر العمل" : "Work Orders"}
-        subtitle={
-          isRtl
-            ? "إدارة ومتابعة جميع طلبات الصيانة والإصلاح"
-            : "Manage and track all maintenance requests"
-        }
-        icon={
-          <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30">
-            <Wrench className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
+      {/* رأس الصفحة المخصص (مطابق لباقي الصفحات) */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <Wrench className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
           </div>
-        }
-        items={initialWorkOrders}
-        total={total}
-        currentPage={currentPage}
-        totalPages={totalPages}
-        onPageChange={setCurrentPage}
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {isRtl ? "أوامر العمل" : "Work Orders"}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {isRtl
+                ? "إدارة ومتابعة جميع طلبات الصيانة والإصلاح"
+                : "Manage and track all maintenance requests"}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => router.push(`/${locale}/work-orders/new`)}
+          className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 px-6 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+        >
+          {isRtl ? "إنشاء أمر عمل جديد" : "New Work Order"}
+        </button>
+      </div>
+
+      {/* DataList بدون عنوان وزر إضافة (لتجنب التكرار) */}
+      <DataList
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
         searchPlaceholder={
@@ -459,17 +472,21 @@ export default function WorkOrdersClient({
           setSelectedPriorityId("all");
           setCurrentPage(1);
         }}
-        addButtonLabel={isRtl ? "إنشاء أمر عمل جديد" : "New Work Order"}
-        addButtonLink={`/${locale}/work-orders/new`}
+        items={initialWorkOrders}
+        total={total}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
         renderItem={renderWorkOrderItem}
         emptyMessage={isRtl ? "لا توجد أوامر عمل لعرضها" : "No work orders found"}
         onEdit={handleEdit}
         onDelete={handleDelete}
+        showPagination={true}
         className="relative z-10"
       />
 
-      {/* ملخص أنيق في الأسفل */}
-      <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm border border-slate-200/30 dark:border-slate-800/30 text-sm text-slate-600 dark:text-slate-400">
+      {/* ملخص الحالات */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm border border-slate-200/30 dark:border-slate-800/30 text-sm text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-3">
           <Sparkles size={16} className="text-indigo-400 dark:text-indigo-500" />
           <span>
@@ -478,13 +495,12 @@ export default function WorkOrdersClient({
               : `Total Work Orders: ${total}`}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {statuses.map((status) => {
             const count = initialWorkOrders.filter(
               (wo) => wo.status?.id === status.id
             ).length;
             if (count === 0) return null;
-            // ✅ استخدام status.code مع fallback "PENDING"
             const config = STATUS_CONFIG[status.code || "PENDING"];
             return (
               <span

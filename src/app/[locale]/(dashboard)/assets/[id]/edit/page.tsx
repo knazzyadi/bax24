@@ -3,29 +3,45 @@
 
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { useTranslations, useLocale } from 'next-intl';
+import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
-import { Calendar, MapPin, FileText, Loader2, ShieldCheck, Info, Globe, Save, ArrowLeft, ArrowRight, Wrench, AlertTriangle, RefreshCw } from "lucide-react";
-import Link from "next/link";
-import { PageContainer } from "@/components/shared/detail/PageContainer";
-import { DetailHeader } from "@/components/shared/detail/DetailHeader";
-import { InfoCard } from "@/components/shared/detail/InfoCard";
+import {
+  Calendar,
+  MapPin,
+  FileText,
+  Loader2,
+  ShieldCheck,
+  Info,
+  Globe,
+  Save,
+  ArrowLeft,
+  Wrench,
+  AlertTriangle,
+  RefreshCw,
+  AlertCircle,
+} from "lucide-react";
 import { LocationSelector, type LocationValue } from "@/components/shared/LocationSelector";
-import type { AssetStatus, AssetType, Building, Floor, Room } from '@/types/assets';
+import type { AssetStatus, AssetType, Building, Floor, Room } from "@/types/assets";
 
 export default function EditAssetPage() {
   const router = useRouter();
   const params = useParams();
   const locale = useLocale();
   const assetId = params.id as string;
-  const t = useTranslations('AssetsForm');
+  const t = useTranslations("AssetsForm");
   const isRtl = locale === "ar";
-  
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
@@ -53,45 +69,50 @@ export default function EditAssetPage() {
     notes: "",
   });
 
-  const containerClass = "bg-card border border-border rounded-md p-6 shadow-sm hover:shadow-md transition-all";
+  // كرت الخلفية الزجاجي
+  const glassCard =
+    "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
   // ========== تحسين: useMemo لخريطة أسماء الحالات ==========
   const statusNameMap = useMemo(() => {
     const map = new Map<string, string>();
-    statuses.forEach(s => {
-      map.set(s.id, isRtl ? s.name : (s.nameEn || s.name));
+    statuses.forEach((s) => {
+      map.set(s.id, isRtl ? s.name : s.nameEn || s.name);
     });
     return map;
   }, [statuses, isRtl]);
 
-  const getStatusName = useCallback((statusId: string) => {
-    return statusNameMap.get(statusId) || t('selectStatus');
-  }, [statusNameMap, t]);
+  const getStatusName = useCallback(
+    (statusId: string) => {
+      return statusNameMap.get(statusId) || t("selectStatus");
+    },
+    [statusNameMap, t]
+  );
 
   // ========== جلب البيانات الأساسية (الحالات، الأنواع، المباني) ==========
   const fetchMeta = useCallback(async () => {
     setLoadingStatuses(true);
     setStatusesError(null);
-    
+
     try {
       const [statusesRes, typesRes, buildingsRes] = await Promise.all([
         fetch(`/api/asset-statuses?locale=${locale}`),
         fetch(`/api/asset-types?locale=${locale}`),
         fetch(`/api/buildings`),
       ]);
-      
+
       if (statusesRes.ok) {
         const data = await statusesRes.json();
         setStatuses(data);
       } else {
-        setStatusesError(isRtl ? 'فشل تحميل الحالات' : 'Failed to load statuses');
+        setStatusesError(isRtl ? "فشل تحميل الحالات" : "Failed to load statuses");
       }
-      
+
       if (typesRes.ok) setTypes(await typesRes.json());
       if (buildingsRes.ok) setBuildings(await buildingsRes.json());
     } catch (err) {
-      setStatusesError(isRtl ? 'خطأ في الاتصال بالخادم' : 'Server connection error');
-      toast.error(t('fetchError'));
+      setStatusesError(isRtl ? "خطأ في الاتصال بالخادم" : "Server connection error");
+      toast.error(t("fetchError"));
     } finally {
       setLoadingStatuses(false);
     }
@@ -115,9 +136,11 @@ export default function EditAssetPage() {
           descriptionEn: asset.descriptionEn || "",
           typeId: asset.typeId || "",
           statusId: asset.statusId || "",
-          purchaseDate: asset.purchaseDate ? asset.purchaseDate.split('T')[0] : "",
-          warrantyEnd: asset.warrantyEnd ? asset.warrantyEnd.split('T')[0] : "",
-          lastMaintenanceDate: asset.lastMaintenanceDate ? asset.lastMaintenanceDate.split('T')[0] : "",
+          purchaseDate: asset.purchaseDate ? asset.purchaseDate.split("T")[0] : "",
+          warrantyEnd: asset.warrantyEnd ? asset.warrantyEnd.split("T")[0] : "",
+          lastMaintenanceDate: asset.lastMaintenanceDate
+            ? asset.lastMaintenanceDate.split("T")[0]
+            : "",
           roomId: asset.roomId || "",
           notes: asset.notes || "",
         });
@@ -130,7 +153,7 @@ export default function EditAssetPage() {
         }
       } catch (err) {
         console.error(err);
-        toast.error(t('fetchError'));
+        toast.error(t("fetchError"));
       } finally {
         setLoading(false);
       }
@@ -143,7 +166,7 @@ export default function EditAssetPage() {
     setSelectedBuildingId(location.buildingId);
     setSelectedFloorId(location.floorId);
     setRoomId(location.roomId);
-    setFormData(prev => ({ ...prev, roomId: location.roomId }));
+    setFormData((prev) => ({ ...prev, roomId: location.roomId }));
   };
 
   // ========== جلب تفاصيل الغرفة ==========
@@ -163,7 +186,7 @@ export default function EditAssetPage() {
           const roomCode = roomData.code || "";
           const fullCode = `${buildingCode}-${floorCode}-${roomCode}`;
           setSelectedRoomFullCode(fullCode);
-          setSelectedRoomName(isRtl ? roomData.name : (roomData.nameEn || roomData.name));
+          setSelectedRoomName(isRtl ? roomData.name : roomData.nameEn || roomData.name);
         } else {
           setSelectedRoomFullCode("");
           setSelectedRoomName("");
@@ -177,27 +200,27 @@ export default function EditAssetPage() {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleSelectChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   const getTypeName = (typeId: string) => {
-    const type = types.find(t => t.id === typeId);
-    if (!type) return t('selectType');
-    return isRtl ? type.name : (type.nameEn || type.name);
+    const type = types.find((t) => t.id === typeId);
+    if (!type) return t("selectType");
+    return isRtl ? type.name : type.nameEn || type.name;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) {
-      toast.error(t('nameRequired'));
+      toast.error(t("nameRequired"));
       return;
     }
     if (!roomId) {
-      toast.error(t('locationRequired'));
+      toast.error(t("locationRequired"));
       return;
     }
 
@@ -222,15 +245,15 @@ export default function EditAssetPage() {
         body: JSON.stringify(payload),
       });
       if (res.ok) {
-        toast.success(t('updateSuccess', { fallback: 'Asset updated successfully' }));
+        toast.success(t("updateSuccess", { fallback: "Asset updated successfully" }));
         router.push(`/${locale}/assets`);
         router.refresh();
       } else {
         const error = await res.json();
-        toast.error(error.error || t('updateError'));
+        toast.error(error.error || t("updateError"));
       }
     } catch (err) {
-      toast.error(t('updateError'));
+      toast.error(t("updateError"));
     } finally {
       setSaving(false);
     }
@@ -238,163 +261,207 @@ export default function EditAssetPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="relative min-h-[60vh] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500 dark:text-indigo-400" />
       </div>
     );
   }
 
   return (
-    <PageContainer>
-      <DetailHeader
-        icon={<FileText size={28} />}
-        title={t('editTitle', { fallback: isRtl ? "تعديل أصل" : "Edit Asset" })}
-        subtitle={t('editSubtitle', { fallback: isRtl ? "تعديل بيانات الأصل" : "Edit asset details" })}
-        actions={
-          <Link
-            href={`/${locale}/assets`}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-md border border-border hover:bg-secondary transition-all duration-200 hover:scale-105"
-            aria-label={isRtl ? "العودة إلى القائمة" : "Back to list"}
-          >
-            {isRtl ? <ArrowRight className="h-5 w-5 text-primary" /> : <ArrowLeft className="h-5 w-5 text-primary" />}
-          </Link>
-        }
-      />
-      <form onSubmit={handleSubmit} className="space-y-8">
+    <div className="relative space-y-8 p-6">
+      {/* خلفية متدرجة خفيفة */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+
+      {/* رأس الصفحة */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <FileText className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {t("editTitle", { fallback: isRtl ? "تعديل أصل" : "Edit Asset" })}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t("editSubtitle", { fallback: isRtl ? "تعديل بيانات الأصل" : "Edit asset details" })}
+            </p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => router.back()}
+          className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
+        >
+          <ArrowLeft className="h-4 w-4 ml-2" />
+          {isRtl ? "العودة" : "Back"}
+        </Button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="relative space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-2 space-y-6">
-            <InfoCard title={t('basicInfo')} icon={<FileText className="h-5 w-5" />}>
-              <div className="space-y-6">
+          {/* العمود الرئيسي (2/3) */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* بطاقة المعلومات الأساسية */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
+                  <AlertCircle className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {t("basicInfo")}
+                </h2>
+              </div>
+
+              <div className="space-y-5">
                 {/* الاسم العربي */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">{t('name')} *</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t("name")} <span className="text-rose-500">*</span>
+                  </Label>
                   <Input
                     name="name"
                     value={formData.name}
                     onChange={handleChange}
-                    placeholder={t('namePlaceholder')}
+                    placeholder={t("namePlaceholder")}
                     required
-                    className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6"
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   />
                 </div>
 
                 {/* الوصف العربي */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {isRtl ? "الوصف (عربي)" : "Description (Arabic)"}
                   </Label>
                   <Textarea
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder={isRtl ? "أدخل وصفاً عربياً للأصل (اختياري)" : "Enter an Arabic description (optional)"}
-                    className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-4 resize-none min-h-[80px]"
+                    placeholder={
+                      isRtl
+                        ? "أدخل وصفاً عربياً للأصل (اختياري)"
+                        : "Enter an Arabic description (optional)"
+                    }
+                    className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[80px]"
                   />
                 </div>
 
                 {/* الاسم الإنجليزي */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-1">
-                    <Globe className="h-4 w-4" /> {t('nameEn')}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Globe className="h-4 w-4 text-indigo-400" />
+                    {t("nameEn")}
                   </Label>
                   <Input
                     name="nameEn"
                     value={formData.nameEn}
                     onChange={handleChange}
-                    placeholder={t('nameEnPlaceholder')}
-                    className="h-14 rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold text-lg px-6"
+                    placeholder={t("nameEnPlaceholder")}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   />
                 </div>
 
                 {/* الوصف الإنجليزي */}
-                <div className="space-y-2">
-                  <Label className="text-sm font-black text-muted-foreground/70 flex items-center gap-1">
-                    <Globe className="h-4 w-4" /> {isRtl ? "الوصف (English)" : "Description (English)"}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Globe className="h-4 w-4 text-indigo-400" />
+                    {isRtl ? "الوصف (English)" : "Description (English)"}
                   </Label>
                   <Textarea
                     name="descriptionEn"
                     value={formData.descriptionEn}
                     onChange={handleChange}
-                    placeholder={isRtl ? "أدخل وصفاً إنجليزياً للأصل (اختياري)" : "Enter an English description (optional)"}
-                    className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-4 resize-none min-h-[80px]"
+                    placeholder={
+                      isRtl
+                        ? "أدخل وصفاً إنجليزياً للأصل (اختياري)"
+                        : "Enter an English description (optional)"
+                    }
+                    className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[80px]"
                   />
                 </div>
 
-                <div className="grid md:grid-cols-2 gap-6">
-                  {/* ========== نوع الأصل (معطل) ========== */}
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground/70 flex items-center gap-1">
-                      {t('type')} 
-                      <span className="text-xs text-destructive font-normal">(لا يمكن التعديل)</span>
+                <div className="grid md:grid-cols-2 gap-4">
+                  {/* النوع (معطل) */}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1">
+                      {t("type")}
+                      <span className="text-xs text-rose-500 font-normal">
+                        (لا يمكن التعديل)
+                      </span>
                     </Label>
-                    <Select 
-                      value={formData.typeId} 
-                      onValueChange={(v) => handleSelectChange("typeId", v)} 
+                    <Select
+                      value={formData.typeId}
+                      onValueChange={(v) => handleSelectChange("typeId", v)}
                       disabled
                     >
-                      <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-gray-100 dark:bg-gray-800 text-muted-foreground cursor-not-allowed px-6">
-                        {getTypeName(formData.typeId) || <SelectValue placeholder={t('selectType')} />}
+                      <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-gray-100 dark:bg-gray-800 text-muted-foreground cursor-not-allowed px-4">
+                        {getTypeName(formData.typeId) || (
+                          <SelectValue placeholder={t("selectType")} />
+                        )}
                       </SelectTrigger>
                       <SelectContent>
                         {types.map((type) => (
                           <SelectItem key={type.id} value={type.id}>
-                            {isRtl ? type.name : (type.nameEn || type.name)}
+                            {isRtl ? type.name : type.nameEn || type.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <p className="text-xs text-muted-foreground/70 flex items-center gap-1 mt-1">
+                    <p className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-1">
                       <AlertTriangle className="h-3 w-3" />
-                      {isRtl ? "لا يمكن تغيير نوع الأصل بعد الإنشاء." : "Asset type cannot be changed after creation."}
+                      {isRtl
+                        ? "لا يمكن تغيير نوع الأصل بعد الإنشاء."
+                        : "Asset type cannot be changed after creation."}
                     </p>
                   </div>
 
-                  {/* ========== الحالة (المعدلة) ========== */}
-                  <div className="space-y-2">
-                    <Label className="text-muted-foreground/70">{t('status')}</Label>
+                  {/* الحالة */}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      {t("status")}
+                    </Label>
                     {loadingStatuses ? (
-                      <div className="w-full min-w-[180px] h-14 rounded-2xl border border-primary/30 bg-muted/50 flex items-center px-6 text-muted-foreground animate-pulse">
-                        {isRtl ? 'جاري تحميل الحالات...' : 'Loading statuses...'}
+                      <div className="h-12 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 flex items-center px-4 text-slate-400 animate-pulse">
+                        {isRtl ? "جاري تحميل الحالات..." : "Loading statuses..."}
                       </div>
                     ) : statusesError ? (
                       <div className="flex items-center gap-2">
-                        <div className="w-full min-w-[180px] h-14 rounded-2xl border border-destructive/50 bg-destructive/5 flex items-center px-6 text-destructive">
+                        <div className="h-12 flex-1 rounded-xl border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/30 flex items-center px-4 text-rose-600 dark:text-rose-400 text-sm">
                           {statusesError}
                         </div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={fetchMeta}
-                          className="shrink-0 h-14 px-4"
+                          className="h-12 px-4 rounded-xl border-slate-200 dark:border-slate-800"
                         >
                           <RefreshCw className="h-4 w-4" />
                         </Button>
                       </div>
                     ) : statuses.length === 0 ? (
-                      <div className="w-full min-w-[180px] h-14 rounded-2xl border border-destructive/50 bg-destructive/5 flex items-center px-6 text-destructive">
-                        {isRtl ? 'لا توجد حالات. يرجى إضافة حالة أولاً.' : 'No statuses available. Please add one.'}
+                      <div className="h-12 rounded-xl border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/30 flex items-center px-4 text-rose-600 dark:text-rose-400 text-sm">
+                        {isRtl
+                          ? "لا توجد حالات. يرجى إضافة حالة أولاً."
+                          : "No statuses available. Please add one."}
                       </div>
                     ) : (
                       <Select
                         value={formData.statusId}
                         onValueChange={(v) => handleSelectChange("statusId", v)}
                       >
-                        <SelectTrigger className="w-full min-w-[180px] h-14 rounded-2xl border-primary bg-background font-black px-6">
-                          <SelectValue placeholder={t('selectStatus')} />
+                        <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                          <SelectValue placeholder={t("selectStatus")} />
                         </SelectTrigger>
-                        <SelectContent sideOffset={4} className="max-h-[300px]">
+                        <SelectContent>
                           {statuses.map((status) => (
-                            <SelectItem 
-                              key={status.id} 
-                              value={status.id}
-                              className="cursor-pointer hover:bg-primary/10"
-                            >
+                            <SelectItem key={status.id} value={status.id}>
                               <div className="flex items-center gap-2">
-                                <span 
-                                  className="w-3 h-3 rounded-full shrink-0" 
-                                  style={{ backgroundColor: status.color || '#6b7280' }}
+                                <span
+                                  className="w-3 h-3 rounded-full shrink-0"
+                                  style={{ backgroundColor: status.color || "#6b7280" }}
                                 />
-                                {isRtl ? status.name : (status.nameEn || status.name)}
+                                {isRtl ? status.name : status.nameEn || status.name}
                               </div>
                             </SelectItem>
                           ))}
@@ -403,122 +470,170 @@ export default function EditAssetPage() {
                     )}
                   </div>
                 </div>
-                
-                <div className={containerClass}>
-                  <div className="space-y-3">
-                    <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
-                      <MapPin size={16} /> {t('location')}
-                    </h3>
-                    <LocationSelector
-                      value={{
-                        buildingId: selectedBuildingId,
-                        floorId: selectedFloorId,
-                        roomId,
-                      }}
-                      onChange={handleLocationChange}
-                    />
-                    {selectedRoomFullCode && (
-                      <div className="mt-5 relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-lg">
-                        <div className="absolute inset-0 bg-primary/20 blur-2xl opacity-30" />
-                        <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-2">
-                          <span className="text-sm font-bold text-foreground">
-                            {t('selectedRoom', { fallback: isRtl ? "الغرفة المختارة" : "Selected Room" })}
-                          </span>
-                          <span className="text-sm font-mono font-black text-primary tracking-wider">
-                            {selectedRoomName} — {selectedRoomFullCode}
-                          </span>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
               </div>
-            </InfoCard>
+            </div>
 
-            <InfoCard title={t('lifecycle')} icon={<ShieldCheck className="h-5 w-5 text-emerald-500/70" />}>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground/70">{t('purchaseDate')}</Label>
+            {/* بطاقة الموقع */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+                  <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {t("location")} <span className="text-rose-500">*</span>
+                </h2>
+              </div>
+
+              <div className="space-y-4">
+                <LocationSelector
+                  value={{
+                    buildingId: selectedBuildingId,
+                    floorId: selectedFloorId,
+                    roomId,
+                  }}
+                  onChange={handleLocationChange}
+                />
+                {selectedRoomFullCode && (
+                  <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/50 dark:border-indigo-800/30 flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                      {isRtl ? "الموقع المختار:" : "Selected Location:"}
+                    </span>
+                    <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                      {selectedRoomName} — {selectedRoomFullCode}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* بطاقة دورة الحياة */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
+                  <ShieldCheck className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {t("lifecycle")}
+                </h2>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t("purchaseDate")}
+                  </Label>
                   <div className="relative">
-                    <Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" />
+                    <Calendar className="absolute right-3 top-3.5 h-5 w-5 text-slate-400 dark:text-slate-500" />
                     <Input
                       name="purchaseDate"
                       type="date"
                       value={formData.purchaseDate}
                       onChange={handleChange}
-                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-primary font-black w-full"
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all pr-10"
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground/70">{t('warrantyEnd')}</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t("warrantyEnd")}
+                  </Label>
                   <div className="relative">
-                    <ShieldCheck className="absolute right-4 top-4 h-5 w-5 text-emerald-500/70" />
+                    <ShieldCheck className="absolute right-3 top-3.5 h-5 w-5 text-emerald-500/70" />
                     <Input
                       name="warrantyEnd"
                       type="date"
                       value={formData.warrantyEnd}
                       onChange={handleChange}
-                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-emerald-500/50 font-black w-full"
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-emerald-500/50 transition-all pr-10"
                     />
                   </div>
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-muted-foreground/70 flex items-center gap-2">
-                    <Wrench className="h-4 w-4" /> {t('lastMaintenance')}
+                <div className="space-y-1.5 md:col-span-2">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                    <Wrench className="h-4 w-4 text-slate-400" />
+                    {t("lastMaintenance")}
                   </Label>
                   <div className="relative">
-                    <Calendar className="absolute right-4 top-4 h-5 w-5 text-muted-foreground/50" />
-                    <Input 
-                      name="lastMaintenanceDate" 
-                      type="date" 
-                      value={formData.lastMaintenanceDate} 
-                      onChange={handleChange} 
-                      className="h-14 rounded-2xl border-primary bg-background pr-12 focus-visible:ring-2 focus-visible:ring-primary font-black w-full" 
+                    <Calendar className="absolute right-3 top-3.5 h-5 w-5 text-slate-400 dark:text-slate-500" />
+                    <Input
+                      name="lastMaintenanceDate"
+                      type="date"
+                      value={formData.lastMaintenanceDate}
+                      onChange={handleChange}
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all pr-10"
                     />
                   </div>
                 </div>
               </div>
-            </InfoCard>
+            </div>
           </div>
 
+          {/* العمود الجانبي (1/3) */}
           <div className="space-y-6">
-            <InfoCard title={t('notes')} icon={<Info className="h-5 w-5" />}>
+            {/* بطاقة الملاحظات */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
+                  <Info className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {t("notes")}
+                </h3>
+              </div>
+
               <div className="space-y-4">
                 <Textarea
                   name="notes"
                   value={formData.notes}
                   onChange={handleChange}
-                  placeholder={t('notesPlaceholder')}
-                  className="rounded-2xl border-primary bg-background focus-visible:ring-2 focus-visible:ring-primary font-bold p-6 resize-none leading-relaxed min-h-[120px] w-full"
+                  placeholder={t("notesPlaceholder")}
+                  className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[120px] resize-none"
                 />
-                <div className="p-4 bg-primary/5 rounded-2xl flex items-start gap-3 border border-primary/10">
-                  <Info className="h-4 w-4 text-primary/70 shrink-0 mt-0.5" />
-                  <p className="text-[11px] font-bold text-primary/70 leading-tight italic">{t('infoText')}</p>
+                <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-800/30 flex items-start gap-3">
+                  <Info className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+                  <p className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
+                    {t("infoText")}
+                  </p>
                 </div>
               </div>
-            </InfoCard>
+            </div>
+
+            {/* مساعدة سريعة */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
+              <ShieldCheck className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+              <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
+                {isRtl
+                  ? "تأكد من تحديث جميع الحقول المطلوبة (الاسم والموقع) قبل الحفظ."
+                  : "Make sure to update all required fields (name and location) before saving."}
+              </div>
+            </div>
+
+            {/* الأزرار */}
             <div className="flex gap-3">
               <Button
                 type="button"
                 onClick={() => router.back()}
                 variant="outline"
-                className="flex-1 rounded-full border-primary text-primary hover:bg-primary/10 h-12 font-black"
+                className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 h-12 font-medium"
               >
-                {t('cancel') || (isRtl ? "إلغاء" : "Cancel")}
+                {isRtl ? "إلغاء" : "Cancel"}
               </Button>
               <Button
                 type="submit"
                 disabled={saving}
-                className="flex-1 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground font-black h-12"
+                className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
               >
-                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5" />}
-                {t('submit')}
+                {saving ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Save className="h-5 w-5 ml-2" />
+                )}
+                {t("submit")}
               </Button>
             </div>
           </div>
         </div>
       </form>
-    </PageContainer>
+    </div>
   );
 }

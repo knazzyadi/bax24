@@ -3,18 +3,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
+// ✅ GET: جلب أصل واحد مع صلاحيات
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 1. التحقق من المصادقة
     let session;
     try {
       session = await getAuthenticatedSession();
     } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -25,12 +26,7 @@ export async function GET(
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    // التحقق من الصلاحية: السماح لـ ADMIN و SUPER_ADMIN
-    const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
-    if (!allowedRoles.includes(session.role)) {
-      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
-    }
-
+    // 2. جلب الأصل مع علاقاته
     const asset = await prisma.asset.findFirst({
       where: { id, companyId, deletedAt: null },
       include: {
@@ -54,8 +50,12 @@ export async function GET(
       return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
     }
 
-    // التحقق الإضافي من صلاحية الفرع للمستخدمين غير المدراء
-    if (!allowedRoles.includes(session.role)) {
+    // 3. التحقق من الصلاحية (الإداري يمر مباشرة، العادي يحتاج فرع)
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
+    const isAdmin = allowedRoles.includes(session.role);
+
+    if (!isAdmin) {
+      // المستخدم العادي: يجب أن يكون في نفس الفرع
       const userBranchIds = session.branchIds || [];
       let assetBranchId: string | null = null;
       if (asset.room?.floor?.building?.branchId) {
@@ -72,7 +72,7 @@ export async function GET(
       }
     }
 
-    // ✅ إضافة description و descriptionEn صراحةً
+    // 4. إرجاع البيانات مع تنسيق التواريخ
     const serializedAsset = {
       ...asset,
       description: asset.description ?? null,
@@ -89,18 +89,19 @@ export async function GET(
   }
 }
 
+// ✅ PUT: تحديث أصل
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 1. المصادقة
     let session;
     try {
       session = await getAuthenticatedSession();
     } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -113,9 +114,7 @@ export async function PUT(
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
-    const isAdmin = allowedRoles.includes(session.role);
-
+    // 2. التأكد من وجود الأصل
     const existingAsset = await prisma.asset.findFirst({
       where: { id, companyId, deletedAt: null },
       include: {
@@ -131,6 +130,10 @@ export async function PUT(
     if (!existingAsset) {
       return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
     }
+
+    // 3. صلاحيات التعديل
+    const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
+    const isAdmin = allowedRoles.includes(session.role);
 
     if (!isAdmin) {
       const userBranchIds = session.branchIds || [];
@@ -149,6 +152,7 @@ export async function PUT(
       }
     }
 
+    // 4. معالجة تغيير الغرفة (وتحديث buildingId)
     let newBuildingId = existingAsset.buildingId;
     if (roomId && roomId !== existingAsset.roomId) {
       const newRoom = await prisma.room.findFirst({
@@ -168,6 +172,7 @@ export async function PUT(
       newBuildingId = newRoom.buildingId;
     }
 
+    // 5. تحديث البيانات
     const updatedAsset = await prisma.asset.update({
       where: { id },
       data: {
@@ -185,29 +190,32 @@ export async function PUT(
         notes: notes?.trim() || null,
       },
     });
+
     return NextResponse.json(updatedAsset);
   } catch (error: any) {
-    console.error('PUT error:', error);
+    console.error('PUT /api/assets/[id] error:', error);
     return NextResponse.json({ error: 'خطأ في التحديث' }, { status: 500 });
   }
 }
 
+// ✅ DELETE: حذف أصل (soft delete)
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // 1. المصادقة
     let session;
     try {
       session = await getAuthenticatedSession();
     } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
+    // 2. فقط الإداريون يمكنهم الحذف
     const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
     if (!allowedRoles.includes(session.role)) {
       return NextResponse.json({ error: 'لا تملك الصلاحية للحذف' }, { status: 403 });
@@ -219,6 +227,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
+    // 3. التأكد من وجود الأصل
     const existingAsset = await prisma.asset.findFirst({
       where: { id, companyId, deletedAt: null }
     });
@@ -226,7 +235,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
     }
 
-    // فحص جميع الارتباطات مع رسالة مفصلة
+    // 4. التحقق من وجود ارتباطات تمنع الحذف
     const [workOrderAsset, ticket, scheduleAsset] = await Promise.all([
       prisma.workOrderAsset.findFirst({ where: { assetId: id }, select: { workOrderId: true } }),
       prisma.ticket.findFirst({ where: { assetId: id, deletedAt: null }, select: { id: true } }),
@@ -243,13 +252,15 @@ export async function DELETE(
       return NextResponse.json({ error: errorMessage }, { status: 409 });
     }
 
+    // 5. حذف ناعم (soft delete)
     await prisma.asset.update({
       where: { id },
       data: { deletedAt: new Date() }
     });
+
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('DELETE error:', error);
+  } catch (error: any) {
+    console.error('DELETE /api/assets/[id] error:', error);
     return NextResponse.json({ error: 'خطأ في الحذف' }, { status: 500 });
   }
 }

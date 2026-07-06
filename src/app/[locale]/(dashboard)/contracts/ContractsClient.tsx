@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/contracts/ContractsClient.tsx
 "use client";
 
 import React, { useState, useMemo } from "react";
@@ -301,51 +302,63 @@ export default function ContractsClient({
   };
 
   return (
-    <div className="space-y-6">
-      {/* خلفية متدرجة خفيفة للصفحة */}
-      <div className="relative">
-        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+    <div className="relative space-y-8 p-6">
+      {/* خلفية متدرجة خفيفة */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-        <DataList
-          title={isRtl ? "العقود" : "Contracts"}
-          subtitle={
-            isRtl
-              ? "إدارة العقود ومتابعة الموردين والالتزامات المالية"
-              : "Manage contracts, suppliers, and financial commitments"
-          }
-          icon={
-            <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30">
-              <FileText className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
-            </div>
-          }
-          addButtonLabel={isRtl ? "إضافة عقد جديد" : "Add New Contract"}
-          addButtonLink={`/${locale}/contracts/new`}
-          searchPlaceholder={
-            isRtl
-              ? "بحث بالعنوان، الكود، المورد، أو اسم المندوب..."
-              : "Search by title, code, supplier, or agent name..."
-          }
-          searchValue={searchTerm}
-          onSearchChange={setSearchTerm}
-          filterSections={filterSections}
-          filterValues={filterValues}
-          onFilterChange={onFilterChange}
-          items={paginatedContracts}
-          total={totalItems}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          renderItem={renderContractItem}
-          emptyMessage={isRtl ? "لا توجد عقود لعرضها" : "No contracts to display"}
-          onEdit={handleEdit}
-          onDelete={handleDelete}
-          itemsPerPage={itemsPerPage}
-          className="relative z-10"
-        />
+      {/* رأس الصفحة المخصص (مطابق لباقي الصفحات) */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <FileText className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {isRtl ? "العقود" : "Contracts"}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {isRtl
+                ? "إدارة العقود ومتابعة الموردين والالتزامات المالية"
+                : "Manage contracts, suppliers, and financial commitments"}
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => router.push(`/${locale}/contracts/new`)}
+          className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 px-6 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+        >
+          {isRtl ? "إضافة عقد جديد" : "Add New Contract"}
+        </button>
       </div>
 
+      {/* DataList بدون عنوان وزر إضافة (لتجنب التكرار) */}
+      <DataList
+        searchPlaceholder={
+          isRtl
+            ? "بحث بالعنوان، الكود، المورد، أو اسم المندوب..."
+            : "Search by title, code, supplier, or agent name..."
+        }
+        searchValue={searchTerm}
+        onSearchChange={setSearchTerm}
+        filterSections={filterSections}
+        filterValues={filterValues}
+        onFilterChange={onFilterChange}
+        items={paginatedContracts}
+        total={totalItems}
+        currentPage={currentPage}
+        totalPages={totalPages}
+        onPageChange={setCurrentPage}
+        renderItem={renderContractItem}
+        emptyMessage={isRtl ? "لا توجد عقود لعرضها" : "No contracts to display"}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        itemsPerPage={itemsPerPage}
+        showPagination={true}
+        className="relative z-10"
+      />
+
       {/* ملخص أنيق في الأسفل */}
-      <div className="flex items-center justify-between px-4 py-3 rounded-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm border border-slate-200/30 dark:border-slate-800/30 text-sm text-slate-600 dark:text-slate-400">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm border border-slate-200/30 dark:border-slate-800/30 text-sm text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-3">
           <TrendingUp size={16} className="text-indigo-400 dark:text-indigo-500" />
           <span>
@@ -354,7 +367,7 @@ export default function ContractsClient({
               : `Total Contracts: ${filteredContracts.length}`}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {Object.entries(STATUS_CONFIG).map(([key, config]) => {
             const count = filteredContracts.filter((c) => c.status === key).length;
             if (count === 0) return null;

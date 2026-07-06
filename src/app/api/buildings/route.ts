@@ -1,94 +1,55 @@
-// src/app/api/locations/buildings/route.ts
+// src/app/api/buildings/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
 
-// GET: جلب جميع مباني الشركة (للمدير فقط)
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    const session = await getAuthSession();
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    // التحقق من الصلاحية (يسمح لـ ADMIN و SUPER_ADMIN)
+    // ✅ استخدام try-catch داخلي
+    let session;
     try {
-      await requirePermission('locations.read');
+      session = await getAuthenticatedSession();
     } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      // إذا فشلت المصادقة، نعيد مصفوفة فارغة
+      return NextResponse.json([]);
     }
 
+    if (!session) {
+      return NextResponse.json([]);
+    }
+
+    // ✅ استخدام خصائص AuthSession مباشرة (بدون session.user)
     const companyId = session.companyId;
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة بهذا الحساب' }, { status: 400 });
+      return NextResponse.json([]);
+    }
+
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const userBranchIds = session.branchIds || [];
+
+    let where: any = { companyId };
+
+    if (!isAdmin && userBranchIds.length > 0) {
+      where.branchId = { in: userBranchIds };
+    } else if (!isAdmin && userBranchIds.length === 0) {
+      return NextResponse.json([]);
     }
 
     const buildings = await prisma.building.findMany({
-      where: { companyId, deletedAt: null },
-      include: { branch: { select: { id: true, name: true } } },
-      orderBy: { order: 'asc' },
-    });
-
-    const formatted = buildings.map((b) => ({
-      id: b.id,
-      name: b.name,
-      nameEn: b.nameEn,
-      code: b.code,
-      order: b.order,
-      branchId: b.branchId,
-      branchName: b.branch?.name || null,
-    }));
-
-    return NextResponse.json(formatted);
-  } catch (error) {
-    console.error('GET /api/locations/buildings error:', error);
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
-  }
-}
-
-// POST: إضافة مبنى جديد (للمدير فقط)
-export async function POST(request: Request) {
-  try {
-    const session = await getAuthSession();
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    // التحقق من الصلاحية
-    try {
-      await requirePermission('locations.write');
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة بهذا الحساب' }, { status: 400 });
-    }
-
-    const { name, nameEn, code, order, branchId } = await request.json();
-    if (!name || !code) {
-      return NextResponse.json({ error: 'الاسم والرمز مطلوبان' }, { status: 400 });
-    }
-
-    const building = await prisma.building.create({
-      data: {
-        name,
-        nameEn: nameEn || null,
-        code,
-        order: order || 0,
-        companyId,
-        branchId: branchId || null,
+      where,
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+        code: true,
+        branchId: true,
       },
+      orderBy: { name: 'asc' },
     });
 
-    // مسح كاش الصفحة
-    revalidatePath('/ar/locations/buildings');
-
-    return NextResponse.json(building, { status: 201 });
-  } catch (error) {
-    console.error('POST /api/locations/buildings error:', error);
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json(buildings);
+  } catch (error: any) {
+    console.error('GET /api/buildings error:', error);
+    return NextResponse.json([]);
   }
 }

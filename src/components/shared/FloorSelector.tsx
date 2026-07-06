@@ -34,19 +34,22 @@ export function FloorSelector({
 }: FloorSelectorProps) {
   const locale = useLocale();
   const isRtl = locale === "ar";
-  const isDisabled = loading || floors.length === 0 || !buildingId;
+
+  // ✅ التأكد من أن floors هي مصفوفة
+  const floorsList = Array.isArray(floors) ? floors : [];
+  const isDisabled = loading || floorsList.length === 0 || !buildingId;
 
   const getDisplayName = (floor: Floor) => {
     return isRtl ? floor.name : (floor.nameEn || floor.name);
   };
 
-  const selectedFloor = floors.find(f => f.id === value);
+  const selectedFloor = floorsList.find(f => f.id === value);
   const displayValue = selectedFloor ? getDisplayName(selectedFloor) : undefined;
 
   const getPlaceholderText = () => {
     if (loading) return isRtl ? "جاري التحميل..." : "Loading...";
     if (!buildingId) return noBuildingMessage;
-    if (floors.length === 0) return emptyMessage;
+    if (floorsList.length === 0) return emptyMessage;
     return placeholder;
   };
 
@@ -59,12 +62,12 @@ export function FloorSelector({
         {loading && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
       </SelectTrigger>
       <SelectContent position="popper" sideOffset={4}>
-        {floors.map((f) => (
+        {floorsList.map((f) => (
           <SelectItem key={f.id} value={f.id}>
             {getDisplayName(f)}
           </SelectItem>
         ))}
-        {floors.length === 0 && !loading && (
+        {floorsList.length === 0 && !loading && (
           <div className="px-3 py-2 text-sm text-muted-foreground text-center">
             {emptyMessage}
           </div>

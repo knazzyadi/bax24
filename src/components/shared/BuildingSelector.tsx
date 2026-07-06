@@ -1,3 +1,4 @@
+// src/components/shared/BuildingSelector.tsx
 "use client";
 
 import { Select, SelectTrigger, SelectContent, SelectItem, SelectValue } from "@/components/ui/select";
@@ -30,18 +31,21 @@ export function BuildingSelector({
 }: BuildingSelectorProps) {
   const locale = useLocale();
   const isRtl = locale === "ar";
-  const isDisabled = loading || buildings.length === 0;
+
+  // ✅ التأكد من أن buildings هي مصفوفة
+  const buildingsList = Array.isArray(buildings) ? buildings : [];
+  const isDisabled = loading || buildingsList.length === 0;
 
   const getDisplayName = (building: Building) => {
     return isRtl ? building.name : (building.nameEn || building.name);
   };
 
-  const selectedBuilding = buildings.find(b => b.id === value);
+  const selectedBuilding = buildingsList.find(b => b.id === value);
   const displayValue = selectedBuilding ? getDisplayName(selectedBuilding) : undefined;
 
   const getPlaceholderText = () => {
     if (loading) return isRtl ? "جاري التحميل..." : "Loading...";
-    if (buildings.length === 0) return emptyMessage;
+    if (buildingsList.length === 0) return emptyMessage;
     return placeholder;
   };
 
@@ -53,13 +57,13 @@ export function BuildingSelector({
         </SelectValue>
         {loading && <Loader2 className="h-4 w-4 ml-2 animate-spin" />}
       </SelectTrigger>
-      <SelectContent position="popper" sideOffset={4}> {/* ✅ إضافة position="popper" */}
-        {buildings.map((b) => (
+      <SelectContent position="popper" sideOffset={4}>
+        {buildingsList.map((b) => (
           <SelectItem key={b.id} value={b.id}>
             {getDisplayName(b)}
           </SelectItem>
         ))}
-        {buildings.length === 0 && !loading && (
+        {buildingsList.length === 0 && !loading && (
           <div className="px-3 py-2 text-sm text-muted-foreground text-center">
             {emptyMessage}
           </div>

@@ -8,14 +8,38 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { FileText, MapPin, Info, Save, X, Loader2, Plus, Check, Wrench, Building, Layers, DoorOpen } from "lucide-react";
-import { PageContainer } from "@/components/shared/detail/PageContainer";
-import { DetailHeader } from "@/components/shared/detail/DetailHeader";
-import { InfoCard } from "@/components/shared/detail/InfoCard";
-import { SidebarCard } from "@/components/shared/detail/SidebarCard";
+import {
+  FileText,
+  MapPin,
+  Info,
+  Save,
+  X,
+  Loader2,
+  Plus,
+  Check,
+  Wrench,
+  Building,
+  Layers,
+  DoorOpen,
+  Sparkles,
+  Shield,
+  ArrowLeft,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
@@ -92,15 +116,15 @@ export default function EditWorkOrderPage() {
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [statuses, setStatuses] = useState<Status[]>([]);
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
-  
+
   // الأصول المتاحة للاختيار (في الحوار)
   const [assetsList, setAssetsList] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
-  
+
   // الأصول المحددة (المعرفات فقط)
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
-  
-  // ✅ تفاصيل الأصول المحددة (للعرض)
+
+  // تفاصيل الأصول المحددة (للعرض)
   const [selectedAssetsDetails, setSelectedAssetsDetails] = useState<Asset[]>([]);
   const [loadingSelectedAssets, setLoadingSelectedAssets] = useState(false);
 
@@ -131,17 +155,22 @@ export default function EditWorkOrderPage() {
     notes: "",
   });
 
-  // ====== 1. جلب البيانات الأولية (أولويات، حالات، أنواع أصول، مباني، وأمر العمل) ======
+  // كرت الخلفية الزجاجي
+  const glassCard =
+    "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
+
+  // ====== 1. جلب البيانات الأولية ======
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [prioritiesRes, statusesRes, assetTypesRes, buildingsRes, workOrderRes] = await Promise.all([
-          fetch("/api/work-order-priorities"),
-          fetch("/api/work-order-statuses"),
-          fetch("/api/asset-types"),
-          fetch("/api/buildings"),
-          fetch(`/api/work-orders/${id}`),
-        ]);
+        const [prioritiesRes, statusesRes, assetTypesRes, buildingsRes, workOrderRes] =
+          await Promise.all([
+            fetch("/api/work-order-priorities"),
+            fetch("/api/work-order-statuses"),
+            fetch("/api/asset-types"),
+            fetch("/api/buildings"),
+            fetch(`/api/work-orders/${id}`),
+          ]);
 
         if (!workOrderRes.ok) {
           const errData = await workOrderRes.json();
@@ -154,10 +183,11 @@ export default function EditWorkOrderPage() {
         const buildingsData = await buildingsRes.json();
         const workOrderData = await workOrderRes.json();
 
-        setPriorities(prioritiesData);
-        setStatuses(statusesData);
+        // ✅ التأكد من أن البيانات مصفوفات
+        setPriorities(Array.isArray(prioritiesData) ? prioritiesData : []);
+        setStatuses(Array.isArray(statusesData) ? statusesData : []);
         setAssetTypes(Array.isArray(typesData) ? typesData : []);
-        setBuildings(buildingsData);
+        setBuildings(Array.isArray(buildingsData) ? buildingsData : []);
 
         // استخراج معرفات الأصول
         let assetIds: string[] = [];
@@ -178,7 +208,9 @@ export default function EditWorkOrderPage() {
           notes: workOrderData.notes || "",
         });
 
-        // تعيين الموقع
+        // ==============================
+        // ✅ تعيين الموقع - منطق الكود الأصلي (يعمل)
+        // ==============================
         if (workOrderData.room) {
           setRoomId(workOrderData.room.id);
           setLocationLevel("room");
@@ -210,7 +242,7 @@ export default function EditWorkOrderPage() {
     fetchData();
   }, [id, router, locale, t]);
 
-  // ====== 2. جلب تفاصيل الأصول المحددة ======
+  // ====== 2. جلب تفاصيل الأصول المحددة (مع Promise.allSettled) ======
   useEffect(() => {
     if (selectedAssetIds.length === 0) {
       setSelectedAssetsDetails([]);
@@ -220,18 +252,35 @@ export default function EditWorkOrderPage() {
     const fetchSelectedAssets = async () => {
       setLoadingSelectedAssets(true);
       try {
-        // جلب كل أصل على حدة (يمكن تحسينه بإضافة API واحد يجلب عدة أصول)
-        const assetPromises = selectedAssetIds.map(assetId =>
-          fetch(`/api/assets/${assetId}`).then(res => {
-            if (!res.ok) throw new Error(`Failed to fetch asset ${assetId}`);
+        const results = await Promise.allSettled(
+          selectedAssetIds.map(async (assetId) => {
+            const res = await fetch(`/api/assets/${assetId}`);
+            if (!res.ok) {
+              throw new Error(`Failed to fetch asset ${assetId}`);
+            }
             return res.json();
           })
         );
-        const assets = await Promise.all(assetPromises);
-        setSelectedAssetsDetails(assets);
+
+        const successfulAssets = results
+          .filter((result): result is PromiseFulfilledResult<any> => result.status === 'fulfilled')
+          .map((result) => result.value);
+
+        const failedIds = results
+          .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+          .map((result) => {
+            const match = result.reason?.message?.match(/asset (\S+)/);
+            return match ? match[1] : 'unknown';
+          });
+
+        if (failedIds.length > 0) {
+          console.warn('⚠️ Failed to fetch assets:', failedIds);
+        }
+
+        setSelectedAssetsDetails(successfulAssets);
       } catch (error) {
         console.error("Error fetching selected assets:", error);
-        toast.error(t("fetchAssetsError") || "فشل تحميل الأصول المحددة");
+        toast.error(t("fetchAssetsError") || "فشل تحميل بعض الأصول");
       } finally {
         setLoadingSelectedAssets(false);
       }
@@ -240,7 +289,7 @@ export default function EditWorkOrderPage() {
     fetchSelectedAssets();
   }, [selectedAssetIds, t]);
 
-  // ====== 3. جلب الأدوار والغرف (كما هي) ======
+  // ====== 3. جلب الأدوار بناءً على buildingId ======
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -250,9 +299,16 @@ export default function EditWorkOrderPage() {
       setLoadingFloors(true);
       try {
         const res = await fetch(`/api/buildings/${buildingId}/floors`);
+        if (!res.ok) {
+          console.error(`Failed to fetch floors for building ${buildingId}`);
+          setFloors([]);
+          return;
+        }
         const data = await res.json();
-        setFloors(data);
-      } catch {
+        // ✅ التأكد من أن البيانات مصفوفة
+        setFloors(Array.isArray(data) ? data : []);
+      } catch (error) {
+        console.error("Error fetching floors:", error);
         setFloors([]);
       } finally {
         setLoadingFloors(false);
@@ -261,6 +317,7 @@ export default function EditWorkOrderPage() {
     fetchFloors();
   }, [buildingId]);
 
+  // ====== 4. جلب الغرف بناءً على floorId ======
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -270,12 +327,17 @@ export default function EditWorkOrderPage() {
       setLoadingRooms(true);
       try {
         const res = await fetch(`/api/floors/${floorId}/rooms`);
+        if (!res.ok) {
+          console.error(`Failed to fetch rooms for floor ${floorId}`);
+          setRooms([]);
+          return;
+        }
         const data = await res.json();
-        const currentBuilding = buildings.find(b => b.id === buildingId);
-        const currentFloor = floors.find(f => f.id === floorId);
+        const currentBuilding = buildings.find((b) => b.id === buildingId);
+        const currentFloor = floors.find((f) => f.id === floorId);
         const buildingCode = currentBuilding?.code || "";
         const floorCode = currentFloor?.code || "";
-        const roomsWithCode = data.map((room: any) => ({
+        const roomsWithCode = (Array.isArray(data) ? data : []).map((room: any) => ({
           id: room.id,
           name: room.name,
           nameEn: room.nameEn,
@@ -284,7 +346,8 @@ export default function EditWorkOrderPage() {
           fullCode: `${buildingCode}-${floorCode}-${room.code || ""}`,
         }));
         setRooms(roomsWithCode);
-      } catch {
+      } catch (error) {
+        console.error("Error fetching rooms:", error);
         setRooms([]);
       } finally {
         setLoadingRooms(false);
@@ -293,7 +356,7 @@ export default function EditWorkOrderPage() {
     fetchRooms();
   }, [floorId, buildingId, buildings, floors]);
 
-  // ====== 4. جلب الأصول المتاحة (للحوار) ======
+  // ====== 5. جلب الأصول المتاحة (للحوار) ======
   useEffect(() => {
     if (locationLevel !== "room" || !roomId) {
       setAssetsList([]);
@@ -307,9 +370,15 @@ export default function EditWorkOrderPage() {
           url += `&typeId=${formData.assetTypeId}`;
         }
         const res = await fetch(url);
+        if (!res.ok) {
+          console.error("Failed to fetch assets for room:", roomId);
+          setAssetsList([]);
+          return;
+        }
         const data = await res.json();
-        setAssetsList(data.assets || data);
-      } catch {
+        setAssetsList(data.assets || data || []);
+      } catch (error) {
+        console.error("Error fetching assets:", error);
         setAssetsList([]);
       } finally {
         setLoadingAssets(false);
@@ -325,7 +394,7 @@ export default function EditWorkOrderPage() {
     setSelectedAssetsDetails([]);
     if (level !== "room") {
       setRoomId("");
-      setFormData(prev => ({ ...prev, assetTypeId: "" }));
+      setFormData((prev) => ({ ...prev, assetTypeId: "" }));
     }
     if (level !== "floor") setFloorId("");
     if (level !== "building") setBuildingId("");
@@ -342,8 +411,8 @@ export default function EditWorkOrderPage() {
   };
 
   const removeAsset = (assetId: string) => {
-    setSelectedAssetIds(prev => prev.filter(id => id !== assetId));
-    setSelectedAssetsDetails(prev => prev.filter(asset => asset.id !== assetId));
+    setSelectedAssetIds((prev) => prev.filter((id) => id !== assetId));
+    setSelectedAssetsDetails((prev) => prev.filter((asset) => asset.id !== assetId));
   };
 
   // ====== الإرسال ======
@@ -381,7 +450,8 @@ export default function EditWorkOrderPage() {
       };
       if (locationLevel === "room" && roomId) payload.roomId = roomId;
       else if (locationLevel === "floor" && floorId) payload.floorId = floorId;
-      else if (locationLevel === "building" && buildingId) payload.buildingId = buildingId;
+      else if (locationLevel === "building" && buildingId)
+        payload.buildingId = buildingId;
 
       const res = await fetch(`/api/work-orders/${id}`, {
         method: "PUT",
@@ -413,31 +483,31 @@ export default function EditWorkOrderPage() {
     }
   };
   const getPriorityLabel = (id: string) => {
-    const p = priorities.find(p => p.id === id);
+    const p = priorities.find((p) => p.id === id);
     if (!p) return "";
     return isRtl ? p.name : p.nameEn || p.name;
   };
   const getStatusLabel = (id: string) => {
-    const s = statuses.find(s => s.id === id);
+    const s = statuses.find((s) => s.id === id);
     if (!s) return "";
     return isRtl ? s.name : s.nameEn || s.name;
   };
   const getAssetTypeLabel = (id: string) => {
-    const at = assetTypes.find(at => at.id === id);
+    const at = assetTypes.find((at) => at.id === id);
     if (!at) return "";
     return isRtl ? at.name : at.nameEn || at.name;
   };
   const getSelectedLocationSummary = () => {
     if (locationLevel === "room" && roomId) {
-      const room = rooms.find(r => r.id === roomId);
+      const room = rooms.find((r) => r.id === roomId);
       return room ? `${room.name} (${room.fullCode})` : t("room");
     }
     if (locationLevel === "floor" && floorId) {
-      const floor = floors.find(f => f.id === floorId);
+      const floor = floors.find((f) => f.id === floorId);
       return floor ? floor.name : t("floor");
     }
     if (locationLevel === "building" && buildingId) {
-      const building = buildings.find(b => b.id === buildingId);
+      const building = buildings.find((b) => b.id === buildingId);
       return building ? building.name : t("building");
     }
     return t("notSelected");
@@ -445,86 +515,112 @@ export default function EditWorkOrderPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="relative min-h-[60vh] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500 dark:text-indigo-400" />
       </div>
     );
   }
 
   return (
-    <PageContainer>
-      <DetailHeader
-        icon={<Wrench size={28} />}
-        title={t("editTitle")}
-        subtitle={t("editSubtitle")}
-        actions={null}
-      />
+    <div className="relative space-y-8 p-6">
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      <form onSubmit={handleSubmit} className="space-y-8">
+      {/* رأس الصفحة */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <Wrench className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("editTitle")}</h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">{t("editSubtitle")}</p>
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          onClick={() => router.back()}
+          className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
+        >
+          <ArrowLeft className="h-4 w-4 ml-2" /> {isRtl ? "العودة" : "Back"}
+        </Button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="relative space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* العمود الرئيسي */}
           <div className="lg:col-span-2 space-y-8">
-            <InfoCard title={t("basicInfo")} icon={<FileText className="h-5 w-5" />}>
-              <div className="space-y-6">
-                <div className="space-y-2">
-                  <Label className="text-sm font-black">{t("title")} *</Label>
+            {/* معلومات أساسية */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
+                  <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("basicInfo")}</h2>
+              </div>
+              <div className="space-y-5">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t("title")} <span className="text-rose-500">*</span>
+                  </Label>
                   <Input
                     required
                     value={formData.title}
-                    onChange={e => setFormData({ ...formData, title: e.target.value })}
-                    className="h-14 rounded-2xl border-primary font-bold text-lg px-6"
+                    onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label className="text-sm font-black">{t("description")}</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("description")}</Label>
                   <Textarea
                     value={formData.description}
-                    onChange={e => setFormData({ ...formData, description: e.target.value })}
-                    className="rounded-2xl border-primary p-6 min-h-[120px]"
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                    className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[120px]"
                   />
                 </div>
               </div>
-            </InfoCard>
+            </div>
 
-            {/* حاوية الموقع مع اختيار المستوى */}
-            <InfoCard title={t("location")} icon={<MapPin className="h-5 w-5" />}>
-              <div className="space-y-4">
-                <div className="flex gap-4">
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="locationLevel"
-                      checked={locationLevel === "building"}
-                      onChange={() => handleLocationLevelChange("building")}
-                    />
-                    <span>{isRtl ? "مبنى" : "Building"}</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="locationLevel"
-                      checked={locationLevel === "floor"}
-                      onChange={() => handleLocationLevelChange("floor")}
-                    />
-                    <span>{isRtl ? "دور" : "Floor"}</span>
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name="locationLevel"
-                      checked={locationLevel === "room"}
-                      onChange={() => handleLocationLevelChange("room")}
-                    />
-                    <span>{isRtl ? "غرفة" : "Room"}</span>
-                  </label>
+            {/* الموقع */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+                  <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
                 </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("location")}</h2>
+              </div>
+              <div className="space-y-5">
+                <div className="flex flex-wrap gap-4 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/30 dark:border-slate-700/30">
+                  {["building", "floor", "room"].map((level) => (
+                    <label key={level} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="locationLevel"
+                        checked={locationLevel === level}
+                        onChange={() => handleLocationLevelChange(level as LocationLevel)}
+                        className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                      />
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                        {level === "building" ? (isRtl ? "مبنى" : "Building") : ""}
+                        {level === "floor" ? (isRtl ? "دور" : "Floor") : ""}
+                        {level === "room" ? (isRtl ? "غرفة" : "Room") : ""}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div>
-                    <Label className="text-xs font-bold">{t("branch")}</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                      <Building className="h-4 w-4 text-indigo-400" /> {t("branch")}
+                    </Label>
                     <BranchSelector value={branchId} onValueChange={setBranchId} />
                   </div>
-                  <div>
-                    <Label className="text-xs font-bold">{t("building")}</Label>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                      <Building className="h-4 w-4 text-indigo-400" /> {t("building")}
+                    </Label>
                     <BuildingSelector
                       value={buildingId}
                       onValueChange={(val) => {
@@ -536,9 +632,12 @@ export default function EditWorkOrderPage() {
                       loading={loadingBuildings}
                     />
                   </div>
+
                   {(locationLevel === "floor" || locationLevel === "room") && (
-                    <div>
-                      <Label className="text-xs font-bold">{t("floor")}</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <Layers className="h-4 w-4 text-indigo-400" /> {t("floor")}
+                      </Label>
                       <FloorSelector
                         value={floorId}
                         onValueChange={(val) => {
@@ -551,9 +650,12 @@ export default function EditWorkOrderPage() {
                       />
                     </div>
                   )}
+
                   {locationLevel === "room" && (
-                    <div>
-                      <Label className="text-xs font-bold">{t("room")}</Label>
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <DoorOpen className="h-4 w-4 text-indigo-400" /> {t("room")}
+                      </Label>
                       <RoomSelector
                         value={roomId}
                         onValueChange={setRoomId}
@@ -564,84 +666,115 @@ export default function EditWorkOrderPage() {
                     </div>
                   )}
                 </div>
+
                 {((locationLevel === "building" && buildingId) ||
                   (locationLevel === "floor" && floorId) ||
                   (locationLevel === "room" && roomId)) && (
-                  <div className="p-3 rounded-xl border border-primary/30 bg-primary/10 text-center">
-                    <span className="font-bold">{isRtl ? "الموقع:" : "Location:"}</span>{" "}
-                    {getSelectedLocationSummary()}
+                  <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/50 dark:border-indigo-800/30 flex items-center justify-between">
+                    <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                      {isRtl ? "الموقع المختار:" : "Selected Location:"}
+                    </span>
+                    <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+                      {getSelectedLocationSummary()}
+                    </span>
                   </div>
                 )}
               </div>
-            </InfoCard>
+            </div>
 
-            {/* حاوية الأصول (تظهر فقط عند اختيار غرفة) */}
+            {/* الأصول (تظهر فقط عند اختيار غرفة) */}
             {locationLevel === "room" && (
-              <InfoCard title={t("assets")} icon={<FileText className="h-5 w-5" />}>
-                <div className="space-y-4">
-                  <div>
-                    <Label className="text-sm font-black">{t("assetType")}</Label>
+              <div className={glassCard}>
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40">
+                    <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  </div>
+                  <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("assets")}</h2>
+                </div>
+                <div className="space-y-5">
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("assetType")}</Label>
                     <AssetTypeField
                       value={formData.assetTypeId}
-                      onChange={(val) => setFormData(prev => ({ ...prev, assetTypeId: val ?? "" }))}
+                      onChange={(val) => setFormData((prev) => ({ ...prev, assetTypeId: val ?? "" }))}
                       assetTypes={assetTypes}
                       disabled={!roomId}
                       placeholder={roomId ? t("selectAssetType") : t("selectLocationFirst")}
                     />
                   </div>
-                  <div>
-                    <Label className="text-sm font-black">{t("selectAssets")}</Label>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("selectAssets")}</Label>
                     <Button
                       type="button"
                       variant="outline"
                       onClick={openAssetDialog}
                       disabled={!roomId || assetsList.length === 0}
-                      className="w-full justify-start gap-2"
+                      className="w-full justify-start gap-2 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 h-12"
                     >
-                      <Plus size={16} />
+                      <Plus className="h-4 w-4" />
                       {selectedAssetIds.length > 0
                         ? `${selectedAssetIds.length} ${t("assetsSelected") || "أصل محدد"}`
                         : t("selectAssets")}
                     </Button>
                   </div>
 
-                  {/* ✅ عرض الأصول المحددة باستخدام التفاصيل المجلوبة */}
                   {selectedAssetsDetails.length > 0 && (
                     <div className="space-y-2">
-                      {selectedAssetsDetails.map(asset => (
-                        <div key={asset.id} className="flex justify-between items-center p-3 rounded-xl border border-primary/20 bg-primary/5">
+                      {selectedAssetsDetails.map((asset) => (
+                        <div
+                          key={asset.id}
+                          className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/30 dark:border-indigo-800/30"
+                        >
                           <div>
-                            <p className="font-bold">{isRtl ? asset.name : asset.nameEn || asset.name}</p>
-                            <p className="text-xs text-muted-foreground font-mono">{asset.code}</p>
+                            <p className="font-medium text-slate-800 dark:text-slate-100">
+                              {isRtl ? asset.name : asset.nameEn || asset.name}
+                            </p>
+                            <p className="text-xs font-mono text-slate-400 dark:text-slate-500">{asset.code}</p>
                           </div>
-                          <button type="button" onClick={() => removeAsset(asset.id)} className="text-red-500">
-                            <X size={18} />
+                          <button
+                            type="button"
+                            onClick={() => removeAsset(asset.id)}
+                            className="p-1.5 rounded-full text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          >
+                            <X className="h-4 w-4" />
                           </button>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {/* عرض رسالة أثناء تحميل تفاصيل الأصول */}
                   {loadingSelectedAssets && (
                     <div className="flex items-center justify-center py-2">
-                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                      <span className="mr-2 text-sm text-muted-foreground">جاري تحميل الأصول...</span>
+                      <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
+                      <span className="mr-2 text-sm text-slate-500 dark:text-slate-400">
+                        {isRtl ? "جاري تحميل الأصول..." : "Loading assets..."}
+                      </span>
                     </div>
                   )}
                 </div>
-              </InfoCard>
+              </div>
             )}
           </div>
 
           {/* العمود الجانبي */}
-          <div className="space-y-8">
-            <SidebarCard title={t("additionalInfo")} icon={<FileText className="h-5 w-5" />}>
+          <div className="space-y-6">
+            {/* معلومات إضافية */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
+                  <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("additionalInfo")}</h3>
+              </div>
               <div className="space-y-4">
-                <div>
-                  <Label className="text-sm font-black">{t("type")}</Label>
-                  <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
-                    <SelectTrigger className="w-full h-14 rounded-2xl border-primary font-black px-6">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("type")}</Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(v) => setFormData({ ...formData, type: v })}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                       <SelectValue placeholder={t("selectType")} />
                     </SelectTrigger>
                     <SelectContent>
@@ -652,15 +785,18 @@ export default function EditWorkOrderPage() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label className="text-sm font-black">{t("priority")}</Label>
-                  <Select value={formData.priorityId} onValueChange={(v) => setFormData({ ...formData, priorityId: v })}>
-                    <SelectTrigger className="w-full h-14 rounded-2xl border-primary font-black px-6">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("priority")}</Label>
+                  <Select
+                    value={formData.priorityId}
+                    onValueChange={(v) => setFormData({ ...formData, priorityId: v })}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                       <SelectValue placeholder={t("selectPriority")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">{t("none")}</SelectItem>
-                      {priorities.map(p => (
+                      {priorities.map((p) => (
                         <SelectItem key={p.id} value={p.id}>
                           {isRtl ? p.name : p.nameEn || p.name}
                         </SelectItem>
@@ -669,15 +805,18 @@ export default function EditWorkOrderPage() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label className="text-sm font-black">{t("status")}</Label>
-                  <Select value={formData.statusId} onValueChange={(v) => setFormData({ ...formData, statusId: v })}>
-                    <SelectTrigger className="w-full h-14 rounded-2xl border-primary font-black px-6">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("status")}</Label>
+                  <Select
+                    value={formData.statusId}
+                    onValueChange={(v) => setFormData({ ...formData, statusId: v })}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                       <SelectValue placeholder={t("selectStatus")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="">{t("none")}</SelectItem>
-                      {statuses.map(s => (
+                      {statuses.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {isRtl ? s.name : s.nameEn || s.name}
                         </SelectItem>
@@ -686,29 +825,42 @@ export default function EditWorkOrderPage() {
                   </Select>
                 </div>
 
-                <div>
-                  <Label className="text-sm font-black">{t("notes")}</Label>
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">{t("notes")}</Label>
                   <Textarea
                     value={formData.notes}
-                    onChange={e => setFormData({ ...formData, notes: e.target.value })}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     placeholder={t("notesPlaceholder")}
-                    className="rounded-xl border-primary min-h-[100px]"
+                    className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[100px]"
                   />
                 </div>
               </div>
-            </SidebarCard>
-
-            <div className="p-4 rounded-2xl bg-primary/10 border border-primary/30 flex gap-2 text-xs">
-              <Info size={14} className="text-primary shrink-0 mt-0.5" />
-              <span>{isRtl ? "يمكنك اختيار عدة أصول لأمر العمل الواحد." : "You can select multiple assets for this work order."}</span>
             </div>
 
+            {/* مساعدة سريعة */}
+            <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
+              <Shield className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+              <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
+                {isRtl ? "يمكنك اختيار عدة أصول لأمر العمل الواحد." : "You can select multiple assets for this work order."}
+              </div>
+            </div>
+
+            {/* الأزرار */}
             <div className="flex gap-3">
-              <Button type="button" onClick={() => router.back()} variant="outline" className="flex-1 rounded-full border-red-500 text-red-500 h-12 font-black">
-                <X size={18} className="ml-2" /> {t("cancel")}
+              <Button
+                type="button"
+                onClick={() => router.back()}
+                variant="outline"
+                className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 h-12 font-medium"
+              >
+                <X className="h-4 w-4 ml-2" /> {t("cancel")}
               </Button>
-              <Button type="submit" disabled={saving} className="flex-1 rounded-full bg-primary text-white h-12 font-black gap-2">
-                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save size={18} />}
+              <Button
+                type="submit"
+                disabled={saving}
+                className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+              >
+                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5 ml-2" />}
                 {t("save")}
               </Button>
             </div>
@@ -716,45 +868,60 @@ export default function EditWorkOrderPage() {
         </div>
       </form>
 
-      {/* حوار اختيار الأصول المتعددة */}
+      {/* حوار اختيار الأصول */}
       <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-auto bg-background border shadow-lg">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
           <DialogHeader>
-            <DialogTitle>{t("selectAssets")}</DialogTitle>
+            <DialogTitle className="text-slate-800 dark:text-slate-100 text-xl font-bold">{t("selectAssets")}</DialogTitle>
           </DialogHeader>
-          <div className="mt-4 space-y-2">
+          <div className="space-y-3 mt-4">
             {loadingAssets ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+              </div>
             ) : assetsList.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">{t("noAssets")}</p>
+              <div className="text-center py-8 text-slate-400 dark:text-slate-500">{t("noAssets")}</div>
             ) : (
-              assetsList.map(asset => (
-                <div key={asset.id} className="flex items-center gap-3 p-3 border rounded-lg">
-                  <input
-                    type="checkbox"
-                    checked={tempSelectedAssetIds.includes(asset.id)}
-                    onChange={(e) => {
-                      if (e.target.checked) setTempSelectedAssetIds(prev => [...prev, asset.id]);
-                      else setTempSelectedAssetIds(prev => prev.filter(id => id !== asset.id));
-                    }}
-                    className="w-4 h-4 text-primary rounded"
-                  />
-                  <Label className="flex-1 cursor-pointer">
-                    <div className="font-bold">{isRtl ? asset.name : asset.nameEn || asset.name}</div>
-                    <div className="text-xs text-muted-foreground">{asset.code}</div>
-                  </Label>
-                </div>
-              ))
+              <div className="space-y-2">
+                {assetsList.map((asset) => (
+                  <div
+                    key={asset.id}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors"
+                  >
+                    <input
+                      type="checkbox"
+                      id={`asset-${asset.id}`}
+                      checked={tempSelectedAssetIds.includes(asset.id)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setTempSelectedAssetIds((prev) => [...prev, asset.id]);
+                        } else {
+                          setTempSelectedAssetIds((prev) => prev.filter((id) => id !== asset.id));
+                        }
+                      }}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 rounded border-slate-300 dark:border-slate-600"
+                    />
+                    <Label htmlFor={`asset-${asset.id}`} className="flex-1 cursor-pointer">
+                      <div className="font-medium text-slate-800 dark:text-slate-100">
+                        {isRtl ? asset.name : asset.nameEn || asset.name}
+                      </div>
+                      <div className="text-xs font-mono text-slate-400 dark:text-slate-500">{asset.code}</div>
+                    </Label>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-            <Button variant="outline" onClick={() => setAssetDialogOpen(false)}>{t("cancel")}</Button>
-            <Button onClick={confirmAssetSelection} disabled={loadingAssets}>
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
+            <Button variant="outline" onClick={() => setAssetDialogOpen(false)} className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400">
+              {t("cancel")}
+            </Button>
+            <Button onClick={confirmAssetSelection} disabled={loadingAssets} className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20">
               <Check className="h-4 w-4 mr-2" /> {t("confirm")}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-    </PageContainer>
+    </div>
   );
 }

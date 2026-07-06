@@ -28,20 +28,64 @@ export function BranchSelector({ value, onValueChange, disabled = false }: Branc
   const isRtl = locale === "ar";
   const [branches, setBranches] = useState<Branch[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/branches")
-      .then((res) => res.json())
-      .then((data) => setBranches(data))
-      .catch(console.error)
+      .then((res) => {
+        if (!res.ok) {
+          // إذا كان الخطأ 401 أو 403، نعتبر أنه لا توجد فروع متاحة
+          if (res.status === 401 || res.status === 403) {
+            return [];
+          }
+          throw new Error("فشل تحميل الفروع");
+        }
+        return res.json();
+      })
+      .then((data) => {
+        // ✅ التأكد من أن البيانات هي مصفوفة
+        if (Array.isArray(data)) {
+          setBranches(data);
+        } else {
+          console.warn("API returned non-array data:", data);
+          setBranches([]);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching branches:", err);
+        setError(isRtl ? "حدث خطأ في تحميل الفروع" : "Failed to load branches");
+        setBranches([]);
+      })
       .finally(() => setLoading(false));
-  }, []);
+  }, [isRtl]);
 
+  // حالة التحميل
   if (loading) {
     return (
       <Select value={value} onValueChange={onValueChange} disabled>
         <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black text-base px-6">
           <SelectValue placeholder={isRtl ? "جاري التحميل..." : "Loading..."} />
+        </SelectTrigger>
+      </Select>
+    );
+  }
+
+  // إذا كان هناك خطأ أو لا توجد فروع
+  if (error || branches.length === 0) {
+    return (
+      <Select value={value} onValueChange={onValueChange} disabled>
+        <SelectTrigger className="h-14 rounded-2xl border-primary bg-background font-black text-base px-6">
+          <SelectValue
+            placeholder={
+              error
+                ? isRtl
+                  ? "حدث خطأ"
+                  : "Error"
+                : isRtl
+                ? "لا توجد فروع متاحة"
+                : "No branches available"
+            }
+          />
         </SelectTrigger>
       </Select>
     );
@@ -55,7 +99,7 @@ export function BranchSelector({ value, onValueChange, disabled = false }: Branc
       <SelectContent>
         {branches.map((branch) => (
           <SelectItem key={branch.id} value={branch.id}>
-            {isRtl ? branch.name : (branch.nameEn || branch.name)}
+            {isRtl ? branch.name : branch.nameEn || branch.name}
           </SelectItem>
         ))}
       </SelectContent>

@@ -6,20 +6,44 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useSession } from "next-auth/react";
 import {
-  Info, Loader2, MapPin, Building, Layers, DoorOpen, AlertCircle, FileText, Wrench, Save, X, Check, Plus
+  Info,
+  Loader2,
+  MapPin,
+  Building,
+  Layers,
+  DoorOpen,
+  AlertCircle,
+  FileText,
+  Wrench,
+  Save,
+  X,
+  Check,
+  Plus,
+  Sparkles,
+  Shield,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-import { FormPageContainer } from "@/components/shared/form/FormPageContainer";
 import { FormSection } from "@/components/shared/form/FormSection";
-import { FormSidebar } from "@/components/shared/form/FormSidebar";
 import { FormField } from "@/components/shared/form/FormField";
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
@@ -53,18 +77,38 @@ interface Room {
   fullCode?: string;
 }
 
-interface AssetType { id: string; name: string; code?: string; nameEn?: string; }
-interface Asset { id: string; name: string; code: string; nameEn?: string; }
-interface Priority { id: string; name: string; nameEn?: string; color?: string; }
-interface Status { id: string; name: string; nameEn?: string; color?: string; }
+interface AssetType {
+  id: string;
+  name: string;
+  code?: string;
+  nameEn?: string;
+}
+interface Asset {
+  id: string;
+  name: string;
+  code: string;
+  nameEn?: string;
+}
+interface Priority {
+  id: string;
+  name: string;
+  nameEn?: string;
+  color?: string;
+}
+interface Status {
+  id: string;
+  name: string;
+  nameEn?: string;
+  color?: string;
+}
 
-type LocationLevel = 'building' | 'floor' | 'room';
+type LocationLevel = "building" | "floor" | "room";
 
 export default function NewWorkOrderPage() {
   const router = useRouter();
   const locale = useLocale();
   const isRtl = locale === "ar";
-  const t = useTranslations('WorkOrdersForm');
+  const t = useTranslations("WorkOrdersForm");
   const { data: session } = useSession();
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -83,9 +127,9 @@ export default function NewWorkOrderPage() {
   const [buildingId, setBuildingId] = useState<string>("");
   const [floorId, setFloorId] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
-  
+
   // مستوى التحديد (مبنى / دور / غرفة)
-  const [locationLevel, setLocationLevel] = useState<LocationLevel>('room');
+  const [locationLevel, setLocationLevel] = useState<LocationLevel>("room");
 
   // بيانات المباني والأدوار والغرف
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -110,41 +154,49 @@ export default function NewWorkOrderPage() {
     notes: "",
   });
 
-  const containerClass = "bg-card border border-border rounded-md p-6 shadow-sm hover:shadow-md transition-all";
+  // كرت الخلفية الزجاجي
+  const glassCard =
+    "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
   // دوال مساعدة لعرض النص المترجم في القوائم المنسدلة
   const getTypeLabel = (typeValue: string) => {
     switch (typeValue) {
-      case "MAINTENANCE": return t("type_maintenance");
-      case "CORRECTIVE": return t("type_corrective");
-      case "EMERGENCY": return t("type_emergency");
-      case "BULK_PREVENTIVE": return t("type_bulk");
-      default: return typeValue;
+      case "MAINTENANCE":
+        return t("type_maintenance");
+      case "CORRECTIVE":
+        return t("type_corrective");
+      case "EMERGENCY":
+        return t("type_emergency");
+      case "BULK_PREVENTIVE":
+        return t("type_bulk");
+      default:
+        return typeValue;
     }
   };
 
   const getPriorityLabel = (id: string) => {
-    const priority = priorities.find(p => p.id === id);
+    const priority = priorities.find((p) => p.id === id);
     if (!priority) return "";
-    return isRtl ? priority.name : (priority.nameEn || priority.name);
+    return isRtl ? priority.name : priority.nameEn || priority.name;
   };
 
   const getStatusLabel = (id: string) => {
-    const status = statuses.find(s => s.id === id);
+    const status = statuses.find((s) => s.id === id);
     if (!status) return "";
-    return isRtl ? status.name : (status.nameEn || status.name);
+    return isRtl ? status.name : status.nameEn || status.name;
   };
 
   // جلب البيانات الأولية
   useEffect(() => {
     async function fetchInitialData() {
       try {
-        const [prioritiesRes, statusesRes, assetTypesRes, buildingsRes] = await Promise.all([
-          fetch("/api/work-order-priorities"),
-          fetch("/api/work-order-statuses"),
-          fetch("/api/asset-types"),
-          fetch("/api/buildings"),
-        ]);
+        const [prioritiesRes, statusesRes, assetTypesRes, buildingsRes] =
+          await Promise.all([
+            fetch("/api/work-order-priorities"),
+            fetch("/api/work-order-statuses"),
+            fetch("/api/asset-types"),
+            fetch("/api/buildings"),
+          ]);
         if (prioritiesRes.ok) setPriorities(await prioritiesRes.json());
         if (statusesRes.ok) setStatuses(await statusesRes.json());
         if (assetTypesRes.ok) setAssetTypes(await assetTypesRes.json());
@@ -195,10 +247,10 @@ export default function NewWorkOrderPage() {
         const res = await fetch(`/api/floors/${floorId}/rooms`);
         if (res.ok) {
           const data = await res.json();
-          const currentBuilding = buildings.find(b => b.id === buildingId);
-          const currentFloor = floors.find(f => f.id === floorId);
-          const buildingCode = currentBuilding?.code || '';
-          const floorCode = currentFloor?.code || '';
+          const currentBuilding = buildings.find((b) => b.id === buildingId);
+          const currentFloor = floors.find((f) => f.id === floorId);
+          const buildingCode = currentBuilding?.code || "";
+          const floorCode = currentFloor?.code || "";
           const roomsWithCode = data.map((room: any) => ({
             id: room.id,
             name: room.name,
@@ -206,7 +258,7 @@ export default function NewWorkOrderPage() {
             code: room.code,
             floorId,
             buildingId,
-            fullCode: `${buildingCode}-${floorCode}-${room.code || ''}`,
+            fullCode: `${buildingCode}-${floorCode}-${room.code || ""}`,
           }));
           setRooms(roomsWithCode);
         } else setRooms([]);
@@ -232,13 +284,13 @@ export default function NewWorkOrderPage() {
     params.append("typeId", formData.assetTypeId);
     params.append("branchId", branchId);
 
-    if (locationLevel === 'room' && roomId) {
+    if (locationLevel === "room" && roomId) {
       params.append("roomId", roomId);
       canFetch = true;
-    } else if (locationLevel === 'floor' && floorId) {
+    } else if (locationLevel === "floor" && floorId) {
       params.append("floorId", floorId);
       canFetch = true;
-    } else if (locationLevel === 'building' && buildingId) {
+    } else if (locationLevel === "building" && buildingId) {
       params.append("buildingId", buildingId);
       canFetch = true;
     }
@@ -277,7 +329,7 @@ export default function NewWorkOrderPage() {
   };
 
   const removeAsset = (assetId: string) => {
-    setSelectedAssetIds(prev => prev.filter(id => id !== assetId));
+    setSelectedAssetIds((prev) => prev.filter((id) => id !== assetId));
   };
 
   const handleSubmit = async () => {
@@ -286,10 +338,10 @@ export default function NewWorkOrderPage() {
       return;
     }
     let locationValid = false;
-    if (locationLevel === 'room' && roomId) locationValid = true;
-    else if (locationLevel === 'floor' && floorId) locationValid = true;
-    else if (locationLevel === 'building' && buildingId) locationValid = true;
-    
+    if (locationLevel === "room" && roomId) locationValid = true;
+    else if (locationLevel === "floor" && floorId) locationValid = true;
+    else if (locationLevel === "building" && buildingId) locationValid = true;
+
     if (!locationValid) {
       toast.error(t("locationRequired") || "الموقع (مبنى/دور/غرفة) مطلوب");
       return;
@@ -312,9 +364,10 @@ export default function NewWorkOrderPage() {
         assetIds: selectedAssetIds,
         notes: formData.notes,
       };
-      if (locationLevel === 'room' && roomId) payload.roomId = roomId;
-      else if (locationLevel === 'floor' && floorId) payload.floorId = floorId;
-      else if (locationLevel === 'building' && buildingId) payload.buildingId = buildingId;
+      if (locationLevel === "room" && roomId) payload.roomId = roomId;
+      else if (locationLevel === "floor" && floorId) payload.floorId = floorId;
+      else if (locationLevel === "building" && buildingId)
+        payload.buildingId = buildingId;
 
       const res = await fetch("/api/work-orders", {
         method: "POST",
@@ -338,352 +391,557 @@ export default function NewWorkOrderPage() {
 
   if (!dataLoaded || loadingBuildings) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="relative min-h-[60vh] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500 dark:text-indigo-400" />
       </div>
     );
   }
 
   const getSelectedLocationSummary = () => {
-    if (locationLevel === 'room' && roomId) {
-      const room = rooms.find(r => r.id === roomId);
+    if (locationLevel === "room" && roomId) {
+      const room = rooms.find((r) => r.id === roomId);
       return room ? `${room.name} (${room.fullCode})` : t("room");
     }
-    if (locationLevel === 'floor' && floorId) {
-      const floor = floors.find(f => f.id === floorId);
+    if (locationLevel === "floor" && floorId) {
+      const floor = floors.find((f) => f.id === floorId);
       return floor ? floor.name : t("floor");
     }
-    if (locationLevel === 'building' && buildingId) {
-      const building = buildings.find(b => b.id === buildingId);
+    if (locationLevel === "building" && buildingId) {
+      const building = buildings.find((b) => b.id === buildingId);
       return building ? building.name : t("building");
     }
     return t("notSelected");
   };
 
   const isLocationSelected = () => {
-    if (locationLevel === 'room') return !!roomId;
-    if (locationLevel === 'floor') return !!floorId;
-    if (locationLevel === 'building') return !!buildingId;
+    if (locationLevel === "room") return !!roomId;
+    if (locationLevel === "floor") return !!floorId;
+    if (locationLevel === "building") return !!buildingId;
     return false;
   };
 
   return (
-    <FormPageContainer
-      icon={<Wrench size={28} />}
-      title={t("newTitle")}
-      subtitle={t("newSubtitle")}
-    >
-      {/* العمود الرئيسي - الأيسر */}
-      <div className="lg:col-span-2 space-y-8">
-        {/* 1. معلومات أساسية (بدون ملاحظات) */}
-        <FormSection icon={<AlertCircle size={16} />} title={t("basicInfo")}>
-          <div className="grid md:grid-cols-2 gap-6">
-            <FormField label={t("title")} required>
-              <Input
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                placeholder={t("titlePlaceholder")}
-                className="h-12 rounded-xl"
-              />
-            </FormField>
-            <FormField label={t("type")}>
-              <Select value={formData.type} onValueChange={(v) => setFormData({ ...formData, type: v })}>
-                <SelectTrigger className="h-12 rounded-xl">
-                  <SelectValue placeholder={t("selectType")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="MAINTENANCE">{t("type_maintenance")}</SelectItem>
-                  <SelectItem value="CORRECTIVE">{t("type_corrective")}</SelectItem>
-                  <SelectItem value="EMERGENCY">{t("type_emergency")}</SelectItem>
-                  <SelectItem value="BULK_PREVENTIVE">{t("type_bulk")}</SelectItem>
-                </SelectContent>
-              </Select>
-            </FormField>
-          </div>
-          <div className="grid md:grid-cols-2 gap-6 mt-4">
-            <FormField label={t("priority")}>
-              <Select value={formData.priorityId} onValueChange={(v) => setFormData({ ...formData, priorityId: v })}>
-                <SelectTrigger className="h-12 rounded-xl">
-                  <SelectValue placeholder={t("selectPriority")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {priorities.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{isRtl ? p.name : (p.nameEn || p.name)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-            <FormField label={t("status")}>
-              <Select value={formData.statusId} onValueChange={(v) => setFormData({ ...formData, statusId: v })}>
-                <SelectTrigger className="h-12 rounded-xl">
-                  <SelectValue placeholder={t("selectStatus")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {statuses.map(s => (
-                    <SelectItem key={s.id} value={s.id}>{isRtl ? s.name : (s.nameEn || s.name)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </FormField>
-          </div>
-          <FormField label={t("description")}>
-            <Textarea
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              placeholder={t("descriptionPlaceholder")}
-              className="min-h-[100px] rounded-xl"
-            />
-          </FormField>
-        </FormSection>
+    <div className="relative space-y-8 p-6">
+      {/* خلفية متدرجة خفيفة */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-        {/* 2. حاوية الموقع مع اختيار مستوى الموقع */}
-        <div className={containerClass}>
-          <div className="space-y-3">
-            <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
-              <MapPin size={16} /> {isRtl ? 'تفاصيل الموقع' : 'Location Details'}
-              <span className="text-red-500 text-sm">*</span>
-            </h3>
-            {/* اختيار مستوى الموقع */}
-            <div className="flex gap-4 mb-4">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  value="building"
-                  checked={locationLevel === 'building'}
-                  onChange={() => setLocationLevel('building')}
-                />
-                <span>{isRtl ? "مبنى" : "Building"}</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  value="floor"
-                  checked={locationLevel === 'floor'}
-                  onChange={() => setLocationLevel('floor')}
-                />
-                <span>{isRtl ? "دور" : "Floor"}</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  value="room"
-                  checked={locationLevel === 'room'}
-                  onChange={() => setLocationLevel('room')}
-                />
-                <span>{isRtl ? "غرفة" : "Room"}</span>
-              </label>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
-                  <Building size={12} /> {isRtl ? "الفرع" : "Branch"}
-                </Label>
-                <BranchSelector value={branchId} onValueChange={(val) => { setBranchId(val); setBuildingId(""); setFloorId(""); setRoomId(""); }} />
+      {/* رأس الصفحة */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <Wrench className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {t("newTitle")}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t("newSubtitle")}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* العمود الرئيسي */}
+        <div className="lg:col-span-2 space-y-8">
+          {/* معلومات أساسية */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
+                <AlertCircle className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
-                  <Building size={12} /> {isRtl ? "المبنى أو المنطقة" : "Building / Zone"}
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {t("basicInfo")}
+              </h2>
+            </div>
+
+            <div className="space-y-5">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {t("title")} <span className="text-rose-500">*</span>
                 </Label>
-                <div className="relative">
-                  <BuildingSelector
-                    value={buildingId}
-                    onValueChange={(val) => { setBuildingId(val); setFloorId(""); setRoomId(""); }}
-                    buildings={buildings}
-                    loading={loadingBuildings}
-                  />
-                  {!branchId && (
-                    <div className="absolute inset-0 bg-background/50 rounded-md cursor-not-allowed z-10" />
-                  )}
+                <Input
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder={t("titlePlaceholder")}
+                  className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                />
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t("type")}
+                  </Label>
+                  <Select
+                    value={formData.type}
+                    onValueChange={(v) => setFormData({ ...formData, type: v })}
+                  >
+                    <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                      <SelectValue placeholder={t("selectType")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="MAINTENANCE">
+                        {t("type_maintenance")}
+                      </SelectItem>
+                      <SelectItem value="CORRECTIVE">
+                        {t("type_corrective")}
+                      </SelectItem>
+                      <SelectItem value="EMERGENCY">
+                        {t("type_emergency")}
+                      </SelectItem>
+                      <SelectItem value="BULK_PREVENTIVE">
+                        {t("type_bulk")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {t("priority")}
+                  </Label>
+                  <Select
+                    value={formData.priorityId}
+                    onValueChange={(v) =>
+                      setFormData({ ...formData, priorityId: v })
+                    }
+                  >
+                    <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                      <SelectValue placeholder={t("selectPriority")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {priorities.map((p) => (
+                        <SelectItem key={p.id} value={p.id}>
+                          {isRtl ? p.name : p.nameEn || p.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
-              {(locationLevel === 'floor' || locationLevel === 'room') && (
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
-                    <Layers size={12} /> {isRtl ? "الدور أو المنطقة" : "Floor / Zone"}
-                  </Label>
-                  <FloorSelector
-                    value={floorId}
-                    onValueChange={(val) => { setFloorId(val); setRoomId(""); }}
-                    floors={floors}
-                    buildingId={buildingId}
-                    loading={loadingFloors}
-                  />
-                </div>
-              )}
-              {locationLevel === 'room' && (
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-muted-foreground/70 flex items-center gap-1">
-                    <DoorOpen size={12} /> {isRtl ? "الوحدة" : "Unit"}
-                  </Label>
-                  <RoomSelector
-                    value={roomId}
-                    onValueChange={setRoomId}
-                    rooms={rooms}
-                    floorId={floorId}
-                    loading={loadingRooms}
-                  />
-                </div>
-              )}
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {t("status")}
+                </Label>
+                <Select
+                  value={formData.statusId}
+                  onValueChange={(v) =>
+                    setFormData({ ...formData, statusId: v })
+                  }
+                >
+                  <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                    <SelectValue placeholder={t("selectStatus")} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {statuses.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        {isRtl ? s.name : s.nameEn || s.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {t("description")}
+                </Label>
+                <Textarea
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({ ...formData, description: e.target.value })
+                  }
+                  placeholder={t("descriptionPlaceholder")}
+                  className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[100px]"
+                />
+              </div>
             </div>
-            {isLocationSelected() && (
-              <div className="mt-5 relative overflow-hidden rounded-2xl border border-primary/30 bg-primary/10 p-4 shadow-lg">
-                <div className="absolute inset-0 bg-primary/20 blur-2xl opacity-30" />
-                <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-2">
-                  <span className="text-sm font-bold text-foreground">
-                    {isRtl ? "الموقع المختار" : "Selected Location"}
+          </div>
+
+          {/* الموقع */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+                <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {isRtl ? "تفاصيل الموقع" : "Location Details"}
+                <span className="text-rose-500 text-sm ml-1">*</span>
+              </h2>
+            </div>
+
+            <div className="space-y-5">
+              {/* مستوى الموقع */}
+              <div className="flex flex-wrap gap-4 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/30 dark:border-slate-700/30">
+                {["building", "floor", "room"].map((level) => (
+                  <label key={level} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      value={level}
+                      checked={locationLevel === level}
+                      onChange={() => setLocationLevel(level as LocationLevel)}
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                      {level === "building" ? (isRtl ? "مبنى" : "Building") : ""}
+                      {level === "floor" ? (isRtl ? "دور" : "Floor") : ""}
+                      {level === "room" ? (isRtl ? "غرفة" : "Room") : ""}
+                    </span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Building className="h-4 w-4 text-indigo-400" />
+                    {isRtl ? "الفرع" : "Branch"}
+                  </Label>
+                  <BranchSelector
+                    value={branchId}
+                    onValueChange={(val) => {
+                      setBranchId(val);
+                      setBuildingId("");
+                      setFloorId("");
+                      setRoomId("");
+                    }}
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Building className="h-4 w-4 text-indigo-400" />
+                    {isRtl ? "المبنى أو المنطقة" : "Building / Zone"}
+                  </Label>
+                  <div className="relative">
+                    <BuildingSelector
+                      value={buildingId}
+                      onValueChange={(val) => {
+                        setBuildingId(val);
+                        setFloorId("");
+                        setRoomId("");
+                      }}
+                      buildings={buildings}
+                      loading={loadingBuildings}
+                    />
+                    {!branchId && (
+                      <div className="absolute inset-0 bg-slate-100/50 dark:bg-slate-900/50 rounded-xl cursor-not-allowed z-10" />
+                    )}
+                  </div>
+                </div>
+
+                {(locationLevel === "floor" || locationLevel === "room") && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                      <Layers className="h-4 w-4 text-indigo-400" />
+                      {isRtl ? "الدور أو المنطقة" : "Floor / Zone"}
+                    </Label>
+                    <FloorSelector
+                      value={floorId}
+                      onValueChange={(val) => {
+                        setFloorId(val);
+                        setRoomId("");
+                      }}
+                      floors={floors}
+                      buildingId={buildingId}
+                      loading={loadingFloors}
+                    />
+                  </div>
+                )}
+
+                {locationLevel === "room" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                      <DoorOpen className="h-4 w-4 text-indigo-400" />
+                      {isRtl ? "الوحدة" : "Unit"}
+                    </Label>
+                    <RoomSelector
+                      value={roomId}
+                      onValueChange={setRoomId}
+                      rooms={rooms}
+                      floorId={floorId}
+                      loading={loadingRooms}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {isLocationSelected() && (
+                <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/50 dark:border-indigo-800/30 flex items-center justify-between">
+                  <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    {isRtl ? "الموقع المختار:" : "Selected Location:"}
                   </span>
-                  <span className="text-sm font-mono font-black text-primary tracking-wider">
+                  <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
                     {getSelectedLocationSummary()}
                   </span>
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* 3. حاوية الأصل - مع دعم عدة أصول */}
-        <div className={containerClass}>
-          <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
-            <FileText size={16} /> {isRtl ? 'بيانات الأصل (اختياري)' : 'Asset Details (Optional)'}
-          </h3>
-          <div className="space-y-4 mt-3">
-            <AssetTypeField
-              value={formData.assetTypeId}
-              onChange={(val) => setFormData(prev => ({ ...prev, assetTypeId: val ?? "" }))}
-              assetTypes={assetTypes}
-              disabled={!isLocationSelected()}
-              placeholder={isLocationSelected() ? (isRtl ? "اختر نوع الأصل" : "Select asset type") : (isRtl ? "اختر الموقع أولاً" : "Select location first")}
-            />
-
-            {/* زر اختيار الأصول المتعددة */}
-            <div className="space-y-2">
-              <Label className="text-sm font-black text-muted-foreground">{t("selectAssets")}</Label>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={openAssetDialog}
-                disabled={!isLocationSelected() || !formData.assetTypeId || assets.length === 0}
-                className="w-full justify-start gap-2"
-              >
-                <Plus size={16} />
-                {selectedAssetIds.length > 0
-                  ? `${selectedAssetIds.length} ${t("assetsSelected") || "أصل محدد"}`
-                  : t("selectAssets")}
-              </Button>
+          {/* الأصول */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40">
+                <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {isRtl ? "بيانات الأصل (اختياري)" : "Asset Details (Optional)"}
+              </h2>
             </div>
 
-            {/* عرض الأصول المختارة كبطاقات */}
-            {selectedAssetIds.length > 0 && (
-              <div className="mt-4">
-                <h4 className="text-sm font-black text-muted-foreground mb-2">{t("selectedAssetsList")}</h4>
-                <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {selectedAssetIds.map(assetId => {
-                    const asset = assets.find(a => a.id === assetId);
-                    if (!asset) return null;
-                    return (
-                      <div key={assetId} className="flex items-center justify-between p-3 rounded-xl border border-primary/20 bg-primary/5">
-                        <div>
-                          <p className="font-bold">{isRtl ? asset.name : (asset.nameEn || asset.name)}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{asset.code}</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => removeAsset(assetId)}
-                          className="text-red-500 hover:text-red-700 p-1"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
+            <div className="space-y-5">
+              <AssetTypeField
+                value={formData.assetTypeId}
+                onChange={(val) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    assetTypeId: val ?? "",
+                  }))
+                }
+                assetTypes={assetTypes}
+                disabled={!isLocationSelected()}
+                placeholder={
+                  isLocationSelected()
+                    ? isRtl
+                      ? "اختر نوع الأصل"
+                      : "Select asset type"
+                    : isRtl
+                    ? "اختر الموقع أولاً"
+                    : "Select location first"
+                }
+              />
+
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {t("selectAssets")}
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={openAssetDialog}
+                  disabled={
+                    !isLocationSelected() ||
+                    !formData.assetTypeId ||
+                    assets.length === 0
+                  }
+                  className="w-full justify-start gap-2 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 h-12"
+                >
+                  <Plus className="h-4 w-4" />
+                  {selectedAssetIds.length > 0
+                    ? `${selectedAssetIds.length} ${
+                        t("assetsSelected") || "أصل محدد"
+                      }`
+                    : t("selectAssets")}
+                </Button>
               </div>
-            )}
+
+              {selectedAssetIds.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <h4 className="text-sm font-medium text-slate-600 dark:text-slate-400">
+                    {t("selectedAssetsList")}
+                  </h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {selectedAssetIds.map((assetId) => {
+                      const asset = assets.find((a) => a.id === assetId);
+                      if (!asset) return null;
+                      return (
+                        <div
+                          key={assetId}
+                          className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/30 dark:border-indigo-800/30"
+                        >
+                          <div>
+                            <p className="font-medium text-slate-800 dark:text-slate-100">
+                              {isRtl ? asset.name : asset.nameEn || asset.name}
+                            </p>
+                            <p className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                              {asset.code}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => removeAsset(assetId)}
+                            className="p-1.5 rounded-full text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* العمود الجانبي - الأيمن (مع الملاحظات في الأعلى) */}
-      <div className="space-y-8">
-        <FormSidebar>
-          {/* الملاحظات في أعلى العمود الأيمن */}
-          <div className="space-y-3 pb-4 border-b border-border">
-            <Label className="text-sm font-black text-muted-foreground flex items-center gap-2">
-              <FileText size={14} /> {t("notes")}
-            </Label>
+        {/* العمود الجانبي */}
+        <div className="space-y-6">
+          {/* ملاحظات */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
+                <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {t("notes")}
+              </h3>
+            </div>
             <Textarea
               value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              placeholder={t("notes")}
-              className="min-h-[120px] rounded-xl"
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
+              placeholder={t("notesPlaceholder")}
+              className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 min-h-[120px]"
             />
           </div>
 
-          {/* الأزرار أسفل الملاحظات */}
-          <div className="pt-4 flex gap-3">
-            <Button onClick={() => router.back()} variant="outline" className="flex-1 h-11 rounded-full border-red-500 text-red-500 hover:bg-red-50 font-black">
+          {/* إرشادات */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-100 to-purple-100 dark:from-indigo-950/40 dark:to-purple-950/40">
+                <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {isRtl ? "إرشادات" : "Guidelines"}
+              </h3>
+            </div>
+            <ul className="space-y-2.5 text-sm text-slate-600 dark:text-slate-400">
+              <li className="flex items-start gap-2.5">
+                <Shield className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>
+                  {isRtl
+                    ? "اختر مستوى الموقع (مبنى/دور/غرفة) لتحديد الأصول المتاحة."
+                    : "Choose location level (building/floor/room) to filter available assets."}
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Shield className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>
+                  {isRtl
+                    ? "يمكنك اختيار عدة أصول لأمر العمل الواحد."
+                    : "You can select multiple assets for a single work order."}
+                </span>
+              </li>
+              <li className="flex items-start gap-2.5">
+                <Shield className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
+                <span>
+                  {isRtl
+                    ? "الحقول المميزة بـ * إلزامية."
+                    : "Fields marked with * are required."}
+                </span>
+              </li>
+            </ul>
+          </div>
+
+          {/* الأزرار */}
+          <div className="flex gap-3">
+            <Button
+              onClick={() => router.back()}
+              variant="outline"
+              className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 h-12 font-medium"
+            >
+              <X className="h-4 w-4 ml-2" />
               {t("cancel")}
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting} className="flex-1 h-11 rounded-full bg-primary hover:bg-primary/90 font-black gap-2">
-              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save size={16} />}
+            <Button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+            >
+              {isSubmitting ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Save className="h-5 w-5 ml-2" />
+              )}
               {t("save")}
             </Button>
           </div>
-
-          <div className="mt-4 p-3 rounded-xl bg-primary/10 border border-primary/30 text-xs font-bold text-muted-foreground flex gap-2">
-            <Info size={14} className="text-primary shrink-0" />
-            {isRtl
-              ? "يمكنك اختيار عدة أصول لأمر العمل الواحد، ويمكنك تحديد مستوى الموقع (مبنى/دور/غرفة) لجلب الأصول حسب الحاجة."
-              : "You can select multiple assets for a single work order, and choose the location level (building/floor/room) to fetch assets accordingly."}
-          </div>
-        </FormSidebar>
+        </div>
       </div>
 
-      {/* حوار اختيار الأصول المتعددة */}
+      {/* حوار اختيار الأصول */}
       <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto bg-background border-border shadow-lg">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
           <DialogHeader>
-            <DialogTitle>{t("selectAssets")}</DialogTitle>
+            <DialogTitle className="text-slate-800 dark:text-slate-100 text-xl font-bold">
+              {t("selectAssets")}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3 mt-4">
             {loadingAssets ? (
-              <div className="flex justify-center py-8"><Loader2 className="h-6 w-6 animate-spin" /></div>
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+              </div>
             ) : assets.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">{t("noAssets")}</p>
+              <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+                {t("noAssets")}
+              </div>
             ) : (
               <div className="space-y-2">
-                {assets.map(asset => (
-                  <div key={asset.id} className="flex items-center gap-3 p-3 rounded-lg border border-border hover:bg-secondary/20">
+                {assets.map((asset) => (
+                  <div
+                    key={asset.id}
+                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors"
+                  >
                     <input
                       type="checkbox"
                       id={`asset-${asset.id}`}
                       checked={tempSelectedAssetIds.includes(asset.id)}
                       onChange={(e) => {
                         if (e.target.checked) {
-                          setTempSelectedAssetIds(prev => [...prev, asset.id]);
+                          setTempSelectedAssetIds((prev) => [
+                            ...prev,
+                            asset.id,
+                          ]);
                         } else {
-                          setTempSelectedAssetIds(prev => prev.filter(id => id !== asset.id));
+                          setTempSelectedAssetIds((prev) =>
+                            prev.filter((id) => id !== asset.id)
+                          );
                         }
                       }}
-                      className="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 rounded border-slate-300 dark:border-slate-600"
                     />
-                    <Label htmlFor={`asset-${asset.id}`} className="flex-1 cursor-pointer">
-                      <div className="font-bold">{isRtl ? asset.name : (asset.nameEn || asset.name)}</div>
-                      <div className="text-xs text-muted-foreground font-mono">{asset.code}</div>
+                    <Label
+                      htmlFor={`asset-${asset.id}`}
+                      className="flex-1 cursor-pointer"
+                    >
+                      <div className="font-medium text-slate-800 dark:text-slate-100">
+                        {isRtl ? asset.name : asset.nameEn || asset.name}
+                      </div>
+                      <div className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                        {asset.code}
+                      </div>
                     </Label>
                   </div>
                 ))}
               </div>
             )}
           </div>
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
-            <Button variant="outline" onClick={() => setAssetDialogOpen(false)}>{t("cancel")}</Button>
-            <Button onClick={confirmAssetSelection} disabled={loadingAssets}>
-              <Check className="h-4 w-4 mr-2" /> {t("confirm") || "تأكيد"}
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
+            <Button
+              variant="outline"
+              onClick={() => setAssetDialogOpen(false)}
+              className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              onClick={confirmAssetSelection}
+              disabled={loadingAssets}
+              className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20"
+            >
+              <Check className="h-4 w-4 mr-2" />
+              {t("confirm") || "تأكيد"}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
-    </FormPageContainer>
+    </div>
   );
 }

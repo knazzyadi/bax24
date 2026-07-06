@@ -5,19 +5,34 @@ import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import {
-  FileText, Calendar, MapPin, Building, Package, AlertCircle,
-  CheckCircle2, Clock, Loader2, Wrench, ArrowLeft, Check,
-  X, Tag, User, Phone, Mail, Layers, ChevronLeft
+  FileText,
+  Calendar,
+  MapPin,
+  Building,
+  Package,
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Loader2,
+  Wrench,
+  ArrowLeft,
+  Check,
+  X,
+  Tag,
+  User,
+  Phone,
+  Mail,
+  Layers,
+  ChevronLeft,
+  Sparkles,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { arSA, enUS } from "date-fns/locale";
-import { PageContainer } from "@/components/shared/detail/PageContainer";
-import { DetailHeader } from "@/components/shared/detail/DetailHeader";
-import { InfoCard } from "@/components/shared/detail/InfoCard";
-import { SidebarCard } from "@/components/shared/detail/SidebarCard";
+import { cn } from "@/lib/utils";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   AlertDialog,
@@ -101,6 +116,10 @@ export default function WorkOrderDetailPage() {
   // تحديد صلاحيات المستخدم (يمكنك تعديلها حسب نظام الصلاحيات لديك)
   const canEdit = true; // ✅ يمكن تعديلها بناءً على دور المستخدم
 
+  // كرت الخلفية الزجاجي
+  const glassCard =
+    "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
+
   useEffect(() => {
     const fetchWorkOrder = async () => {
       try {
@@ -178,9 +197,9 @@ export default function WorkOrderDetailPage() {
       });
       if (!res.ok) throw new Error("Failed to complete");
       toast.success(t("assetCompleted"));
-      setWorkOrder(prev => {
+      setWorkOrder((prev) => {
         if (!prev) return prev;
-        const updatedAssets = prev.workOrderAssets.map(woa =>
+        const updatedAssets = prev.workOrderAssets.map((woa) =>
           woa.assetId === selectedAsset.assetId
             ? { ...woa, completedAt: new Date().toISOString(), notes: completionNote || null }
             : woa
@@ -199,7 +218,7 @@ export default function WorkOrderDetailPage() {
   };
 
   const handleCompleteAll = async () => {
-    const pendingAssets = workOrder?.workOrderAssets.filter(woa => !woa.completedAt) || [];
+    const pendingAssets = workOrder?.workOrderAssets.filter((woa) => !woa.completedAt) || [];
     if (pendingAssets.length === 0) {
       toast.info(t("allAlreadyCompleted"));
       return;
@@ -216,9 +235,9 @@ export default function WorkOrderDetailPage() {
       });
       if (!res.ok) throw new Error("Failed to complete all");
       toast.success(t("allCompleted"));
-      setWorkOrder(prev => {
+      setWorkOrder((prev) => {
         if (!prev) return prev;
-        const updatedAssets = prev.workOrderAssets.map(woa =>
+        const updatedAssets = prev.workOrderAssets.map((woa) =>
           !woa.completedAt
             ? { ...woa, completedAt: new Date().toISOString(), notes: completionNote || null }
             : woa
@@ -237,93 +256,168 @@ export default function WorkOrderDetailPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="relative min-h-[60vh] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500 dark:text-indigo-400" />
       </div>
     );
   }
   if (!workOrder) return null;
 
   const hasAssets = workOrder.workOrderAssets.length > 0;
-  const pendingAssetsCount = workOrder.workOrderAssets.filter(woa => !woa.completedAt).length;
+  const pendingAssetsCount = workOrder.workOrderAssets.filter((woa) => !woa.completedAt).length;
 
   return (
-    <PageContainer>
-      <DetailHeader
-        icon={<Wrench size={28} />}
-        title={
-          <div className="flex flex-wrap items-center gap-2">
-            <span>{workOrder.title}</span>
-            <span className="text-sm font-mono bg-primary/10 text-primary px-2 py-1 rounded-full">
-              {workOrder.code || workOrder.id.slice(-6)}
-            </span>
+    <div className="relative space-y-8 p-6">
+      {/* خلفية متدرجة خفيفة */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+
+      {/* رأس الصفحة */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <Wrench className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
           </div>
-        }
-        subtitle={t("workOrder")}
-        actions={
-          <Link
-            href={`/${locale}/work-orders`}
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-background shadow-md border border-border hover:bg-secondary transition-all duration-200 hover:scale-105"
-            aria-label={isRtl ? "العودة إلى القائمة" : "Back to list"}
-          >
-            {isRtl ? <ChevronLeft className="h-5 w-5 text-primary" /> : <ArrowLeft className="h-5 w-5 text-primary" />}
-          </Link>
-        }
-      />
+          <div>
+            <div className="flex flex-wrap items-center gap-3">
+              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                {workOrder.title}
+              </h1>
+              <span className="text-sm font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-full border border-slate-200/50 dark:border-slate-700/50">
+                {workOrder.code || workOrder.id.slice(-6)}
+              </span>
+            </div>
+            <div className="flex items-center gap-3 mt-1">
+              <span className="text-sm text-slate-500 dark:text-slate-400">
+                {t("workOrder")}
+              </span>
+              {workOrder.status && (
+                <Badge
+                  style={{
+                    backgroundColor: `${getStatusColor(workOrder.status.color)}20`,
+                    color: getStatusColor(workOrder.status.color),
+                  }}
+                  className="border-0 text-sm font-semibold px-3 py-1"
+                >
+                  {isRtl ? workOrder.status.name : workOrder.status.nameEn || workOrder.status.name}
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+        <Link
+          href={`/${locale}/work-orders`}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 transition-all duration-200"
+        >
+          {isRtl ? <ChevronLeft className="h-4 w-4" /> : <ArrowLeft className="h-4 w-4" />}
+          {isRtl ? "العودة إلى القائمة" : "Back to list"}
+        </Link>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* العمود الرئيسي */}
+        {/* العمود الرئيسي (2/3) */}
         <div className="lg:col-span-2 space-y-8">
-          <InfoCard title={t("details")} icon={<FileText className="h-5 w-5" />}>
+          {/* بطاقة التفاصيل */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
+                <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("details")}</h2>
+            </div>
+
             <div className="space-y-6">
-              <div className="grid md:grid-cols-2 gap-4">
-                <div>
-                  <div className="text-xs font-black text-muted-foreground">{t("type")}</div>
-                  <p className="font-bold">{getTypeLabel(workOrder.type)}</p>
+              <div className="grid sm:grid-cols-2 gap-5">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <Tag className="h-3.5 w-3.5" />
+                    {t("type")}
+                  </div>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
+                    {getTypeLabel(workOrder.type)}
+                  </p>
                 </div>
-                <div>
-                  <div className="text-xs font-black text-muted-foreground">{t("status")}</div>
-                  {workOrder.status && (
-                    <Badge
-                      style={{ backgroundColor: `${getStatusColor(workOrder.status.color)}20`, color: getStatusColor(workOrder.status.color) }}
-                      className="border-0"
-                    >
-                      {isRtl ? workOrder.status.name : (workOrder.status.nameEn || workOrder.status.name)}
-                    </Badge>
-                  )}
-                </div>
-                <div>
-                  <div className="text-xs font-black text-muted-foreground">{t("priority")}</div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <AlertCircle className="h-3.5 w-3.5" />
+                    {t("priority")}
+                  </div>
                   {workOrder.priority && (
                     <Badge
-                      style={{ backgroundColor: `${getStatusColor(workOrder.priority.color)}20`, color: getStatusColor(workOrder.priority.color) }}
-                      className="border-0"
+                      style={{
+                        backgroundColor: `${getStatusColor(workOrder.priority.color)}20`,
+                        color: getStatusColor(workOrder.priority.color),
+                        boxShadow: `0 0 15px ${getStatusColor(workOrder.priority.color)}25`,
+                      }}
+                      className="border-0 text-sm font-semibold px-4 py-1.5"
                     >
-                      {isRtl ? workOrder.priority.name : (workOrder.priority.nameEn || workOrder.priority.name)}
+                      {isRtl ? workOrder.priority.name : workOrder.priority.nameEn || workOrder.priority.name}
                     </Badge>
                   )}
                 </div>
-                <div>
-                  <div className="text-xs font-black text-muted-foreground">{t("assetType")}</div>
-                  <p>{workOrder.assetType ? (isRtl ? workOrder.assetType.name : (workOrder.assetType.nameEn || workOrder.assetType.name)) : "—"}</p>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <Package className="h-3.5 w-3.5" />
+                    {t("assetType")}
+                  </div>
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
+                    {workOrder.assetType
+                      ? isRtl
+                        ? workOrder.assetType.name
+                        : workOrder.assetType.nameEn || workOrder.assetType.name
+                      : "—"}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                    <FileText className="h-3.5 w-3.5" />
+                    {t("status")}
+                  </div>
+                  {workOrder.status && (
+                    <Badge
+                      style={{
+                        backgroundColor: `${getStatusColor(workOrder.status.color)}20`,
+                        color: getStatusColor(workOrder.status.color),
+                      }}
+                      className="border-0 text-sm font-semibold px-4 py-1.5"
+                    >
+                      {isRtl ? workOrder.status.name : workOrder.status.nameEn || workOrder.status.name}
+                    </Badge>
+                  )}
                 </div>
               </div>
-              <div>
-                <div className="text-xs font-black text-muted-foreground">{t("description")}</div>
-                <p className="whitespace-pre-wrap text-foreground/80">{workOrder.description || "—"}</p>
+
+              <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
+                <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
+                  <FileText className="h-3.5 w-3.5" />
+                  {t("description")}
+                </div>
+                <div className="p-4 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/30 dark:border-slate-700/30 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                  {workOrder.description || "—"}
+                </div>
               </div>
             </div>
-          </InfoCard>
+          </div>
 
-          {/* الأصول المرتبطة (جدول) */}
-          <InfoCard title={t("assets")} icon={<Package className="h-5 w-5" />}>
+          {/* الأصول المرتبطة */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
+                <Package className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("assets")}</h2>
+              <span className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full">
+                {workOrder.workOrderAssets.length}
+              </span>
+            </div>
+
             {hasAssets ? (
               <>
-                <div className="flex justify-between items-center mb-4">
-                  <span className="text-sm">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                  <span className="text-sm text-slate-600 dark:text-slate-400">
                     {t("assetsCount", { count: workOrder.workOrderAssets.length })}
                     {pendingAssetsCount > 0 && (
-                      <span className="text-muted-foreground ml-2">
+                      <span className="text-amber-500 dark:text-amber-400 ml-2 font-medium">
                         ({t("pendingCount", { count: pendingAssetsCount })})
                       </span>
                     )}
@@ -335,42 +429,58 @@ export default function WorkOrderDetailPage() {
                         setCompleteDialogOpen(true);
                       }}
                       size="sm"
-                      className="rounded-full"
+                      className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
                       disabled={actionLoading}
                     >
-                      <Check className="h-4 w-4 mr-1" />
+                      <Check className="h-4 w-4 mr-1.5" />
                       {t("completeAll")}
                     </Button>
                   )}
                 </div>
-                <div className="border rounded-xl overflow-hidden">
+
+                <div className="border border-slate-200/50 dark:border-slate-800/50 rounded-xl overflow-hidden">
                   <Table>
-                    <TableHeader className="bg-muted/50">
+                    <TableHeader className="bg-slate-50/50 dark:bg-slate-900/50">
                       <TableRow>
-                        <TableHead>{t("assetName")}</TableHead>
-                        <TableHead>{t("assetCode")}</TableHead>
-                        <TableHead>{t("completionStatus")}</TableHead>
-                        <TableHead className="w-24">{t("actions")}</TableHead>
+                        <TableHead className="text-slate-600 dark:text-slate-300 font-semibold">
+                          {t("assetName")}
+                        </TableHead>
+                        <TableHead className="text-slate-600 dark:text-slate-300 font-semibold">
+                          {t("assetCode")}
+                        </TableHead>
+                        <TableHead className="text-slate-600 dark:text-slate-300 font-semibold">
+                          {t("completionStatus")}
+                        </TableHead>
+                        <TableHead className="w-24 text-slate-600 dark:text-slate-300 font-semibold">
+                          {t("actions")}
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {workOrder.workOrderAssets.map(woa => {
+                      {workOrder.workOrderAssets.map((woa) => {
                         const asset = woa.asset;
                         const isCompleted = !!woa.completedAt;
                         return (
-                          <TableRow key={woa.assetId}>
-                            <TableCell className="font-medium">
-                              {isRtl ? asset.name : (asset.nameEn || asset.name)}
+                          <TableRow
+                            key={woa.assetId}
+                            className="hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors"
+                          >
+                            <TableCell className="font-medium text-slate-800 dark:text-slate-100">
+                              {isRtl ? asset.name : asset.nameEn || asset.name}
                             </TableCell>
-                            <TableCell className="font-mono text-xs">{asset.code}</TableCell>
+                            <TableCell className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                              {asset.code}
+                            </TableCell>
                             <TableCell>
                               {isCompleted ? (
-                                <div className="flex items-center gap-2 text-green-600">
+                                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400">
                                   <CheckCircle2 className="h-4 w-4" />
-                                  <span>{formatDate(woa.completedAt!)}</span>
+                                  <span className="text-sm font-medium">{formatDate(woa.completedAt!)}</span>
                                 </div>
                               ) : (
-                                <span className="text-amber-500">{t("pending")}</span>
+                                <span className="text-amber-500 dark:text-amber-400 font-medium">
+                                  {t("pending")}
+                                </span>
                               )}
                             </TableCell>
                             <TableCell>
@@ -384,6 +494,7 @@ export default function WorkOrderDetailPage() {
                                     setCompleteDialogOpen(true);
                                   }}
                                   disabled={actionLoading}
+                                  className="rounded-full text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
                                 >
                                   <Check className="h-4 w-4" />
                                 </Button>
@@ -397,58 +508,97 @@ export default function WorkOrderDetailPage() {
                 </div>
               </>
             ) : (
-              <p className="text-muted-foreground">{t("noAssets")}</p>
+              <p className="text-slate-400 dark:text-slate-500 text-center py-6">{t("noAssets")}</p>
             )}
-          </InfoCard>
+          </div>
 
-          {/* قطع الغيار المستخدمة */}
-          <InfoCard title={t("spareParts")} icon={<Package className="h-5 w-5" />}>
+          {/* قطع الغيار */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40">
+                <Package className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("spareParts")}</h2>
+            </div>
             <WorkOrderInventory workOrderId={workOrder.id} locale={locale} />
-          </InfoCard>
+          </div>
 
-          {/* ✅ مرفقات PDF الخاصة بأمر العمل (جديدة) */}
-          <InfoCard title={isRtl ? "مرفقات PDF" : "PDF Attachments"} icon={<FileText className="h-5 w-5" />}>
-            <AttachmentsManager
-              workOrderId={workOrder.id}
-              canUpload={canEdit}
-              canDelete={canEdit}
-              maxFiles={5}
-            />
-          </InfoCard>
+          {/* مرفقات PDF */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
+                <FileText className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {isRtl ? "مرفقات PDF" : "PDF Attachments"}
+              </h2>
+            </div>
+            <AttachmentsManager workOrderId={workOrder.id} canUpload={canEdit} canDelete={canEdit} maxFiles={5} />
+          </div>
 
-          <InfoCard title={t("location")} icon={<MapPin className="h-5 w-5" />}>
+          {/* الموقع */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+                <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+              </div>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("location")}</h2>
+            </div>
             {workOrder.room ? (
-              <div>
-                <p className="font-bold">
-                  {isRtl ? workOrder.room.name : (workOrder.room.nameEn || workOrder.room.name)}
+              <div className="space-y-1">
+                <p className="font-semibold text-slate-800 dark:text-slate-100">
+                  {isRtl ? workOrder.room.name : workOrder.room.nameEn || workOrder.room.name}
                 </p>
                 {workOrder.room.floor && (
-                  <p className="text-sm text-muted-foreground">
-                    {isRtl ? workOrder.room.floor.name : (workOrder.room.floor.nameEn || workOrder.room.floor.name)}
+                  <p className="text-sm text-slate-500 dark:text-slate-400">
+                    {isRtl ? workOrder.room.floor.name : workOrder.room.floor.nameEn || workOrder.room.floor.name}
                     {workOrder.room.floor.building && (
-                      <> • {isRtl ? workOrder.room.floor.building.name : (workOrder.room.floor.building.nameEn || workOrder.room.floor.building.name)}</>
+                      <>
+                        {" "}
+                        •{" "}
+                        {isRtl
+                          ? workOrder.room.floor.building.name
+                          : workOrder.room.floor.building.nameEn || workOrder.room.floor.building.name}
+                      </>
                     )}
                   </p>
                 )}
               </div>
             ) : (
-              <p className="text-muted-foreground">{t("noLocation")}</p>
+              <p className="text-slate-400 dark:text-slate-500">{t("noLocation")}</p>
             )}
-          </InfoCard>
+          </div>
 
+          {/* ملاحظات */}
           {workOrder.notes && (
-            <InfoCard title={t("notes")} icon={<FileText className="h-5 w-5" />}>
-              <p className="whitespace-pre-wrap">{workOrder.notes}</p>
-            </InfoCard>
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/30">
+                  <FileText className="h-5 w-5 text-slate-500 dark:text-slate-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("notes")}</h2>
+              </div>
+              <div className="p-4 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/30 dark:border-slate-700/30 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
+                {workOrder.notes}
+              </div>
+            </div>
           )}
 
-          {/* المرفقات من التذكرة (الصور) */}
+          {/* صور التذكرة */}
           {workOrder.ticketId && (
-            <InfoCard title={t("attachedImages")} icon={<FileText className="h-5 w-5" />}>
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40">
+                  <FileText className="h-5 w-5 text-rose-600 dark:text-rose-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("attachedImages")}</h2>
+              </div>
               {loadingAttachments ? (
-                <div className="text-center py-4"><Loader2 className="animate-spin h-6 w-6 inline" /></div>
+                <div className="flex justify-center py-6">
+                  <Loader2 className="h-6 w-6 animate-spin text-indigo-500 dark:text-indigo-400" />
+                </div>
               ) : attachments.length === 0 ? (
-                <p className="text-muted-foreground">{t("noImages")}</p>
+                <p className="text-slate-400 dark:text-slate-500 text-center py-6">{t("noImages")}</p>
               ) : (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                   {attachments.map((att) => (
@@ -457,92 +607,126 @@ export default function WorkOrderDetailPage() {
                       href={att.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block overflow-hidden rounded-xl border border-primary/20 hover:shadow-md transition-shadow"
+                      className="block overflow-hidden rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
                     >
                       <img
                         src={att.url}
                         alt={att.originalName || "Attachment"}
-                        className="w-full h-32 object-cover hover:scale-105 transition-transform duration-200"
+                        className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300"
                       />
                     </a>
                   ))}
                 </div>
               )}
-            </InfoCard>
+            </div>
           )}
         </div>
 
-        {/* العمود الجانبي */}
-        <div className="space-y-8">
-          <SidebarCard title={t("dates")} icon={<Calendar className="h-5 w-5" />}>
-            <div className="space-y-2">
+        {/* العمود الجانبي (1/3) */}
+        <div className="space-y-6">
+          {/* التواريخ */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
+                <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+              </div>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("dates")}</h3>
+            </div>
+            <div className="space-y-4">
               <div>
-                <div className="text-xs font-bold text-muted-foreground">{t("createdAt")}</div>
-                <p className="font-medium">{formatDate(workOrder.createdAt)}</p>
+                <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  {t("createdAt")}
+                </div>
+                <p className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(workOrder.createdAt)}</p>
               </div>
               <div>
-                <div className="text-xs font-bold text-muted-foreground">{t("updatedAt")}</div>
-                <p className="font-medium">{formatDate(workOrder.updatedAt)}</p>
+                <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                  {t("updatedAt")}
+                </div>
+                <p className="font-semibold text-slate-700 dark:text-slate-300">{formatDate(workOrder.updatedAt)}</p>
               </div>
             </div>
-          </SidebarCard>
+          </div>
 
+          {/* الفرع */}
           {workOrder.branch && (
-            <SidebarCard title={t("branch")} icon={<Building className="h-5 w-5" />}>
-              <p className="font-bold">{isRtl ? workOrder.branch.name : (workOrder.branch.nameEn || workOrder.branch.name)}</p>
-            </SidebarCard>
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-5">
+                <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
+                  <Building className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("branch")}</h3>
+              </div>
+              <p className="font-semibold text-slate-700 dark:text-slate-300">
+                {isRtl ? workOrder.branch.name : workOrder.branch.nameEn || workOrder.branch.name}
+              </p>
+            </div>
           )}
 
-          <div className="flex flex-col gap-3">
-            <Button
-              variant="outline"
-              onClick={() => router.push(`/${locale}/work-orders`)}
-              className="w-full rounded-full border-primary text-primary hover:bg-primary/10 font-black h-11"
-            >
-              <ArrowLeft className="h-4 w-4 ml-2" />
-              {t("backToList")}
-            </Button>
+          {/* مساعدة سريعة */}
+          <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
+            <Shield className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+            <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
+              {isRtl
+                ? "يمكنك إكمال الأصول الفردية أو جميعها دفعة واحدة مع إضافة ملاحظات."
+                : "You can complete individual assets or all at once with notes."}
+            </div>
           </div>
+
+          {/* زر العودة */}
+          <Button
+            variant="outline"
+            onClick={() => router.push(`/${locale}/work-orders`)}
+            className="w-full rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 font-medium h-11 transition-all duration-200"
+          >
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            {t("backToList")}
+          </Button>
         </div>
       </div>
 
+      {/* حوار إكمال الأصل */}
       <AlertDialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
-        <AlertDialogContent className="rounded-2xl p-0 max-w-md w-[95%] overflow-hidden shadow-lg bg-card border border-border" dir={isRtl ? "rtl" : "ltr"}>
-          <div className="p-5 border-b border-border">
-            <AlertDialogHeader>
-              <AlertDialogTitle className="text-foreground text-xl font-black">
-                {selectedAsset ? t("completeAssetTitle") : t("completeAllTitle")}
-              </AlertDialogTitle>
-              <AlertDialogDescription className="text-muted-foreground font-medium text-sm">
-                {selectedAsset
-                  ? t("completeAssetDescription", { name: isRtl ? selectedAsset.asset.name : (selectedAsset.asset.nameEn || selectedAsset.asset.name) })
-                  : t("completeAllDescription")}
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-          </div>
-          <div className="p-5">
+        <AlertDialogContent className="rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-slate-800 dark:text-slate-100 text-xl font-bold">
+              {selectedAsset ? t("completeAssetTitle") : t("completeAllTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-slate-500 dark:text-slate-400 text-sm">
+              {selectedAsset
+                ? t("completeAssetDescription", {
+                    name: isRtl ? selectedAsset.asset.name : selectedAsset.asset.nameEn || selectedAsset.asset.name,
+                  })
+                : t("completeAllDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
             <Textarea
               value={completionNote}
               onChange={(e) => setCompletionNote(e.target.value)}
               placeholder={t("completionNotePlaceholder")}
-              className="rounded-xl bg-background border-border min-h-[100px] font-medium"
+              className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 min-h-[100px]"
             />
           </div>
-          <AlertDialogFooter className="flex flex-row gap-3 p-5 pt-0">
-            <Button variant="outline" onClick={() => setCompleteDialogOpen(false)} className="flex-1 rounded-full font-bold h-11">
+          <AlertDialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setCompleteDialogOpen(false)}
+              className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
+            >
               {t("cancel")}
             </Button>
             <Button
               onClick={selectedAsset ? handleCompleteAsset : handleCompleteAll}
               disabled={actionLoading}
-              className="flex-1 rounded-full bg-primary hover:bg-primary/90 font-bold h-11"
+              className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
             >
-              {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {actionLoading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               {t("confirm")}
             </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </PageContainer>
+    </div>
   );
 }

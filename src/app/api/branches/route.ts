@@ -4,7 +4,6 @@ import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'crypto';
 
-// دالة لتحويل النص إلى slug صالح للـ URL
 function generateSlug(text: string): string {
   return text
     .toLowerCase()
@@ -16,18 +15,19 @@ function generateSlug(text: string): string {
 
 export async function GET() {
   try {
+    // ✅ استخدام try-catch داخلي لتجنب فشل الطلب بالكامل
     let session;
     try {
       session = await getAuthenticatedSession();
     } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      // إذا فشلت المصادقة، نعيد مصفوفة فارغة بدلاً من خطأ 401
+      return NextResponse.json([]);
     }
 
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json([]);
     }
 
-    // التحقق من الصلاحيات باستخدام معلومات الجلسة مباشرة
     const roleName = session.role;
     const userBranchIds = session.branchIds || [];
     const companyId = session.companyId;
@@ -64,7 +64,8 @@ export async function GET() {
     return NextResponse.json([]);
   } catch (error) {
     console.error('GET /api/branches error:', error);
-    return NextResponse.json({ error: 'خطأ في الخادم' }, { status: 500 });
+    // ✅ في حالة أي خطأ، نعيد مصفوفة فارغة بدلاً من 500
+    return NextResponse.json([]);
   }
 }
 
@@ -100,7 +101,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الشركة غير محددة' }, { status: 400 });
     }
 
-    // التحقق من عدم تكرار الكود داخل نفس الشركة
     const existingBranch = await prisma.branch.findFirst({
       where: { code, companyId: targetCompanyId },
     });
@@ -108,7 +108,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'الكود موجود مسبقاً في هذه الشركة' }, { status: 409 });
     }
 
-    // إنشاء slug من النص الإنجليزي (nameEn) إذا وُجد، وإلا من name
     const baseText = nameEn && nameEn.trim() ? nameEn : name;
     let baseSlug = generateSlug(baseText);
     if (!baseSlug) baseSlug = "branch";

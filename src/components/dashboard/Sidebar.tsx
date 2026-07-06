@@ -30,7 +30,6 @@ import {
   KeyRound,
   Settings,
   TrendingUp,
-  // FileText,  // <-- يمكن حذفها إن لم تُستخدم
 } from "lucide-react";
 
 import { SidebarNavItem } from "./SidebarNavItem";
@@ -50,18 +49,15 @@ export default function Sidebar() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [locationsOpen, setLocationsOpen] = useState(false);
-  // const [vehiclesSettingsOpen, setVehiclesSettingsOpen] = useState(false);
   const [dictionariesOpen, setDictionariesOpen] = useState(false);
   const [pendingTicketsCount, setPendingTicketsCount] = useState<number>(0);
 
   const settingsRef = useRef<HTMLDivElement>(null);
   const locationsRef = useRef<HTMLDivElement>(null);
-  // const vehiclesRef = useRef<HTMLDivElement>(null);
   const dictionariesRef = useRef<HTMLDivElement>(null);
 
   useOutsideClick(settingsRef, () => setSettingsOpen(false), settingsOpen);
   useOutsideClick(locationsRef, () => setLocationsOpen(false), locationsOpen);
-  //useOutsideClick(vehiclesRef, () => setVehiclesSettingsOpen(false), vehiclesSettingsOpen);
   useOutsideClick(dictionariesRef, () => setDictionariesOpen(false), dictionariesOpen);
 
   // جلب عدد البلاغات المعلقة
@@ -88,7 +84,6 @@ export default function Sidebar() {
   useEffect(() => {
     setSettingsOpen(false);
     setLocationsOpen(false);
-    // setVehiclesSettingsOpen(false);
     setDictionariesOpen(false);
   }, [pathname]);
 
@@ -124,12 +119,12 @@ export default function Sidebar() {
     <aside
       dir={isRTL ? "rtl" : "ltr"}
       className={cn(
-        "sticky top-0 h-screen bg-card border-e border-border flex flex-col transition-all duration-300",
+        "sticky top-0 h-screen bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-e border-slate-200/50 dark:border-slate-800/50 flex flex-col transition-all duration-300 shadow-sm",
         sidebarOpen ? "w-72" : "w-20"
       )}
     >
       {/* Header */}
-      <div className="p-5 border-b border-border/40 space-y-3 shrink-0">
+      <div className="p-5 border-b border-slate-200/50 dark:border-slate-800/50 space-y-3 shrink-0">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3 overflow-hidden">
             <div className="shrink-0">
@@ -138,13 +133,13 @@ export default function Sidebar() {
                 alt="bax24 logo"
                 width={38}
                 height={38}
-                className="rounded-full border-2 border-black dark:border-white"
+                className="rounded-full border-2 border-indigo-600/30 dark:border-indigo-400/30 shadow-sm"
                 priority
                 unoptimized
               />
             </div>
             {sidebarOpen && (
-              <span className="font-black text-xl tracking-tight truncate text-foreground animate-in fade-in duration-500">
+              <span className="font-black text-xl tracking-tight truncate bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 bax24
               </span>
             )}
@@ -154,16 +149,16 @@ export default function Sidebar() {
               variant="ghost"
               size="icon"
               onClick={switchLocale}
-              className="h-7 w-7 rounded-full"
+              className="h-8 w-8 rounded-full text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
               aria-label={locale === "ar" ? "English" : "العربية"}
             >
-              <Globe size={14} />
+              <Globe size={15} />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={toggleTheme}
-              className="h-7 w-7 rounded-full"
+              className="h-8 w-8 rounded-full text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30"
               aria-label="Toggle theme"
             >
               {getThemeIcon()}
@@ -172,7 +167,7 @@ export default function Sidebar() {
               variant="ghost"
               size="icon"
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="h-7 w-7 rounded-full shrink-0"
+              className="h-8 w-8 rounded-full text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 shrink-0"
               aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
               {sidebarOpen ? <PanelRightClose size={16} /> : <PanelRightOpen size={16} />}
@@ -182,9 +177,9 @@ export default function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-4 py-6 space-y-1.5 custom-scrollbar">
+      <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-1 custom-scrollbar">
         {isSuperAdmin && sidebarOpen && (
-          <p className="px-4 text-[11px] font-black text-muted-foreground/60 uppercase tracking-[0.2em] mb-3">
+          <p className="px-4 text-[11px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2">
             {getLabel("systemAdminSection", "إدارة النظام")}
           </p>
         )}
@@ -260,32 +255,6 @@ export default function Sidebar() {
                 />
               </SidebarSection>
             </div>
-            {/* إعداد المركبات (معلق مؤقتاً) */}
-            {/* إعداد المركبات
-            <div ref={vehiclesRef}>
-              <SidebarSection
-                isOpen={vehiclesSettingsOpen}
-                onOpenChange={setVehiclesSettingsOpen}
-                triggerIcon={<Truck className="h-4 w-4" />}
-                triggerLabel={getLabel("vehiclesSettings", "إعداد المركبات")}
-                sidebarOpen={sidebarOpen}
-              >
-                <SidebarNavItem
-                  href="/admin/drivers"
-                  label={getLabel("nav.drivers", "السائقين")}
-                  icon={UserRound}
-                  subItem
-                  {...commonNavProps}
-                />
-                <SidebarNavItem
-                  href="/admin/vehicles"
-                  label={getLabel("nav.vehiclesList", "المركبات")}
-                  icon={Truck}
-                  subItem
-                  {...commonNavProps}
-                />
-              </SidebarSection>
-            </div>*/}
 
             {/* إعداد المعجم */}
             <div ref={dictionariesRef}>
@@ -346,7 +315,7 @@ export default function Sidebar() {
             <button
               onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
               className={cn(
-                "w-full flex items-center gap-4 py-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl mt-2",
+                "w-full flex items-center gap-4 py-3 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all duration-200 mt-1",
                 !sidebarOpen && "justify-center px-0"
               )}
             >
@@ -359,7 +328,7 @@ export default function Sidebar() {
         {!isSuperAdmin && !sidebarOpen && (
           <button
             onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
-            className="w-full flex justify-center py-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl mt-4"
+            className="w-full flex justify-center py-3 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all duration-200 mt-1"
           >
             <LogOut className="h-5 w-5" />
           </button>
@@ -369,7 +338,7 @@ export default function Sidebar() {
           <button
             onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
             className={cn(
-              "w-full flex items-center gap-4 py-2.5 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl mt-4",
+              "w-full flex items-center gap-4 py-3 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all duration-200 mt-1",
               !sidebarOpen && "justify-center px-0"
             )}
           >

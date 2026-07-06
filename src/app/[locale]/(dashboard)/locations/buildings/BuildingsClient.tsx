@@ -4,8 +4,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Pencil, Trash2, Plus, X } from 'lucide-react';
+import { Building, Pencil, Trash2, Plus, X, Sparkles, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
+
+// =========================
+// تنسيقات موحدة (نفس باقي صفحات النظام)
+// =========================
+const glassCard =
+  'bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300';
 
 interface Building {
   id: string;
@@ -117,41 +123,62 @@ export default function BuildingsClient({
   };
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-foreground">{t('buildings') || 'المباني'}</h1>
+    <div className="relative space-y-8 p-6">
+      {/* خلفية متدرجة خفيفة (نفس باقي الصفحات) */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+
+      {/* رأس الصفحة المخصص (مطابق لباقي الصفحات) */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <Building className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {t('buildings') || 'المباني'}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {isRTL
+                ? 'إدارة المباني والفروع وتنظيم المواقع'
+                : 'Manage buildings, branches and organize locations'}
+            </p>
+          </div>
+        </div>
         {!showForm && (
           <button
             onClick={() => setShowForm(true)}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700 transition"
+            className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 px-6 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 flex items-center gap-2"
           >
-            <Plus size={18} /> {t('addBuilding') || 'إضافة مبنى'}
+            <Plus className="h-4 w-4" />
+            {t('addBuilding') || 'إضافة مبنى'}
           </button>
         )}
       </div>
 
+      {/* رسائل النجاح / الخطأ */}
       {message && (
         <div
           className={cn(
-            'p-2 mb-4 rounded',
+            'p-4 rounded-xl border text-sm font-medium',
             message.type === 'success'
-              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+              ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200/50 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-300'
+              : 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-200/50 dark:border-rose-800/30 text-rose-700 dark:text-rose-300'
           )}
         >
           {message.text}
         </div>
       )}
 
+      {/* نموذج الإضافة / التعديل */}
       {showForm && (
-        <div className="bg-card border border-border p-4 rounded-lg shadow mb-6">
-          <div className="flex justify-between items-center mb-2">
-            <h2 className="text-xl font-semibold text-foreground">
+        <div className={glassCard}>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
               {editing ? t('editBuilding') || 'تعديل مبنى' : t('addBuilding') || 'إضافة مبنى'}
             </h2>
             <button
               onClick={cancelEdit}
-              className="text-muted-foreground hover:text-foreground transition"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
             >
               <X size={20} />
             </button>
@@ -162,7 +189,7 @@ export default function BuildingsClient({
               placeholder={t('nameAr') || 'الاسم بالعربية'}
               value={form.name}
               onChange={(e) => setForm({ ...form, name: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
+              className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
               required
             />
             <input
@@ -170,14 +197,14 @@ export default function BuildingsClient({
               placeholder={t('nameEn') || 'الاسم بالإنجليزية'}
               value={form.nameEn}
               onChange={(e) => setForm({ ...form, nameEn: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
+              className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
             />
             <input
               type="text"
               placeholder={t('code') || 'الكود'}
               value={form.code}
               onChange={(e) => setForm({ ...form, code: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
+              className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4 font-mono uppercase tracking-wider"
               required
             />
             <input
@@ -185,32 +212,39 @@ export default function BuildingsClient({
               placeholder={t('order') || 'الترتيب'}
               value={form.order}
               onChange={(e) => setForm({ ...form, order: Number(e.target.value) })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
+              className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
             />
             <select
               value={form.branchId}
               onChange={(e) => setForm({ ...form, branchId: e.target.value })}
-              className="border border-border bg-background text-foreground rounded-lg p-2 focus:ring-2 focus:ring-indigo-500"
+              className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4 appearance-none"
             >
-              <option value="">اختر الفرع (اختياري)</option>
+              <option value="">{isRTL ? 'اختر الفرع (اختياري)' : 'Select branch (optional)'}</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
                   {branch.name}
                 </option>
               ))}
             </select>
-            <div className="md:col-span-2 flex gap-2">
+            <div className="md:col-span-2 flex gap-3">
               <button
                 type="submit"
                 disabled={loading}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg transition disabled:opacity-50"
+                className="flex-1 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 disabled:opacity-50"
               >
-                {loading ? 'جاري الحفظ...' : t('save') || 'حفظ'}
+                {loading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="h-4 w-4 animate-spin border-2 border-white border-t-transparent rounded-full" />
+                    {isRTL ? 'جاري الحفظ...' : 'Saving...'}
+                  </span>
+                ) : (
+                  t('save') || 'حفظ'
+                )}
               </button>
               <button
                 type="button"
                 onClick={cancelEdit}
-                className="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition"
+                className="flex-1 h-12 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 font-medium transition-all duration-200"
               >
                 {t('cancel') || 'إلغاء'}
               </button>
@@ -219,58 +253,84 @@ export default function BuildingsClient({
         </div>
       )}
 
-      <div className="overflow-x-auto">
-        <table className="w-full border border-border rounded-lg">
-          <thead className="bg-muted/50">
-            <tr className="border-b border-border">
-              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>#</th>
-              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>
-                {t('nameAr') || 'الاسم بالعربية'}
-              </th>
-              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>
-                {t('nameEn') || 'الاسم بالإنجليزية'}
-              </th>
-              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>
-                {t('code') || 'الكود'}
-              </th>
-              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>
-                {t('order') || 'الترتيب'}
-              </th>
-              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>
-                {t('branch') || 'الفرع'}
-              </th>
-              <th className={`p-2 ${isRTL ? 'text-right' : 'text-left'} text-foreground`}>
-                {t('actions') || 'الإجراءات'}
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {buildings.map((b, idx) => (
-              <tr key={b.id} className="border-b border-border hover:bg-muted/30">
-                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{idx + 1}</td>
-                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.name}</td>
-                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.nameEn || '-'}</td>
-                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.code}</td>
-                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.order}</td>
-                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'}`}>{b.branchName || '—'}</td>
-                <td className={`p-2 ${isRTL ? 'text-right' : 'text-left'} flex gap-2`}>
-                  <button
-                    onClick={() => editBuilding(b)}
-                    className="text-blue-600 dark:text-blue-400 hover:underline"
-                  >
-                    <Pencil size={18} />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(b.id)}
-                    className="text-red-600 dark:text-red-400 hover:underline"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </td>
+      {/* جدول المباني */}
+      <div className={glassCard}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
+            <MapPin className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+            {isRTL ? 'قائمة المباني' : 'Buildings List'}
+          </h2>
+        </div>
+
+        <div className="border border-slate-200/50 dark:border-slate-800/50 rounded-xl overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50/50 dark:bg-slate-800/30">
+              <tr>
+                <th className={cn('p-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider', isRTL ? 'text-right' : 'text-left')}>
+                  #
+                </th>
+                <th className={cn('p-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider', isRTL ? 'text-right' : 'text-left')}>
+                  {t('nameAr') || 'الاسم بالعربية'}
+                </th>
+                <th className={cn('p-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider', isRTL ? 'text-right' : 'text-left')}>
+                  {t('nameEn') || 'الاسم بالإنجليزية'}
+                </th>
+                <th className={cn('p-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider', isRTL ? 'text-right' : 'text-left')}>
+                  {t('code') || 'الكود'}
+                </th>
+                <th className={cn('p-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider', isRTL ? 'text-right' : 'text-left')}>
+                  {t('order') || 'الترتيب'}
+                </th>
+                <th className={cn('p-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider', isRTL ? 'text-right' : 'text-left')}>
+                  {t('branch') || 'الفرع'}
+                </th>
+                <th className={cn('p-3 text-left text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wider', isRTL ? 'text-right' : 'text-left')}>
+                  {t('actions') || 'الإجراءات'}
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
+              {buildings.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="text-center py-8 text-slate-400 dark:text-slate-500">
+                    {isRTL ? 'لا توجد مباني لعرضها' : 'No buildings to display'}
+                  </td>
+                </tr>
+              ) : (
+                buildings.map((b, idx) => (
+                  <tr key={b.id} className="hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-colors">
+                    <td className="p-3 text-slate-600 dark:text-slate-300">{idx + 1}</td>
+                    <td className="p-3 font-medium text-slate-700 dark:text-slate-200">{b.name}</td>
+                    <td className="p-3 text-slate-600 dark:text-slate-300">{b.nameEn || '—'}</td>
+                    <td className="p-3 font-mono text-slate-600 dark:text-slate-300">{b.code}</td>
+                    <td className="p-3 text-slate-600 dark:text-slate-300">{b.order}</td>
+                    <td className="p-3 text-slate-600 dark:text-slate-300">{b.branchName || '—'}</td>
+                    <td className="p-3">
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => editBuilding(b)}
+                          className="p-2 rounded-full text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-all duration-200 hover:scale-110"
+                          title={isRTL ? 'تعديل' : 'Edit'}
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          onClick={() => handleDelete(b.id)}
+                          className="p-2 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all duration-200 hover:scale-110"
+                          title={isRTL ? 'حذف' : 'Delete'}
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

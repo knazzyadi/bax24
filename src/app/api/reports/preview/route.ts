@@ -1,8 +1,7 @@
 // src/app/api/reports/preview/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
 
 export async function GET(request: Request) {
   try {
@@ -26,12 +25,12 @@ export async function GET(request: Request) {
     const columns = columnsParam.split(',');
     const filters = filtersParam ? JSON.parse(filtersParam) : [];
 
-    // بناء الاستعلام حسب النموذج
     let data: any[] = [];
     const companyId = session.companyId!;
 
     switch (modelType) {
       case 'assets':
+        // ✅ يحتوي على deletedAt: null
         const assets = await prisma.asset.findMany({
           where: { companyId, deletedAt: null },
           include: {
@@ -56,6 +55,7 @@ export async function GET(request: Request) {
         break;
 
       case 'workOrders':
+        // ✅ يحتوي على deletedAt: null
         const workOrders = await prisma.workOrder.findMany({
           where: { companyId, deletedAt: null },
           include: {
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
           type: wo.type || '—',
           priority: wo.priority?.name || '—',
           status: wo.status?.name || '—',
-          asset: '—', // سيتم تعديله لاحقاً
+          asset: '—',
           location: wo.room
             ? `${wo.room.floor?.building?.name || ''} - ${wo.room.floor?.name || ''} - ${wo.room.name}`
             : '—',
@@ -80,6 +80,7 @@ export async function GET(request: Request) {
         break;
 
       case 'tickets':
+        // ✅ يحتوي على deletedAt: null
         const tickets = await prisma.ticket.findMany({
           where: { companyId, deletedAt: null },
           include: {
@@ -100,6 +101,7 @@ export async function GET(request: Request) {
         break;
 
       case 'inventory':
+        // ✅ يحتوي على deletedAt: null
         const inventory = await prisma.inventoryItem.findMany({
           where: { companyId, deletedAt: null },
           include: {
@@ -121,6 +123,7 @@ export async function GET(request: Request) {
         break;
 
       case 'contracts':
+        // ✅ يحتوي على deletedAt: null
         const contracts = await prisma.contract.findMany({
           where: { companyId, deletedAt: null },
           include: {

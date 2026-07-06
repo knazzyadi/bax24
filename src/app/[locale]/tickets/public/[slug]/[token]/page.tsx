@@ -24,6 +24,13 @@ import { AssetSection } from "@/components/public-ticket/AssetSection";
 import { ReporterSection } from "@/components/public-ticket/ReporterSection";
 import { ImageUploadSection } from "@/components/public-ticket/ImageUploadSection";
 import { ActionButtons } from "@/components/public-ticket/ActionButtons";
+import { cn } from "@/lib/utils";
+
+// =========================
+// تنسيقات موحدة (نفس باقي صفحات النظام)
+// =========================
+const glassCard =
+  "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-lg";
 
 // Types
 interface Branch {
@@ -97,14 +104,14 @@ export default function PublicTicketPage() {
     setTheme(initial);
     document.documentElement.classList.toggle("dark", initial === "dark");
   }, []);
-  
+
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
     document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
-  
+
   const switchLanguage = () => {
     const newLocale = locale === "ar" ? "en" : "ar";
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
@@ -114,7 +121,7 @@ export default function PublicTicketPage() {
   const resetForm = useCallback(() => {
     // 1. إعادة تعيين الملفات
     resetFiles();
-    
+
     // 2. إعادة تعيين بيانات النموذج
     setForm({
       title: "",
@@ -216,13 +223,12 @@ export default function PublicTicketPage() {
     fd.append("phone", form.phone);
     fd.append("type", form.type);
     if (form.assetId && form.assetId !== "none") fd.append("assetId", form.assetId);
-    files.forEach(file => fd.append("images", file));
+    files.forEach((file) => fd.append("images", file));
 
     try {
       const res = await fetch("/api/public/tickets", { method: "POST", body: fd });
       const data = await res.json();
       if (res.ok) {
-        // ✅ عرض حوار النجاح بدلاً من رسالة toast
         setShowSuccessDialog(true);
       } else {
         toast.error(data.error || (isRtl ? "فشل الإرسال" : "Submission failed"));
@@ -295,28 +301,42 @@ export default function PublicTicketPage() {
   // Loading & error states
   if (branchLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-muted-foreground text-lg">{isRtl ? "جاري التحقق..." : "Verifying..."}</div>
+      <div className="relative min-h-screen flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 -z-10" />
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-10 w-10 animate-spin text-indigo-500 dark:text-indigo-400" />
+          <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
+            {isRtl ? "جاري التحقق..." : "Verifying..."}
+          </span>
+        </div>
       </div>
     );
   }
 
   if (branchError) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-xl p-8 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-            <X className="h-8 w-8 text-red-600 dark:text-red-400" />
+      <div className="relative min-h-screen flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 -z-10" />
+        <div className={cn(glassCard, "p-8 max-w-md w-full text-center relative overflow-hidden")}>
+          <div className="relative z-10">
+            <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200/30 dark:border-rose-800/30">
+              <X className="h-8 w-8 text-rose-500 dark:text-rose-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3">
+              {branchError}
+            </h2>
+            <p className="text-slate-500 dark:text-slate-400 mb-6">
+              {isRtl
+                ? "يرجى التأكد من صحة الرابط أو التواصل مع الإدارة."
+                : "Please verify the link or contact the administrator."}
+            </p>
+            <Button
+              onClick={() => router.push(`/${locale}`)}
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+            >
+              {isRtl ? "العودة للرئيسية" : "Back to Home"}
+            </Button>
           </div>
-          <h2 className="text-2xl font-bold text-foreground mb-3">{branchError}</h2>
-          <p className="text-muted-foreground mb-6">
-            {isRtl
-              ? "يرجى التأكد من صحة الرابط أو التواصل مع الإدارة."
-              : "Please verify the link or contact the administrator."}
-          </p>
-          <Button onClick={() => router.push(`/${locale}`)} className="w-full h-11 rounded-xl text-base">
-            {isRtl ? "العودة للرئيسية" : "Back to Home"}
-          </Button>
         </div>
       </div>
     );
@@ -326,7 +346,10 @@ export default function PublicTicketPage() {
 
   // Main UI
   return (
-    <div className="min-h-screen bg-background py-8 px-4 sm:px-6">
+    <div className="relative min-h-screen py-8 px-4 sm:px-6">
+      {/* خلفية متدرجة موحّدة (نفس باقي الصفحات) */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 -z-10" />
+
       <div className="max-w-5xl mx-auto">
         {/* Top controls */}
         <div className="flex justify-end gap-3 mb-6">
@@ -334,7 +357,7 @@ export default function PublicTicketPage() {
             variant="outline"
             size="icon"
             onClick={switchLanguage}
-            className="rounded-full w-10 h-10 text-sm font-bold"
+            className="rounded-full w-10 h-10 text-sm font-bold border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
             disabled={isSubmitting}
           >
             {locale === "ar" ? "EN" : "AR"}
@@ -343,26 +366,26 @@ export default function PublicTicketPage() {
             variant="outline"
             size="icon"
             onClick={toggleTheme}
-            className="rounded-full w-10 h-10"
+            className="rounded-full w-10 h-10 border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
             disabled={isSubmitting}
           >
             {theme === "light" ? <Moon size={20} /> : <Sun size={20} />}
           </Button>
         </div>
 
-        {/* Main card */}
-        <div className="bg-card rounded-2xl border border-border shadow-lg overflow-hidden">
+        {/* Main card - glassCard موحّد */}
+        <div className={cn(glassCard, "overflow-hidden")}>
           <div className="p-6 md:p-10 space-y-8">
-            {/* Header */}
-            <div className="flex items-center gap-4 border-b border-border pb-5">
-              <div className="h-14 w-14 bg-primary/10 rounded-2xl flex items-center justify-center text-primary">
-                <Send size={28} />
+            {/* Header - نفس تصميم باقي الصفحات */}
+            <div className="flex items-center gap-4 border-b border-slate-200/50 dark:border-slate-800/50 pb-5">
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+                <Send className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-foreground">
+                <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
                   {isRtl ? "بلاغ صيانة جديد" : "New Maintenance Ticket"}
                 </h1>
-                <p className="text-base text-muted-foreground mt-1">
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-0.5">
                   {isRtl ? branch.name : branch.nameEn || branch.name}
                 </p>
               </div>
@@ -448,35 +471,40 @@ export default function PublicTicketPage() {
               isRtl={isRtl}
             />
 
-            {/* Info note */}
-            <div className="bg-primary/5 rounded-xl p-4 text-sm text-muted-foreground flex gap-3">
-              <Info size={18} className="shrink-0 mt-0.5" />
-              {isRtl
-                ? "سيتم إرسال إشعار لفريق الصيانة. يمكنك متابعة الحالة عبر البريد الإلكتروني."
-                : "Maintenance team will be notified. You can track the ticket status via email."}
+            {/* Info note - نفس تنسيق باقي الصفحات */}
+            <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-800/30 flex items-start gap-3 text-sm">
+              <Info size={18} className="text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
+              <span className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                {isRtl
+                  ? "سيتم إرسال إشعار لفريق الصيانة. يمكنك متابعة الحالة عبر البريد الإلكتروني."
+                  : "Maintenance team will be notified. You can track the ticket status via email."}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* ✅ Success Dialog - مع زر "تقديم بلاغ آخر" الذي يعيد تعيين النموذج بالكامل */}
+      {/* ✅ Success Dialog - نفس تنسيق صفحة النجاح */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <DialogContent className="sm:max-w-md text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-            <CheckCircle className="h-8 w-8 text-green-600 dark:text-green-400" />
+        <DialogContent className="sm:max-w-md text-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-xl">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/10 to-green-500/10 dark:from-emerald-500/20 dark:to-green-500/20 border border-emerald-200/30 dark:border-emerald-800/30 shadow-lg shadow-emerald-500/5">
+            <CheckCircle className="h-8 w-8 text-emerald-500 dark:text-emerald-400" />
           </div>
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold mt-2">
+            <DialogTitle className="text-2xl font-bold text-slate-800 dark:text-slate-100 mt-2">
               {isRtl ? "تم إرسال البلاغ بنجاح" : "Ticket Submitted Successfully"}
             </DialogTitle>
-            <DialogDescription className="text-base pt-2">
+            <DialogDescription className="text-base text-slate-500 dark:text-slate-400 pt-2">
               {isRtl
                 ? "شكراً لك. سيتم معالجة طلبك في أقرب وقت."
                 : "Thank you. Your request will be processed shortly."}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-col gap-3 mt-4">
-            <Button onClick={resetForm} className="w-full gap-2">
+            <Button
+              onClick={resetForm}
+              className="w-full gap-2 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+            >
               <Send size={18} />
               {isRtl ? "تقديم بلاغ آخر" : "Submit Another Ticket"}
             </Button>

@@ -104,8 +104,12 @@ export async function POST(
           select.nameEn = true;
         }
 
+        // ✅ إضافة شرط deletedAt: null
         const assets = await prisma.asset.findMany({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
           select,
         });
 
@@ -126,40 +130,27 @@ export async function POST(
 
           const row: any = {};
           
-          // ✅ الكود (منفرد)
           if (assetFields.code) row['الكود'] = asset.code || '';
-
-          // ✅ الاسم: عمودين منفصلين
           if (assetFields.name) {
             row['الاسم (عربي)'] = asset.name || '';
             row['الاسم (إنجليزي)'] = asset.nameEn || '';
           }
-
-          // ✅ الوصف: عمودين منفصلين
           if (assetFields.description) {
             row['الوصف (عربي)'] = asset.description || '';
             row['الوصف (إنجليزي)'] = asset.descriptionEn || '';
           }
-
-          // ✅ النوع: عمودين منفصلين
           if (assetFields.type) {
             row['النوع (عربي)'] = asset.type?.name || '';
             row['النوع (إنجليزي)'] = asset.type?.nameEn || '';
           }
-
-          // ✅ الحالة: عمودين منفصلين
           if (assetFields.status) {
             row['الحالة (عربي)'] = asset.status?.name || '';
             row['الحالة (إنجليزي)'] = asset.status?.nameEn || '';
           }
-
-          // ✅ الموقع: عمودين منفصلين
           if (assetFields.room) {
             row['الموقع (عربي)'] = locationAr || 'لا يوجد موقع';
             row['الموقع (إنجليزي)'] = locationEn || 'No location';
           }
-
-          // ✅ التواريخ (تنسيق عربي)
           if (assetFields.purchaseDate) row['تاريخ الشراء'] = formatDate(asset.purchaseDate);
           if (assetFields.warrantyEnd) row['نهاية الضمان'] = formatDate(asset.warrantyEnd);
           if (assetFields.lastMaintenanceDate) row['آخر صيانة'] = formatDate(asset.lastMaintenanceDate);
@@ -190,8 +181,12 @@ export async function POST(
           select.title = true;
         }
 
+        // ✅ إضافة شرط deletedAt: null
         const workOrders = await prisma.workOrder.findMany({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
           select,
         });
 
@@ -237,8 +232,12 @@ export async function POST(
           select.title = true;
         }
 
+        // ✅ إضافة شرط deletedAt: null
         const tickets = await prisma.ticket.findMany({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
           select,
         });
 
@@ -277,8 +276,12 @@ export async function POST(
           select.nameEn = true;
         }
 
+        // ✅ إضافة شرط deletedAt: null
         const inventoryItems = await prisma.inventoryItem.findMany({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
           select,
         });
 

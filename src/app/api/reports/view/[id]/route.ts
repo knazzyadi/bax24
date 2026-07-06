@@ -36,7 +36,7 @@ export async function GET(
     const savedReport = await prisma.savedReport.findFirst({
       where: {
         id,
-        userId: session.userId, // ✅ استخدام userId بدلاً من id
+        userId: session.userId,
         companyId: companyId,
       },
     });
@@ -62,8 +62,12 @@ export async function GET(
           } else assetFields[col] = true;
         });
 
+        // ✅ إضافة شرط deletedAt: null لاستبعاد الأصول المحذوفة
         total = await prisma.asset.count({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
         });
 
         // بناء كائن select ديناميكياً
@@ -109,7 +113,10 @@ export async function GET(
         }
 
         const assets = await prisma.asset.findMany({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
           select,
           skip,
           take: limit,
@@ -147,8 +154,12 @@ export async function GET(
           else woFields[col] = true;
         });
 
+        // ✅ إضافة شرط deletedAt: null
         total = await prisma.workOrder.count({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
         });
 
         const select: any = {};
@@ -172,7 +183,10 @@ export async function GET(
         }
 
         const workOrders = await prisma.workOrder.findMany({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
           select,
           skip,
           take: limit,
@@ -196,8 +210,12 @@ export async function GET(
           else ticketFields[col] = true;
         });
 
+        // ✅ إضافة شرط deletedAt: null
         total = await prisma.ticket.count({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
         });
 
         const select: any = {};
@@ -217,7 +235,10 @@ export async function GET(
         }
 
         const tickets = await prisma.ticket.findMany({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
           select,
           skip,
           take: limit,
@@ -240,8 +261,12 @@ export async function GET(
           invFields[col] = true;
         });
 
+        // ✅ إضافة شرط deletedAt: null
         total = await prisma.inventoryItem.count({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
         });
 
         const select: any = {};
@@ -260,7 +285,10 @@ export async function GET(
         }
 
         const inventoryItems = await prisma.inventoryItem.findMany({
-          where: { companyId: companyId },
+          where: { 
+            companyId: companyId,
+            deletedAt: null,
+          },
           select,
           skip,
           take: limit,

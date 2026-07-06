@@ -1,12 +1,30 @@
+// src/app/[locale]/(dashboard)/users/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
 import { useSession } from 'next-auth/react';
 import { useRouter, useParams } from 'next/navigation';
 import { useTranslations } from 'next-intl';
-import { Plus, X, RefreshCw, CheckCircle, XCircle, Trash2, Pencil } from 'lucide-react';
+import { Plus, X, RefreshCw, CheckCircle, XCircle, Trash2, Pencil, Users, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AdminGuard } from '@/lib/client-guard';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+
+// =========================
+// تنسيقات موحدة (نفس باقي صفحات النظام)
+// =========================
+const glassCard =
+  'bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300';
 
 interface User {
   id: string;
@@ -29,6 +47,7 @@ function CompanyUsersPageContent() {
   const params = useParams();
   const locale = params?.locale as string;
   const t = useTranslations('UsersPage');
+  const isRtl = locale === 'ar';
 
   const [users, setUsers] = useState<User[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -46,7 +65,6 @@ function CompanyUsersPageContent() {
     if (sessionStatus === 'unauthenticated') {
       router.push(`/${locale}/login`);
     } else if (sessionStatus === 'authenticated') {
-      // لم نعد نتحقق من الدور هنا لأن AdminGuard يضمن ذلك
       fetchUsers();
       fetchBranches();
     }
@@ -58,8 +76,6 @@ function CompanyUsersPageContent() {
       if (res.ok) {
         const data = await res.json();
         setBranches(data);
-      } else {
-        console.error('Failed to fetch branches', await res.text());
       }
     } catch (error) {
       console.error('Error fetching branches:', error);
@@ -141,7 +157,7 @@ function CompanyUsersPageContent() {
   };
 
   const deleteUser = async (id: string) => {
-    if (!confirm('هل أنت متأكد من حذف هذا المستخدم؟')) return;
+    if (!confirm(isRtl ? 'هل أنت متأكد من حذف هذا المستخدم؟' : 'Are you sure you want to delete this user?')) return;
     try {
       const res = await fetch(`/api/company/users/${id}`, { method: 'DELETE' });
       const data = await res.json();
@@ -210,189 +226,282 @@ function CompanyUsersPageContent() {
   };
 
   if (sessionStatus === 'loading') {
-    return <div className="p-6 text-center">جاري التحميل...</div>;
+    return (
+      <div className="relative min-h-[60vh] flex items-center justify-center p-6">
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+        <div className="flex flex-col items-center gap-3">
+          <div className="h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+          <span className="text-sm text-slate-500 dark:text-slate-400">{isRtl ? 'جاري التحميل...' : 'Loading...'}</span>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-foreground">إدارة المستخدمين</h1>
-        <button
-          onClick={() => setShowModal(true)}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-md flex items-center gap-2 hover:bg-indigo-700 transition-colors"
-        >
-          <Plus size={18} /> إضافة مستخدم جديد
-        </button>
+    <div className="relative space-y-8 p-6">
+      {/* خلفية متدرجة خفيفة (نفس باقي الصفحات) */}
+      <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+
+      {/* رأس الصفحة المخصص (مطابق لباقي الصفحات) */}
+      <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <Users className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {isRtl ? 'إدارة المستخدمين' : 'User Management'}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {isRtl
+                ? 'إدارة المستخدمين والأدوار والصلاحيات'
+                : 'Manage users, roles and permissions'}
+            </p>
+          </div>
+        </div>
+        {!showModal && !editingUser && (
+          <Button
+            onClick={() => setShowModal(true)}
+            className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 px-6 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            {isRtl ? 'إضافة مستخدم جديد' : 'Add New User'}
+          </Button>
+        )}
       </div>
 
+      {/* رسائل النجاح / الخطأ */}
       {message && (
         <div
           className={cn(
-            'p-3 mb-4 rounded-md',
+            'p-4 rounded-xl border text-sm font-medium',
             message.type === 'success'
-              ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-              : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+              ? 'bg-emerald-50/80 dark:bg-emerald-950/30 border-emerald-200/50 dark:border-emerald-800/30 text-emerald-700 dark:text-emerald-300'
+              : 'bg-rose-50/80 dark:bg-rose-950/30 border-rose-200/50 dark:border-rose-800/30 text-rose-700 dark:text-rose-300'
           )}
         >
           {message.text}
         </div>
       )}
 
-      {loading ? (
-        <div className="text-center py-8">جاري تحميل المستخدمين...</div>
-      ) : (
-        <div className="overflow-x-auto border border-border rounded-lg">
-          <table className="w-full">
-            <thead className="bg-muted/50">
-              <tr className="border-b border-border">
-                <th className="p-3 text-right">#</th>
-                <th className="p-3 text-right">الاسم</th>
-                <th className="p-3 text-right">البريد الإلكتروني</th>
-                <th className="p-3 text-right">الدور</th>
-                <th className="p-3 text-right">الفروع</th>
-                <th className="p-3 text-right">الحالة</th>
-                <th className="p-3 text-right">تاريخ الإنشاء</th>
-                <th className="p-3 text-right">الإجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.length === 0 ? (
-                <tr>
-                  <td colSpan={8} className="text-center py-8 text-muted-foreground">
-                    لا يوجد مستخدمون حتى الآن
-                  </td>
-                </tr>
-              ) : (
-                users.map((user, idx) => (
-                  <tr key={user.id} className="border-b border-border hover:bg-muted/30">
-                    <td className="p-3">{idx + 1}</td>
-                    <td className="p-3">{user.name || '-'}</td>
-                    <td className="p-3">{user.email}</td>
-                    <td className="p-3">{user.role.label || user.role.name}</td>
-                    <td className="p-3">
+      {/* جدول المستخدمين */}
+      <div className={glassCard}>
+        <div className="flex items-center gap-3 mb-4">
+          <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
+            <Sparkles className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+            {isRtl ? 'قائمة المستخدمين' : 'Users List'}
+          </h2>
+        </div>
+
+        {loading ? (
+          <div className="flex justify-center py-12">
+            <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
+          </div>
+        ) : users.length === 0 ? (
+          <div className="text-center py-12 text-slate-400 dark:text-slate-500">
+            {isRtl ? 'لا يوجد مستخدمون حتى الآن' : 'No users yet'}
+          </div>
+        ) : (
+          <div className="border border-slate-200/50 dark:border-slate-800/50 rounded-xl overflow-x-auto">
+            <Table>
+              <TableHeader className="bg-slate-50/50 dark:bg-slate-800/30">
+                <TableRow>
+                  <TableHead className="font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    #
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    {isRtl ? 'الاسم' : 'Name'}
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    {isRtl ? 'البريد الإلكتروني' : 'Email'}
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    {isRtl ? 'الدور' : 'Role'}
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    {isRtl ? 'الفروع' : 'Branches'}
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider text-center">
+                    {isRtl ? 'الحالة' : 'Status'}
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider">
+                    {isRtl ? 'تاريخ الإنشاء' : 'Created At'}
+                  </TableHead>
+                  <TableHead className="font-semibold text-slate-600 dark:text-slate-300 text-xs uppercase tracking-wider text-center">
+                    {isRtl ? 'الإجراءات' : 'Actions'}
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody className="divide-y divide-slate-200/50 dark:divide-slate-800/50">
+                {users.map((user, idx) => (
+                  <TableRow key={user.id} className="hover:bg-indigo-50/30 dark:hover:bg-indigo-950/20 transition-colors">
+                    <TableCell className="text-slate-600 dark:text-slate-300">{idx + 1}</TableCell>
+                    <TableCell className="font-medium text-slate-700 dark:text-slate-200">
+                      {user.name || '-'}
+                    </TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-300">{user.email}</TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-300">
+                      {user.role.label || user.role.name}
+                    </TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-300">
                       {user.branches && user.branches.length > 0
                         ? user.branches.map(b => b.name).join(', ')
                         : '-'}
-                    </td>
-                    <td className="p-3">
+                    </TableCell>
+                    <TableCell className="text-center">
                       <span
                         className={cn(
-                          'px-2 py-1 rounded-full text-xs font-medium',
+                          'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
                           user.status
-                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300'
-                            : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300'
+                            ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                            : 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300'
                         )}
                       >
-                        {user.status ? 'نشط' : 'غير نشط'}
+                        {user.status ? (isRtl ? 'نشط' : 'Active') : (isRtl ? 'غير نشط' : 'Inactive')}
                       </span>
-                    </td>
-                    <td className="p-3">{new Date(user.createdAt).toLocaleDateString()}</td>
-                    <td className="p-3 flex gap-2">
-                      <button
-                        onClick={() => openEditModal(user)}
-                        className="text-yellow-600 dark:text-yellow-400 hover:opacity-80"
-                        title="تعديل"
-                      >
-                        <Pencil size={18} />
-                      </button>
-                      <button
-                        onClick={() => toggleStatus(user.id, user.status)}
-                        className="text-blue-600 dark:text-blue-400 hover:opacity-80"
-                        title={user.status ? 'تعطيل' : 'تفعيل'}
-                      >
-                        {user.status ? <XCircle size={18} /> : <CheckCircle size={18} />}
-                      </button>
-                      <button
-                        onClick={() => resendInvite(user.id)}
-                        className="text-green-600 dark:text-green-400 hover:opacity-80"
-                        title="إعادة إرسال الدعوة"
-                      >
-                        <RefreshCw size={18} />
-                      </button>
-                      <button
-                        onClick={() => deleteUser(user.id)}
-                        className="text-red-600 dark:text-red-400 hover:opacity-80"
-                        title="حذف"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      )}
+                    </TableCell>
+                    <TableCell className="text-slate-600 dark:text-slate-300">
+                      {new Date(user.createdAt).toLocaleDateString(isRtl ? 'ar-SA' : 'en-US')}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center justify-center gap-1">
+                        <button
+                          onClick={() => openEditModal(user)}
+                          className="p-2 rounded-full text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-all duration-200 hover:scale-110"
+                          title={isRtl ? 'تعديل' : 'Edit'}
+                        >
+                          <Pencil size={18} />
+                        </button>
+                        <button
+                          onClick={() => toggleStatus(user.id, user.status)}
+                          className="p-2 rounded-full text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-all duration-200 hover:scale-110"
+                          title={user.status ? (isRtl ? 'تعطيل' : 'Disable') : (isRtl ? 'تفعيل' : 'Enable')}
+                        >
+                          {user.status ? <XCircle size={18} /> : <CheckCircle size={18} />}
+                        </button>
+                        <button
+                          onClick={() => resendInvite(user.id)}
+                          className="p-2 rounded-full text-slate-400 hover:text-emerald-600 dark:hover:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all duration-200 hover:scale-110"
+                          title={isRtl ? 'إعادة إرسال الدعوة' : 'Resend Invite'}
+                        >
+                          <RefreshCw size={18} />
+                        </button>
+                        <button
+                          onClick={() => deleteUser(user.id)}
+                          className="p-2 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all duration-200 hover:scale-110"
+                          title={isRtl ? 'حذف' : 'Delete'}
+                        >
+                          <Trash2 size={18} />
+                        </button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </div>
 
       {/* مودال إضافة مستخدم */}
       {showModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border p-6 rounded-xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className={cn(glassCard, "w-full max-w-md max-h-[90vh] overflow-y-auto p-6")}>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">إضافة مستخدم جديد</h2>
-              <button onClick={() => setShowModal(false)} className="text-muted-foreground hover:text-foreground">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                {isRtl ? 'إضافة مستخدم جديد' : 'Add New User'}
+              </h2>
+              <button
+                onClick={() => setShowModal(false)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              >
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">الاسم الكامل *</label>
-                <input
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {isRtl ? 'الاسم الكامل' : 'Full Name'} <span className="text-rose-500">*</span>
+                </Label>
+                <Input
                   type="text"
                   value={form.name}
                   onChange={(e) => setForm({ ...form, name: e.target.value })}
-                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">البريد الإلكتروني *</label>
-                <input
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {isRtl ? 'البريد الإلكتروني' : 'Email'} <span className="text-rose-500">*</span>
+                </Label>
+                <Input
                   type="email"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">الدور *</label>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {isRtl ? 'الدور' : 'Role'} <span className="text-rose-500">*</span>
+                </Label>
                 <select
                   value={form.role}
                   onChange={(e) => setForm({ ...form, role: e.target.value })}
-                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4 appearance-none"
                 >
-                  <option value="BRANCH_MANAGER">مدير فرع (Branch Manager)</option>
-                  <option value="TECHNICIAN">فني (Technician)</option>
+                  <option value="BRANCH_MANAGER">{isRtl ? 'مدير فرع' : 'Branch Manager'}</option>
+                  <option value="TECHNICIAN">{isRtl ? 'فني' : 'Technician'}</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">الفروع المسموح بها</label>
-                <div className="border border-border rounded-lg p-2 space-y-1 max-h-40 overflow-y-auto">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {isRtl ? 'الفروع المسموح بها' : 'Allowed Branches'}
+                </Label>
+                <div className="border border-slate-200/50 dark:border-slate-800/50 rounded-xl p-3 space-y-1.5 max-h-40 overflow-y-auto bg-white/30 dark:bg-slate-900/30">
                   {branches.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">لا توجد فروع متاحة</p>
+                    <p className="text-sm text-slate-400 dark:text-slate-500">
+                      {isRtl ? 'لا توجد فروع متاحة' : 'No branches available'}
+                    </p>
                   ) : (
                     branches.map(branch => (
-                      <label key={branch.id} className="flex items-center gap-2 text-sm">
+                      <label key={branch.id} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={form.branchIds.includes(branch.id)}
                           onChange={() => handleBranchToggle(branch.id, false)}
-                          className="rounded border-border"
+                          className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 accent-indigo-600"
                         />
                         {branch.name}
                       </label>
                     ))
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">اختر الفروع التي سيتمكن المستخدم من الوصول إليها. اتركها فارغة للسماح بجميع الفروع.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  {isRtl
+                    ? 'اختر الفروع التي سيتمكن المستخدم من الوصول إليها. اتركها فارغة للسماح بجميع الفروع.'
+                    : 'Select branches the user can access. Leave empty for all branches.'}
+                </p>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setShowModal(false)} className="px-4 py-2 border rounded-lg">إلغاء</button>
-                <button type="submit" disabled={submitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
-                  {submitting ? 'جاري الإرسال...' : 'إرسال الدعوة'}
-                </button>
+              <div className="flex gap-3 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                <Button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 disabled:opacity-50"
+                >
+                  {submitting ? (isRtl ? 'جاري الإرسال...' : 'Sending...') : (isRtl ? 'إرسال الدعوة' : 'Send Invite')}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 h-12 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 font-medium transition-all duration-200"
+                >
+                  {isRtl ? 'إلغاء' : 'Cancel'}
+                </Button>
               </div>
             </form>
           </div>
@@ -402,71 +511,100 @@ function CompanyUsersPageContent() {
       {/* مودال تعديل مستخدم */}
       {editingUser && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card border border-border p-6 rounded-xl w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
+          <div className={cn(glassCard, "w-full max-w-md max-h-[90vh] overflow-y-auto p-6")}>
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold">تعديل المستخدم</h2>
-              <button onClick={() => setEditingUser(null)} className="text-muted-foreground hover:text-foreground">
+              <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
+                {isRtl ? 'تعديل المستخدم' : 'Edit User'}
+              </h2>
+              <button
+                onClick={() => setEditingUser(null)}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+              >
                 <X size={20} />
               </button>
             </div>
             <form onSubmit={handleUpdate} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">الاسم الكامل</label>
-                <input
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {isRtl ? 'الاسم الكامل' : 'Full Name'} <span className="text-rose-500">*</span>
+                </Label>
+                <Input
                   type="text"
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">البريد الإلكتروني</label>
-                <input
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {isRtl ? 'البريد الإلكتروني' : 'Email'} <span className="text-rose-500">*</span>
+                </Label>
+                <Input
                   type="email"
                   value={editForm.email}
                   onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
-                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">الدور</label>
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {isRtl ? 'الدور' : 'Role'} <span className="text-rose-500">*</span>
+                </Label>
                 <select
                   value={editForm.role}
                   onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
-                  className="w-full p-2 border border-border rounded-lg bg-background dark:bg-gray-800 dark:text-white"
+                  className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4 appearance-none"
                 >
-                  <option value="BRANCH_MANAGER">مدير فرع (Branch Manager)</option>
-                  <option value="TECHNICIAN">فني (Technician)</option>
+                  <option value="BRANCH_MANAGER">{isRtl ? 'مدير فرع' : 'Branch Manager'}</option>
+                  <option value="TECHNICIAN">{isRtl ? 'فني' : 'Technician'}</option>
                 </select>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">الفروع المسموح بها</label>
-                <div className="border border-border rounded-lg p-2 space-y-1 max-h-40 overflow-y-auto">
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                  {isRtl ? 'الفروع المسموح بها' : 'Allowed Branches'}
+                </Label>
+                <div className="border border-slate-200/50 dark:border-slate-800/50 rounded-xl p-3 space-y-1.5 max-h-40 overflow-y-auto bg-white/30 dark:bg-slate-900/30">
                   {branches.length === 0 ? (
-                    <p className="text-muted-foreground text-sm">لا توجد فروع متاحة</p>
+                    <p className="text-sm text-slate-400 dark:text-slate-500">
+                      {isRtl ? 'لا توجد فروع متاحة' : 'No branches available'}
+                    </p>
                   ) : (
                     branches.map(branch => (
-                      <label key={branch.id} className="flex items-center gap-2 text-sm">
+                      <label key={branch.id} className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300 cursor-pointer">
                         <input
                           type="checkbox"
                           checked={editForm.branchIds.includes(branch.id)}
                           onChange={() => handleBranchToggle(branch.id, true)}
-                          className="rounded border-border"
+                          className="w-4 h-4 rounded border-slate-300 dark:border-slate-700 accent-indigo-600"
                         />
                         {branch.name}
                       </label>
                     ))
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">اختر الفروع التي سيتمكن المستخدم من الوصول إليها. اتركها فارغة للسماح بجميع الفروع.</p>
+                <p className="text-xs text-slate-400 dark:text-slate-500">
+                  {isRtl
+                    ? 'اختر الفروع التي سيتمكن المستخدم من الوصول إليها. اتركها فارغة للسماح بجميع الفروع.'
+                    : 'Select branches the user can access. Leave empty for all branches.'}
+                </p>
               </div>
-              <div className="flex justify-end gap-2 pt-2">
-                <button type="button" onClick={() => setEditingUser(null)} className="px-4 py-2 border rounded-lg">إلغاء</button>
-                <button type="submit" disabled={editSubmitting} className="px-4 py-2 bg-indigo-600 text-white rounded-lg disabled:opacity-50">
-                  {editSubmitting ? 'جاري الحفظ...' : 'حفظ التغييرات'}
-                </button>
+              <div className="flex gap-3 pt-2 border-t border-slate-200/50 dark:border-slate-800/50">
+                <Button
+                  type="submit"
+                  disabled={editSubmitting}
+                  className="flex-1 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 disabled:opacity-50"
+                >
+                  {editSubmitting ? (isRtl ? 'جاري الحفظ...' : 'Saving...') : (isRtl ? 'حفظ التغييرات' : 'Save Changes')}
+                </Button>
+                <Button
+                  type="button"
+                  onClick={() => setEditingUser(null)}
+                  className="flex-1 h-12 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 font-medium transition-all duration-200"
+                >
+                  {isRtl ? 'إلغاء' : 'Cancel'}
+                </Button>
               </div>
             </form>
           </div>

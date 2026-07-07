@@ -56,7 +56,6 @@ export async function GET(request: Request) {
     try {
       session = await getAuthenticatedSession();
     } catch {
-      // ✅ بدلاً من إرجاع خطأ، نعيد مصفوفة فارغة
       return NextResponse.json({
         assets: [],
         pagination: {
@@ -73,7 +72,6 @@ export async function GET(request: Request) {
     }
 
     if (!session) {
-      // ✅ بدلاً من إرجاع خطأ، نعيد مصفوفة فارغة
       return NextResponse.json({
         assets: [],
         pagination: {
@@ -96,17 +94,18 @@ export async function GET(request: Request) {
     const locationId = searchParams.get('locationId');
     const roomId = searchParams.get('roomId');
     const floorId = searchParams.get('floorId');
+    const buildingId = searchParams.get('buildingId');
+    const branchId = searchParams.get('branchId');
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
-    const branchIds = session.branchIds || [];
+    const userBranchIds = session.branchIds || [];
     const companyId = session.companyId;
 
     if (!companyId) {
-      // ✅ بدلاً من إرجاع خطأ، نعيد مصفوفة فارغة
       return NextResponse.json({
         assets: [],
         pagination: {
@@ -127,11 +126,11 @@ export async function GET(request: Request) {
       deletedAt: null,
     };
 
+    // ========== فلترة حسب صلاحيات المستخدم ==========
     if (!isAdmin) {
-      if (branchIds.length > 0) {
-        where.branchId = { in: branchIds };
+      if (userBranchIds.length > 0) {
+        where.branchId = { in: userBranchIds };
       } else {
-        // ✅ بدلاً من إرجاع خطأ، نعيد مصفوفة فارغة
         return NextResponse.json({
           assets: [],
           total: 0,
@@ -142,6 +141,36 @@ export async function GET(request: Request) {
       }
     }
 
+    // ========== ✅ فلترة حسب الفرع مع مراعاة الصلاحيات ==========
+    if (branchId) {
+      if (isAdmin) {
+        where.branchId = branchId;
+      } else {
+        if (!userBranchIds.includes(branchId)) {
+          return NextResponse.json({
+            assets: [],
+            pagination: {
+              total: 0,
+              currentPage: page,
+              totalPages: 0,
+              limit,
+              nextUrl: null,
+              prevUrl: null,
+              currentCount: 0,
+              startIndex: 0,
+            },
+          });
+        }
+        where.branchId = branchId;
+      }
+    }
+
+    // ========== فلترة حسب المبنى ==========
+    if (buildingId) {
+      where.buildingId = buildingId;
+    }
+
+    // ========== فلترة حسب النص (بحث) ==========
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
@@ -152,16 +181,22 @@ export async function GET(request: Request) {
       ];
     }
 
+    // ========== فلترة حسب نوع الأصل ==========
     if (typeId && typeId !== 'all') {
       where.typeId = typeId;
     }
 
+    // ========== فلترة الموقع (roomId > floorId) ==========
     const effectiveRoomId = roomId || locationId;
-
     if (effectiveRoomId) {
       where.roomId = effectiveRoomId;
+    } else if (floorId) {
+      where.room = {
+        floorId: floorId,
+      };
     }
 
+    // ========== جلب البيانات مع الترقيم ==========
     const [assets, total] = await Promise.all([
       prisma.asset.findMany({
         where,
@@ -231,7 +266,6 @@ export async function GET(request: Request) {
   } catch (error: any) {
     console.error('GET /api/assets error:', error);
 
-    // ✅ في حالة أي خطأ غير متوقع، نعيد مصفوفة فارغة بدلاً من 500
     return NextResponse.json({
       assets: [],
       pagination: {
@@ -248,7 +282,111 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: (بدون تغيير - يبقى كما هو)
+// ========== POST ==========
 export async function POST(request: Request) {
-  // ... الكود الأصلي ...
+  try {
+    let session;
+    try {
+      session = await getAuthenticatedSession();
+    } catch {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const body = await request.json();
+
+    const {
+      name,
+      nameEn,
+      description,
+      descriptionEn,
+      typeId,
+      statusId,
+      roomId,
+      purchaseDate,
+      warrantyEnd,
+      lastMaintenanceDate,
+      notes,
+    } = body;
+
+    if (!name || !typeId || !roomId) {
+      return NextResponse.json(
+        { error: 'الاسم، النوع، والموقع (الغرفة) مطلوبين' },
+        { status: 400 }
+      );
+    }
+
+    const companyId = session.companyId;
+
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
+    }
+
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      select: {
+        buildingId: true,
+        building: { select: { branchId: true } },
+      },
+    });
+
+    if (!room) {
+      return NextResponse.json(
+        { error: 'الغرفة غير موجودة في قاعدة البيانات' },
+        { status: 400 }
+      );
+    }
+
+    if (!room.building?.branchId) {
+      return NextResponse.json(
+        { error: 'الغرفة غير مرتبطة بفرع أو مبنى صالح' },
+        { status: 400 }
+      );
+    }
+
+    const branchId = room.building.branchId;
+    const buildingId = room.buildingId;
+
+    const code = await generateAssetCode(companyId, branchId, typeId);
+
+    const asset = await prisma.asset.create({
+      data: {
+        name,
+        nameEn: nameEn || undefined,
+        description: description || undefined,
+        descriptionEn: descriptionEn || undefined,
+        code,
+        typeId,
+        statusId: statusId || undefined,
+        roomId,
+        buildingId,
+        branchId,
+        companyId,
+        purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
+        warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
+        lastMaintenanceDate: lastMaintenanceDate
+          ? new Date(lastMaintenanceDate)
+          : undefined,
+        notes: notes || undefined,
+      },
+    });
+
+    return NextResponse.json(asset, { status: 201 });
+  } catch (error: any) {
+    console.error('POST /api/assets error:', error);
+
+    return NextResponse.json(
+      {
+        error: 'خطأ في إنشاء الأصل',
+        message: error.message,
+      },
+      { status: 500 }
+    );
+  }
 }

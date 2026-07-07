@@ -95,6 +95,7 @@ export async function GET(request: Request) {
     const typeId = searchParams.get('typeId');
     const locationId = searchParams.get('locationId');
     const roomId = searchParams.get('roomId');
+    const floorId = searchParams.get('floorId');
 
     const page = parseInt(searchParams.get('page') || '1');
     const limit = parseInt(searchParams.get('limit') || '10');

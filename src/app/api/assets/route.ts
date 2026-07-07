@@ -62,7 +62,7 @@ export async function GET(request: Request) {
           total: 0,
           currentPage: 1,
           totalPages: 0,
-          limit: 10,
+          limit: 9999,
           nextUrl: null,
           prevUrl: null,
           currentCount: 0,
@@ -78,7 +78,7 @@ export async function GET(request: Request) {
           total: 0,
           currentPage: 1,
           totalPages: 0,
-          limit: 10,
+          limit: 9999,
           nextUrl: null,
           prevUrl: null,
           currentCount: 0,
@@ -98,7 +98,8 @@ export async function GET(request: Request) {
     const branchId = searchParams.get('branchId');
 
     const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+    // ✅ تغيير الحد الافتراضي إلى 9999 لجلب جميع الأصول عند عدم إرسال limit
+    const limit = parseInt(searchParams.get('limit') || '9999');
     const skip = (page - 1) * limit;
 
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
@@ -272,7 +273,7 @@ export async function GET(request: Request) {
         total: 0,
         currentPage: 1,
         totalPages: 0,
-        limit: 10,
+        limit: 9999,
         nextUrl: null,
         prevUrl: null,
         currentCount: 0,

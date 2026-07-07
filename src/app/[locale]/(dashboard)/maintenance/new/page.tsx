@@ -129,6 +129,7 @@ export default function NewMaintenanceSchedulePage() {
 
   // بيانات أنواع الأصول والأصول
   const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
+  const [loadingAssetTypes, setLoadingAssetTypes] = useState(false); // ✅ حالة تحميل الأنواع
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
@@ -170,7 +171,7 @@ export default function NewMaintenanceSchedulePage() {
   const glassCard =
     "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
-  // جلب البيانات الأولية
+  // جلب البيانات الأولية (المباني وأنواع الأصول الأساسية)
   useEffect(() => {
     async function fetchInitialData() {
       try {
@@ -190,6 +191,44 @@ export default function NewMaintenanceSchedulePage() {
     }
     fetchInitialData();
   }, [t]);
+
+  // ✅ جلب أنواع الأصول حسب الدور (عند اختيار دور)
+  useEffect(() => {
+    // إذا لم يتم اختيار دور، نترك القائمة كما هي (جميع الأنواع)
+    if (!floorId) {
+      // يمكن إعادة جلب الكل إذا أردنا، لكننا نحتفظ بالبيانات الأولية
+      // ويمكن إعادة تعيينها إلى الكل إذا كانت قد تمت فلترتها من قبل
+      // لكننا سنقوم بجلب الكل فقط عند الحاجة، وسنكتفي بالبيانات الأولية
+      return;
+    }
+
+    const controller = new AbortController();
+    const fetchFilteredTypes = async () => {
+      setLoadingAssetTypes(true);
+      try {
+        const res = await fetch(`/api/asset-types?floorId=${floorId}`, {
+          signal: controller.signal,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setAssetTypes(data);
+        } else {
+          // في حالة الخطأ، نترك القائمة كما هي (قديمة)
+          console.error("فشل جلب الأنواع حسب الدور");
+        }
+      } catch (err) {
+        if (err instanceof Error && err.name !== "AbortError") {
+          console.error(err);
+        }
+      } finally {
+        setLoadingAssetTypes(false);
+      }
+    };
+
+    fetchFilteredTypes();
+
+    return () => controller.abort();
+  }, [floorId]); // ✅ يعيد الجلب عند تغيير الدور
 
   // جلب الأدوار عند تغيير المبنى
   useEffect(() => {
@@ -729,9 +768,13 @@ export default function NewMaintenanceSchedulePage() {
                     }))
                   }
                   assetTypes={assetTypes}
-                  disabled={!isLocationSelected()}
+                  disabled={!isLocationSelected() || loadingAssetTypes}
                   placeholder={
-                    isLocationSelected()
+                    loadingAssetTypes
+                      ? isRtl
+                        ? "جاري التحميل..."
+                        : "Loading..."
+                      : isLocationSelected()
                       ? isRtl
                         ? "اختر نوع الأصل"
                         : "Select asset type"

@@ -4,17 +4,16 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 
 // =====================
-// GET: جلب قائمة أنواع الأصول
+// GET: جلب قائمة أنواع الأصول (مع دعم فلترة حسب الدور)
 // =====================
 export async function GET(request: Request) {
   try {
-    // ✅ استخدام getAuthenticatedSession بدلاً من getSession
     const session = await getAuthenticatedSession();
-    // ✅ استخدام checkPermission بدلاً من requirePermission
     await checkPermission('assets.read');
 
     const { searchParams } = new URL(request.url);
     const companyId = searchParams.get('companyId');
+    const floorId = searchParams.get('floorId'); // ✅ إضافة معامل الدور
     const limit = parseInt(searchParams.get('limit') || '100');
 
     let where: any = {};
@@ -22,6 +21,17 @@ export async function GET(request: Request) {
       where.companyId = session.companyId;
     } else if (companyId) {
       where.companyId = companyId;
+    }
+
+    // ✅ إذا تم تمرير floorId، نقوم بفلترة الأنواع التي لها أصول في هذا الدور
+    if (floorId) {
+      where.assets = {
+        some: {
+          room: {
+            floorId: floorId,
+          },
+        },
+      };
     }
 
     const assetTypes = await prisma.assetType.findMany({
@@ -53,11 +63,10 @@ export async function GET(request: Request) {
 }
 
 // =====================
-// POST: إضافة نوع أصل جديد
+// POST: إضافة نوع أصل جديد (بدون تغيير)
 // =====================
 export async function POST(request: Request) {
   try {
-    // ✅ استخدام getAuthenticatedSession بدلاً من getSession
     const session = await getAuthenticatedSession();
 
     const isSuperAdmin = session.role === 'SUPER_ADMIN';
@@ -87,7 +96,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة بهذا المستخدم' }, { status: 400 });
     }
 
-    // التحقق من عدم وجود اسم مكرر لنفس الشركة
     const existing = await prisma.assetType.findFirst({
       where: {
         name: name.trim(),
@@ -101,7 +109,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // إذا كان isDefault true، قم بإلغاء الافتراضي عن الأنواع الأخرى
     if (isDefault === true) {
       await prisma.assetType.updateMany({
         where: { companyId: targetCompanyId, isDefault: true },

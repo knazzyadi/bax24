@@ -1,8 +1,8 @@
 // src/lib/assets/asset-creator.ts
 import { prisma } from '@/lib/prisma';
 import { Prisma } from '@prisma/client';
-import { generateUniqueAssetCode } from './code-generator';
-import { assetAuditSelect, CreatedAsset } from './asset-selects';
+import { generateUniqueAssetCode } from '@/lib/selects/code-generator'; // ✅ المسار الصحيح
+import { assetAuditSelect, CreatedAsset } from './asset-select'; // ✅ المسار الصحيح
 
 const MAX_RETRIES = 3;
 

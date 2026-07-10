@@ -265,15 +265,20 @@ export function useMaintenanceForm() {
     async function fetchAssetsData() {
       try {
         const res = await fetch(`/api/assets?${params.toString()}`, {
-          signal: controller.signal,
-          cache: "no-store",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setAssets(data.assets || []);
-        } else {
-          setAssets([]);
-        }
+        signal: controller.signal,
+        cache: "no-store",
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+
+        console.log("Assets Count:", data.assets.length);
+        console.table(data.assets);
+
+        setAssets(data.assets || []);
+      } else {
+        setAssets([]);
+      }
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
           console.error(err);

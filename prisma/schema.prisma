@@ -159,6 +159,8 @@ model Room {
   tickets        Ticket[]
   workOrders     WorkOrder[]
   assets         Asset[]
+  oldLocationHistories AssetLocationHistory[] @relation("oldRoom")
+  newLocationHistories AssetLocationHistory[] @relation("newRoom")
   building       Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   floor          Floor           @relation(fields: [floorId], references: [id], onDelete: Cascade)
 
@@ -207,15 +209,15 @@ model AssetStatus {
 
 model Asset {
   id                  String           @id @default(cuid())
-  code                String           @unique @default(cuid())
+  code                String           @unique
   name                String
   nameEn              String?
-  description String?  // ✅ وصف عربي
-  descriptionEn String? // ✅ وصف إنجليزي
+  description         String?          // ✅ وصف واحد فقط (عربي/إنجليزي حسب الاستخدام)
   typeId              String?
   statusId            String?
   roomId              String
   purchaseDate        DateTime?
+  operationDate       DateTime?        // ✅ جديد
   warrantyEnd         DateTime?
   notes               String?
   qrCode              String?          @unique
@@ -226,9 +228,16 @@ model Asset {
   deletedAt           DateTime?
   branchId            String?          @map("branch_id")
   lastMaintenanceDate DateTime?
+  serialNumber        String?          // ✅ جديد
+  manufacturer        String?          // ✅ جديد
+  model               String?          // ✅ جديد
+  supplier            String?          // ✅ جديد
+
   scheduleAssets      ScheduleAsset[]
   tickets             Ticket[]
   workOrderAssets     WorkOrderAsset[]
+  auditLogs           AuditLog[]
+  locationHistories   AssetLocationHistory[]  // لتاريخ المواقع
   branch              Branch?          @relation(fields: [branchId], references: [id])
   building            Building         @relation(fields: [buildingId], references: [id])
   company             Company          @relation(fields: [companyId], references: [id])
@@ -244,8 +253,30 @@ model Asset {
   @@index([buildingId])
   @@index([deletedAt])
   @@map("assets")
-  @@index([companyId, deletedAt]) // فهرس مركب مهم
-  @@index([createdAt])            // لتسريع الترتيب
+  @@index([companyId, deletedAt])
+  @@index([createdAt])
+}
+
+model AssetLocationHistory {
+  id              String   @id @default(cuid())
+  assetId         String   @map("asset_id")
+  oldRoomId       String?  @map("old_room_id")
+  newRoomId       String   @map("new_room_id")
+  oldBuildingId   String?  @map("old_building_id")
+  newBuildingId   String   @map("new_building_id")
+  oldBranchId     String?  @map("old_branch_id")
+  newBranchId     String   @map("new_branch_id")
+  changedBy       String   @map("changed_by")
+  changedAt       DateTime @default(now()) @map("changed_at")
+  reason          String?
+
+  asset           Asset    @relation(fields: [assetId], references: [id])
+  oldRoom         Room?    @relation("oldRoom", fields: [oldRoomId], references: [id])
+  newRoom         Room     @relation("newRoom", fields: [newRoomId], references: [id])
+
+  @@map("asset_location_history")
+  @@index([assetId])
+  @@index([changedAt])
 }
 
 model AssetCounter {
@@ -261,6 +292,25 @@ model WorkOrderCounter {
   branchId  String   @id
   lastValue Int      @default(0)
   updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  assetId     String   @map("asset_id")
+  userId      String   @map("user_id")
+  userEmail   String   @map("user_email")
+  action      String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, LOCATION_CHANGE, etc.
+  changes     Json?    // التغييرات (قيمة قديمة ← قيمة جديدة)
+  metadata    Json?    // معلومات إضافية (مثل IP، User Agent)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  asset       Asset    @relation(fields: [assetId], references: [id])
+
+  @@map("audit_logs")
+  @@index([assetId])
+  @@index([userId])
+  @@index([createdAt])
 }
 
 model InventoryItem {

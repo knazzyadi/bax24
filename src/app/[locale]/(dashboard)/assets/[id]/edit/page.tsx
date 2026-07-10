@@ -30,6 +30,9 @@ import {
   AlertTriangle,
   RefreshCw,
   AlertCircle,
+  Package,
+  Truck,
+  Clock,
 } from "lucide-react";
 import { LocationSelector, type LocationValue } from "@/components/shared/LocationSelector";
 import type { AssetStatus, AssetType, Building, Floor, Room } from "@/types/assets";
@@ -59,21 +62,25 @@ export default function EditAssetPage() {
     name: "",
     nameEn: "",
     description: "",
-    descriptionEn: "",
     typeId: "",
     statusId: "",
     purchaseDate: "",
+    operationDate: "", // ✅ جديد
     warrantyEnd: "",
     lastMaintenanceDate: "",
     roomId: "",
     notes: "",
+    serialNumber: "", // ✅ جديد
+    manufacturer: "", // ✅ جديد
+    model: "", // ✅ جديد
+    supplier: "", // ✅ جديد
   });
 
   // كرت الخلفية الزجاجي
   const glassCard =
     "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
-  // ========== تحسين: useMemo لخريطة أسماء الحالات ==========
+  // ========== useMemo لخريطة أسماء الحالات ==========
   const statusNameMap = useMemo(() => {
     const map = new Map<string, string>();
     statuses.forEach((s) => {
@@ -89,7 +96,7 @@ export default function EditAssetPage() {
     [statusNameMap, t]
   );
 
-  // ========== جلب البيانات الأساسية (الحالات، الأنواع، المباني) ==========
+  // ========== جلب البيانات الأساسية ==========
   const fetchMeta = useCallback(async () => {
     setLoadingStatuses(true);
     setStatusesError(null);
@@ -133,16 +140,20 @@ export default function EditAssetPage() {
           name: asset.name || "",
           nameEn: asset.nameEn || "",
           description: asset.description || "",
-          descriptionEn: asset.descriptionEn || "",
           typeId: asset.typeId || "",
           statusId: asset.statusId || "",
           purchaseDate: asset.purchaseDate ? asset.purchaseDate.split("T")[0] : "",
+          operationDate: asset.operationDate ? asset.operationDate.split("T")[0] : "", // ✅ جديد
           warrantyEnd: asset.warrantyEnd ? asset.warrantyEnd.split("T")[0] : "",
           lastMaintenanceDate: asset.lastMaintenanceDate
             ? asset.lastMaintenanceDate.split("T")[0]
             : "",
           roomId: asset.roomId || "",
           notes: asset.notes || "",
+          serialNumber: asset.serialNumber || "", // ✅ جديد
+          manufacturer: asset.manufacturer || "", // ✅ جديد
+          model: asset.model || "", // ✅ جديد
+          supplier: asset.supplier || "", // ✅ جديد
         });
         if (asset.room) {
           setRoomId(asset.room.id);
@@ -230,14 +241,18 @@ export default function EditAssetPage() {
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
         description: formData.description.trim() || null,
-        descriptionEn: formData.descriptionEn.trim() || null,
         typeId: formData.typeId || null,
         statusId: formData.statusId || null,
         purchaseDate: formData.purchaseDate || null,
+        operationDate: formData.operationDate || null, // ✅ جديد
         warrantyEnd: formData.warrantyEnd || null,
         lastMaintenanceDate: formData.lastMaintenanceDate || null,
         roomId,
         notes: formData.notes || null,
+        serialNumber: formData.serialNumber.trim() || null, // ✅ جديد
+        manufacturer: formData.manufacturer.trim() || null, // ✅ جديد
+        model: formData.model.trim() || null, // ✅ جديد
+        supplier: formData.supplier.trim() || null, // ✅ جديد
       };
       const res = await fetch(`/api/assets/${assetId}`, {
         method: "PUT",
@@ -302,7 +317,9 @@ export default function EditAssetPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* العمود الرئيسي (2/3) */}
           <div className="lg:col-span-2 space-y-8">
-            {/* بطاقة المعلومات الأساسية */}
+            {/* ========================== */}
+            {/*  بطاقة المعلومات الأساسية  */}
+            {/* ========================== */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
@@ -329,24 +346,6 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* الوصف العربي */}
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                    {isRtl ? "الوصف (عربي)" : "Description (Arabic)"}
-                  </Label>
-                  <Textarea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleChange}
-                    placeholder={
-                      isRtl
-                        ? "أدخل وصفاً عربياً للأصل (اختياري)"
-                        : "Enter an Arabic description (optional)"
-                    }
-                    className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[80px]"
-                  />
-                </div>
-
                 {/* الاسم الإنجليزي */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
@@ -362,27 +361,22 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* الوصف الإنجليزي */}
+                {/* الوصف (حقل واحد) */}
                 <div className="space-y-1.5">
-                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                    <Globe className="h-4 w-4 text-indigo-400" />
-                    {isRtl ? "الوصف (English)" : "Description (English)"}
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {isRtl ? "الوصف" : "Description"}
                   </Label>
                   <Textarea
-                    name="descriptionEn"
-                    value={formData.descriptionEn}
+                    name="description"
+                    value={formData.description}
                     onChange={handleChange}
-                    placeholder={
-                      isRtl
-                        ? "أدخل وصفاً إنجليزياً للأصل (اختياري)"
-                        : "Enter an English description (optional)"
-                    }
+                    placeholder={isRtl ? "أدخل وصفاً للأصل (اختياري)" : "Enter a description (optional)"}
                     className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[80px]"
                   />
                 </div>
 
+                {/* النوع (معطل) + الحالة */}
                 <div className="grid md:grid-cols-2 gap-4">
-                  {/* النوع (معطل) */}
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1">
                       {t("type")}
@@ -416,7 +410,6 @@ export default function EditAssetPage() {
                     </p>
                   </div>
 
-                  {/* الحالة */}
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       {t("status")}
@@ -473,7 +466,82 @@ export default function EditAssetPage() {
               </div>
             </div>
 
-            {/* بطاقة الموقع */}
+            {/* ================================ */}
+            {/*  بطاقة تفاصيل إضافية             */}
+            {/* ================================ */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/40">
+                  <Package className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {isRtl ? "تفاصيل إضافية" : "Additional Details"}
+                </h2>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-5">
+                {/* الرقم التسلسلي */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {isRtl ? "الرقم التسلسلي" : "Serial Number"}
+                  </Label>
+                  <Input
+                    name="serialNumber"
+                    value={formData.serialNumber}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل الرقم التسلسلي" : "Enter serial number"}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                  />
+                </div>
+
+                {/* الشركة المصنعة */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {isRtl ? "الشركة المصنعة" : "Manufacturer"}
+                  </Label>
+                  <Input
+                    name="manufacturer"
+                    value={formData.manufacturer}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل اسم الشركة" : "Enter manufacturer"}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                  />
+                </div>
+
+                {/* الموديل */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {isRtl ? "الموديل" : "Model"}
+                  </Label>
+                  <Input
+                    name="model"
+                    value={formData.model}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل الموديل" : "Enter model"}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                  />
+                </div>
+
+                {/* المورد */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Truck className="h-4 w-4 text-indigo-400" />
+                    {isRtl ? "اسم المورد" : "Supplier"}
+                  </Label>
+                  <Input
+                    name="supplier"
+                    value={formData.supplier}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل اسم المورد" : "Enter supplier name"}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ============================ */}
+            {/*  بطاقة الموقع                */}
+            {/* ============================ */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
@@ -506,7 +574,9 @@ export default function EditAssetPage() {
               </div>
             </div>
 
-            {/* بطاقة دورة الحياة */}
+            {/* ============================ */}
+            {/*  بطاقة دورة الحياة           */}
+            {/* ============================ */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
@@ -518,6 +588,7 @@ export default function EditAssetPage() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
+                {/* تاريخ الشراء */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {t("purchaseDate")}
@@ -533,6 +604,26 @@ export default function EditAssetPage() {
                     />
                   </div>
                 </div>
+
+                {/* تاريخ التشغيل ✅ جديد */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-amber-400" />
+                    {isRtl ? "تاريخ التشغيل" : "Operation Date"}
+                  </Label>
+                  <div className="relative">
+                    <Clock className="absolute right-3 top-3.5 h-5 w-5 text-amber-400/70" />
+                    <Input
+                      name="operationDate"
+                      type="date"
+                      value={formData.operationDate}
+                      onChange={handleChange}
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-amber-500/50 transition-all pr-10"
+                    />
+                  </div>
+                </div>
+
+                {/* تاريخ انتهاء الضمان */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {t("warrantyEnd")}
@@ -548,6 +639,8 @@ export default function EditAssetPage() {
                     />
                   </div>
                 </div>
+
+                {/* تاريخ آخر صيانة */}
                 <div className="space-y-1.5 md:col-span-2">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-2">
                     <Wrench className="h-4 w-4 text-slate-400" />
@@ -563,6 +656,9 @@ export default function EditAssetPage() {
                       className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all pr-10"
                     />
                   </div>
+                  <p className="text-xs text-slate-400 dark:text-slate-500 italic">
+                    {t("lastMaintenanceHint")}
+                  </p>
                 </div>
               </div>
             </div>

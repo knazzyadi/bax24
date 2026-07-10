@@ -32,14 +32,16 @@ import {
   DoorOpen,
   Wrench,
   Upload,
-  Sparkles,
+  Package,
+  Settings,
+  Truck,
+  Clock,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
-import type { AssetStatus, AssetType, Building, Floor, Room } from "@/types/assets";
+import type { AssetStatus, AssetType, Building, Floor, Room, Branch } from "@/types/assets";
 
 // =========================
 // دالة توليد الكود التسلسلي
@@ -70,12 +72,18 @@ export default function NewAssetPage() {
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
   const [types, setTypes] = useState<AssetType[]>([]);
 
+  // بيانات المواقع
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
+
+  // المعرفات المختارة
+  const [branchId, setBranchId] = useState<string>("");
   const [buildingId, setBuildingId] = useState<string>("");
   const [floorId, setFloorId] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
+
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [selectedRoomFullCode, setSelectedRoomFullCode] = useState<string>("");
@@ -84,14 +92,18 @@ export default function NewAssetPage() {
     name: "",
     nameEn: "",
     description: "",
-    descriptionEn: "",
     typeId: "",
     statusId: "",
     purchaseDate: "",
+    operationDate: "",
     warrantyEnd: "",
     lastMaintenanceDate: "",
     roomId: "",
     notes: "",
+    serialNumber: "",
+    manufacturer: "",
+    model: "",
+    supplier: "",
   });
 
   // كرت الخلفية الزجاجي
@@ -108,14 +120,14 @@ export default function NewAssetPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statusesRes, typesRes, buildingsRes] = await Promise.all([
+        const [statusesRes, typesRes, branchesRes] = await Promise.all([
           fetch(`/api/asset-statuses?locale=${locale}`),
           fetch(`/api/asset-types?locale=${locale}`),
-          fetch(`/api/buildings`),
+          fetch(`/api/branches?locale=${locale}`),
         ]);
         if (statusesRes.ok) setStatuses(await statusesRes.json());
         if (typesRes.ok) setTypes(await typesRes.json());
-        if (buildingsRes.ok) setBuildings(await buildingsRes.json());
+        if (branchesRes.ok) setBranches(await branchesRes.json());
       } catch (err) {
         toast.error(t("fetchError"));
       }
@@ -123,10 +135,29 @@ export default function NewAssetPage() {
     fetchData();
   }, [locale, t]);
 
-  // جلب الأدوار
+  // جلب المباني بناءً على الفرع المختار
+  useEffect(() => {
+    if (!branchId) {
+      setBuildings([]);
+      return;
+    }
+    async function fetchBuildings() {
+      try {
+        const res = await fetch(`/api/buildings?branchId=${branchId}`);
+        if (res.ok) setBuildings(await res.json());
+        else setBuildings([]);
+      } catch {
+        setBuildings([]);
+      }
+    }
+    fetchBuildings();
+  }, [branchId]);
+
+  // جلب الأدوار بناءً على المبنى المختار
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
+      setFloorId("");
       return;
     }
     async function fetchFloors() {
@@ -144,7 +175,7 @@ export default function NewAssetPage() {
     fetchFloors();
   }, [buildingId]);
 
-  // جلب الغرف
+  // جلب الغرف بناءً على الدور المختار
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -187,6 +218,15 @@ export default function NewAssetPage() {
   // =========================
   // دوال التحكم
   // =========================
+  const handleBranchChange = (value: string) => {
+    setBranchId(value);
+    setBuildingId("");
+    setFloorId("");
+    setRoomId("");
+    setFormData((prev) => ({ ...prev, roomId: "" }));
+    setSelectedRoomFullCode("");
+  };
+
   const handleBuildingChange = (value: string) => {
     setBuildingId(value);
     setFloorId("");
@@ -258,15 +298,19 @@ export default function NewAssetPage() {
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
         description: formData.description.trim() || null,
-        descriptionEn: formData.descriptionEn.trim() || null,
         code: sequentialCode,
         typeId: cleanTypeId,
         statusId: cleanStatusId,
         purchaseDate: formData.purchaseDate || null,
+        operationDate: formData.operationDate || null,
         warrantyEnd: formData.warrantyEnd || null,
         lastMaintenanceDate: formData.lastMaintenanceDate || null,
         roomId: roomId,
         notes: formData.notes || null,
+        serialNumber: formData.serialNumber.trim() || null,
+        manufacturer: formData.manufacturer.trim() || null,
+        model: formData.model.trim() || null,
+        supplier: formData.supplier.trim() || null,
       };
 
       const res = await fetch("/api/assets", {
@@ -333,7 +377,9 @@ export default function NewAssetPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* العمود الرئيسي (2/3) */}
           <div className="lg:col-span-2 space-y-8">
-            {/* المعلومات الأساسية */}
+            {/* ========================== */}
+            {/*  بطاقة المعلومات الأساسية  */}
+            {/* ========================== */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
@@ -375,36 +421,37 @@ export default function NewAssetPage() {
                   />
                 </div>
 
-                {/* الوصف العربي */}
+                {/* الوصف */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                    {isRtl ? "الوصف (عربي)" : "Description (Arabic)"}
+                    {isRtl ? "الوصف" : "Description"}
                   </Label>
                   <Textarea
                     name="description"
                     value={formData.description}
                     onChange={handleChange}
-                    placeholder={isRtl ? "أدخل وصفاً عربياً للأصل (اختياري)" : "Enter an Arabic description (optional)"}
+                    placeholder={isRtl ? "أدخل وصفاً للأصل (اختياري)" : "Enter a description (optional)"}
                     className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[80px]"
                   />
                 </div>
+              </div>
+            </div>
 
-                {/* الوصف الإنجليزي */}
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                    <Globe className="h-4 w-4 text-indigo-400" />
-                    {isRtl ? "الوصف (English)" : "Description (English)"}
-                  </Label>
-                  <Textarea
-                    name="descriptionEn"
-                    value={formData.descriptionEn}
-                    onChange={handleChange}
-                    placeholder={isRtl ? "أدخل وصفاً إنجليزياً للأصل (اختياري)" : "Enter an English description (optional)"}
-                    className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[80px]"
-                  />
+            {/* ======================================================== */}
+            {/*  بطاقة النوع والموقع (مستقلة)                           */}
+            {/* ======================================================== */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
+                  <Settings className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {isRtl ? "النوع والموقع" : "Type & Location"}
+                </h2>
+              </div>
 
-                {/* النوع والحالة */}
+              <div className="space-y-5">
+                {/* النوع والحالة - صف واحد */}
                 <div className="grid md:grid-cols-2 gap-5">
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -415,7 +462,7 @@ export default function NewAssetPage() {
                       onValueChange={(v) => handleSelectChange("typeId", v)}
                       disabled={types.length === 0}
                     >
-                      <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                      <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                         <SelectValue placeholder={t("selectType")} />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={4}>
@@ -437,7 +484,7 @@ export default function NewAssetPage() {
                       onValueChange={(v) => handleSelectChange("statusId", v)}
                       disabled={statuses.length === 0}
                     >
-                      <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                      <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                         <SelectValue placeholder={t("selectStatus")} />
                       </SelectTrigger>
                       <SelectContent position="popper" sideOffset={4}>
@@ -451,7 +498,7 @@ export default function NewAssetPage() {
                   </div>
                 </div>
 
-                {/* الموقع */}
+                {/* تفاصيل الموقع - صفين: الفرع+المبنى، الدور+الوحدة */}
                 <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
                   <div className="flex items-center gap-3 mb-4">
                     <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
@@ -463,28 +510,57 @@ export default function NewAssetPage() {
                     </h3>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* الفرع */}
+                    <div className="space-y-1.5">
+                      <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                        <BuildingIcon className="h-4 w-4 text-indigo-400" />
+                        {isRtl ? "الفرع" : "Branch"}
+                      </Label>
+                      <Select
+                        value={branchId}
+                        onValueChange={handleBranchChange}
+                        disabled={branches.length === 0}
+                      >
+                        <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                          <SelectValue placeholder={isRtl ? "اختر الفرع" : "Select Branch"} />
+                        </SelectTrigger>
+                        <SelectContent position="popper" sideOffset={4}>
+                          {branches.map((branch) => (
+                            <SelectItem key={branch.id} value={branch.id}>
+                              {isRtl ? branch.name : branch.nameEn || branch.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {/* المبنى */}
                     <div className="space-y-1.5">
                       <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                         <BuildingIcon className="h-4 w-4 text-indigo-400" />
                         {t("selectBuilding")}
                       </Label>
                       <BuildingSelector
+                        className="w-full"  // ✅ أضف هذه الخاصية
                         value={buildingId}
                         onValueChange={handleBuildingChange}
                         buildings={buildings.map(normalizeBuilding)}
-                        loading={buildings.length === 0}
+                        loading={buildings.length === 0 && branchId !== ""}
                         placeholder={t("selectBuilding")}
                         emptyMessage={t("noBuildings")}
+                        disabled={!branchId}
                       />
                     </div>
 
+                    {/* الدور */}
                     <div className="space-y-1.5">
                       <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                         <Layers className="h-4 w-4 text-indigo-400" />
                         {t("selectFloor")}
                       </Label>
                       <FloorSelector
+                        className="w-full"  // ✅ أضف هذه الخاصية
                         value={floorId}
                         onValueChange={handleFloorChange}
                         floors={floors.map(normalizeFloor)}
@@ -493,15 +569,18 @@ export default function NewAssetPage() {
                         placeholder={t("selectFloor")}
                         emptyMessage={t("noFloors")}
                         noBuildingMessage={t("selectBuildingFirst")}
+                        disabled={!buildingId}
                       />
                     </div>
 
+                    {/* الوحدة (الغرفة) */}
                     <div className="space-y-1.5">
                       <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                         <DoorOpen className="h-4 w-4 text-indigo-400" />
                         {t("selectRoom")}
                       </Label>
                       <RoomSelector
+                        className="w-full"  // ✅ أضف هذه الخاصية
                         value={roomId}
                         onValueChange={handleRoomChange}
                         rooms={rooms.map(normalizeRoom)}
@@ -510,6 +589,7 @@ export default function NewAssetPage() {
                         placeholder={t("selectRoom")}
                         emptyMessage={t("noRooms")}
                         noFloorMessage={t("selectFloorFirst")}
+                        disabled={!floorId}
                       />
                     </div>
                   </div>
@@ -528,7 +608,78 @@ export default function NewAssetPage() {
               </div>
             </div>
 
-            {/* دورة الحياة */}
+            {/* ================================ */}
+            {/*  بطاقة تفاصيل إضافية             */}
+            {/* ================================ */}
+            <div className={glassCard}>
+              <div className="flex items-center gap-3 mb-6">
+                <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/40">
+                  <Package className="h-5 w-5 text-cyan-600 dark:text-cyan-400" />
+                </div>
+                <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {isRtl ? "تفاصيل إضافية" : "Additional Details"}
+                </h2>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {isRtl ? "الرقم التسلسلي" : "Serial Number"}
+                  </Label>
+                  <Input
+                    name="serialNumber"
+                    value={formData.serialNumber}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل الرقم التسلسلي" : "Enter serial number"}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {isRtl ? "الشركة المصنعة" : "Manufacturer"}
+                  </Label>
+                  <Input
+                    name="manufacturer"
+                    value={formData.manufacturer}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل اسم الشركة" : "Enter manufacturer"}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                    {isRtl ? "الموديل" : "Model"}
+                  </Label>
+                  <Input
+                    name="model"
+                    value={formData.model}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل الموديل" : "Enter model"}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Truck className="h-4 w-4 text-indigo-400" />
+                    {isRtl ? "اسم المورد" : "Supplier"}
+                  </Label>
+                  <Input
+                    name="supplier"
+                    value={formData.supplier}
+                    onChange={handleChange}
+                    placeholder={isRtl ? "أدخل اسم المورد" : "Enter supplier name"}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* ============================ */}
+            {/*  بطاقة دورة الحياة (معدلة)   */}
+            {/* ============================ */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
@@ -540,6 +691,7 @@ export default function NewAssetPage() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-5">
+                {/* تاريخ الشراء */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <Calendar className="h-4 w-4 text-indigo-400" />
@@ -554,6 +706,22 @@ export default function NewAssetPage() {
                   />
                 </div>
 
+                {/* تاريخ التشغيل (جديد) */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                    <Clock className="h-4 w-4 text-amber-400" />
+                    {isRtl ? "تاريخ التشغيل" : "Operation Date"}
+                  </Label>
+                  <Input
+                    name="operationDate"
+                    type="date"
+                    value={formData.operationDate}
+                    onChange={handleChange}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
+                  />
+                </div>
+
+                {/* تاريخ انتهاء الضمان */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <ShieldCheck className="h-4 w-4 text-emerald-400" />
@@ -568,20 +736,19 @@ export default function NewAssetPage() {
                   />
                 </div>
 
-                <div className="space-y-1.5 md:col-span-2">
+                {/* تاريخ آخر صيانة */}
+                <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-                    <Wrench className="h-4 w-4 text-amber-400" />
+                    <Wrench className="h-4 w-4 text-rose-400" />
                     {t("lastMaintenance")}
                   </Label>
-                  <div className="relative">
-                    <Input
-                      name="lastMaintenanceDate"
-                      type="date"
-                      value={formData.lastMaintenanceDate}
-                      onChange={handleChange}
-                      className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
-                    />
-                  </div>
+                  <Input
+                    name="lastMaintenanceDate"
+                    type="date"
+                    value={formData.lastMaintenanceDate}
+                    onChange={handleChange}
+                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
+                  />
                   <p className="text-xs text-slate-400 dark:text-slate-500 italic">
                     {t("lastMaintenanceHint")}
                   </p>

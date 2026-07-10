@@ -1217,6 +1217,13 @@
     "noTypes": "لا توجد أنواع أصول"
   },
   "Assets": {
+    "auditLog": "سجل التدقيق",
+    "maintenanceHistory": "سجل الصيانة",
+    "noMaintenanceRecords": "لا توجد صيانات مسجلة",
+    "relatedWorkOrders": "أوامر العمل المرتبطة",
+    "noWorkOrders": "لا توجد أوامر عمل لهذا الأصل",
+    "backToAssets": "العودة إلى الأصول",
+    "description": "الوصف",
     "back": "عودة",
     "title": "أصل جديد",
     "subtitle": "أدخل تفاصيل الأصل الجديد",

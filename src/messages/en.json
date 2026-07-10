@@ -1195,6 +1195,13 @@
     "typePlaceholder": "Select ticket type"
   },
   "Assets": {
+    "auditLog": "Audit Log",
+    "maintenanceHistory": "Maintenance History",
+    "noMaintenanceRecords": "No maintenance records",
+    "relatedWorkOrders": "Related Work Orders",
+    "noWorkOrders": "No work orders for this asset",
+    "backToAssets": "Back to Assets",
+    "description": "Description",
     "back": "Back",
     "title": "New Asset",
     "subtitle": "Enter new asset details",

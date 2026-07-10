@@ -2,75 +2,31 @@
 import { NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+import { createAuditLog, AuditAction, buildAuditDTO } from '@/lib/audit-log';
+import {
+  ValidationError,
+  NotFoundError,
+  AuthorizationError,
+  ConflictError,
+} from '@/lib/assets/asset-errors';
+import { parseAssetDates, getRoomHierarchy, validateDates } from '@/lib/assets/asset-utils';
+import { createAssetWithRetry } from '@/lib/assets/asset-creator';
 
-// ========== دالة توليد كود فريد ==========
-async function generateAssetCode(
-  companyId: string,
-  branchId: string,
-  typeId: string
-): Promise<string> {
-  const branch = await prisma.branch.findUnique({
-    where: { id: branchId },
-    select: { code: true },
-  });
-
-  if (!branch || !branch.code) {
-    throw new Error('الفرع غير صالح أو لا يحتوي على رمز (code)');
-  }
-
-  const assetType = await prisma.assetType.findUnique({
-    where: { id: typeId },
-    select: { code: true },
-  });
-
-  if (!assetType || !assetType.code) {
-    throw new Error('نوع الأصل غير صالح أو لا يحتوي على رمز (code)');
-  }
-
-  const lastAsset = await prisma.asset.findFirst({
-    where: {
-      companyId,
-      branchId,
-      typeId,
-      deletedAt: null,
-    },
-    orderBy: { createdAt: 'desc' },
-    select: { code: true },
-  });
-
-  let nextNumber = 1;
-
-  if (lastAsset?.code) {
-    const match = lastAsset.code.match(/-(\d{4})$/);
-    if (match) nextNumber = parseInt(match[1]) + 1;
-  }
-
-  const padded = nextNumber.toString().padStart(4, '0');
-
-  return `${branch.code}-${assetType.code}-${padded}`;
+// ============================================
+//  دالة مساعدة لاستخراج رسالة الخطأ
+// ============================================
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
 }
 
+// ============================================
+//  GET - جلب الأصول
+// ============================================
 export async function GET(request: Request) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({
-        assets: [],
-        pagination: {
-          total: 0,
-          currentPage: 1,
-          totalPages: 0,
-          limit: 9999,
-          nextUrl: null,
-          prevUrl: null,
-          currentCount: 0,
-          startIndex: 0,
-        },
-      });
-    }
-
+    const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({
         assets: [],
@@ -88,18 +44,14 @@ export async function GET(request: Request) {
     }
 
     const { searchParams } = new URL(request.url);
-
     const q = searchParams.get('q') || '';
     const typeId = searchParams.get('typeId');
-    const locationId = searchParams.get('locationId');
     const roomId = searchParams.get('roomId');
     const floorId = searchParams.get('floorId');
     const buildingId = searchParams.get('buildingId');
     const branchId = searchParams.get('branchId');
-
-    const page = parseInt(searchParams.get('page') || '1');
-    // ✅ تغيير الحد الافتراضي إلى 9999 لجلب جميع الأصول عند عدم إرسال limit
-    const limit = parseInt(searchParams.get('limit') || '9999');
+    const page = Number.parseInt(searchParams.get('page') || '1', 10);
+    const limit = Number.parseInt(searchParams.get('limit') || '9999', 10);
     const skip = (page - 1) * limit;
 
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
@@ -122,82 +74,75 @@ export async function GET(request: Request) {
       });
     }
 
-    const where: any = {
+    const where: Prisma.AssetWhereInput = {
       companyId,
       deletedAt: null,
     };
 
-    // ========== فلترة حسب صلاحيات المستخدم ==========
     if (!isAdmin) {
       if (userBranchIds.length > 0) {
         where.branchId = { in: userBranchIds };
       } else {
         return NextResponse.json({
           assets: [],
-          total: 0,
-          currentPage: page,
-          totalPages: 0,
-          limit,
+          pagination: {
+            total: 0,
+            currentPage: 1,
+            totalPages: 0,
+            limit,
+            nextUrl: null,
+            prevUrl: null,
+            currentCount: 0,
+            startIndex: 0,
+          },
         });
       }
     }
 
-    // ========== ✅ فلترة حسب الفرع مع مراعاة الصلاحيات ==========
     if (branchId) {
-      if (isAdmin) {
+      if (isAdmin || userBranchIds.includes(branchId)) {
         where.branchId = branchId;
       } else {
-        if (!userBranchIds.includes(branchId)) {
-          return NextResponse.json({
-            assets: [],
-            pagination: {
-              total: 0,
-              currentPage: page,
-              totalPages: 0,
-              limit,
-              nextUrl: null,
-              prevUrl: null,
-              currentCount: 0,
-              startIndex: 0,
-            },
-          });
-        }
-        where.branchId = branchId;
+        return NextResponse.json({
+          assets: [],
+          pagination: {
+            total: 0,
+            currentPage: 1,
+            totalPages: 0,
+            limit,
+            nextUrl: null,
+            prevUrl: null,
+            currentCount: 0,
+            startIndex: 0,
+          },
+        });
       }
     }
 
-    // ========== فلترة حسب المبنى ==========
-    if (buildingId) {
-      where.buildingId = buildingId;
-    }
+    if (buildingId) where.buildingId = buildingId;
 
-    // ========== فلترة حسب النص (بحث) ==========
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
         { nameEn: { contains: q, mode: 'insensitive' } },
         { code: { contains: q, mode: 'insensitive' } },
         { description: { contains: q, mode: 'insensitive' } },
-        { descriptionEn: { contains: q, mode: 'insensitive' } },
+        { serialNumber: { contains: q, mode: 'insensitive' } },
+        { manufacturer: { contains: q, mode: 'insensitive' } },
+        { model: { contains: q, mode: 'insensitive' } },
+        { supplier: { contains: q, mode: 'insensitive' } },
       ];
     }
 
-    // ========== فلترة حسب نوع الأصل ==========
-    if (typeId && typeId !== 'all') {
-      where.typeId = typeId;
-    }
+    if (typeId && typeId !== 'all') where.typeId = typeId;
 
-    // ========== فلترة الموقع (roomId > floorId) ==========
-    const effectiveRoomId = roomId || locationId;
+    const effectiveRoomId = roomId;
     if (effectiveRoomId) {
       where.roomId = effectiveRoomId;
     } else if (floorId) {
-      where.room = {
-        floorId: floorId,
-      };
+      where.room = { floorId };
     }
 
-    // ========== جلب البيانات مع الترقيم ==========
     const [assets, total] = await Promise.all([
       prisma.asset.findMany({
         where,
@@ -207,28 +152,22 @@ export async function GET(request: Request) {
           name: true,
           nameEn: true,
           description: true,
-          descriptionEn: true,
           purchaseDate: true,
+          operationDate: true,
           warrantyEnd: true,
           lastMaintenanceDate: true,
+          serialNumber: true,
+          manufacturer: true,
+          model: true,
+          supplier: true,
           notes: true,
           createdAt: true,
           updatedAt: true,
           buildingId: true,
-          type: {
-            select: { id: true, name: true, nameEn: true, code: true },
-          },
-          status: {
-            select: { id: true, name: true, nameEn: true, color: true },
-          },
-          room: {
-            select: {
-              id: true,
-              name: true,
-              nameEn: true,
-              code: true,
-            },
-          },
+          branchId: true,
+          type: { select: { id: true, name: true, nameEn: true, code: true } },
+          status: { select: { id: true, name: true, nameEn: true, color: true } },
+          room: { select: { id: true, name: true, nameEn: true, code: true } },
         },
         orderBy: { createdAt: 'desc' },
         skip,
@@ -237,9 +176,10 @@ export async function GET(request: Request) {
       prisma.asset.count({ where }),
     ]);
 
-    const serializedAssets = assets.map((asset: any) => ({
+    const serializedAssets = assets.map((asset) => ({
       ...asset,
       purchaseDate: asset.purchaseDate?.toISOString() || null,
+      operationDate: asset.operationDate?.toISOString() || null,
       warrantyEnd: asset.warrantyEnd?.toISOString() || null,
       lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString() || null,
       createdAt: asset.createdAt.toISOString(),
@@ -264,9 +204,8 @@ export async function GET(request: Request) {
         startIndex: skip + 1,
       },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('GET /api/assets error:', error);
-
     return NextResponse.json({
       assets: [],
       pagination: {
@@ -283,16 +222,12 @@ export async function GET(request: Request) {
   }
 }
 
-// ========== POST ==========
+// ============================================
+//  POST - إنشاء أصل جديد
+// ============================================
 export async function POST(request: Request) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
+    const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -303,14 +238,14 @@ export async function POST(request: Request) {
       name,
       nameEn,
       description,
-      descriptionEn,
       typeId,
       statusId,
       roomId,
-      purchaseDate,
-      warrantyEnd,
-      lastMaintenanceDate,
       notes,
+      serialNumber,
+      manufacturer,
+      model,
+      supplier,
     } = body;
 
     if (!name || !typeId || !roomId) {
@@ -321,73 +256,108 @@ export async function POST(request: Request) {
     }
 
     const companyId = session.companyId;
-
     if (!companyId) {
       return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة' },
+        { error: 'لا توجد شركة مرتبطة بالمستخدم' },
         { status: 400 }
       );
     }
 
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
-      select: {
-        buildingId: true,
-        building: { select: { branchId: true } },
-      },
+    // ✅ جلب هرمية الغرفة
+    const { buildingId, branchId } = await getRoomHierarchy(roomId);
+
+    // ✅ التحقق من صلاحية المستخدم
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const userBranchIds = session.branchIds || [];
+    if (!isAdmin && !userBranchIds.includes(branchId)) {
+      return NextResponse.json(
+        { error: 'ليس لديك صلاحية للوصول إلى هذا الفرع' },
+        { status: 403 }
+      );
+    }
+
+    // ✅ تحويل التواريخ
+    const dates = parseAssetDates(body);
+    const { purchaseDate, operationDate, warrantyEnd, lastMaintenanceDate } = dates;
+
+    // ✅ التحقق من التواريخ
+    validateDates(purchaseDate, operationDate, warrantyEnd);
+
+    // ✅ التحقق من تفرد الرقم التسلسلي
+    if (serialNumber) {
+      const existingSerial = await prisma.asset.findFirst({
+        where: {
+          companyId,
+          serialNumber,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+      if (existingSerial) {
+        return NextResponse.json(
+          { error: 'الرقم التسلسلي مستخدم بالفعل في هذه الشركة' },
+          { status: 409 }
+        );
+      }
+    }
+
+    // ✅ إنشاء الأصل مع إعادة المحاولة
+    const asset = await createAssetWithRetry({
+      name,
+      nameEn,
+      description,
+      typeId,
+      statusId,
+      roomId,
+      buildingId,
+      branchId,
+      companyId,
+      purchaseDate,
+      operationDate,
+      warrantyEnd,
+      lastMaintenanceDate,
+      notes,
+      serialNumber,
+      manufacturer,
+      model,
+      supplier,
     });
 
-    if (!room) {
-      return NextResponse.json(
-        { error: 'الغرفة غير موجودة في قاعدة البيانات' },
-        { status: 400 }
-      );
+    // ✅ تسجيل التدقيق (غير متزامن ولا يعطل العملية الأساسية)
+    try {
+      const auditDTO = buildAuditDTO(asset);
+      await createAuditLog({
+        action: AuditAction.CREATE,
+        oldData: null,
+        newData: auditDTO,
+        userId: session.userId,
+        userEmail: session.email,
+        metadata: { ip: request.headers.get('x-forwarded-for') || 'unknown' },
+      });
+    } catch (auditError) {
+      console.error('Audit log creation failed:', auditError);
     }
-
-    if (!room.building?.branchId) {
-      return NextResponse.json(
-        { error: 'الغرفة غير مرتبطة بفرع أو مبنى صالح' },
-        { status: 400 }
-      );
-    }
-
-    const branchId = room.building.branchId;
-    const buildingId = room.buildingId;
-
-    const code = await generateAssetCode(companyId, branchId, typeId);
-
-    const asset = await prisma.asset.create({
-      data: {
-        name,
-        nameEn: nameEn || undefined,
-        description: description || undefined,
-        descriptionEn: descriptionEn || undefined,
-        code,
-        typeId,
-        statusId: statusId || undefined,
-        roomId,
-        buildingId,
-        branchId,
-        companyId,
-        purchaseDate: purchaseDate ? new Date(purchaseDate) : undefined,
-        warrantyEnd: warrantyEnd ? new Date(warrantyEnd) : undefined,
-        lastMaintenanceDate: lastMaintenanceDate
-          ? new Date(lastMaintenanceDate)
-          : undefined,
-        notes: notes || undefined,
-      },
-    });
 
     return NextResponse.json(asset, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
     console.error('POST /api/assets error:', error);
 
-    return NextResponse.json(
-      {
-        error: 'خطأ في إنشاء الأصل',
-        message: error.message,
-      },
-      { status: 500 }
-    );
+    // ✅ معالجة الأخطاء المخصصة
+    if (error instanceof ValidationError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error instanceof NotFoundError) {
+      return NextResponse.json({ error: error.message }, { status: 404 });
+    }
+    if (error instanceof AuthorizationError) {
+      return NextResponse.json({ error: error.message }, { status: 403 });
+    }
+    if (error instanceof ConflictError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+
+    // ✅ استخدام دالة مساعدة لاستخراج الرسالة
+    const message = getErrorMessage(error);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

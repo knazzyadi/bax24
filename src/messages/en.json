@@ -180,8 +180,8 @@
         "description": "Items needing reorder"
       },
       "pendingRequests": {
-      "title": "Tickets",
-      "description": "Pending tickets awaiting review"
+        "title": "Tickets",
+        "description": "Pending tickets awaiting review"
       },
       "live": "Live"
     },
@@ -222,105 +222,112 @@
   },
   "Sidebar": {
     "nav": {
-      "workOrderPriorities": "Work Order Priorities",
       "dashboard": "Dashboard",
-      "assets": "Assets",
       "workOrders": "Work Orders",
-      "users": "Users",
-      "companies": "Companies",
-      "settings": "Settings",
       "tickets": "Tickets",
-      "logout": "Logout",
-      "profile": "Profile",
-      "superAdmin": "Super Admin",
+      "maintenance": "Preventive Maintenance",
+      "contracts": "Contracts",
+      "assets": "Assets",
+      "inventory": "Inventory",
+      "reports": "Reports",
+      "vehicles": "Vehicle Requests",
+      "vehiclesList": "Vehicles",
+      "drivers": "Drivers",
+      "companies": "Companies",
+      "branches": "Branches",
+      "users": "Users",
+      "permissions": "Permissions",
+      "superDashboard": "Super Admin Dashboard",
       "admin": "Company Admin",
       "supervisor": "Supervisor",
       "technician": "Technician",
       "driver": "Driver",
-      "maintenance": "PPM",
-      "contracts": "Contracts",
-      "vehicles": "Vehicle Requests",
-      "inventory": "Inventory",
-      "superDashboard": "Super Admin Dashboard",
-      "buildings": "Building/Location",
-      "floors": "Floor/Area",
-      "rooms": "Unit",
-      "assetTypes": "Asset Types",
-      "workOrderStatuses": "Work Order Statuses",
-      "assetStatuses": "Asset Statuses",
-      "permissions": "Permissions",
-      "drivers": "Drivers",
-      "branches": "Branches",
-      "vehiclesList": "Vehicles",
-      "reports": "Reports"
+      "profile": "Profile",
+      "logout": "Logout",
+      "settingsTitle": "Settings",
+      "settings": {
+        "locations": "Locations",
+        "assets": "Assets",
+        "assetTypes": "Asset Types",
+        "assetStatuses": "Asset Statuses",
+        "workOrders": "Work Orders",
+        "workOrderTypes": "Work Order Types",
+        "workOrderPriorities": "Priorities",
+        "workOrderStatuses": "Statuses",
+        "workOrderCloseReasons": "Close Reasons",
+        "workOrderCancelReasons": "Cancel Reasons",
+        "suppliers": "Suppliers",
+        "users": "Users",
+        "roles": "Roles & Permissions"
+      }
     },
-    "systemAdminSection": "System Admin",
+    "systemAdminSection": "System Administration",
     "settings": "Settings",
     "locationsSettings": "Location Settings",
     "vehiclesSettings": "Vehicle Settings",
-    "dictionariesSettings": "Dictionary Settings",
+    "dictionariesSettings": "Reference Data",
     "company": "Company",
     "logout": "Logout"
   },
-"WorkOrderPriorities": {
-  "confirmDelete": "Confirm Delete",
-  "deleteWarning": "Are you sure you want to delete this priority? This action cannot be undone.",
-  "noItems": "No priorities found",
-  "title": "Work Order Priorities",
-  "subtitle": "Define critical importance levels and field team response order.",
-  "listTitle": "Priority Matrix",
-  "listDescription": "Manage importance levels (Emergency, High, Low) and customize visual alert colors.",
-  "addButton": "Add Priority",
-  "editButton": "Edit Priority",
-  "name": "Name",
-  "nameEn": "Name in English",
-  "order": "Order",
-  "isDefault": "Default",
-  "color": "Color",
-  "actions": "Actions",
-  "edit": "Edit",
-  "delete": "Delete",
-  "deleteConfirm": "Are you sure you want to delete this priority?",
-  "deleteSuccess": "Deleted successfully",
-  "createSuccess": "Added successfully",
-  "updateSuccess": "Updated successfully",
-  "loading": "Loading...",
-  "noStatuses": "No priorities found",
-  "cancel": "Cancel",
-  "save": "Save",
-  "saving": "Saving...",
-  "fields": {
-    "name": {
-      "label": "Priority Level Name *",
-      "placeholder": "Example: Emergency - Immediate Response"
-    },
-    "nameEn": {
-      "label": "Name in English",
-      "placeholder": "Example: Emergency"
-    },
-    "color": {
-      "label": "Visual Highlight Color",
-      "placeholder": "#ef4444"
-    },
-    "order": {
-      "label": "Order Weight (1 = highest)",
-      "placeholder": "Numeric value"
-    },
-    "isDefault": {
-      "label": "Set as default for new work orders"
-    }
-  },
-  "columns": {
-    "name": "Priority Level",
+  "WorkOrderPriorities": {
+    "confirmDelete": "Confirm Delete",
+    "deleteWarning": "Are you sure you want to delete this priority? This action cannot be undone.",
+    "noItems": "No priorities found",
+    "title": "Work Order Priorities",
+    "subtitle": "Define critical importance levels and field team response order.",
+    "listTitle": "Priority Matrix",
+    "listDescription": "Manage importance levels (Emergency, High, Low) and customize visual alert colors.",
+    "addButton": "Add Priority",
+    "editButton": "Edit Priority",
+    "name": "Name",
+    "nameEn": "Name in English",
     "order": "Order",
-    "orderPrefix": "Rank #",
-    "isDefault": "Default Status",
-    "defaultBadge": "Default",
-    "notDefault": "---"
+    "isDefault": "Default",
+    "color": "Color",
+    "actions": "Actions",
+    "edit": "Edit",
+    "delete": "Delete",
+    "deleteConfirm": "Are you sure you want to delete this priority?",
+    "deleteSuccess": "Deleted successfully",
+    "createSuccess": "Added successfully",
+    "updateSuccess": "Updated successfully",
+    "loading": "Loading...",
+    "noStatuses": "No priorities found",
+    "cancel": "Cancel",
+    "save": "Save",
+    "saving": "Saving...",
+    "fields": {
+      "name": {
+        "label": "Priority Level Name *",
+        "placeholder": "Example: Emergency - Immediate Response"
+      },
+      "nameEn": {
+        "label": "Name in English",
+        "placeholder": "Example: Emergency"
+      },
+      "color": {
+        "label": "Visual Highlight Color",
+        "placeholder": "#ef4444"
+      },
+      "order": {
+        "label": "Order Weight (1 = highest)",
+        "placeholder": "Numeric value"
+      },
+      "isDefault": {
+        "label": "Set as default for new work orders"
+      }
+    },
+    "columns": {
+      "name": "Priority Level",
+      "order": "Order",
+      "orderPrefix": "Rank #",
+      "isDefault": "Default Status",
+      "defaultBadge": "Default",
+      "notDefault": "---"
+    },
+    "tipTitle": "Design Tip",
+    "tipContent": "Use striking colors (e.g., red, orange) for high priorities to ensure technicians' attention immediately when the request appears on their dashboard."
   },
-  "tipTitle": "Design Tip",
-  "tipContent": "Use striking colors (e.g., red, orange) for high priorities to ensure technicians' attention immediately when the request appears on their dashboard."
-},
   "AssetStatuses": {
     "code": "Code",
     "title": "Asset Statuses",
@@ -821,6 +828,59 @@
     "confirmCreate": "Confirm creation",
     "noUsersFound": "No users found"
   },
+  "LookupPage": {
+    "fetchError": "Failed to fetch data",
+    "addButton": "Add",
+    "searchPlaceholder": "Search...",
+    "createSuccess": "Created successfully",
+    "createError": "Failed to create",
+    "updateSuccess": "Updated successfully",
+    "updateError": "Failed to update",
+    "deleteSuccess": "Deleted successfully",
+    "deleteError": "Failed to delete",
+    "noCreatePermission": "You do not have permission to create",
+    "noUpdatePermission": "You do not have permission to update",
+    "noDeletePermission": "You do not have permission to delete"
+  },
+  "Settings": {
+    "record": "record",
+    "records": "records",
+    "arabicName": "Arabic Name",
+    "englishName": "English Name",
+    "code": "Code",
+    "color": "Color",
+    "order": "Order",
+    "default": "Default",
+    "active": "Active",
+    "inactive": "Inactive",
+    "status": "Status",
+    "actions": "Actions",
+    "edit": "Edit",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "saving": "Saving...",
+    "saveChanges": "Save Changes",
+    "create": "Create",
+    "addRecord": "Add Item",
+    "editRecord": "Edit Item",
+    "addRecordDescription": "Add a new item",
+    "editRecordDescription": "Edit item details",
+    "noRecords": "No Records",
+    "noRecordsDescription": "No items found",
+    "drag": "Drag to reorder",
+    "fetchError": "Failed to fetch data",
+    "createSuccess": "Created successfully",
+    "createError": "Failed to create",
+    "updateSuccess": "Updated successfully",
+    "updateError": "Failed to update",
+    "deleteSuccess": "Deleted successfully",
+    "deleteError": "Failed to delete",
+    "validation": {
+      "required": "This field is required",
+      "maxLength": "Maximum length exceeded",
+      "minOrder": "Order must be greater than zero"
+    }
+  },
   "AssetsPage": {
     "title": "Assets & Equipment",
     "subtitle": "Central asset management and operational status tracking.",
@@ -1012,6 +1072,26 @@
     "saveChanges": "Save Changes",
     "saving": "Saving..."
   },
+  "BulkImport": {
+    "title": "Bulk Import Assets",
+    "subtitle": "Add multiple assets at once in the same location",
+    "downloadTemplate": "Download CSV Template",
+    "back": "Back",
+    "saveAll": "Save All Assets",
+    "cancel": "Cancel",
+    "instructions": "Instructions",
+    "addRow": "Add Row",
+    "importCsv": "Import CSV",
+    "assetsList": "Assets List",
+    "retry": "Retry",
+    "selectRoomFirst": "Please select a room first",
+    "allRowsNeedNameAndType": "All rows must have name and type",
+    "successMessage": "{count} assets added successfully",
+    "failureMessage": "{count} assets failed",
+    "errorOccurred": "An error occurred",
+    "serverError": "Server connection failed",
+    "connectionError": "Connection error"
+  },
   "WorkOrders": {
     "attachedImages": "Attached Images",
     "noImages": "No images attached",
@@ -1019,7 +1099,7 @@
     "add": "Add",
     "itemAdded": "Part added successfully",
     "noItemsAvailable": "No spare parts available",
-     "spareParts": "Spare Parts",
+    "spareParts": "Spare Parts",
     "addPart": "Add Part",
     "itemName": "Item Name",
     "sku": "SKU",

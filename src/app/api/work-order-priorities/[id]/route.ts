@@ -1,14 +1,13 @@
 // src/app/api/work-order-priorities/[id]/route.ts
-import { NextResponse } from 'next/server';
-
+import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
-
-
-
+// =====================
+// GET: جلب أولوية واحدة
+// =====================
 export async function GET(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -16,34 +15,50 @@ export async function GET(
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
+
     await checkPermission('work_orders.read');
 
     const { id } = await params;
     const companyId = session.companyId;
-
-    // ✅ التحقق من وجود companyId
     if (!companyId) {
-      return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة بالمستخدم' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
     const priority = await prisma.workOrderPriority.findFirst({
-      where: { id, companyId },
+      where: { id, companyId, deletedAt: null },
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+        code: true,
+        description: true,
+        color: true,
+        icon: true,
+        order: true,
+        isDefault: true,
+        isActive: true,
+      },
     });
+
     if (!priority) {
       return NextResponse.json({ error: 'الأولوية غير موجودة' }, { status: 404 });
     }
+
     return NextResponse.json(priority);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'خطأ في جلب الأولوية' }, { status: 500 });
+  } catch (error: any) {
+    console.error('GET /api/work-order-priorities/[id] error:', error);
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
+// =====================
+// PUT: تحديث أولوية
+// =====================
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -52,59 +67,88 @@ export async function PUT(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
+    await checkPermission('work_orders.update');
 
     const { id } = await params;
     const body = await request.json();
-    const { name, nameEn, order, isDefault, color } = body;
+    const { name, nameEn, code, description, color, icon, order, isDefault, isActive } = body;
 
-    const companyId = session.companyId;
-
-    // ✅ التحقق من وجود companyId
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة بالمستخدم' },
-        { status: 400 }
-      );
+    if (!name || name.trim() === '') {
+      return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
     }
 
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    }
+
+    // التحقق من وجود الأولوية
     const existing = await prisma.workOrderPriority.findFirst({
-      where: { id, companyId },
+      where: { id, companyId, deletedAt: null },
     });
     if (!existing) {
       return NextResponse.json({ error: 'الأولوية غير موجودة' }, { status: 404 });
     }
 
-    // If this priority is being set as default, unset others
-    if (isDefault === true && !existing.isDefault) {
-      await prisma.workOrderPriority.updateMany({
-        where: { companyId, isDefault: true },
-        data: { isDefault: false },
-      });
-    }
-
-    const updated = await prisma.workOrderPriority.update({
-      where: { id },
-      data: {
-        name: name?.trim(),
-        nameEn: nameEn?.trim() || null,
-        order: typeof order === 'number' ? order : existing.order,
-        isDefault: isDefault === true,
-        color: color || existing.color,
+    // التحقق من عدم تكرار الاسم أو الكود (باستثناء نفس العنصر)
+    const duplicate = await prisma.workOrderPriority.findFirst({
+      where: {
+        companyId,
+        deletedAt: null,
+        NOT: { id },
+        OR: [
+          { name: name.trim() },
+          { code: code?.trim() || undefined },
+        ],
       },
     });
+    if (duplicate) {
+      return NextResponse.json(
+        { error: 'يوجد أولوية بنفس الاسم أو الكود بالفعل' },
+        { status: 409 }
+      );
+    }
+
+    // تحديث داخل transaction
+    const updated = await prisma.$transaction(async (tx) => {
+      if (isDefault === true) {
+        await tx.workOrderPriority.updateMany({
+          where: { companyId, isDefault: true, id: { not: id } },
+          data: { isDefault: false },
+        });
+      }
+
+      return tx.workOrderPriority.update({
+        where: { id },
+        data: {
+          name: name.trim(),
+          nameEn: nameEn?.trim() || null,
+          code: code?.trim() || null,
+          description: description?.trim() || null,
+          color: color || existing.color,
+          icon: icon?.trim() || null,
+          order: typeof order === 'number' ? order : existing.order,
+          isDefault: isDefault === true,
+          isActive: isActive ?? existing.isActive,
+        },
+      });
+    });
+
     return NextResponse.json(updated);
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'فشل تحديث الأولوية' }, { status: 500 });
+  } catch (error: any) {
+    console.error('PUT /api/work-order-priorities/[id] error:', error);
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
+// =====================
+// DELETE: حذف أولوية (Soft Delete)
+// =====================
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -113,33 +157,41 @@ export async function DELETE(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
-    if (!isAdmin) {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
+    await checkPermission('work_orders.delete');
 
     const { id } = await params;
     const companyId = session.companyId;
-
-    // ✅ التحقق من وجود companyId
     if (!companyId) {
-      return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة بالمستخدم' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
     const existing = await prisma.workOrderPriority.findFirst({
-      where: { id, companyId },
+      where: { id, companyId, deletedAt: null },
     });
     if (!existing) {
       return NextResponse.json({ error: 'الأولوية غير موجودة' }, { status: 404 });
     }
 
-    await prisma.workOrderPriority.delete({ where: { id } });
-    return NextResponse.json({ message: 'تم الحذف بنجاح' });
-  } catch (error) {
-    console.error(error);
-    return NextResponse.json({ error: 'فشل حذف الأولوية' }, { status: 500 });
+    // منع حذف الأولوية الافتراضية
+    if (existing.isDefault) {
+      return NextResponse.json(
+        { error: 'لا يمكن حذف الأولوية الافتراضية' },
+        { status: 400 }
+      );
+    }
+
+    // Soft Delete
+    await prisma.workOrderPriority.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('DELETE /api/work-order-priorities/[id] error:', error);
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

@@ -1,10 +1,8 @@
 // src/app/api/assets/next-code/route.ts
 import { NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
+import { generateUniqueAssetCode } from '@/lib/selects/code-generator';
 
 export async function GET(request: Request) {
   try {
@@ -18,28 +16,45 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
     }
 
-    // جلب أعلى كود تسلسلي مستخدم في الشركة
-    const lastAsset = await prisma.asset.findFirst({
-      where: { companyId },
-      orderBy: { code: 'desc' },
-      select: { code: true },
+    const { searchParams } = new URL(request.url);
+    const typeId = searchParams.get('typeId');
+    const roomId = searchParams.get('roomId');
+
+    if (!typeId || !roomId) {
+      return NextResponse.json(
+        { error: 'نوع الأصل والغرفة مطلوبان لتوليد الكود' },
+        { status: 400 }
+      );
+    }
+
+    // جلب branchId من الغرفة
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      select: {
+        building: {
+          select: { branchId: true },
+        },
+      },
     });
 
-    let lastNumber = 0;
-    if (lastAsset?.code) {
-      // نفترض أن الكود أصبح مجرد رقم (بدون أحرف)
-      const num = parseInt(lastAsset.code, 10);
-      if (!isNaN(num)) lastNumber = num;
+    if (!room?.building?.branchId) {
+      return NextResponse.json(
+        { error: 'الغرفة غير مرتبطة بفرع صالح' },
+        { status: 400 }
+      );
     }
-    const nextNumber = lastNumber + 1;
-    const nextCode = nextNumber.toString(); // رقم تسلسلي بسيط
 
-    return NextResponse.json({ code: nextCode });
-  } catch (error: any) {
+    const branchId = room.building.branchId;
+
+    // ✅ توليد الكود داخل معاملة وإرجاعه مباشرة
+    const generatedCode = await prisma.$transaction(async (tx) => {
+      return await generateUniqueAssetCode(tx, companyId, branchId, typeId);
+    });
+
+    return NextResponse.json({ code: generatedCode });
+  } catch (error) {
     console.error('❌ Error generating next code:', error);
-    return NextResponse.json(
-      { error: 'فشل توليد الكود التسلسلي', details: error.message },
-      { status: 500 }
-    );
+    const message = error instanceof Error ? error.message : 'فشل توليد الكود التسلسلي';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

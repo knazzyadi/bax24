@@ -1,10 +1,9 @@
-// hooks/useAssetLocation.ts
+// src/app/[locale]/(dashboard)/assets/bulk-import/hooks/useAssetLocation.ts
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import type { Building, Floor, Room } from '@/types/assets';
 import { toast } from 'sonner';
 
-// دالة مساعدة لتطبيع nameEn: تحويل null إلى undefined
 const normalizeBuilding = (b: Building): Building & { nameEn?: string } => ({
   ...b,
   nameEn: b.nameEn ?? undefined,
@@ -40,7 +39,10 @@ export function useAssetLocation() {
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // جلب المباني (مع إضافة companyId من الجلسة)
+  // ✅ loading موحدة
+  const loading = loadingBuildings || loadingFloors || loadingRooms;
+
+  // جلب المباني
   useEffect(() => {
     if (!session?.user?.companyId) {
       setError('لا توجد شركة مرتبطة بالمستخدم');
@@ -72,7 +74,7 @@ export function useAssetLocation() {
     fetchBuildings();
   }, [session]);
 
-  // جلب الأدوار عند تغيير المبنى
+  // جلب الأدوار
   useEffect(() => {
     if (!selectedBuildingId) {
       setRawFloors([]);
@@ -97,7 +99,7 @@ export function useAssetLocation() {
       .finally(() => setLoadingFloors(false));
   }, [selectedBuildingId]);
 
-  // جلب الغرف عند تغيير الدور
+  // جلب الغرف
   useEffect(() => {
     if (!selectedFloorId) {
       setRawRooms([]);
@@ -165,6 +167,7 @@ export function useAssetLocation() {
     loadingBuildings,
     loadingFloors,
     loadingRooms,
+    loading, // ✅ جديد
     error,
     handleBuildingChange,
     handleFloorChange,

@@ -1,141 +1,46 @@
 // src/app/api/branches/route.ts
-import { NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
-import { prisma } from '@/lib/prisma';
-import { randomUUID } from 'crypto';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/auth/permissions';
+import { BranchService } from '@/services/BranchService';
 
-function generateSlug(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9]/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "");
-}
-
-export async function GET() {
+// GET: جلب جميع الفروع
+export async function GET(request: NextRequest) {
   try {
-    // ✅ استخدام try-catch داخلي لتجنب فشل الطلب بالكامل
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      // إذا فشلت المصادقة، نعيد مصفوفة فارغة بدلاً من خطأ 401
-      return NextResponse.json([]);
+    const session = await requirePermission('branches.read');
+    const { searchParams } = new URL(request.url);
+    const companyIdParam = searchParams.get('companyId');
+    const branches = await BranchService.getAll(session, companyIdParam);
+    return NextResponse.json(branches);
+  } catch (error: any) {
+    console.error('GET /api/branches', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    if (!session) {
-      return NextResponse.json([]);
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
-
-    const roleName = session.role;
-    const userBranchIds = session.branchIds || [];
-    const companyId = session.companyId;
-
-    // سوبر أدمن: جلب كل الفروع
-    if (roleName === 'SUPER_ADMIN') {
-      const branches = await prisma.branch.findMany({
-        include: { company: { select: { name: true } } },
-        orderBy: { createdAt: 'desc' },
-      });
-      return NextResponse.json(branches);
-    }
-
-    // للمستخدمين العاديين أو الإداريين: فلترة حسب الشركة والصلاحيات
-    if (companyId) {
-      let where: any = { companyId: companyId };
-      const isAdmin = roleName === 'ADMIN' || roleName === 'SUPER_ADMIN';
-      
-      if (!isAdmin && userBranchIds.length > 0) {
-        where.id = { in: userBranchIds };
-      } else if (!isAdmin && userBranchIds.length === 0) {
-        return NextResponse.json([]);
-      }
-
-      const branches = await prisma.branch.findMany({
-        where,
-        include: { company: { select: { name: true } } },
-        orderBy: { createdAt: 'desc' },
-      });
-      return NextResponse.json(branches);
-    }
-
-    // إذا لم تكن هناك شركة مرتبطة
-    return NextResponse.json([]);
-  } catch (error) {
-    console.error('GET /api/branches error:', error);
-    // ✅ في حالة أي خطأ، نعيد مصفوفة فارغة بدلاً من 500
-    return NextResponse.json([]);
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-export async function POST(request: Request) {
+// POST: إنشاء فرع جديد
+export async function POST(request: NextRequest) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
+    const session = await requirePermission('branches.create');
+    const body = await request.json();
+    const branch = await BranchService.create(body, session);
+    return NextResponse.json(branch, { status: 201 });
+  } catch (error: any) {
+    console.error('POST /api/branches', error);
+    if (error.message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
-
-    const roleName = session.role;
-    const { name, nameEn, code, companyId } = await request.json();
-
-    if (!name || !code) {
-      return NextResponse.json({ error: 'اسم الفرع والكود مطلوبان' }, { status: 400 });
+    if (error.message === 'يوجد فرع بنفس الكود' || error.message === 'اسم الفرع مطلوب' || error.message === 'كود الفرع مطلوب') {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
-
-    let targetCompanyId = companyId;
-    if (roleName !== 'SUPER_ADMIN') {
-      if (!session.companyId) {
-        return NextResponse.json({ error: 'الشركة غير محددة' }, { status: 400 });
-      }
-      targetCompanyId = session.companyId;
-    }
-
-    if (!targetCompanyId) {
-      return NextResponse.json({ error: 'الشركة غير محددة' }, { status: 400 });
-    }
-
-    const existingBranch = await prisma.branch.findFirst({
-      where: { code, companyId: targetCompanyId },
-    });
-    if (existingBranch) {
-      return NextResponse.json({ error: 'الكود موجود مسبقاً في هذه الشركة' }, { status: 409 });
-    }
-
-    const baseText = nameEn && nameEn.trim() ? nameEn : name;
-    let baseSlug = generateSlug(baseText);
-    if (!baseSlug) baseSlug = "branch";
-    
-    let slug = baseSlug;
-    let counter = 1;
-    while (await prisma.branch.findFirst({ where: { slug } })) {
-      slug = `${baseSlug}-${counter}`;
-      counter++;
-    }
-
-    const publicToken = randomUUID();
-
-    const newBranch = await prisma.branch.create({
-      data: {
-        name,
-        nameEn: nameEn || null,
-        code,
-        companyId: targetCompanyId,
-        slug,
-        publicToken,
-        allowPublicTickets: true,
-      },
-    });
-
-    return NextResponse.json(newBranch, { status: 201 });
-  } catch (error) {
-    console.error('POST /api/branches error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

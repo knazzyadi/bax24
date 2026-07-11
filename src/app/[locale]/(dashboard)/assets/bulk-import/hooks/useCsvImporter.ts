@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { AssetRowSchema, BulkAssetRow } from '../types/bulkImport.types';
 import { generateId } from '../utils/generateId';
 
-// ✅ دالة ذكية لتحويل التواريخ
+// دالة ذكية لتحويل التواريخ (نفس السابق)
 function parseDate(value: string): string {
   if (!value || value.trim() === '') return '';
   if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
@@ -35,6 +35,7 @@ export function useCsvImporter(onSuccess: (rows: BulkAssetRow[]) => void) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ✅ دالة معالجة الملف (تُستخدم مباشرة عند اختيار ملف)
   const processCSVFile = useCallback(
     async (file: File) => {
       setIsLoading(true);
@@ -59,27 +60,31 @@ export function useCsvImporter(onSuccess: (rows: BulkAssetRow[]) => void) {
 
             rawData.forEach((row, idx) => {
               const normalizedRow = { ...row };
-              const dateFields = ['purchaseDate', 'warrantyEnd', 'lastMaintenanceDate'];
+              const dateFields = ['purchaseDate', 'operationDate', 'warrantyEnd', 'lastMaintenanceDate'];
               for (const field of dateFields) {
                 if (normalizedRow[field]) {
                   normalizedRow[field] = parseDate(normalizedRow[field].toString());
                 }
               }
 
-              // ✅ إضافة description و descriptionEn
+              // ✅ استخدام AssetRowSchema (المُحدَّث)
               const parseResult = AssetRowSchema.safeParse({
                 name: normalizedRow.name,
                 nameEn: normalizedRow.nameEn,
                 description: normalizedRow.description,
-                descriptionEn: normalizedRow.descriptionEn,
-                typeId: normalizedRow.typeId,
-                statusId: normalizedRow.statusId,
+                typeId: normalizedRow.typeId || normalizedRow.type, // دعم type أو typeId
+                statusId: normalizedRow.statusId || normalizedRow.status, // دعم status أو statusId
                 purchaseDate: normalizedRow.purchaseDate,
+                operationDate: normalizedRow.operationDate,
                 warrantyEnd: normalizedRow.warrantyEnd,
                 lastMaintenanceDate: normalizedRow.lastMaintenanceDate,
+                serialNumber: normalizedRow.serialNumber,
+                manufacturer: normalizedRow.manufacturer,
+                model: normalizedRow.model,
+                supplier: normalizedRow.supplier,
                 notes: normalizedRow.notes,
               });
-              
+
               if (parseResult.success) {
                 validatedRows.push({
                   id: generateId(),
@@ -87,7 +92,7 @@ export function useCsvImporter(onSuccess: (rows: BulkAssetRow[]) => void) {
                 });
               } else {
                 const zodError = parseResult.error;
-                let errorMessage = 'Invalid data';
+                let errorMessage = 'بيانات غير صالحة';
                 if ('issues' in zodError && zodError.issues.length > 0) {
                   const issue = zodError.issues[0];
                   const field = issue.path.join('.');
@@ -113,7 +118,7 @@ export function useCsvImporter(onSuccess: (rows: BulkAssetRow[]) => void) {
             }
             setIsLoading(false);
           },
-          error: (err: any) => { // ✅ تحديد النوع صراحة
+          error: (err: any) => {
             toast.error('Failed to parse CSV');
             setError(err.message);
             setIsLoading(false);
@@ -128,6 +133,7 @@ export function useCsvImporter(onSuccess: (rows: BulkAssetRow[]) => void) {
     [onSuccess]
   );
 
+  // ✅ دالة رفع الملف (تفتح نافذة اختيار الملف وتستخدم processCSVFile)
   const uploadFile = useCallback(async () => {
     if ('showOpenFilePicker' in window) {
       try {
@@ -154,5 +160,6 @@ export function useCsvImporter(onSuccess: (rows: BulkAssetRow[]) => void) {
     }
   }, [processCSVFile]);
 
-  return { uploadFile, isLoading, error };
+  // ✅ إرجاع processCSVFile أيضاً للاستخدام المباشر
+  return { uploadFile, processCSVFile, isLoading, error };
 }

@@ -1,121 +1,59 @@
-import { NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
-import { prisma } from '@/lib/prisma';
+// src/app/api/branches/[id]/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/auth/permissions';
+import { BranchService } from '@/services/BranchService';
 
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
+// PUT: تحديث فرع
+export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
+    const session = await requirePermission('branches.update');
     const { id } = await params;
-    if (!id) {
-      return NextResponse.json({ error: 'معرف الفرع مطلوب' }, { status: 400 });
-    }
-
     const body = await request.json();
-    const { name, nameEn, code, companyId } = body;
-
-    if (!name || !code) {
-      return NextResponse.json({ error: 'اسم الفرع والكود مطلوبان' }, { status: 400 });
+    const updated = await BranchService.update(id, body, session);
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    console.error('PUT /api/branches/[id]', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    // جلب الفرع الحالي
-    const existingBranch = await prisma.branch.findUnique({
-      where: { id },
-    });
-
-    if (!existingBranch) {
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    if (error.message === 'الفرع غير موجود') {
       return NextResponse.json({ error: 'الفرع غير موجود' }, { status: 404 });
     }
-
-    const roleName = session.role;
-    const userCompanyId = session.companyId;
-
-    // التحقق من الصلاحية
-    if (roleName !== 'SUPER_ADMIN' && existingBranch.companyId !== userCompanyId) {
-      return NextResponse.json({ error: 'لا تملك صلاحية تعديل هذا الفرع' }, { status: 403 });
+    if (error.message === 'يوجد فرع بنفس الكود' || error.message === 'اسم الفرع مطلوب' || error.message === 'كود الفرع مطلوب') {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
-
-    // التحقق من عدم تكرار الكود (مع استثناء الفرع الحالي)
-    const duplicate = await prisma.branch.findFirst({
-      where: {
-        code,
-        companyId: existingBranch.companyId,
-        NOT: { id },
-      },
-    });
-    if (duplicate) {
-      return NextResponse.json({ error: 'الكود موجود مسبقاً في هذه الشركة' }, { status: 409 });
-    }
-
-    const updatedBranch = await prisma.branch.update({
-      where: { id },
-      data: {
-        name,
-        nameEn: nameEn || null,
-        code,
-      },
-    });
-
-    return NextResponse.json(updatedBranch);
-  } catch (error) {
-    console.error('PUT /api/branches/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// DELETE: حذف فرع
+export async function DELETE(request: NextRequest, { params }: RouteContext) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
+    const session = await requirePermission('branches.delete');
     const { id } = await params;
-    if (!id) {
-      return NextResponse.json({ error: 'معرف الفرع مطلوب' }, { status: 400 });
+    await BranchService.delete(id, session);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('DELETE /api/branches/[id]', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    const branch = await prisma.branch.findUnique({
-      where: { id },
-    });
-
-    if (!branch) {
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    if (error.message === 'الفرع غير موجود') {
       return NextResponse.json({ error: 'الفرع غير موجود' }, { status: 404 });
     }
-
-    const roleName = session.role;
-    const userCompanyId = session.companyId;
-
-    if (roleName !== 'SUPER_ADMIN' && branch.companyId !== userCompanyId) {
-      return NextResponse.json({ error: 'لا تملك صلاحية حذف هذا الفرع' }, { status: 403 });
+    if (error.message === 'لا يمكن حذف الفرع لوجود بيانات مرتبطة') {
+      return NextResponse.json({ error: error.message }, { status: 400 });
     }
-
-    await prisma.branch.delete({ where: { id } });
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('DELETE /api/branches/[id] error:', error);
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

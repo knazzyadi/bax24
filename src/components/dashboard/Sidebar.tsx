@@ -1,4 +1,3 @@
-// src/components/dashboard/Sidebar.tsx
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -17,24 +16,11 @@ import {
   PanelRightOpen,
   Globe,
   LogOut,
-  Layers,
-  Building,
-  Home,
-  Truck,
-  UserRound,
-  BookOpen,
-  Tag,
-  ClipboardList,
-  Package,
-  Users,
-  KeyRound,
-  Settings,
-  TrendingUp,
 } from "lucide-react";
 
 import { SidebarNavItem } from "./SidebarNavItem";
 import { SidebarSection } from "./SidebarSection";
-import { MAIN_MENU_ITEMS, SUPER_ADMIN_ITEMS } from "./sidebar-data";
+import { MAIN_MENU_ITEMS, SUPER_ADMIN_ITEMS, NavItem } from "./sidebar-data";
 
 export default function Sidebar() {
   const t = useTranslations("Sidebar");
@@ -47,18 +33,10 @@ export default function Sidebar() {
   const isRTL = locale === "ar";
   const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [locationsOpen, setLocationsOpen] = useState(false);
-  const [dictionariesOpen, setDictionariesOpen] = useState(false);
   const [pendingTicketsCount, setPendingTicketsCount] = useState<number>(0);
 
-  const settingsRef = useRef<HTMLDivElement>(null);
-  const locationsRef = useRef<HTMLDivElement>(null);
-  const dictionariesRef = useRef<HTMLDivElement>(null);
-
-  useOutsideClick(settingsRef, () => setSettingsOpen(false), settingsOpen);
-  useOutsideClick(locationsRef, () => setLocationsOpen(false), locationsOpen);
-  useOutsideClick(dictionariesRef, () => setDictionariesOpen(false), dictionariesOpen);
+  // حالة فتح وإغلاق الأقسام الديناميكية (مفتاح = labelKey للقسم)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
 
   // جلب عدد البلاغات المعلقة
   useEffect(() => {
@@ -81,10 +59,9 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
+  // إغلاق جميع الأقسام عند تغيير المسار (اختياري)
   useEffect(() => {
-    setSettingsOpen(false);
-    setLocationsOpen(false);
-    setDictionariesOpen(false);
+    setOpenSections({});
   }, [pathname]);
 
   useEffect(() => setMounted(true), []);
@@ -113,6 +90,61 @@ export default function Sidebar() {
   const commonNavProps = {
     isOpen: sidebarOpen,
     locale,
+  };
+
+  // دالة مساعدة لعرض عناصر التنقل بشكل متكرر (تدعم التداخل)
+  const renderNavItems = (items: NavItem[], depth: number = 0, parentKey: string = "") => {
+    return items.map((item, index) => {
+      const key = parentKey + item.labelKey + index;
+      const hasChildren = item.children && item.children.length > 0;
+      const isActive = item.href
+        ? pathname.startsWith(`/${locale}${item.href}`)
+        : false;
+
+      // إذا كان العنصر يحتوي على أبناء، نعرضه كـ SidebarSection
+      if (hasChildren) {
+        const isOpen = openSections[key] ?? false;
+        const toggleOpen = () => {
+          setOpenSections((prev) => ({
+            ...prev,
+            [key]: !prev[key],
+          }));
+        };
+
+        return (
+          <SidebarSection
+            key={key}
+            isOpen={isOpen}
+            onOpenChange={toggleOpen}
+            triggerIcon={item.icon}
+            triggerLabel={getLabel(item.labelKey, item.labelKey)}
+            sidebarOpen={sidebarOpen}
+          >
+            {/* عرض الأبناء مع زيادة العمق */}
+            {renderNavItems(item.children!, depth + 1, key + "-")}
+          </SidebarSection>
+        );
+      }
+
+      // عنصر عادي (رابط)
+      let badgeCount: number | undefined;
+      if (item.href === "/tickets" && pendingTicketsCount > 0) {
+        badgeCount = pendingTicketsCount;
+      }
+
+      return (
+        <SidebarNavItem
+          key={key}
+          href={item.href!}
+          label={getLabel(item.labelKey, item.labelKey)}
+          icon={item.icon}
+          isActive={isActive}
+          badgeCount={badgeCount}
+          subItem={depth > 0} // العناصر في المستوى الأول ليست subItem
+          {...commonNavProps}
+        />
+      );
+    });
   };
 
   return (
@@ -184,168 +216,22 @@ export default function Sidebar() {
           </p>
         )}
 
-        {isSuperAdmin &&
-          SUPER_ADMIN_ITEMS.map((item) => (
-            <SidebarNavItem
-              key={item.href}
-              href={item.href}
-              label={getLabel(item.labelKey, item.labelKey)}
-              icon={item.icon}
-              isActive={pathname.startsWith(`/${locale}${item.href}`)}
-              {...commonNavProps}
-            />
-          ))}
+        {isSuperAdmin
+          ? renderNavItems(SUPER_ADMIN_ITEMS, 0, "super-")
+          : renderNavItems(MAIN_MENU_ITEMS, 0, "main-")
+        }
 
-        {!isSuperAdmin &&
-          MAIN_MENU_ITEMS.map((item) => {
-            let badgeCount: number | undefined;
-            if (item.href === "/tickets" && pendingTicketsCount > 0) {
-              badgeCount = pendingTicketsCount;
-            }
-            return (
-              <SidebarNavItem
-                key={item.href}
-                href={item.href}
-                label={getLabel(item.labelKey, item.labelKey)}
-                icon={item.icon}
-                isActive={pathname.startsWith(`/${locale}${item.href}`)}
-                badgeCount={badgeCount}
-                {...commonNavProps}
-              />
-            );
-          })}
-
-        {!isSuperAdmin && (
-          <SidebarSection
-            isOpen={settingsOpen}
-            onOpenChange={setSettingsOpen}
-            triggerIcon={<Settings className="h-5 w-5" />}
-            triggerLabel={getLabel("settings", "الإعدادات")}
-            sidebarOpen={sidebarOpen}
-          >
-            {/* إعداد المواقع */}
-            <div ref={locationsRef}>
-              <SidebarSection
-                isOpen={locationsOpen}
-                onOpenChange={setLocationsOpen}
-                triggerIcon={<Layers className="h-4 w-4" />}
-                triggerLabel={getLabel("locationsSettings", "إعداد المواقع")}
-                sidebarOpen={sidebarOpen}
-              >
-                <SidebarNavItem
-                  href="/locations/buildings"
-                  label={getLabel("nav.buildings", "المباني")}
-                  icon={Building}
-                  subItem
-                  {...commonNavProps}
-                />
-                <SidebarNavItem
-                  href="/locations/floors"
-                  label={getLabel("nav.floors", "الأدوار")}
-                  icon={Layers}
-                  subItem
-                  {...commonNavProps}
-                />
-                <SidebarNavItem
-                  href="/locations/rooms"
-                  label={getLabel("nav.rooms", "الغرف")}
-                  icon={Home}
-                  subItem
-                  {...commonNavProps}
-                />
-              </SidebarSection>
-            </div>
-
-            {/* إعداد المعجم */}
-            <div ref={dictionariesRef}>
-              <SidebarSection
-                isOpen={dictionariesOpen}
-                onOpenChange={setDictionariesOpen}
-                triggerIcon={<BookOpen className="h-4 w-4" />}
-                triggerLabel={getLabel("dictionariesSettings", "إعداد المعجم")}
-                sidebarOpen={sidebarOpen}
-              >
-                <SidebarNavItem
-                  href="/settings/asset-types"
-                  label={getLabel("nav.assetTypes", "أنواع الأصول")}
-                  icon={Tag}
-                  subItem
-                  {...commonNavProps}
-                />
-                <SidebarNavItem
-                  href="/settings/work-order-statuses"
-                  label={getLabel("nav.workOrderStatuses", "حالات أوامر العمل")}
-                  icon={ClipboardList}
-                  subItem
-                  {...commonNavProps}
-                />
-                <SidebarNavItem
-                  href="/settings/asset-statuses"
-                  label={getLabel("nav.assetStatuses", "حالات الأصول")}
-                  icon={Package}
-                  subItem
-                  {...commonNavProps}
-                />
-                <SidebarNavItem
-                  href="/settings/work-order-priorities"
-                  label={getLabel("nav.workOrderPriorities", "أولويات أوامر العمل")}
-                  icon={TrendingUp}
-                  subItem
-                  {...commonNavProps}
-                />
-              </SidebarSection>
-            </div>
-
-            {/* إعداد الصلاحيات */}
-            <SidebarNavItem
-              href="/users"
-              label={getLabel("nav.users", "المستخدمون")}
-              icon={Users}
-              subItem
-              {...commonNavProps}
-            />
-            <SidebarNavItem
-              href="/admin/roles-permissions"
-              label={getLabel("nav.permissions", "الصلاحيات")}
-              icon={KeyRound}
-              subItem
-              {...commonNavProps}
-            />
-
-            <button
-              onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
-              className={cn(
-                "w-full flex items-center gap-4 py-3 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all duration-200 mt-1",
-                !sidebarOpen && "justify-center px-0"
-              )}
-            >
-              <LogOut className="h-5 w-5 shrink-0" />
-              {sidebarOpen && <span className="text-[15px] font-bold">{getLabel("logout", "تسجيل الخروج")}</span>}
-            </button>
-          </SidebarSection>
-        )}
-
-        {!isSuperAdmin && !sidebarOpen && (
-          <button
-            onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
-            className="w-full flex justify-center py-3 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all duration-200 mt-1"
-          >
-            <LogOut className="h-5 w-5" />
-          </button>
-        )}
-
-        {isSuperAdmin && (
-          <button
-            onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
-            className={cn(
-              "w-full flex items-center gap-4 py-3 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all duration-200 mt-1",
-              !sidebarOpen && "justify-center px-0"
-            )}
-          >
-            <LogOut className="h-5 w-5 shrink-0" />
-            {sidebarOpen && <span className="text-[15px] font-bold">{getLabel("logout", "تسجيل الخروج")}</span>}
-          </button>
-        )}
+        {/* زر تسجيل الخروج (يظهر بغض النظر عن الدور) */}
+        <button
+          onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
+          className={cn(
+            "w-full flex items-center gap-4 py-3 text-slate-500 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl transition-all duration-200 mt-1",
+            !sidebarOpen && "justify-center px-0"
+          )}
+        >
+          <LogOut className="h-5 w-5 shrink-0" />
+          {sidebarOpen && <span className="text-[15px] font-bold">{getLabel("logout", "تسجيل الخروج")}</span>}
+        </button>
       </nav>
       <div className="p-2 shrink-0" />
     </aside>

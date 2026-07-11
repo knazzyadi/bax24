@@ -65,22 +65,20 @@ export default function EditAssetPage() {
     typeId: "",
     statusId: "",
     purchaseDate: "",
-    operationDate: "", // ✅ جديد
+    operationDate: "",
     warrantyEnd: "",
     lastMaintenanceDate: "",
     roomId: "",
     notes: "",
-    serialNumber: "", // ✅ جديد
-    manufacturer: "", // ✅ جديد
-    model: "", // ✅ جديد
-    supplier: "", // ✅ جديد
+    serialNumber: "",
+    manufacturer: "",
+    model: "",
+    supplier: "",
   });
 
-  // كرت الخلفية الزجاجي
   const glassCard =
     "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
-  // ========== useMemo لخريطة أسماء الحالات ==========
   const statusNameMap = useMemo(() => {
     const map = new Map<string, string>();
     statuses.forEach((s) => {
@@ -96,7 +94,6 @@ export default function EditAssetPage() {
     [statusNameMap, t]
   );
 
-  // ========== جلب البيانات الأساسية ==========
   const fetchMeta = useCallback(async () => {
     setLoadingStatuses(true);
     setStatusesError(null);
@@ -129,7 +126,6 @@ export default function EditAssetPage() {
     fetchMeta();
   }, [fetchMeta]);
 
-  // ========== جلب بيانات الأصل الحالي ==========
   useEffect(() => {
     const fetchAsset = async () => {
       try {
@@ -143,17 +139,17 @@ export default function EditAssetPage() {
           typeId: asset.typeId || "",
           statusId: asset.statusId || "",
           purchaseDate: asset.purchaseDate ? asset.purchaseDate.split("T")[0] : "",
-          operationDate: asset.operationDate ? asset.operationDate.split("T")[0] : "", // ✅ جديد
+          operationDate: asset.operationDate ? asset.operationDate.split("T")[0] : "",
           warrantyEnd: asset.warrantyEnd ? asset.warrantyEnd.split("T")[0] : "",
           lastMaintenanceDate: asset.lastMaintenanceDate
             ? asset.lastMaintenanceDate.split("T")[0]
             : "",
           roomId: asset.roomId || "",
           notes: asset.notes || "",
-          serialNumber: asset.serialNumber || "", // ✅ جديد
-          manufacturer: asset.manufacturer || "", // ✅ جديد
-          model: asset.model || "", // ✅ جديد
-          supplier: asset.supplier || "", // ✅ جديد
+          serialNumber: asset.serialNumber || "",
+          manufacturer: asset.manufacturer || "",
+          model: asset.model || "",
+          supplier: asset.supplier || "",
         });
         if (asset.room) {
           setRoomId(asset.room.id);
@@ -172,7 +168,6 @@ export default function EditAssetPage() {
     if (assetId) fetchAsset();
   }, [assetId, t]);
 
-  // ========== عند تغيير الموقع ==========
   const handleLocationChange = (location: LocationValue) => {
     setSelectedBuildingId(location.buildingId);
     setSelectedFloorId(location.floorId);
@@ -180,7 +175,6 @@ export default function EditAssetPage() {
     setFormData((prev) => ({ ...prev, roomId: location.roomId }));
   };
 
-  // ========== جلب تفاصيل الغرفة ==========
   useEffect(() => {
     if (!roomId) {
       setSelectedRoomFullCode("");
@@ -244,15 +238,15 @@ export default function EditAssetPage() {
         typeId: formData.typeId || null,
         statusId: formData.statusId || null,
         purchaseDate: formData.purchaseDate || null,
-        operationDate: formData.operationDate || null, // ✅ جديد
+        operationDate: formData.operationDate || null,
         warrantyEnd: formData.warrantyEnd || null,
         lastMaintenanceDate: formData.lastMaintenanceDate || null,
         roomId,
         notes: formData.notes || null,
-        serialNumber: formData.serialNumber.trim() || null, // ✅ جديد
-        manufacturer: formData.manufacturer.trim() || null, // ✅ جديد
-        model: formData.model.trim() || null, // ✅ جديد
-        supplier: formData.supplier.trim() || null, // ✅ جديد
+        serialNumber: formData.serialNumber.trim() || null,
+        manufacturer: formData.manufacturer.trim() || null,
+        model: formData.model.trim() || null,
+        supplier: formData.supplier.trim() || null,
       };
       const res = await fetch(`/api/assets/${assetId}`, {
         method: "PUT",
@@ -285,10 +279,8 @@ export default function EditAssetPage() {
 
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      {/* رأس الصفحة */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
@@ -315,11 +307,8 @@ export default function EditAssetPage() {
 
       <form onSubmit={handleSubmit} className="relative space-y-8">
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* العمود الرئيسي (2/3) */}
           <div className="lg:col-span-2 space-y-8">
-            {/* ========================== */}
-            {/*  بطاقة المعلومات الأساسية  */}
-            {/* ========================== */}
+            {/* Basic Info Card */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
@@ -331,7 +320,6 @@ export default function EditAssetPage() {
               </div>
 
               <div className="space-y-5">
-                {/* الاسم العربي */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {t("name")} <span className="text-rose-500">*</span>
@@ -346,7 +334,6 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* الاسم الإنجليزي */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <Globe className="h-4 w-4 text-indigo-400" />
@@ -361,7 +348,6 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* الوصف (حقل واحد) */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {isRtl ? "الوصف" : "Description"}
@@ -375,7 +361,6 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* النوع (معطل) + الحالة */}
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1">
@@ -466,9 +451,7 @@ export default function EditAssetPage() {
               </div>
             </div>
 
-            {/* ================================ */}
-            {/*  بطاقة تفاصيل إضافية             */}
-            {/* ================================ */}
+            {/* Additional Details Card */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-cyan-50 dark:bg-cyan-950/40">
@@ -480,7 +463,6 @@ export default function EditAssetPage() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-5">
-                {/* الرقم التسلسلي */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {isRtl ? "الرقم التسلسلي" : "Serial Number"}
@@ -494,7 +476,6 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* الشركة المصنعة */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {isRtl ? "الشركة المصنعة" : "Manufacturer"}
@@ -508,7 +489,6 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* الموديل */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {isRtl ? "الموديل" : "Model"}
@@ -522,7 +502,6 @@ export default function EditAssetPage() {
                   />
                 </div>
 
-                {/* المورد */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <Truck className="h-4 w-4 text-indigo-400" />
@@ -539,9 +518,7 @@ export default function EditAssetPage() {
               </div>
             </div>
 
-            {/* ============================ */}
-            {/*  بطاقة الموقع                */}
-            {/* ============================ */}
+            {/* Location Card */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
@@ -575,7 +552,7 @@ export default function EditAssetPage() {
             </div>
 
             {/* ============================ */}
-            {/*  بطاقة دورة الحياة           */}
+            {/*  Lifecycle Card (modified)    */}
             {/* ============================ */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
@@ -588,7 +565,7 @@ export default function EditAssetPage() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
-                {/* تاريخ الشراء */}
+                {/* Purchase Date */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {t("purchaseDate")}
@@ -605,7 +582,7 @@ export default function EditAssetPage() {
                   </div>
                 </div>
 
-                {/* تاريخ التشغيل ✅ جديد */}
+                {/* Operation Date */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <Clock className="h-4 w-4 text-amber-400" />
@@ -623,7 +600,7 @@ export default function EditAssetPage() {
                   </div>
                 </div>
 
-                {/* تاريخ انتهاء الضمان */}
+                {/* Warranty End (now paired with Last Maintenance) */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {t("warrantyEnd")}
@@ -640,8 +617,8 @@ export default function EditAssetPage() {
                   </div>
                 </div>
 
-                {/* تاريخ آخر صيانة */}
-                <div className="space-y-1.5 md:col-span-2">
+                {/* Last Maintenance Date - now placed next to warranty end */}
+                <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-2">
                     <Wrench className="h-4 w-4 text-slate-400" />
                     {t("lastMaintenance")}
@@ -664,9 +641,9 @@ export default function EditAssetPage() {
             </div>
           </div>
 
-          {/* العمود الجانبي (1/3) */}
+          {/* Sidebar */}
           <div className="space-y-6">
-            {/* بطاقة الملاحظات */}
+            {/* Notes Card */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-5">
                 <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
@@ -694,7 +671,7 @@ export default function EditAssetPage() {
               </div>
             </div>
 
-            {/* مساعدة سريعة */}
+            {/* Quick Help */}
             <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
               <ShieldCheck className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
               <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -704,7 +681,7 @@ export default function EditAssetPage() {
               </div>
             </div>
 
-            {/* الأزرار */}
+            {/* Buttons */}
             <div className="flex gap-3">
               <Button
                 type="button"

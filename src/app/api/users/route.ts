@@ -1,100 +1,54 @@
 // src/app/api/users/route.ts
-import { NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/auth/permissions';
+import { UserService } from '@/services/UserService';
 
-export async function GET(request: Request) {
+// GET: جلب جميع المستخدمين (للسوبر أدمن فقط)
+export async function GET(request: NextRequest) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    // ✅ التعديل الجوهري: استخدام session.role مباشرةً
-    if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    const session = await requirePermission('users.read');
 
     const { searchParams } = new URL(request.url);
-
     const role = searchParams.get('role') || undefined;
     const companyId = searchParams.get('companyId') || undefined;
     const search = searchParams.get('search') || undefined;
 
-    const where: any = {};
-
-    if (role) {
-      where.role = {
-        name: role,
-      };
+    const users = await UserService.getAll({ role, companyId, search });
+    return NextResponse.json(users);
+  } catch (error: any) {
+    console.error('GET /api/users', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    if (companyId) {
-      where.companyId = companyId;
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+  }
+}
 
-    if (search) {
-      where.OR = [
-        {
-          name: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        },
-        {
-          email: {
-            contains: search,
-            mode: 'insensitive',
-          },
-        },
-      ];
+// POST: إنشاء مستخدم جديد (للسوبر أدمن فقط)
+export async function POST(request: NextRequest) {
+  try {
+    const session = await requirePermission('users.create');
+    const body = await request.json();
+    const user = await UserService.create(body);
+    return NextResponse.json(user, { status: 201 });
+  } catch (error: any) {
+    console.error('POST /api/users', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    const users = await prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        status: true,
-        createdAt: true,
-        role: {
-          select: {
-            id: true,
-            name: true,
-            label: true,
-          },
-        },
-        company: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    return NextResponse.json(
-      users.map((user: any) => ({
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-        company: user.company,
-        status: user.status,
-        createdAt: user.createdAt,
-      }))
-    );
-  } catch (error) {
-    console.error('GET_USERS_ERROR:', error);
-    return NextResponse.json(
-      { error: 'حدث خطأ في الخادم' },
-      { status: 500 }
-    );
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    if (error.message === 'الاسم مطلوب' || error.message === 'البريد الإلكتروني مطلوب' || 
+        error.message === 'الدور مطلوب' || error.message === 'الشركة مطلوبة') {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    if (error.message === 'البريد الإلكتروني مستخدم بالفعل') {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

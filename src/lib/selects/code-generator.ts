@@ -1,5 +1,6 @@
-// src/lib/assets/code-generator.ts
+// src/lib/selects/code-generator.ts
 import { Prisma } from '@prisma/client';
+import { prisma } from '@/lib/prisma'; // تأكد من استيراد prisma
 
 const CODE_DIGITS = 4;
 

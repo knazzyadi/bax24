@@ -1,4 +1,4 @@
-// hooks/useBulkAssets.ts
+// src/app/[locale]/(dashboard)/assets/bulk-import/hooks/useBulkAssets.ts
 import { useState, useCallback } from 'react';
 import { BulkAssetRow } from '../types/bulkImport.types';
 import { generateId } from '../utils/generateId';
@@ -10,13 +10,17 @@ export function useBulkAssets(initialRows?: BulkAssetRow[]) {
         id: generateId(),
         name: '',
         nameEn: '',
-        description: '',      // ✅ وصف عربي
-        descriptionEn: '',    // ✅ وصف إنجليزي
+        description: '',
         typeId: '',
         statusId: '',
         purchaseDate: '',
+        operationDate: '', // ✅ جديد
         warrantyEnd: '',
         lastMaintenanceDate: '',
+        serialNumber: '', // ✅ جديد
+        manufacturer: '', // ✅ جديد
+        model: '',        // ✅ جديد
+        supplier: '',     // ✅ جديد
         notes: '',
       },
     ]
@@ -29,13 +33,17 @@ export function useBulkAssets(initialRows?: BulkAssetRow[]) {
         id: generateId(),
         name: '',
         nameEn: '',
-        description: '',      // ✅ وصف عربي
-        descriptionEn: '',    // ✅ وصف إنجليزي
+        description: '',
         typeId: '',
         statusId: '',
         purchaseDate: '',
+        operationDate: '',
         warrantyEnd: '',
         lastMaintenanceDate: '',
+        serialNumber: '',
+        manufacturer: '',
+        model: '',
+        supplier: '',
         notes: '',
       },
     ]);

@@ -1,21 +1,19 @@
 // src/app/api/admin/setup-roles/route.ts
-import { NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/auth/permissions';
 import { prisma } from '@/lib/prisma';
 
-// GET: جلب جميع الأدوار
-export async function GET() {
-  try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+const ROLES = [
+  { name: 'SUPER_ADMIN', label: 'Super Administrator' },
+  { name: 'ADMIN', label: 'Company Administrator' },
+  { name: 'SUPERVISOR', label: 'Supervisor' },
+  { name: 'TECHNICIAN', label: 'Technician' },
+];
 
-    if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+// GET: جلب جميع الأدوار (للسوبر أدمن فقط)
+export async function GET(request: NextRequest) {
+  try {
+    const session = await requirePermission('admin.setup');
 
     const roles = await prisma.role.findMany({
       select: { id: true, name: true, label: true },
@@ -23,36 +21,26 @@ export async function GET() {
     });
 
     return NextResponse.json(roles);
-  } catch (error) {
-    console.error('GET /api/admin/setup-roles error:', error);
+  } catch (error: any) {
+    console.error('GET /api/admin/setup-roles', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'خطأ في جلب الأدوار' }, { status: 500 });
   }
 }
 
-// POST: إنشاء الأدوار
-export async function POST() {
+// POST: إنشاء/تهيئة الأدوار (للسوبر أدمن فقط)
+export async function POST(request: NextRequest) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    const roles = [
-      { name: 'SUPER_ADMIN', label: 'Super Administrator' },
-      { name: 'ADMIN', label: 'Company Administrator' },
-      { name: 'SUPERVISOR', label: 'Supervisor' },
-      { name: 'TECHNICIAN', label: 'Technician' },
-    ];
+    const session = await requirePermission('admin.setup');
 
     const results = [];
 
-    for (const role of roles) {
+    for (const role of ROLES) {
       const result = await prisma.role.upsert({
         where: { name: role.name },
         update: {},
@@ -62,8 +50,14 @@ export async function POST() {
     }
 
     return NextResponse.json({ success: true, created: results });
-  } catch (error) {
-    console.error('POST /api/admin/setup-roles error:', error);
+  } catch (error: any) {
+    console.error('POST /api/admin/setup-roles', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'فشل في تهيئة الأدوار' }, { status: 500 });
   }
 }

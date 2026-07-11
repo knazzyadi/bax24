@@ -1,70 +1,34 @@
 // src/app/api/users/[id]/resend-invite/route.ts
-import { NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
-import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
-import { sendInvitationEmail } from '@/lib/email';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/auth/permissions';
+import { UserService } from '@/services/UserService';
 
 export async function POST(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
+    const session = await requirePermission('users.update');
     const { id } = await params;
-
-    const user = await prisma.user.findUnique({
-      where: { id },
-      include: { role: true, company: true },
-    });
-
-    if (!user) {
-      return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
-    }
-
-    // منع إعادة الدعوة للسوبر أدمن
-    if (user.role?.name === 'SUPER_ADMIN') {
-      return NextResponse.json(
-        { error: 'لا يمكن إعادة إرسال دعوة للسوبر أدمن' },
-        { status: 400 }
-      );
-    }
-
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        invitationToken: token,
-        invitationExpires: expires,
-        status: false,
-        password: null,
-      },
-    });
-
-    await sendInvitationEmail(
-      user.email,
-      token,
-      user.company?.name || 'الشركة'
-    );
-
+    await UserService.resendInvite(id);
     return NextResponse.json({
       success: true,
       message: 'تم إرسال الدعوة مجدداً',
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('RESEND_INVITE_ERROR:', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    if (error.message === 'المستخدم غير موجود') {
+      return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
+    }
+    if (error.message === 'لا يمكن إعادة إرسال دعوة للسوبر أدمن') {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

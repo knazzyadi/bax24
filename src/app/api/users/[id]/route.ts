@@ -1,138 +1,81 @@
 // src/app/api/users/[id]/route.ts
-import { NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
-import { prisma } from '@/lib/prisma';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/auth/permissions';
+import { UserService } from '@/services/UserService';
 
-// =======================
-// 🔹 تحديث المستخدم (الحالة أو البيانات الكاملة)
-// =======================
-export async function PUT(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+interface RouteContext {
+  params: Promise<{ id: string }>;
+}
+
+// GET: جلب مستخدم واحد
+export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
+    const session = await requirePermission('users.read');
     const { id } = await params;
-    const body = await request.json();
-
-    // حالة 1: تحديث الحالة فقط (toggle)
-    if (body.status !== undefined && Object.keys(body).length === 1) {
-      if (typeof body.status !== 'boolean') {
-        return NextResponse.json(
-          { error: 'قيمة الحالة يجب أن تكون true أو false' },
-          { status: 400 }
-        );
-      }
-      const updatedUser = await prisma.user.update({
-        where: { id },
-        data: { status: body.status },
-        select: { id: true, name: true, email: true, status: true },
-      });
-      return NextResponse.json({ success: true, user: updatedUser });
+    const user = await UserService.getById(id);
+    return NextResponse.json(user);
+  } catch (error: any) {
+    console.error('GET /api/users/[id]', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    // حالة 2: تحديث كامل للبيانات (اسم، بريد، دور، شركة)
-    const { name, email, roleId, companyId } = body;
-    if (!name || !email || !roleId || !companyId) {
-      return NextResponse.json(
-        { error: 'الاسم والبريد الإلكتروني والدور والشركة مطلوبة' },
-        { status: 400 }
-      );
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
-
-    // التحقق من وجود المستخدم
-    const existingUser = await prisma.user.findUnique({ where: { id } });
-    if (!existingUser) {
+    if (error.message === 'المستخدم غير موجود') {
       return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
     }
-
-    // التحقق من عدم وجود بريد مكرر (باستثناء هذا المستخدم)
-    const duplicateEmail = await prisma.user.findFirst({
-      where: { email, NOT: { id } },
-    });
-    if (duplicateEmail) {
-      return NextResponse.json({ error: 'البريد الإلكتروني مستخدم من قبل' }, { status: 409 });
-    }
-
-    // تحديث المستخدم
-    const updatedUser = await prisma.user.update({
-      where: { id },
-      data: { name, email, roleId, companyId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        status: true,
-        role: { select: { id: true, name: true, label: true } },
-        company: { select: { id: true, name: true } },
-      },
-    });
-
-    return NextResponse.json({ success: true, user: updatedUser });
-  } catch (error) {
-    console.error('UPDATE_USER_ERROR:', error);
-    return NextResponse.json(
-      { error: 'خطأ في تحديث المستخدم' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-// =======================
-// 🔴 حذف المستخدم
-// =======================
-export async function DELETE(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+// PUT: تحديث مستخدم
+export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session || session.role !== 'SUPER_ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
+    const session = await requirePermission('users.update');
     const { id } = await params;
-
-    const user = await prisma.user.findUnique({
-      where: { id },
-      include: { role: true },
-    });
-
-    if (!user) {
+    const body = await request.json();
+    const updated = await UserService.update(id, body);
+    return NextResponse.json(updated);
+  } catch (error: any) {
+    console.error('PUT /api/users/[id]', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    if (error.message === 'المستخدم غير موجود') {
       return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
     }
-
-    // منع حذف السوبر أدمن
-    if (user.role?.name === 'SUPER_ADMIN') {
-      return NextResponse.json(
-        { error: 'لا يمكن حذف حساب السوبر أدمن' },
-        { status: 403 }
-      );
+    if (error.message === 'البريد الإلكتروني مستخدم بالفعل') {
+      return NextResponse.json({ error: error.message }, { status: 409 });
     }
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+  }
+}
 
-    await prisma.user.delete({ where: { id } });
-    return NextResponse.json({ success: true, message: 'تم حذف المستخدم بنجاح' });
-  } catch (error) {
-    console.error('DELETE_USER_ERROR:', error);
-    return NextResponse.json(
-      { error: 'خطأ في حذف المستخدم' },
-      { status: 500 }
-    );
+// DELETE: حذف مستخدم
+export async function DELETE(request: NextRequest, { params }: RouteContext) {
+  try {
+    const session = await requirePermission('users.delete');
+    const { id } = await params;
+    await UserService.delete(id);
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('DELETE /api/users/[id]', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    if (error.message === 'المستخدم غير موجود') {
+      return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
+    }
+    if (error.message === 'لا يمكن حذف المستخدم لوجود بيانات مرتبطة') {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

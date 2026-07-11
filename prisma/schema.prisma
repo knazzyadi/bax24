@@ -7,31 +7,38 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ============================================================
+// 1. النماذج الأساسية (Companies, Users, Roles, Branches...)
+// ============================================================
+
 model Company {
-  id                    String                @id @default(cuid())
-  name                  String                @unique
-  nameEn                String?
-  address               String?
-  phone                 String?
-  email                 String?
-  subscriptionStartDate DateTime?
-  subscriptionEndDate   DateTime?
-  isActive              Boolean               @default(true)
-  createdAt             DateTime              @default(now())
-  updatedAt             DateTime              @updatedAt
-  contracts             Contract[]
-  inventoryItems        InventoryItem[]
-  maintenanceSchedules  MaintenanceSchedule[]
-  tickets               Ticket[]
-  workOrders            WorkOrder[]
-  workOrderPriorities   WorkOrderPriority[]
-  workOrderStatuses     WorkOrderStatus[]
-  assetStatuses         AssetStatus[]
-  assetTypes            AssetType[]
-  assets                Asset[]
-  branches              Branch[]
-  buildings             Building[]
-  users                 User[]
+  id                     String                  @id @default(cuid())
+  name                   String                  @unique
+  nameEn                 String?
+  address                String?
+  phone                  String?
+  email                  String?
+  subscriptionStartDate  DateTime?
+  subscriptionEndDate    DateTime?
+  isActive               Boolean                 @default(true)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  contracts              Contract[]
+  inventoryItems         InventoryItem[]
+  maintenanceSchedules   MaintenanceSchedule[]
+  tickets                Ticket[]
+  workOrders             WorkOrder[]
+  workOrderPriorities    WorkOrderPriority[]
+  workOrderStatuses      WorkOrderStatus[]
+  workOrderTypes         WorkOrderType[]
+  assetStatuses          AssetStatus[]
+  assetTypes             AssetType[]
+  assets                 Asset[]
+  branches               Branch[]
+  buildings              Building[]
+  users                  User[]
+  workOrderCloseReasons  WorkOrderCloseReason[]
+  workOrderCancelReasons WorkOrderCancelReason[]
 
   @@map("companies")
 }
@@ -48,8 +55,8 @@ model User {
   updatedAt         DateTime     @updatedAt
   invitationToken   String?      @unique
   invitationExpires DateTime?
-  resetToken        String?      @unique   // ✅ أضف هذا
-  resetExpires      DateTime?              // ✅ أضف هذا
+  resetToken        String?      @unique
+  resetExpires      DateTime?
   firstLogin        Boolean      @default(true)
   userBranches      UserBranch[]
   company           Company?     @relation(fields: [companyId], references: [id])
@@ -120,12 +127,12 @@ model Building {
   company              Company               @relation(fields: [companyId], references: [id])
   floors               Floor[]
   rooms                Room[]
-  vehicles             Vehicle[] // <- إضافة هذا
+  vehicles             Vehicle[]
 
-  @@map("buildings")
   @@index([companyId, deletedAt])
   @@index([branchId])
   @@index([createdAt])
+  @@map("buildings")
 }
 
 model Floor {
@@ -145,105 +152,287 @@ model Floor {
 }
 
 model Room {
-  id             String          @id @default(cuid())
-  name           String
-  nameEn         String?
-  code           String
-  order          Int             @default(0)
-  floorId        String
-  buildingId     String
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  deletedAt      DateTime?
-  inventoryItems InventoryItem[]
-  tickets        Ticket[]
-  workOrders     WorkOrder[]
-  assets         Asset[]
+  id                   String                 @id @default(cuid())
+  name                 String
+  nameEn               String?
+  code                 String
+  order                Int                    @default(0)
+  floorId              String
+  buildingId           String
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime               @updatedAt
+  deletedAt            DateTime?
+  inventoryItems       InventoryItem[]
+  tickets              Ticket[]
+  workOrders           WorkOrder[]
+  assets               Asset[]
   oldLocationHistories AssetLocationHistory[] @relation("oldRoom")
   newLocationHistories AssetLocationHistory[] @relation("newRoom")
-  building       Building        @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  floor          Floor           @relation(fields: [floorId], references: [id], onDelete: Cascade)
+  building             Building               @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  floor                Floor                  @relation(fields: [floorId], references: [id], onDelete: Cascade)
 
   @@unique([floorId, code])
   @@map("rooms")
 }
 
+// ============================================================
+// 2. نماذج القوائم الموحدة (Lookups) – بعد التعديل
+// ============================================================
+
+// ----------------------------------------------
+// WorkOrderType (بدلاً من WorkOrderTypeLookup)
+// ----------------------------------------------
+model WorkOrderType {
+  id          String    @id @default(cuid())
+  code        String?   @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  nameEn      String?   @db.VarChar(100)
+  description String?   @db.Text
+  color       String?   @db.VarChar(20)
+  icon        String?   @db.VarChar(50)
+  order       Int       @default(0)
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  companyId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workOrders WorkOrder[]
+
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([order])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("work_order_types")
+}
+
+// ----------------------------------------------
+// WorkOrderStatus
+// ----------------------------------------------
+model WorkOrderStatus {
+  id          String    @id @default(cuid())
+  code        String?   @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  nameEn      String?   @db.VarChar(100)
+  description String?   @db.Text
+  color       String?   @db.VarChar(20)
+  icon        String?   @db.VarChar(50)
+  order       Int       @default(0)
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  companyId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workOrders WorkOrder[]
+
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([order])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("work_order_statuses")
+}
+
+// ----------------------------------------------
+// WorkOrderPriority
+// ----------------------------------------------
+model WorkOrderPriority {
+  id          String    @id @default(cuid())
+  code        String?   @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  nameEn      String?   @db.VarChar(100)
+  description String?   @db.Text
+  color       String?   @db.VarChar(20)
+  icon        String?   @db.VarChar(50)
+  order       Int       @default(0)
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  companyId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  company    Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workOrders WorkOrder[]
+
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([order])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("work_order_priorities")
+}
+
+// ----------------------------------------------
+// AssetType
+// ----------------------------------------------
 model AssetType {
-  id                   String                @id @default(cuid())
-  name                 String
-  nameEn               String?
-  code                 String?               @unique
-  description          String?
-  order                Int                   @default(0)
-  isDefault            Boolean               @default(false)
-  companyId            String
-  createdAt            DateTime              @default(now())
-  updatedAt            DateTime              @updatedAt
-  maintenanceSchedules MaintenanceSchedule[]
-  workOrders           WorkOrder[]
+  id          String    @id @default(cuid())
+  code        String?   @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  nameEn      String?   @db.VarChar(100)
+  description String?   @db.Text
+  color       String?   @db.VarChar(20)
+  icon        String?   @db.VarChar(50)
+  order       Int       @default(0)
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  companyId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
   company              Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
   assets               Asset[]
+  maintenanceSchedules MaintenanceSchedule[]
+  workOrders           WorkOrder[] // 👈 الحقل المفقود
 
-  @@unique([name, companyId])
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([order])
+  @@index([isActive])
+  @@index([deletedAt])
   @@map("asset_types")
 }
 
+// ----------------------------------------------
+// AssetStatus
+// ----------------------------------------------
 model AssetStatus {
-  id          String   @id @default(cuid())
-  name        String
-  nameEn      String?
-  code        String?  @unique
-  description String?
-  color       String?  @default("#64748b")
-  order       Int      @default(0)
-  isDefault   Boolean  @default(false)
+  id          String    @id @default(cuid())
+  code        String?   @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  nameEn      String?   @db.VarChar(100)
+  description String?   @db.Text
+  color       String?   @db.VarChar(20)
+  icon        String?   @db.VarChar(50)
+  order       Int       @default(0)
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
   companyId   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  assets      Asset[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
 
-  @@unique([name, companyId])
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  assets  Asset[]
+
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([order])
+  @@index([isActive])
+  @@index([deletedAt])
   @@map("asset_statuses")
 }
 
+// ============================================================
+// WorkOrderCloseReason
+// ============================================================
+model WorkOrderCloseReason {
+  id          String    @id @default(cuid())
+  code        String?   @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  nameEn      String?   @db.VarChar(100)
+  description String?   @db.Text
+  order       Int       @default(0)
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  companyId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([order])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("work_order_close_reasons")
+}
+
+// ============================================================
+// WorkOrderCancelReason
+// ============================================================
+model WorkOrderCancelReason {
+  id          String    @id @default(cuid())
+  code        String?   @db.VarChar(20)
+  name        String    @db.VarChar(100)
+  nameEn      String?   @db.VarChar(100)
+  description String?   @db.Text
+  order       Int       @default(0)
+  isDefault   Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  companyId   String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  deletedAt   DateTime?
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, name])
+  @@unique([companyId, code])
+  @@index([companyId])
+  @@index([order])
+  @@index([isActive])
+  @@index([deletedAt])
+  @@map("work_order_cancel_reasons")
+}
+
+// ============================================================
+// 3. باقي النماذج (Asset, WorkOrder, Ticket, ...)
+// ============================================================
+
 model Asset {
-  id                  String           @id @default(cuid())
-  code                String           @unique
+  id                  String    @id @default(cuid())
+  code                String    @unique
   name                String
   nameEn              String?
-  description         String?          // ✅ وصف واحد فقط (عربي/إنجليزي حسب الاستخدام)
+  description         String?
   typeId              String?
   statusId            String?
   roomId              String
   purchaseDate        DateTime?
-  operationDate       DateTime?        // ✅ جديد
+  operationDate       DateTime?
   warrantyEnd         DateTime?
   notes               String?
-  qrCode              String?          @unique
+  qrCode              String?   @unique
   companyId           String
   buildingId          String
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
   deletedAt           DateTime?
-  branchId            String?          @map("branch_id")
+  branchId            String?   @map("branch_id")
   lastMaintenanceDate DateTime?
-  serialNumber        String?          // ✅ جديد
-  manufacturer        String?          // ✅ جديد
-  model               String?          // ✅ جديد
-  supplier            String?          // ✅ جديد
+  serialNumber        String?
+  manufacturer        String?
+  model               String?
+  supplier            String?
 
-  scheduleAssets      ScheduleAsset[]
-  tickets             Ticket[]
-  workOrderAssets     WorkOrderAsset[]
-  auditLogs           AuditLog[]
-  locationHistories   AssetLocationHistory[]  // لتاريخ المواقع
-  branch              Branch?          @relation(fields: [branchId], references: [id])
-  building            Building         @relation(fields: [buildingId], references: [id])
-  company             Company          @relation(fields: [companyId], references: [id])
-  room                Room             @relation(fields: [roomId], references: [id])
-  status              AssetStatus?     @relation(fields: [statusId], references: [id])
-  type                AssetType?       @relation(fields: [typeId], references: [id])
+  scheduleAssets    ScheduleAsset[]
+  tickets           Ticket[]
+  workOrderAssets   WorkOrderAsset[]
+  auditLogs         AuditLog[]
+  locationHistories AssetLocationHistory[]
+  branch            Branch?                @relation(fields: [branchId], references: [id])
+  building          Building               @relation(fields: [buildingId], references: [id])
+  company           Company                @relation(fields: [companyId], references: [id])
+  room              Room                   @relation(fields: [roomId], references: [id])
+  status            AssetStatus?           @relation(fields: [statusId], references: [id])
+  type              AssetType?             @relation(fields: [typeId], references: [id])
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -252,31 +441,31 @@ model Asset {
   @@index([roomId])
   @@index([buildingId])
   @@index([deletedAt])
-  @@map("assets")
   @@index([companyId, deletedAt])
   @@index([createdAt])
+  @@map("assets")
 }
 
 model AssetLocationHistory {
-  id              String   @id @default(cuid())
-  assetId         String   @map("asset_id")
-  oldRoomId       String?  @map("old_room_id")
-  newRoomId       String   @map("new_room_id")
-  oldBuildingId   String?  @map("old_building_id")
-  newBuildingId   String   @map("new_building_id")
-  oldBranchId     String?  @map("old_branch_id")
-  newBranchId     String   @map("new_branch_id")
-  changedBy       String   @map("changed_by")
-  changedAt       DateTime @default(now()) @map("changed_at")
-  reason          String?
+  id            String   @id @default(cuid())
+  assetId       String   @map("asset_id")
+  oldRoomId     String?  @map("old_room_id")
+  newRoomId     String   @map("new_room_id")
+  oldBuildingId String?  @map("old_building_id")
+  newBuildingId String   @map("new_building_id")
+  oldBranchId   String?  @map("old_branch_id")
+  newBranchId   String   @map("new_branch_id")
+  changedBy     String   @map("changed_by")
+  changedAt     DateTime @default(now()) @map("changed_at")
+  reason        String?
 
-  asset           Asset    @relation(fields: [assetId], references: [id])
-  oldRoom         Room?    @relation("oldRoom", fields: [oldRoomId], references: [id])
-  newRoom         Room     @relation("newRoom", fields: [newRoomId], references: [id])
+  asset   Asset @relation(fields: [assetId], references: [id])
+  oldRoom Room? @relation("oldRoom", fields: [oldRoomId], references: [id])
+  newRoom Room  @relation("newRoom", fields: [newRoomId], references: [id])
 
-  @@map("asset_location_history")
   @@index([assetId])
   @@index([changedAt])
+  @@map("asset_location_history")
 }
 
 model AssetCounter {
@@ -295,22 +484,22 @@ model WorkOrderCounter {
 }
 
 model AuditLog {
-  id          String   @id @default(cuid())
-  assetId     String   @map("asset_id")
-  userId      String   @map("user_id")
-  userEmail   String   @map("user_email")
-  action      String   // CREATE, UPDATE, DELETE, STATUS_CHANGE, LOCATION_CHANGE, etc.
-  changes     Json?    // التغييرات (قيمة قديمة ← قيمة جديدة)
-  metadata    Json?    // معلومات إضافية (مثل IP، User Agent)
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id        String   @id @default(cuid())
+  assetId   String   @map("asset_id")
+  userId    String   @map("user_id")
+  userEmail String   @map("user_email")
+  action    String
+  changes   Json?
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
-  asset       Asset    @relation(fields: [assetId], references: [id])
+  asset Asset @relation(fields: [assetId], references: [id])
 
-  @@map("audit_logs")
   @@index([assetId])
   @@index([userId])
   @@index([createdAt])
+  @@map("audit_logs")
 }
 
 model InventoryItem {
@@ -335,7 +524,7 @@ model InventoryItem {
   @@index([roomId])
   @@index([sku])
   @@index([companyId, deletedAt])
-  @@index([createdAt])   // اختياري لكن مفيد
+  @@index([createdAt])
   @@map("inventory_items")
 }
 
@@ -356,7 +545,7 @@ model WorkOrderInventory {
 
 model ContractAttachment {
   id           String    @id @default(cuid())
-  contractId   String?   // ✅ جعل الحقل اختيارياً
+  contractId   String?
   url          String
   key          String
   fileName     String?
@@ -366,7 +555,7 @@ model ContractAttachment {
   size         Int
   uploadedBy   String?
   createdAt    DateTime  @default(now())
-  contract     Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade) // ✅ جعل العلاقة اختيارية
+  contract     Contract? @relation(fields: [contractId], references: [id], onDelete: Cascade)
 
   @@index([contractId])
 }
@@ -407,45 +596,49 @@ model Contract {
 }
 
 model WorkOrder {
-  id                 String                @id @default(cuid())
-  code               String?               @unique
-  branchSeqNum       Int
-  title              String
-  description        String?
-  type               WorkOrderType         @default(MAINTENANCE)
-  priorityId         String?
-  statusId           String?
-  roomId             String?
-  notes              String?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  deletedAt          DateTime?
-  companyId          String
-  branchId           String?
-  createdBy          String?
-  assetTypeId        String?
-  ticketId           String?               @unique
-  assetType          AssetType?            @relation(fields: [assetTypeId], references: [id])
-  branch             Branch?               @relation(fields: [branchId], references: [id])
-  company            Company               @relation(fields: [companyId], references: [id])
-  priority           WorkOrderPriority?    @relation(fields: [priorityId], references: [id])
-  room               Room?                 @relation(fields: [roomId], references: [id])
-  status             WorkOrderStatus?      @relation(fields: [statusId], references: [id])
-  ticket             Ticket?               @relation(fields: [ticketId], references: [id])
+  id              String            @id @default(cuid())
+  code            String?           @unique
+  branchSeqNum    Int
+  title           String
+  description     String?
+  type            WorkOrderTypeEnum @default(MAINTENANCE)
+  priorityId      String?
+  statusId        String?
+  roomId          String?
+  notes           String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  deletedAt       DateTime?
+  companyId       String
+  branchId        String?
+  createdBy       String?
+  assetTypeId     String?
+  workOrderTypeId String?
+  ticketId        String?           @unique
+
+  assetType     AssetType?         @relation(fields: [assetTypeId], references: [id])
+  branch        Branch?            @relation(fields: [branchId], references: [id])
+  company       Company            @relation(fields: [companyId], references: [id])
+  priority      WorkOrderPriority? @relation(fields: [priorityId], references: [id])
+  room          Room?              @relation(fields: [roomId], references: [id])
+  status        WorkOrderStatus?   @relation(fields: [statusId], references: [id])
+  workOrderType WorkOrderType?     @relation(fields: [workOrderTypeId], references: [id])
+  ticket        Ticket?            @relation(fields: [ticketId], references: [id])
+
   workOrderAssets    WorkOrderAsset[]
   attachments        WorkOrderAttachment[]
   workOrderInventory WorkOrderInventory[]
 
-  
-  @@index([companyId, deletedAt])
   @@unique([branchId, branchSeqNum])
+  @@index([companyId, deletedAt])
   @@index([companyId])
   @@index([branchId])
   @@index([roomId])
   @@index([statusId])
-  @@index([priorityId])        // جدد (غير موجود)
-  @@index([createdAt])         // جدد
-  @@map("work_orders") // تحقق من اسم الخريطة الفعلي
+  @@index([priorityId])
+  @@index([workOrderTypeId])
+  @@index([createdAt])
+  @@map("work_orders")
 }
 
 model WorkOrderAsset {
@@ -508,35 +701,6 @@ model ScheduleAsset {
   @@id([scheduleId, assetId])
 }
 
-model WorkOrderPriority {
-  id         String      @id @default(cuid())
-  name       String
-  nameEn     String?
-  code       String?     @unique
-  order      Int         @default(0)
-  isDefault  Boolean     @default(false)
-  companyId  String
-  color      String?     @default("#64748b")
-  workOrders WorkOrder[]
-  company    Company     @relation(fields: [companyId], references: [id])
-
-  @@unique([companyId, name])
-}
-
-model WorkOrderStatus {
-  id         String      @id @default(cuid())
-  name       String
-  nameEn     String?
-  color      String?
-  order      Int         @default(0)
-  isDefault  Boolean     @default(false)
-  companyId  String
-  workOrders WorkOrder[]
-  company    Company     @relation(fields: [companyId], references: [id])
-
-  @@unique([companyId, name])
-}
-
 model TicketAttachment {
   id           String   @id @default(cuid())
   ticketId     String
@@ -592,6 +756,70 @@ model Ticket {
   @@map("tickets")
 }
 
+model Vehicle {
+  id          String   @id @default(cuid())
+  name        String
+  plateNumber String?
+  buildingId  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  building          Building           @relation(fields: [buildingId], references: [id])
+  accidentRequests  AccidentRequest[]
+  oilChangeRequests OilChangeRequest[]
+
+  @@map("vehicles")
+}
+
+model AccidentRequest {
+  id          String   @id @default(cuid())
+  vehicleId   String
+  description String?
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@map("accident_requests")
+}
+
+model OilChangeRequest {
+  id          String   @id @default(cuid())
+  vehicleId   String
+  description String?
+  status      String   @default("PENDING")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  vehicle Vehicle @relation(fields: [vehicleId], references: [id])
+
+  @@map("oil_change_requests")
+}
+
+model SavedReport {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  modelType   String
+  columns     String
+  filters     String?
+  sortBy      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  userId      String
+  companyId   String
+
+  @@index([userId])
+  @@index([companyId])
+  @@index([userId, companyId, updatedAt(sort: Desc)])
+  @@map("saved_reports")
+}
+
+// ============================================================
+// 4. النوعان (Enums)
+// ============================================================
+
 enum TicketType {
   MAINTENANCE
   INCIDENT
@@ -610,68 +838,9 @@ enum ContractStatus {
   CANCELLED
 }
 
-enum WorkOrderType {
+enum WorkOrderTypeEnum {
   MAINTENANCE
   CORRECTIVE
   EMERGENCY
   BULK_PREVENTIVE
-}
-
-model Vehicle {
-  id           String   @id @default(cuid())
-  name         String
-  plateNumber  String?
-  buildingId   String
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  building     Building @relation(fields: [buildingId], references: [id])
-  accidentRequests AccidentRequest[] // العلاقة مع حوادث السيارات
-  oilChangeRequests OilChangeRequest[] // ✅ العلاقة مع طلبات تغيير الزيت
-
-  @@map("vehicles")
-}
-
-model AccidentRequest {
-  id           String   @id @default(cuid())
-  vehicleId    String
-  description  String?
-  status       String   @default("PENDING")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id])
-
-  @@map("accident_requests")
-}
-
-model OilChangeRequest {
-  id           String   @id @default(cuid())
-  vehicleId    String
-  description  String?
-  status       String   @default("PENDING")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
-
-  vehicle      Vehicle  @relation(fields: [vehicleId], references: [id])
-
-  @@map("oil_change_requests")
-}
-model SavedReport {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
-  modelType   String   // "assets", "workOrders", "tickets", "inventory", "contracts"
-  columns     String   // JSON array of selected column names
-  filters     String?  // JSON object of filters { field, operator, value }
-  sortBy      String?  // JSON array of sort rules
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  userId      String
-  companyId   String
-
-  @@index([userId])
-  @@index([companyId])
-  @@index([userId, companyId, updatedAt(sort: Desc)])
-  @@map("saved_reports")
 }

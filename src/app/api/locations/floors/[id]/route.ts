@@ -4,7 +4,9 @@ import { requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// ============================================================
 // PUT: تحديث دور
+// ============================================================
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -58,12 +60,14 @@ export async function PUT(
       }
     }
 
-    // التحقق من عدم تكرار الكود في نفس المبنى (مع استثناء نفس الدور)
+    // ✅ التحقق من عدم تكرار الكود في نفس المبنى (مع استثناء نفس الدور) - تم إزالة deletedAt
     const duplicate = await prisma.floor.findFirst({
       where: {
         buildingId,
-        code,
-        NOT: { id },
+        code: code.trim(),
+        NOT: {
+          id,
+        },
       },
     });
     if (duplicate) {
@@ -77,9 +81,9 @@ export async function PUT(
     const updatedFloor = await prisma.floor.update({
       where: { id },
       data: {
-        name,
-        nameEn: nameEn || null,
-        code,
+        name: name.trim(),
+        nameEn: nameEn?.trim() || null,
+        code: code.trim(),
         order: order || 0,
         buildingId,
       },
@@ -99,7 +103,9 @@ export async function PUT(
   }
 }
 
+// ============================================================
 // DELETE: حذف دور
+// ============================================================
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

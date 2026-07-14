@@ -1,23 +1,20 @@
 // src/app/api/locations/rooms/route.ts
 import { NextResponse } from 'next/server';
-import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// ============================================================
 // GET: جلب جميع الغرف الخاصة بمباني الشركة
+// ============================================================
 export async function GET() {
   try {
-    const session = await getAuthSession();
+    const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    // التحقق من الصلاحية
-    try {
-      await requirePermission('locations.read');
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    await requirePermission('locations.read');
 
     const companyId = session.companyId;
     if (!companyId) {
@@ -25,48 +22,47 @@ export async function GET() {
     }
 
     const rooms = await prisma.room.findMany({
-      where: {
-        building: { companyId },
-      },
-      select: {
-        id: true,
-        name: true,
-        nameEn: true,
-        code: true,
-        order: true,
-        floorId: true,
-        buildingId: true,
-        floor: {
-          select: { id: true, name: true, nameEn: true, code: true },
-        },
-        building: {
-          select: { id: true, name: true, nameEn: true, code: true },
+    where: {
+      building: { companyId },
+    },
+    include: {
+      floor: {
+        include: {
+          building: {
+            select: {
+              id: true,
+              name: true,
+              nameEn: true,
+              code: true,
+            },
+          },
         },
       },
-      orderBy: { order: 'asc' },
-    });
+    },
+    orderBy: { order: 'asc' },
+  });
 
     return NextResponse.json(rooms);
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET /api/locations/rooms error:', error);
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
+// ============================================================
 // POST: إضافة غرفة جديدة
+// ============================================================
 export async function POST(request: Request) {
   try {
-    const session = await getAuthSession();
+    const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    // التحقق من الصلاحية
-    try {
-      await requirePermission('locations.write');
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    await requirePermission('locations.create');
 
     const companyId = session.companyId;
     if (!companyId) {
@@ -74,6 +70,7 @@ export async function POST(request: Request) {
     }
 
     const { name, nameEn, code, order, floorId, buildingId } = await request.json();
+
     if (!name || !code || !floorId || !buildingId) {
       return NextResponse.json(
         { error: 'الاسم، الكود، الدور، والمبنى مطلوبون' },
@@ -81,7 +78,7 @@ export async function POST(request: Request) {
       );
     }
 
-    // التأكد أن المبنى والدور ينتميان للشركة
+    // التأكد أن المبنى ينتمي للشركة
     const building = await prisma.building.findFirst({
       where: { id: buildingId, companyId },
     });
@@ -92,6 +89,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // التأكد أن الدور ينتمي للمبنى
     const floor = await prisma.floor.findFirst({
       where: { id: floorId, buildingId },
     });
@@ -102,9 +100,12 @@ export async function POST(request: Request) {
       );
     }
 
-    // التحقق من عدم تكرار الكود في نفس المبنى
+    // ✅ التحقق من عدم تكرار الكود في نفس المبنى (بدون deletedAt)
     const existing = await prisma.room.findFirst({
-      where: { buildingId, code },
+      where: {
+        buildingId,
+        code: code.trim(),
+      },
     });
     if (existing) {
       return NextResponse.json(
@@ -115,9 +116,9 @@ export async function POST(request: Request) {
 
     const room = await prisma.room.create({
       data: {
-        name,
-        nameEn: nameEn || null,
-        code,
+        name: name.trim(),
+        nameEn: nameEn?.trim() || null,
+        code: code.trim(),
         order: order || 0,
         floorId,
         buildingId,
@@ -126,8 +127,11 @@ export async function POST(request: Request) {
 
     revalidatePath('/ar/locations/rooms');
     return NextResponse.json(room, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST /api/locations/rooms error:', error);
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

@@ -2,7 +2,12 @@
 import { PrismaClient, Prisma } from '@prisma/client';
 import { RequestContext } from './request-context';
 
+// ============================================================
+// Type Exports - الحل الرسمي لتوافق الأنواع مع Prisma Extensions
+// ============================================================
+
 export type TxClient = Prisma.TransactionClient;
+export type DbClient = typeof prisma;
 
 const SKIP_MODELS = ['User', 'Role', 'Permission', 'Company'] as const;
 const MODELS_WITHOUT_COMPANY_ID = [

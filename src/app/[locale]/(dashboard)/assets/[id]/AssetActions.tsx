@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/assets/[id]/AssetActions.tsx
 "use client";
 
 import { useRouter } from "next/navigation";

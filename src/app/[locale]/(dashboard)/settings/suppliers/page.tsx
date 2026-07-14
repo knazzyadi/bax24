@@ -1,0 +1,146 @@
+// src/app/[locale]/(dashboard)/settings/suppliers/page.tsx
+"use client";
+
+import { useState } from "react";
+import { useTranslations, useLocale } from "next-intl";
+import { Truck, Plus, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { AdminGuard } from "@/lib/client-guard";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { SupplierTable } from "./SupplierTable";
+import { SupplierDialog } from "./SupplierDialog";
+import { useSettingsData } from "@/hooks/useSettingsData";
+import type { Supplier } from "@/types/assets";
+
+const glassCard =
+  "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300";
+
+export default function SuppliersPage() {
+  const t = useTranslations("Suppliers");
+  const locale = useLocale();
+  const isRtl = locale === "ar";
+
+  const { data: suppliers, loading, refetch } = useSettingsData<Supplier>({
+    apiEndpoint: "/api/suppliers",
+    locale,
+  });
+
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id?: string }>({ open: false });
+  const [deleting, setDeleting] = useState(false);
+
+  const handleCreate = () => {
+    setEditingSupplier(null);
+    setDialogOpen(true);
+  };
+
+  const handleEdit = (supplier: Supplier) => {
+    setEditingSupplier(supplier);
+    setDialogOpen(true);
+  };
+
+  const handleDeleteClick = (id: string) => {
+    setConfirmDialog({ open: true, id });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!confirmDialog.id) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/suppliers/${confirmDialog.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "فشل الحذف");
+      }
+      toast.success(t("deleteSuccess"));
+      refetch();
+      setConfirmDialog({ open: false });
+    } catch (err: any) {
+      toast.error(err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDialogClose = (refetchData?: boolean) => {
+    setDialogOpen(false);
+    setEditingSupplier(null);
+    if (refetchData) refetch();
+  };
+
+  return (
+    <AdminGuard>
+      <div
+        dir={isRtl ? "rtl" : "ltr"}
+        className={cn(
+          "relative min-h-screen p-6 space-y-8",
+          isRtl ? "text-right" : "text-left"
+        )}
+      >
+        {/* ✅ خلفية متدرجة بالسماوي/النيلي */}
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-100/20 via-transparent to-sky-100/20 dark:from-cyan-950/10 dark:via-transparent dark:to-sky-950/10 rounded-3xl -z-10" />
+
+        <header className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-sky-500/10 dark:from-cyan-500/20 dark:to-sky-500/20 border border-cyan-200/30 dark:border-cyan-800/30 shadow-lg shadow-cyan-500/5">
+              <Truck className="h-8 w-8 text-cyan-600 dark:text-cyan-400" />
+            </div>
+            <div>
+              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+                {t("title")}
+              </h1>
+              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+                {t("subtitle")}
+              </p>
+            </div>
+          </div>
+          <Button
+            onClick={handleCreate}
+            className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-11 px-5 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+          >
+            <Plus className="h-4 w-4 ml-2" />
+            {t("addNew")}
+          </Button>
+        </header>
+
+        <div className={glassCard}>
+          <div className="p-6">
+            {loading ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+              </div>
+            ) : (
+              <SupplierTable
+                data={suppliers}
+                onEdit={handleEdit}
+                onDelete={handleDeleteClick}
+                isRtl={isRtl}
+              />
+            )}
+          </div>
+        </div>
+
+        <SupplierDialog
+          open={dialogOpen}
+          onOpenChange={handleDialogClose}
+          supplier={editingSupplier}
+          isRtl={isRtl}
+        />
+
+        <ConfirmDialog
+          open={confirmDialog.open}
+          onOpenChange={(open) => setConfirmDialog({ open, id: confirmDialog.id })}
+          onConfirm={handleConfirmDelete}
+          title={t("confirmDeleteTitle")}
+          description={t("confirmDeleteDescription")}
+          confirmText={t("delete")}
+          cancelText={t("cancel")}
+          isLoading={deleting}
+        />
+      </div>
+    </AdminGuard>
+  );
+}

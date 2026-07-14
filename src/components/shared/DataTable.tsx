@@ -1,11 +1,14 @@
-//src\components\shared\DataTable.tsx
-//جدول متقدم (Sorting / Pagination)
+// src/components/shared/DataTable.tsx
+"use client";
+
 import { cn } from '@/lib/utils';
 
 interface Column<T> {
   key: keyof T | string;
-  header: string;
-  cell?: (item: T) => React.ReactNode;
+  header?: string;           // ✅ دعم header
+  title?: string;            // ✅ دعم title (كبديل)
+  cell?: (item: T) => React.ReactNode;  // ✅ دعم cell
+  render?: (item: T) => React.ReactNode; // ✅ دعم render (كبديل)
   className?: string;
 }
 
@@ -15,14 +18,16 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   rowClassName?: string;
   onRowClick?: (item: T) => void;
+  rowKey?: keyof T | string;  // ✅ إضافة rowKey
 }
 
-export function DataTable<T extends { id: string }>({
+export function DataTable<T extends Record<string, any>>({
   data,
   columns,
   emptyMessage = 'لا توجد بيانات',
   rowClassName,
   onRowClick,
+  rowKey = 'id',
 }: DataTableProps<T>) {
   if (data.length === 0) {
     return (
@@ -32,6 +37,14 @@ export function DataTable<T extends { id: string }>({
     );
   }
 
+  // دالة للحصول على القيمة الأساسية للصف
+  const getRowKey = (item: T, index: number): string => {
+    if (rowKey && item[rowKey as keyof T] !== undefined) {
+      return String(item[rowKey as keyof T]);
+    }
+    return String(index);
+  };
+
   return (
     <div className="border border-border rounded-2xl overflow-hidden bg-card">
       <div className="overflow-x-auto">
@@ -39,25 +52,29 @@ export function DataTable<T extends { id: string }>({
           <thead className="bg-muted/50 border-b border-border">
             <tr>
               {columns.map((col) => (
-                <th key={String(col.key)} className={cn("p-4 text-right text-sm font-bold text-muted-foreground", col.className)}>
-                  {col.header}
+                <th
+                  key={String(col.key)}
+                  className={cn("p-4 text-right text-sm font-bold text-muted-foreground", col.className)}
+                >
+                  {col.header || col.title || String(col.key)}
                 </th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {data.map((item) => (
+            {data.map((item, index) => (
               <tr
-                key={item.id}
+                key={getRowKey(item, index)}
                 className={cn(
-                  "border-b border-border hover:bg-muted/30 transition-colors cursor-pointer",
+                  "border-b border-border hover:bg-muted/30 transition-colors",
+                  onRowClick && "cursor-pointer",
                   rowClassName
                 )}
                 onClick={() => onRowClick?.(item)}
               >
                 {columns.map((col) => (
                   <td key={String(col.key)} className={cn("p-4", col.className)}>
-                    {col.cell ? col.cell(item) : (item[col.key as keyof T] as React.ReactNode)}
+                    {col.cell ? col.cell(item) : col.render ? col.render(item) : (item[col.key as keyof T] as React.ReactNode)}
                   </td>
                 ))}
               </tr>

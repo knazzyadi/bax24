@@ -1,47 +1,42 @@
 // src/components/shared/form/FormField.tsx
 "use client";
 
-import { ReactNode } from "react";
-import { Label } from "@/components/ui/label";
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
-interface FormFieldProps {
+export interface FormFieldProps {
   label: string;
-  icon?: ReactNode;
-  children: ReactNode;
+  children: React.ReactNode;
+  description?: string;
+  error?: string;
   required?: boolean;
   className?: string;
-  tooltip?: string;
 }
 
 export function FormField({
   label,
-  icon,
   children,
-  required,
+  description,
+  error,
+  required = false,
   className,
-  tooltip,
 }: FormFieldProps) {
   return (
     <div className={cn("space-y-2", className)}>
-      {/* تغيير font-black إلى font-medium */}
-      <Label className="text-foreground font-medium text-xs uppercase tracking-widest flex items-center gap-2">
-        {icon && <span className="text-foreground">{icon}</span>}
-        {label}
-
-        {tooltip && (
-          <span
-            className="text-gray-400 text-[11px] font-normal normal-case cursor-help"
-            title={tooltip}
-          >
-            ⓘ
-          </span>
-        )}
-
-        {required && <span className="text-red-500">*</span>}
-      </Label>
+      <label className="flex items-center gap-1 text-sm font-medium text-slate-700 dark:text-slate-300">
+        <span>{label}</span>
+        {required && <span className="text-rose-500">*</span>}
+      </label>
 
       {children}
+
+      {description && !error && (
+        <p className="text-xs text-slate-400 dark:text-slate-500">{description}</p>
+      )}
+
+      {error && <p className="text-xs font-medium text-rose-500">{error}</p>}
     </div>
   );
 }
+
+export default FormField;

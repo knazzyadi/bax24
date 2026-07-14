@@ -1,7 +1,8 @@
 // src/app/[locale]/(dashboard)/assets/[id]/edit/page.tsx
+
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -37,27 +38,51 @@ import {
 import { LocationSelector, type LocationValue } from "@/components/shared/LocationSelector";
 import type { AssetStatus, AssetType, Building, Floor, Room } from "@/types/assets";
 
-export default function EditAssetPage() {
-  const router = useRouter();
-  const params = useParams();
-  const locale = useLocale();
-  const assetId = params.id as string;
-  const t = useTranslations("AssetsForm");
-  const isRtl = locale === "ar";
-
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+// ============================================================
+// 1. Hook لجلب البيانات الوصفية
+// ============================================================
+function useMetadata(locale: string) {
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
-  const [loadingStatuses, setLoadingStatuses] = useState(true);
-  const [statusesError, setStatusesError] = useState<string | null>(null);
   const [types, setTypes] = useState<AssetType[]>([]);
   const [buildings, setBuildings] = useState<Building[]>([]);
-  const [selectedBuildingId, setSelectedBuildingId] = useState<string>("");
-  const [selectedFloorId, setSelectedFloorId] = useState<string>("");
-  const [roomId, setRoomId] = useState<string>("");
-  const [selectedRoomFullCode, setSelectedRoomFullCode] = useState<string>("");
-  const [selectedRoomName, setSelectedRoomName] = useState<string>("");
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string; nameEn?: string }[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
+  const fetchMetadata = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const [statusesRes, typesRes, buildingsRes, suppliersRes] = await Promise.all([
+        fetch(`/api/asset-statuses?locale=${locale}`),
+        fetch(`/api/asset-types?locale=${locale}`),
+        fetch(`/api/buildings`),
+        fetch(`/api/suppliers?locale=${locale}`),
+      ]);
+      if (statusesRes.ok) setStatuses(await statusesRes.json());
+      else setError("فشل تحميل الحالات");
+      if (typesRes.ok) setTypes(await typesRes.json());
+      if (buildingsRes.ok) setBuildings(await buildingsRes.json());
+      if (suppliersRes.ok) setSuppliers(await suppliersRes.json());
+    } catch {
+      setError("خطأ في الاتصال بالخادم");
+    } finally {
+      setLoading(false);
+    }
+  }, [locale]);
+
+  useEffect(() => {
+    fetchMetadata();
+  }, [fetchMetadata]);
+
+  return { statuses, types, buildings, suppliers, loading, error, refetch: fetchMetadata };
+}
+
+// ============================================================
+// 2. Hook لجلب بيانات الأصل وتعبئة النموذج (محسّن)
+// ============================================================
+function useAssetForm(assetId: string) {
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
     nameEn: "",
@@ -73,135 +98,154 @@ export default function EditAssetPage() {
     serialNumber: "",
     manufacturer: "",
     model: "",
-    supplier: "",
+    supplierId: "",
   });
 
-  const glassCard =
-    "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
+  // بيانات الموقع (منفصلة عن formData لتسهيل التعامل مع LocationSelector)
+  const [locationData, setLocationData] = useState<LocationValue>({
+    buildingId: "",
+    floorId: "",
+    roomId: "",
+  });
 
-  const statusNameMap = useMemo(() => {
-    const map = new Map<string, string>();
-    statuses.forEach((s) => {
-      map.set(s.id, isRtl ? s.name : s.nameEn || s.name);
-    });
-    return map;
-  }, [statuses, isRtl]);
+  const [selectedRoomFullCode, setSelectedRoomFullCode] = useState("");
+  const [selectedRoomName, setSelectedRoomName] = useState("");
 
-  const getStatusName = useCallback(
-    (statusId: string) => {
-      return statusNameMap.get(statusId) || t("selectStatus");
-    },
-    [statusNameMap, t]
-  );
-
-  const fetchMeta = useCallback(async () => {
-    setLoadingStatuses(true);
-    setStatusesError(null);
-
+  const fetchAsset = useCallback(async () => {
     try {
-      const [statusesRes, typesRes, buildingsRes] = await Promise.all([
-        fetch(`/api/asset-statuses?locale=${locale}`),
-        fetch(`/api/asset-types?locale=${locale}`),
-        fetch(`/api/buildings`),
-      ]);
+      const res = await fetch(`/api/assets/${assetId}`);
+      if (!res.ok) throw new Error("Asset not found");
+      const assetData = await res.json();
 
-      if (statusesRes.ok) {
-        const data = await statusesRes.json();
-        setStatuses(data);
+      // ✅ تعبئة النموذج من الحقول المسطحة (AssetResponse)
+      setFormData({
+        name: assetData.name || "",
+        nameEn: assetData.nameEn || "",
+        description: assetData.description || "",
+        typeId: assetData.typeId || "",
+        statusId: assetData.statusId || "",
+        purchaseDate: assetData.purchaseDate?.split("T")[0] || "",
+        operationDate: assetData.operationDate?.split("T")[0] || "",
+        warrantyEnd: assetData.warrantyEnd?.split("T")[0] || "",
+        lastMaintenanceDate: assetData.lastMaintenanceDate?.split("T")[0] || "",
+        roomId: assetData.roomId || "",
+        notes: assetData.notes || "",
+        serialNumber: assetData.serialNumber || "",
+        manufacturer: assetData.manufacturer || "",
+        model: assetData.model || "",
+        supplierId: assetData.supplierId || "",
+      });
+
+      // ✅ تعيين بيانات الموقع من الحقول الجديدة
+      const roomId = assetData.roomId || "";
+      const buildingId = assetData.buildingId || "";
+      const floorId = assetData.floorId || "";
+
+      setLocationData({
+        buildingId,
+        floorId,
+        roomId,
+      });
+
+      // ✅ تعيين اسم الغرفة والكود للعرض
+      if (roomId) {
+        const roomName = assetData.roomName || "";
+        const roomCode = assetData.roomCode || "";
+        const buildingCode = assetData.buildingCode || "";
+        const floorCode = assetData.floorCode || "";
+        const fullCode = [buildingCode, floorCode, roomCode].filter(Boolean).join("-");
+        setSelectedRoomName(roomName);
+        setSelectedRoomFullCode(fullCode);
       } else {
-        setStatusesError(isRtl ? "فشل تحميل الحالات" : "Failed to load statuses");
+        setSelectedRoomName("");
+        setSelectedRoomFullCode("");
       }
-
-      if (typesRes.ok) setTypes(await typesRes.json());
-      if (buildingsRes.ok) setBuildings(await buildingsRes.json());
-    } catch (err) {
-      setStatusesError(isRtl ? "خطأ في الاتصال بالخادم" : "Server connection error");
-      toast.error(t("fetchError"));
+    } catch (error) {
+      console.error("Error fetching asset:", error);
+      toast.error("حدث خطأ في تحميل البيانات");
     } finally {
-      setLoadingStatuses(false);
+      setLoading(false);
     }
-  }, [locale, isRtl, t]);
+  }, [assetId]);
 
   useEffect(() => {
-    fetchMeta();
-  }, [fetchMeta]);
+    fetchAsset();
+  }, [fetchAsset]);
 
-  useEffect(() => {
-    const fetchAsset = async () => {
-      try {
-        const res = await fetch(`/api/assets/${assetId}`);
-        if (!res.ok) throw new Error("Asset not found");
-        const asset = await res.json();
-        setFormData({
-          name: asset.name || "",
-          nameEn: asset.nameEn || "",
-          description: asset.description || "",
-          typeId: asset.typeId || "",
-          statusId: asset.statusId || "",
-          purchaseDate: asset.purchaseDate ? asset.purchaseDate.split("T")[0] : "",
-          operationDate: asset.operationDate ? asset.operationDate.split("T")[0] : "",
-          warrantyEnd: asset.warrantyEnd ? asset.warrantyEnd.split("T")[0] : "",
-          lastMaintenanceDate: asset.lastMaintenanceDate
-            ? asset.lastMaintenanceDate.split("T")[0]
-            : "",
-          roomId: asset.roomId || "",
-          notes: asset.notes || "",
-          serialNumber: asset.serialNumber || "",
-          manufacturer: asset.manufacturer || "",
-          model: asset.model || "",
-          supplier: asset.supplier || "",
-        });
-        if (asset.room) {
-          setRoomId(asset.room.id);
-          if (asset.room.floor) {
-            setSelectedFloorId(asset.room.floor.id);
-            if (asset.room.floor.building) setSelectedBuildingId(asset.room.floor.building.id);
-          }
-        }
-      } catch (err) {
-        console.error(err);
-        toast.error(t("fetchError"));
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (assetId) fetchAsset();
-  }, [assetId, t]);
-
+  // تحديث roomId في formData عند تغيير الموقع
   const handleLocationChange = (location: LocationValue) => {
-    setSelectedBuildingId(location.buildingId);
-    setSelectedFloorId(location.floorId);
-    setRoomId(location.roomId);
+    setLocationData(location);
     setFormData((prev) => ({ ...prev, roomId: location.roomId }));
-  };
 
-  useEffect(() => {
-    if (!roomId) {
-      setSelectedRoomFullCode("");
-      setSelectedRoomName("");
-      return;
-    }
-    const fetchRoomDetails = async () => {
-      try {
-        const res = await fetch(`/api/rooms/${roomId}`);
-        if (res.ok) {
-          const roomData = await res.json();
-          const buildingCode = roomData.floor?.building?.code || "";
-          const floorCode = roomData.floor?.code || "";
-          const roomCode = roomData.code || "";
-          const fullCode = `${buildingCode}-${floorCode}-${roomCode}`;
-          setSelectedRoomFullCode(fullCode);
-          setSelectedRoomName(isRtl ? roomData.name : roomData.nameEn || roomData.name);
-        } else {
+    // جلب تفاصيل الغرفة لعرض الاسم والكود
+    if (location.roomId) {
+      fetch(`/api/rooms/${location.roomId}`)
+        .then((res) => {
+          if (res.ok) return res.json();
+          return null;
+        })
+        .then((roomData) => {
+          if (roomData) {
+            const buildingCode = roomData.floor?.building?.code || "";
+            const floorCode = roomData.floor?.code || "";
+            const roomCode = roomData.code || "";
+            setSelectedRoomFullCode(`${buildingCode}-${floorCode}-${roomCode}`);
+            setSelectedRoomName(roomData.name || roomData.nameEn || "");
+          }
+        })
+        .catch(() => {
           setSelectedRoomFullCode("");
           setSelectedRoomName("");
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    fetchRoomDetails();
-  }, [roomId, isRtl]);
+        });
+    } else {
+      setSelectedRoomFullCode("");
+      setSelectedRoomName("");
+    }
+  };
+
+  return {
+    loading,
+    formData,
+    setFormData,
+    locationData,
+    selectedRoomFullCode,
+    selectedRoomName,
+    handleLocationChange,
+    refetch: fetchAsset,
+  };
+}
+
+// ============================================================
+// 3. المكون الرئيسي
+// ============================================================
+export default function EditAssetPage() {
+  const router = useRouter();
+  const params = useParams();
+  const locale = useLocale();
+  const assetId = params.id as string;
+  const t = useTranslations("AssetsForm");
+  const isRtl = locale === "ar";
+
+  const {
+    loading: assetLoading,
+    formData,
+    setFormData,
+    locationData,
+    selectedRoomFullCode,
+    selectedRoomName,
+    handleLocationChange,
+  } = useAssetForm(assetId);
+
+  const {
+    statuses,
+    types,
+    suppliers,
+    loading: metaLoading,
+    error: metaError,
+    refetch: refetchMeta,
+  } = useMetadata(locale);
+
+  const [saving, setSaving] = useState(false);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -224,7 +268,7 @@ export default function EditAssetPage() {
       toast.error(t("nameRequired"));
       return;
     }
-    if (!roomId) {
+    if (!formData.roomId) {
       toast.error(t("locationRequired"));
       return;
     }
@@ -241,34 +285,36 @@ export default function EditAssetPage() {
         operationDate: formData.operationDate || null,
         warrantyEnd: formData.warrantyEnd || null,
         lastMaintenanceDate: formData.lastMaintenanceDate || null,
-        roomId,
+        roomId: formData.roomId,
         notes: formData.notes || null,
         serialNumber: formData.serialNumber.trim() || null,
         manufacturer: formData.manufacturer.trim() || null,
         model: formData.model.trim() || null,
-        supplier: formData.supplier.trim() || null,
+        supplierId: formData.supplierId || null,
       };
+
       const res = await fetch(`/api/assets/${assetId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
+
       if (res.ok) {
-        toast.success(t("updateSuccess", { fallback: "Asset updated successfully" }));
-        router.push(`/${locale}/assets`);
+        toast.success(t("updateSuccess", { fallback: "تم تحديث الأصل بنجاح" }));
+        router.push(`/${locale}/assets/${assetId}`);
         router.refresh();
       } else {
         const error = await res.json();
         toast.error(error.error || t("updateError"));
       }
-    } catch (err) {
+    } catch {
       toast.error(t("updateError"));
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
+  if (assetLoading || metaLoading) {
     return (
       <div className="relative min-h-[60vh] flex items-center justify-center p-6">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
@@ -276,6 +322,9 @@ export default function EditAssetPage() {
       </div>
     );
   }
+
+  const glassCard =
+    "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
   return (
     <div className="relative space-y-8 p-6">
@@ -365,9 +414,7 @@ export default function EditAssetPage() {
                   <div className="space-y-1.5">
                     <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1">
                       {t("type")}
-                      <span className="text-xs text-rose-500 font-normal">
-                        (لا يمكن التعديل)
-                      </span>
+                      <span className="text-xs text-rose-500 font-normal">(لا يمكن التعديل)</span>
                     </Label>
                     <Select
                       value={formData.typeId}
@@ -375,9 +422,7 @@ export default function EditAssetPage() {
                       disabled
                     >
                       <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-gray-100 dark:bg-gray-800 text-muted-foreground cursor-not-allowed px-4">
-                        {getTypeName(formData.typeId) || (
-                          <SelectValue placeholder={t("selectType")} />
-                        )}
+                        {getTypeName(formData.typeId) || <SelectValue placeholder={t("selectType")} />}
                       </SelectTrigger>
                       <SelectContent>
                         {types.map((type) => (
@@ -389,9 +434,7 @@ export default function EditAssetPage() {
                     </Select>
                     <p className="text-xs text-slate-400 dark:text-slate-500 flex items-center gap-1 mt-1">
                       <AlertTriangle className="h-3 w-3" />
-                      {isRtl
-                        ? "لا يمكن تغيير نوع الأصل بعد الإنشاء."
-                        : "Asset type cannot be changed after creation."}
+                      {isRtl ? "لا يمكن تغيير نوع الأصل بعد الإنشاء." : "Asset type cannot be changed after creation."}
                     </p>
                   </div>
 
@@ -399,29 +442,18 @@ export default function EditAssetPage() {
                     <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                       {t("status")}
                     </Label>
-                    {loadingStatuses ? (
-                      <div className="h-12 rounded-xl border border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 flex items-center px-4 text-slate-400 animate-pulse">
-                        {isRtl ? "جاري تحميل الحالات..." : "Loading statuses..."}
-                      </div>
-                    ) : statusesError ? (
+                    {metaError ? (
                       <div className="flex items-center gap-2">
                         <div className="h-12 flex-1 rounded-xl border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/30 flex items-center px-4 text-rose-600 dark:text-rose-400 text-sm">
-                          {statusesError}
+                          {metaError}
                         </div>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={fetchMeta}
-                          className="h-12 px-4 rounded-xl border-slate-200 dark:border-slate-800"
-                        >
+                        <Button variant="outline" size="sm" onClick={refetchMeta} className="h-12 px-4 rounded-xl border-slate-200 dark:border-slate-800">
                           <RefreshCw className="h-4 w-4" />
                         </Button>
                       </div>
                     ) : statuses.length === 0 ? (
                       <div className="h-12 rounded-xl border border-rose-300 dark:border-rose-700 bg-rose-50 dark:bg-rose-950/30 flex items-center px-4 text-rose-600 dark:text-rose-400 text-sm">
-                        {isRtl
-                          ? "لا توجد حالات. يرجى إضافة حالة أولاً."
-                          : "No statuses available. Please add one."}
+                        {isRtl ? "لا توجد حالات. يرجى إضافة حالة أولاً." : "No statuses available. Please add one."}
                       </div>
                     ) : (
                       <Select
@@ -435,10 +467,7 @@ export default function EditAssetPage() {
                           {statuses.map((status) => (
                             <SelectItem key={status.id} value={status.id}>
                               <div className="flex items-center gap-2">
-                                <span
-                                  className="w-3 h-3 rounded-full shrink-0"
-                                  style={{ backgroundColor: status.color || "#6b7280" }}
-                                />
+                                <span className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: status.color || "#6b7280" }} />
                                 {isRtl ? status.name : status.nameEn || status.name}
                               </div>
                             </SelectItem>
@@ -505,15 +534,24 @@ export default function EditAssetPage() {
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <Truck className="h-4 w-4 text-indigo-400" />
-                    {isRtl ? "اسم المورد" : "Supplier"}
+                    {isRtl ? "المورد" : "Supplier"}
                   </Label>
-                  <Input
-                    name="supplier"
-                    value={formData.supplier}
-                    onChange={handleChange}
-                    placeholder={isRtl ? "أدخل اسم المورد" : "Enter supplier name"}
-                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
-                  />
+                  <Select
+                    value={formData.supplierId || ""}
+                    onValueChange={(v) => handleSelectChange("supplierId", v)}
+                  >
+                    <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                      <SelectValue placeholder={isRtl ? "اختر المورد" : "Select supplier"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="">{isRtl ? "بدون مورد" : "No supplier"}</SelectItem>
+                      {suppliers.map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          {isRtl ? supplier.name : supplier.nameEn || supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>
@@ -531,11 +569,7 @@ export default function EditAssetPage() {
 
               <div className="space-y-4">
                 <LocationSelector
-                  value={{
-                    buildingId: selectedBuildingId,
-                    floorId: selectedFloorId,
-                    roomId,
-                  }}
+                  value={locationData}
                   onChange={handleLocationChange}
                 />
                 {selectedRoomFullCode && (
@@ -551,9 +585,7 @@ export default function EditAssetPage() {
               </div>
             </div>
 
-            {/* ============================ */}
-            {/*  Lifecycle Card (modified)    */}
-            {/* ============================ */}
+            {/* Lifecycle Card */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
@@ -565,7 +597,6 @@ export default function EditAssetPage() {
               </div>
 
               <div className="grid md:grid-cols-2 gap-4">
-                {/* Purchase Date */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {t("purchaseDate")}
@@ -582,7 +613,6 @@ export default function EditAssetPage() {
                   </div>
                 </div>
 
-                {/* Operation Date */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <Clock className="h-4 w-4 text-amber-400" />
@@ -600,7 +630,6 @@ export default function EditAssetPage() {
                   </div>
                 </div>
 
-                {/* Warranty End (now paired with Last Maintenance) */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                     {t("warrantyEnd")}
@@ -617,7 +646,6 @@ export default function EditAssetPage() {
                   </div>
                 </div>
 
-                {/* Last Maintenance Date - now placed next to warranty end */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-2">
                     <Wrench className="h-4 w-4 text-slate-400" />
@@ -643,7 +671,6 @@ export default function EditAssetPage() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Notes Card */}
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-5">
                 <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
@@ -671,7 +698,6 @@ export default function EditAssetPage() {
               </div>
             </div>
 
-            {/* Quick Help */}
             <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
               <ShieldCheck className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
               <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -681,7 +707,6 @@ export default function EditAssetPage() {
               </div>
             </div>
 
-            {/* Buttons */}
             <div className="flex gap-3">
               <Button
                 type="button"
@@ -696,11 +721,7 @@ export default function EditAssetPage() {
                 disabled={saving}
                 className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
               >
-                {saving ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  <Save className="h-5 w-5 ml-2" />
-                )}
+                {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5 ml-2" />}
                 {t("submit")}
               </Button>
             </div>

@@ -1,11 +1,11 @@
 // src/app/api/asset-types/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
-// =====================
-// GET: جلب نوع أصل واحد
-// =====================
+// ============================================================
+// GET - جلب نوع واحد
+// ============================================================
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,19 +16,11 @@ export async function GET(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await checkPermission('assets.read');
-
     const { id } = await params;
-    const targetCompanyId = session.role !== 'SUPER_ADMIN' 
-      ? session.companyId 
-      : new URL(request.url).searchParams.get('companyId') || session.companyId;
+    const companyId = session.companyId;
 
-    if (!targetCompanyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
-    }
-
-    const assetType = await prisma.assetType.findFirst({
-      where: { id, companyId: targetCompanyId, deletedAt: null },
+    const type = await prisma.assetType.findFirst({
+      where: { id, companyId, deletedAt: null },
       select: {
         id: true,
         name: true,
@@ -38,26 +30,28 @@ export async function GET(
         order: true,
         isDefault: true,
         isActive: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
-    if (!assetType) {
-      return NextResponse.json({ error: 'نوع الأصل غير موجود' }, { status: 404 });
+    if (!type) {
+      return NextResponse.json({ error: 'النوع غير موجود' }, { status: 404 });
     }
 
-    return NextResponse.json(assetType);
-  } catch (error: any) {
-    console.error('GET /api/asset-types/[id] error:', error);
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json(type);
+  } catch (error) {
+    console.error('Error in GET /api/asset-types/[id]:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في جلب النوع' },
+      { status: 500 }
+    );
   }
 }
 
-// =====================
-// PUT: تحديث نوع أصل
-// =====================
+// ============================================================
+// PUT - تحديث نوع
+// ============================================================
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -68,88 +62,77 @@ export async function PUT(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await checkPermission('assets.update');
-
     const { id } = await params;
+    const companyId = session.companyId;
     const body = await request.json();
-    const { name, nameEn, code, description, order, isDefault, isActive, companyId } = body;
+    const { name, nameEn, code, description, order, isDefault, isActive } = body;
 
-    if (!name || name.trim() === '') {
-      return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
-    }
-
-    // تحديد الشركة
-    let targetCompanyId = companyId;
-    if (session.role !== 'SUPER_ADMIN') {
-      targetCompanyId = session.companyId;
-    }
-    if (!targetCompanyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
-    }
-
-    // التحقق من وجود النوع
     const existingType = await prisma.assetType.findFirst({
-      where: { id, companyId: targetCompanyId, deletedAt: null },
+      where: { id, companyId, deletedAt: null },
     });
     if (!existingType) {
-      return NextResponse.json({ error: 'نوع الأصل غير موجود' }, { status: 404 });
+      return NextResponse.json({ error: 'النوع غير موجود' }, { status: 404 });
     }
 
-    // التحقق من عدم تكرار الاسم أو الكود (باستثناء نفس النوع)
-    const duplicate = await prisma.assetType.findFirst({
-      where: {
-        companyId: targetCompanyId,
-        deletedAt: null,
-        NOT: { id },
-        OR: [
-          { name: name.trim() },
-          { code: code?.trim() || undefined },
-        ],
-      },
-    });
-    if (duplicate) {
-      return NextResponse.json(
-        { error: 'يوجد نوع أصل بنفس الاسم أو الكود بالفعل' },
-        { status: 409 }
-      );
-    }
-
-    // تحديث داخل transaction
-    const updatedType = await prisma.$transaction(async (tx) => {
-      if (isDefault === true) {
-        await tx.assetType.updateMany({
-          where: { companyId: targetCompanyId, isDefault: true, id: { not: id } },
-          data: { isDefault: false },
-        });
-      }
-
-      return tx.assetType.update({
-        where: { id },
-        data: {
+    if (name?.trim()) {
+      const duplicate = await prisma.assetType.findFirst({
+        where: {
+          companyId,
           name: name.trim(),
-          nameEn: nameEn?.trim() || null,
-          code: code?.trim() || null,
-          description: description?.trim() || null,
-          order: typeof order === 'number' ? order : existingType.order,
-          isDefault: isDefault === true,
-          isActive: isActive ?? existingType.isActive,
+          deletedAt: null,
+          id: { not: id },
         },
       });
+      if (duplicate) {
+        return NextResponse.json({ error: 'هناك نوع بنفس الاسم بالفعل' }, { status: 409 });
+      }
+    }
+
+    if (isDefault) {
+      await prisma.assetType.updateMany({
+        where: { companyId, deletedAt: null, id: { not: id } },
+        data: { isDefault: false },
+      });
+    }
+
+    const updated = await prisma.assetType.update({
+      where: { id },
+      data: {
+        name: name?.trim() || existingType.name,
+        nameEn: nameEn?.trim() || null,
+        code: code?.trim() || null,
+        description: description?.trim() || null,
+        order: order ?? 0,
+        isDefault: isDefault ?? false,
+        isActive: isActive ?? true,
+      },
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+        code: true,
+        description: true,
+        order: true,
+        isDefault: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
-    return NextResponse.json(updatedType);
-  } catch (error: any) {
-    console.error('PUT /api/asset-types/[id] error:', error);
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json(updated);
+  } catch (error) {
+    console.error('Error in PUT /api/asset-types/[id]:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في تحديث النوع' },
+      { status: 500 }
+    );
   }
 }
 
-// =====================
-// DELETE: حذف نوع أصل (Soft Delete)
-// =====================
+// ============================================================
+// DELETE - حذف نوع (ناعم)
+// ============================================================
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -160,44 +143,37 @@ export async function DELETE(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await checkPermission('assets.delete');
-
     const { id } = await params;
-    const targetCompanyId = session.role !== 'SUPER_ADMIN' 
-      ? session.companyId 
-      : new URL(request.url).searchParams.get('companyId') || session.companyId;
+    const companyId = session.companyId;
 
-    if (!targetCompanyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
-    }
-
-    const assetType = await prisma.assetType.findFirst({
-      where: { id, companyId: targetCompanyId, deletedAt: null },
+    const existingType = await prisma.assetType.findFirst({
+      where: { id, companyId, deletedAt: null },
+      include: {
+        assets: { take: 1, select: { id: true } },
+      },
     });
-    if (!assetType) {
-      return NextResponse.json({ error: 'نوع الأصل غير موجود' }, { status: 404 });
+    if (!existingType) {
+      return NextResponse.json({ error: 'النوع غير موجود' }, { status: 404 });
     }
 
-    // منع حذف النوع الافتراضي
-    if (assetType.isDefault) {
+    if (existingType.assets.length > 0) {
       return NextResponse.json(
-        { error: 'لا يمكن حذف النوع الافتراضي' },
-        { status: 400 }
+        { error: 'لا يمكن حذف النوع لأنه مستخدم في أصول موجودة' },
+        { status: 409 }
       );
     }
 
-    // Soft Delete
     await prisma.assetType.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('DELETE /api/asset-types/[id] error:', error);
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json({ success: true, message: 'تم حذف النوع بنجاح' });
+  } catch (error) {
+    console.error('Error in DELETE /api/asset-types/[id]:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في حذف النوع' },
+      { status: 500 }
+    );
   }
 }

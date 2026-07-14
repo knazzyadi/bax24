@@ -30,7 +30,10 @@ export function AssetBasicInfo({ asset }: AssetBasicInfoProps) {
         <InfoField label={t("name")} value={asset.name} />
         {asset.nameEn && <InfoField label={t("nameEn")} value={asset.nameEn} />}
         <InfoField label={t("code")} value={asset.code} />
-        <InfoField label={t("type")} value={getDisplayName(asset.type, isRtl)} />
+        <InfoField 
+          label={t("type")} 
+          value={asset.type ? getDisplayName(asset.type, isRtl) : t("notSpecified")} 
+        />
         <InfoField
           label={t("status")}
           value={<StatusBadge status={asset.status ?? null} />}
@@ -38,7 +41,7 @@ export function AssetBasicInfo({ asset }: AssetBasicInfoProps) {
         {asset.description && (
           <div className="sm:col-span-2 space-y-1">
             <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-              {t("description")} {/* ✅ الآن يعمل */}
+              {t("description")}
             </div>
             <div className="p-4 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 border border-slate-200/30 dark:border-slate-700/30 text-sm text-slate-700 dark:text-slate-300 leading-relaxed">
               {asset.description}

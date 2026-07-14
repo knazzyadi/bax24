@@ -20,6 +20,7 @@ import {
   Flag,
   Layers,
   ListChecks,
+  Home,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -51,11 +52,29 @@ export const MAIN_MENU_ITEMS: NavItem[] = [
     labelKey: "nav.settingsTitle",
     icon: Settings,
     children: [
-      // Locations
+      // =========================
+      // ✅ Locations (بدون href، قائمة فرعية فقط)
+      // =========================
       {
-        href: "/settings/locations",
         labelKey: "nav.settings.locations",
         icon: MapPin,
+        children: [
+          {
+            href: "/locations/buildings",
+            labelKey: "nav.buildings",
+            icon: Building,
+          },
+          {
+            href: "/locations/floors",
+            labelKey: "nav.floors",
+            icon: Layers,
+          },
+          {
+            href: "/locations/rooms",
+            labelKey: "nav.rooms",
+            icon: Home,
+          },
+        ],
       },
 
       // Assets
@@ -117,11 +136,11 @@ export const MAIN_MENU_ITEMS: NavItem[] = [
       },
 
       // Users
-      {
-        href: "/settings/users",
-        labelKey: "nav.settings.users",
-        icon: Users,
-      },
+        {
+          href: "/users",
+          labelKey: "nav.settings.users",
+          icon: Users,
+        },
 
       // Roles
       {

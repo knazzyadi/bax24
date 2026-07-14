@@ -23,6 +23,17 @@ interface Room {
   };
 }
 
+interface Floor {
+  id: string;
+  name: string;
+  nameEn: string | null;
+  buildingId: string;
+  building: {
+    id: string;
+    name: string;
+  };
+}
+
 export default async function RoomsPage({
   params,
 }: {
@@ -30,7 +41,6 @@ export default async function RoomsPage({
 }) {
   const { locale } = await params;
 
-  // ✅ التحقق من الصلاحية في الخادم (يسمح بـ ADMIN و SUPER_ADMIN)
   const session = await requireRole(['ADMIN', 'SUPER_ADMIN']);
 
   const companyId = session.user.companyId;
@@ -38,7 +48,7 @@ export default async function RoomsPage({
     throw new Error('Company ID is missing');
   }
 
-  // ✅ جلب الغرف مع الأدوار والمباني المرتبطة بها
+  // ✅ جلب الغرف مع الأدوار والمباني
   const rooms = await prisma.room.findMany({
     where: {
       building: {
@@ -64,7 +74,7 @@ export default async function RoomsPage({
     },
   });
 
-  // ✅ جلب الأدوار لعرضها في الفورم (مع المباني)
+  // ✅ جلب الأدوار لعرضها في الفورم
   const floors = await prisma.floor.findMany({
     where: {
       building: {
@@ -86,7 +96,7 @@ export default async function RoomsPage({
     },
   });
 
-  // ✅ تحويل البيانات للشكل المطلوب
+  // ✅ تحويل البيانات
   const transformedRooms: Room[] = rooms.map((room) => ({
     id: room.id,
     name: room.name,
@@ -106,7 +116,7 @@ export default async function RoomsPage({
     },
   }));
 
-  const transformedFloors = floors.map((floor) => ({
+  const transformedFloors: Floor[] = floors.map((floor) => ({
     id: floor.id,
     name: floor.name,
     nameEn: floor.nameEn,

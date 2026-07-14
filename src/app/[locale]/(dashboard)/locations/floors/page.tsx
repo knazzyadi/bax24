@@ -17,6 +17,11 @@ interface Floor {
   };
 }
 
+interface Building {
+  id: string;
+  name: string;
+}
+
 export default async function FloorsPage({
   params,
 }: {
@@ -24,7 +29,6 @@ export default async function FloorsPage({
 }) {
   const { locale } = await params;
 
-  // ✅ التحقق من الصلاحية في الخادم (يسمح بـ ADMIN و SUPER_ADMIN)
   const session = await requireRole(['ADMIN', 'SUPER_ADMIN']);
 
   const companyId = session.user.companyId;
@@ -32,7 +36,6 @@ export default async function FloorsPage({
     throw new Error('Company ID is missing');
   }
 
-  // ✅ جلب الأدوار مع المباني المرتبطة بها
   const floors = await prisma.floor.findMany({
     where: {
       building: {
@@ -54,7 +57,6 @@ export default async function FloorsPage({
     },
   });
 
-  // ✅ جلب المباني لعرضها في الفورم
   const buildings = await prisma.building.findMany({
     where: {
       companyId: companyId,
@@ -63,14 +65,12 @@ export default async function FloorsPage({
     select: {
       id: true,
       name: true,
-      nameEn: true,
     },
     orderBy: {
       name: 'asc',
     },
   });
 
-  // ✅ تحويل البيانات للشكل المطلوب
   const transformedFloors: Floor[] = floors.map((floor) => ({
     id: floor.id,
     name: floor.name,
@@ -84,7 +84,7 @@ export default async function FloorsPage({
     },
   }));
 
-  const transformedBuildings = buildings.map((b) => ({
+  const transformedBuildings: Building[] = buildings.map((b) => ({
     id: b.id,
     name: b.name,
   }));

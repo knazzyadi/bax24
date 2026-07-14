@@ -4,7 +4,9 @@ import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-help
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
-// دالة مساعدة للتحقق من ملكية الغرفة وصلاحية التعديل/الحذف
+// ============================================================
+// دالة مساعدة للتحقق من ملكية الغرفة
+// ============================================================
 async function getAuthorizedRoom(id: string, companyId: string) {
   return prisma.room.findFirst({
     where: {
@@ -26,16 +28,22 @@ async function getAuthorizedRoom(id: string, companyId: string) {
   });
 }
 
+// ============================================================
 // PUT: تحديث غرفة
+// ============================================================
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ استخدام requirePermission للحصول على الجلسة مع التحقق من الصلاحية
-    const session = await requirePermission('locations.write');
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    const companyId = session.companyId; // ✅ مباشرة من الجلسة (وليس session.user.companyId)
+    await requirePermission('locations.update');
+
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -57,7 +65,7 @@ export async function PUT(
       return NextResponse.json({ error: 'الغرفة غير موجودة' }, { status: 404 });
     }
 
-    // التأكد أن المبنى والدور الجديدين ينتميان للشركة (إذا تغيرا)
+    // التأكد أن المبنى الجديد (إذا تغير) ينتمي للشركة
     if (existing.buildingId !== buildingId) {
       const newBuilding = await prisma.building.findFirst({
         where: { id: buildingId, companyId },
@@ -67,6 +75,7 @@ export async function PUT(
       }
     }
 
+    // التأكد أن الدور الجديد (إذا تغير) ينتمي للمبنى الجديد
     if (existing.floorId !== floorId) {
       const newFloor = await prisma.floor.findFirst({
         where: { id: floorId, buildingId },
@@ -76,11 +85,11 @@ export async function PUT(
       }
     }
 
-    // التحقق من عدم تكرار الكود في نفس المبنى (باستثناء نفس الغرفة)
+    // ✅ التحقق من عدم تكرار الكود في نفس المبنى (مع استثناء نفس الغرفة) - بدون deletedAt
     const duplicate = await prisma.room.findFirst({
       where: {
         buildingId,
-        code,
+        code: code.trim(),
         NOT: { id },
       },
     });
@@ -94,9 +103,9 @@ export async function PUT(
     const updatedRoom = await prisma.room.update({
       where: { id },
       data: {
-        name,
-        nameEn: nameEn || null,
-        code,
+        name: name.trim(),
+        nameEn: nameEn?.trim() || null,
+        code: code.trim(),
         order: order || 0,
         floorId,
         buildingId,
@@ -107,26 +116,29 @@ export async function PUT(
     return NextResponse.json(updatedRoom);
   } catch (error: any) {
     console.error('PUT /api/locations/rooms/[id] error:', error);
-    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    if (error.message?.includes('permission')) {
-      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
+// ============================================================
 // DELETE: حذف غرفة
+// ============================================================
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ استخدام requirePermission للحصول على الجلسة مع التحقق من الصلاحية
-    const session = await requirePermission('locations.write');
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
-    const companyId = session.companyId; // ✅ مباشرة من الجلسة
+    await requirePermission('locations.delete');
+
+    const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -156,11 +168,8 @@ export async function DELETE(
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error('DELETE /api/locations/rooms/[id] error:', error);
-    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    if (error.message?.includes('permission')) {
-      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }

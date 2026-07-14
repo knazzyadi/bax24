@@ -1,191 +1,58 @@
 // src/app/api/company/users/[id]/route.ts
-import { NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
-import { prisma } from '@/lib/prisma';
-import { sendInvitationEmail } from '@/lib/email';
-import crypto from 'crypto';
-
-export const dynamic = 'force-dynamic';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/auth/permissions';
+import { UserService } from '@/lib/server/services/user.service';
 
 export async function PUT(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    // ✅ التحقق من صلاحية ADMIN
-    if (session.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
-    }
-
+    const session = await requirePermission('users.update');
     const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
-    }
-
     const { id } = await params;
-    if (!id) {
-      return NextResponse.json({ error: 'معرف المستخدم مطلوب' }, { status: 400 });
-    }
 
     const body = await request.json();
-    const { action, name, email, roleName, branchIds } = body;
 
-    // جلب المستخدم للتأكد من أنه يتبع نفس الشركة
-    const user = await prisma.user.findUnique({
-      where: { id },
-      include: { company: true },
-    });
-
-    if (!user || user.companyId !== companyId) {
-      return NextResponse.json(
-        { error: 'المستخدم غير موجود أو لا ينتمي لشركتك' },
-        { status: 404 }
-      );
+    // دعم استعادة المستخدم
+    if (body.action === 'restore') {
+      const user = await UserService.restoreUser(id, companyId);
+      return NextResponse.json(user);
     }
 
-    // تحديث البيانات العامة
-    if (action === 'update') {
-      if (!name || !email || !roleName) {
-        return NextResponse.json(
-          { error: 'الاسم والبريد والدور مطلوبة' },
-          { status: 400 }
-        );
-      }
-
-      const existing = await prisma.user.findFirst({
-        where: { email, NOT: { id } },
-      });
-      if (existing) {
-        return NextResponse.json(
-          { error: 'البريد الإلكتروني مستخدم بالفعل' },
-          { status: 409 }
-        );
-      }
-
-      let role = await prisma.role.findUnique({ where: { name: roleName } });
-      if (!role) {
-        role = await prisma.role.create({
-          data: { name: roleName, label: roleName },
-        });
-      }
-
-      await prisma.user.update({
-        where: { id },
-        data: { name, email, roleId: role.id },
-      });
-
-      if (branchIds && Array.isArray(branchIds)) {
-        await prisma.userBranch.deleteMany({ where: { userId: id } });
-        if (branchIds.length > 0) {
-          const validBranches = await prisma.branch.findMany({
-            where: { id: { in: branchIds }, companyId },
-            select: { id: true },
-          });
-          if (validBranches.length > 0) {
-            await prisma.userBranch.createMany({
-              data: validBranches.map((b: { id: string }) => ({ userId: id, branchId: b.id })),
-              skipDuplicates: true,
-            });
-          }
-        }
-      }
-
-      return NextResponse.json({ success: true });
+    const user = await UserService.updateUser(id, companyId, body);
+    return NextResponse.json(user);
+  } catch (error: any) {
+    console.error('PUT /api/company/users/[id]', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    // تبديل حالة التفعيل
-    if (action === 'toggleStatus') {
-      const updated = await prisma.user.update({
-        where: { id },
-        data: { status: !user.status },
-      });
-      return NextResponse.json({ success: true, status: updated.status });
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
-
-    // إعادة إرسال الدعوة
-    if (action === 'resendInvite') {
-      const token = crypto.randomBytes(32).toString('hex');
-      const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      await prisma.user.update({
-        where: { id },
-        data: {
-          invitationToken: token,
-          invitationExpires: expires,
-          status: false,
-        },
-      });
-      const company = await prisma.company.findUnique({
-        where: { id: companyId },
-        select: { name: true },
-      });
-      await sendInvitationEmail(user.email, token, company?.name || 'شركتك');
-      return NextResponse.json({ success: true });
-    }
-
-    return NextResponse.json({ error: 'إجراء غير معروف' }, { status: 400 });
-  } catch (error) {
-    console.error('PUT /api/company/users/[id] error:', error);
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json({ error: error.message || 'حدث خطأ في الخادم' }, { status: 400 });
   }
 }
 
 export async function DELETE(
-  request: Request,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    // ✅ التحقق من صلاحية ADMIN
-    if (session.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
-    }
-
+    const session = await requirePermission('users.delete');
     const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
-    }
-
     const { id } = await params;
-    if (!id) {
-      return NextResponse.json({ error: 'معرف المستخدم مطلوب' }, { status: 400 });
-    }
 
-    const user = await prisma.user.findUnique({
-      where: { id },
-      select: { companyId: true },
-    });
-    if (!user || user.companyId !== companyId) {
-      return NextResponse.json(
-        { error: 'المستخدم غير موجود أو لا ينتمي لشركتك' },
-        { status: 404 }
-      );
-    }
-
-    await prisma.user.delete({ where: { id } });
+    await UserService.deleteUser(id, companyId);
     return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error('DELETE /api/company/users/[id] error:', error);
+  } catch (error: any) {
+    console.error('DELETE /api/company/users/[id]', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

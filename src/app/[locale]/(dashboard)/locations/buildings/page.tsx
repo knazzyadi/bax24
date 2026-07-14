@@ -1,4 +1,5 @@
-// src/app/[locale]/(dashboard)/buildings/page.tsx
+// src/app/[locale]/(dashboard)/locations/buildings/page.tsx
+
 import { redirect } from 'next/navigation';
 import { requireRole } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
@@ -26,19 +27,18 @@ export default async function BuildingsPage({
 }) {
   const { locale } = await params;
 
-  // ✅ التحقق من الصلاحية في الخادم (يسمح بـ ADMIN و SUPER_ADMIN)
+  // ✅ التحقق من الصلاحية في الخادم
   const session = await requireRole(['ADMIN', 'SUPER_ADMIN']);
 
-  // ✅ التأكد من وجود companyId
   const companyId = session.user.companyId;
   if (!companyId) {
     throw new Error('Company ID is missing');
   }
 
-  // ✅ جلب المباني من قاعدة البيانات مباشرة
+  // ✅ جلب المباني من قاعدة البيانات
   const buildings = await prisma.building.findMany({
     where: {
-      companyId: companyId, // ✅ الآن هي string مؤكدة
+      companyId,
       deletedAt: null,
     },
     include: {
@@ -54,10 +54,10 @@ export default async function BuildingsPage({
     },
   });
 
-  // ✅ جلب الفروع لعرضها في الفورم
+  // ✅ جلب الفروع
   const branches = await prisma.branch.findMany({
     where: {
-      companyId: companyId,
+      companyId,
     },
     select: {
       id: true,
@@ -68,7 +68,7 @@ export default async function BuildingsPage({
     },
   });
 
-  // ✅ تحويل البيانات للشكل المطلوب
+  // ✅ تحويل البيانات
   const transformedBuildings: Building[] = buildings.map((building) => ({
     id: building.id,
     name: building.name,

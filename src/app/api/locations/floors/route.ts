@@ -4,7 +4,9 @@ import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// ============================================================
 // GET: جلب الأدوار (يمكن فلترتها حسب buildingId)
+// ============================================================
 export async function GET(request: Request) {
   try {
     const session = await getAuthSession();
@@ -63,7 +65,9 @@ export async function GET(request: Request) {
   }
 }
 
+// ============================================================
 // POST: إضافة دور جديد
+// ============================================================
 export async function POST(request: Request) {
   try {
     const session = await getAuthSession();
@@ -84,6 +88,8 @@ export async function POST(request: Request) {
     }
 
     const { name, nameEn, code, order, buildingId } = await request.json();
+
+    // التحقق من الحقول المطلوبة
     if (!name || !code || !buildingId) {
       return NextResponse.json(
         { error: 'الاسم، الكود، والمبنى مطلوبون' },
@@ -91,6 +97,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // التحقق من أن المبنى ينتمي للشركة
     const building = await prisma.building.findFirst({
       where: { id: buildingId, companyId },
     });
@@ -101,8 +108,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // ✅ التحقق من عدم تكرار الكود في نفس المبنى (تم إزالة deletedAt)
     const existingFloor = await prisma.floor.findFirst({
-      where: { buildingId, code },
+      where: {
+        buildingId,
+        code: code.trim(),
+      },
     });
     if (existingFloor) {
       return NextResponse.json(
@@ -111,11 +122,12 @@ export async function POST(request: Request) {
       );
     }
 
+    // إنشاء الدور الجديد
     const newFloor = await prisma.floor.create({
       data: {
-        name,
-        nameEn: nameEn || null,
-        code,
+        name: name.trim(),
+        nameEn: nameEn?.trim() || null,
+        code: code.trim(),
         order: order || 0,
         buildingId,
       },
@@ -123,8 +135,14 @@ export async function POST(request: Request) {
 
     revalidatePath('/ar/locations/floors');
     return NextResponse.json(newFloor, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST /api/locations/floors error:', error);
+    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+    if (error.message?.includes('permission')) {
+      return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
+    }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

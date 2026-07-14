@@ -50,36 +50,43 @@ interface AuditLogOptions {
 
 /**
  * بناء كائن DTO من كائن الأصل (Prisma)
+ * مع استبعاد الحقول المؤقتة (createdAt, updatedAt, deletedAt)
  */
 export function buildAuditDTO(asset: any): AuditAssetDTO {
+  if (!asset) return null as any;
+
+  // استبعاد الحقول المؤقتة من الكائن الأصلي
+  const { createdAt, updatedAt, deletedAt, ...cleanAsset } = asset;
+
   return {
-    id: asset.id,
-    code: asset.code,
-    name: asset.name,
-    nameEn: asset.nameEn || undefined,
-    description: asset.description || undefined,
-    typeName: asset.type?.name,
-    typeNameEn: asset.type?.nameEn,
-    statusName: asset.status?.name,
-    statusNameEn: asset.status?.nameEn,
-    statusColor: asset.status?.color,
-    roomName: asset.room?.name,
-    roomNameEn: asset.room?.nameEn,
-    roomCode: asset.room?.code,
-    purchaseDate: asset.purchaseDate?.toISOString?.()?.split('T')[0] || asset.purchaseDate,
-    operationDate: asset.operationDate?.toISOString?.()?.split('T')[0] || asset.operationDate,
-    warrantyEnd: asset.warrantyEnd?.toISOString?.()?.split('T')[0] || asset.warrantyEnd,
-    lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString?.()?.split('T')[0] || asset.lastMaintenanceDate,
-    serialNumber: asset.serialNumber || undefined,
-    manufacturer: asset.manufacturer || undefined,
-    model: asset.model || undefined,
-    supplier: asset.supplier || undefined,
-    notes: asset.notes || undefined,
+    id: cleanAsset.id,
+    code: cleanAsset.code,
+    name: cleanAsset.name,
+    nameEn: cleanAsset.nameEn || undefined,
+    description: cleanAsset.description || undefined,
+    typeName: cleanAsset.type?.name,
+    typeNameEn: cleanAsset.type?.nameEn,
+    statusName: cleanAsset.status?.name,
+    statusNameEn: cleanAsset.status?.nameEn,
+    statusColor: cleanAsset.status?.color,
+    roomName: cleanAsset.room?.name,
+    roomNameEn: cleanAsset.room?.nameEn,
+    roomCode: cleanAsset.room?.code,
+    purchaseDate: cleanAsset.purchaseDate?.toISOString?.()?.split('T')[0] || cleanAsset.purchaseDate,
+    operationDate: cleanAsset.operationDate?.toISOString?.()?.split('T')[0] || cleanAsset.operationDate,
+    warrantyEnd: cleanAsset.warrantyEnd?.toISOString?.()?.split('T')[0] || cleanAsset.warrantyEnd,
+    lastMaintenanceDate: cleanAsset.lastMaintenanceDate?.toISOString?.()?.split('T')[0] || cleanAsset.lastMaintenanceDate,
+    serialNumber: cleanAsset.serialNumber || undefined,
+    manufacturer: cleanAsset.manufacturer || undefined,
+    model: cleanAsset.model || undefined,
+    supplier: cleanAsset.supplier || undefined,
+    notes: cleanAsset.notes || undefined,
   };
 }
 
 /**
  * مقارنة كائنين DTO وإرجاع التغييرات
+ * مع تجاهل الحقول التي لا تهم المستخدم
  */
 function diffDTO(
   oldData: AuditAssetDTO | null | undefined,
@@ -95,7 +102,7 @@ function diffDTO(
     return changes;
   }
 
-  // الحقول المهمة للمقارنة
+  // الحقول المهمة للمقارنة (استبعاد الحقول المؤقتة)
   const fieldsToCompare: (keyof AuditAssetDTO)[] = [
     'name',
     'nameEn',
@@ -120,8 +127,14 @@ function diffDTO(
   ];
 
   for (const field of fieldsToCompare) {
-    const oldVal = oldData[field];
-    const newVal = newData[field];
+    let oldVal = oldData[field];
+    let newVal = newData[field];
+
+    // توحيد القيم الفارغة (null و undefined يعاملان بنفس الطريقة)
+    if (oldVal === null || oldVal === undefined) oldVal = undefined;
+    if (newVal === null || newVal === undefined) newVal = undefined;
+
+    // مقارنة دقيقة مع مراعاة أنواع البيانات
     if (oldVal !== newVal) {
       changes[field as string] = { old: oldVal, new: newVal };
     }
@@ -162,12 +175,14 @@ export async function createAuditLog({
 
     // إذا لم توجد تغييرات، لا نسجل (إلا إذا كانت عملية CREATE)
     if (Object.keys(changes).length === 0 && oldData) {
+      console.log('📝 No changes detected, skipping audit log');
       return;
     }
 
     // تحديد نوع العملية
     const finalAction = action || determineAction(oldData, changes);
 
+    // تسجيل التدقيق
     await prisma.auditLog.create({
       data: {
         assetId: newData.id,
@@ -178,8 +193,10 @@ export async function createAuditLog({
         metadata: metadata || {},
       },
     });
+
+    console.log(`✅ Audit log created: ${finalAction} for asset ${newData.code}`);
   } catch (error) {
-    console.error('Failed to create audit log:', error);
+    console.error('❌ Failed to create audit log:', error);
     // لا نرمي الخطأ حتى لا يعطل العملية الأساسية
   }
 }

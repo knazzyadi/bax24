@@ -1,9 +1,12 @@
 // src/app/api/assets/bulk/route.ts
-import { prisma } from '@/lib/prisma';
 import { NextRequest, NextResponse } from 'next/server';
-import { createAuditLog, AuditAction, buildAuditDTO } from '@/lib/audit-log';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+import { prisma } from '@/lib/prisma';
+import { getErrorResponse } from '@/lib/assets/errors';
 
+// ============================================================
+// POST - إنشاء جماعي (مخصص لاستيراد Excel/CSV)
+// ============================================================
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
@@ -11,253 +14,85 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const { roomId, assets } = await request.json();
+    const body = await request.json();
+    const { roomId, assets } = body;
 
     if (!roomId || !Array.isArray(assets) || assets.length === 0) {
       return NextResponse.json(
-        { error: 'بيانات غير صالحة' },
+        { error: 'بيانات غير صالحة: يجب توفير roomId وقائمة assets' },
         { status: 400 }
       );
     }
 
-    const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
-    }
-
-    const roomData = await prisma.room.findUnique({
+    // التحقق من وجود الغرفة والحصول على branchId
+    const room = await prisma.room.findUnique({
       where: { id: roomId },
-      include: {
+      select: {
         building: {
-          include: {
-            branch: {
-              select: { id: true, code: true },
-            },
-            company: { select: { id: true } },
+          select: {
+            branchId: true,
           },
         },
       },
     });
 
-    if (!roomData) {
+    if (!room) {
       return NextResponse.json(
         { error: 'الغرفة غير موجودة' },
         { status: 404 }
       );
     }
 
-    const buildingId = roomData.buildingId;
-    const branchId = roomData.building.branchId;
-    const branchCode = roomData.building.branch?.code?.trim().toUpperCase() || 'BR';
-
+    const branchId = room.building?.branchId;
     if (!branchId) {
       return NextResponse.json(
-        { error: 'المبنى غير مرتبط بفرع' },
+        { error: 'الغرفة غير مرتبطة بفرع' },
         { status: 400 }
       );
     }
 
-    const result = await prisma.$transaction(
-      async (tx: any) => {
-        const createdAssets = [];
-        const errors: { index: number; assetName?: string; message: string }[] = [];
+    // استخدام المعاملة لإنشاء الأصول بشكل جماعي
+    const result = await prisma.$transaction(async (tx) => {
+      const createdAssets = [];
+      const errors: { index: number; error: string }[] = [];
 
-        // ============================================================
-        // 1. جلب أنواع الأصول والحالات للشركة (لتحويل الأسماء إلى معرفات)
-        // ============================================================
-        const assetTypes = await tx.assetType.findMany({
-          where: { companyId },
-          select: { id: true, name: true, nameEn: true, code: true },
-        });
-
-        // خرائط للتحويل: name → id, nameEn → id, code → id
-        const typeNameToId = new Map<string, string>();
-        const typeNameEnToId = new Map<string, string>();
-        const typeCodeToId = new Map<string, string>();
-        const typeIdToCode = new Map<string, string>();
-
-        for (const t of assetTypes) {
-          typeNameToId.set(t.name, t.id);
-          if (t.nameEn) typeNameEnToId.set(t.nameEn, t.id);
-          if (t.code) typeCodeToId.set(t.code.trim().toUpperCase(), t.id);
-          typeIdToCode.set(t.id, t.code?.trim().toUpperCase() || 'AST');
-        }
-
-        const assetStatuses = await tx.assetStatus.findMany({
-          where: { companyId },
-          select: { id: true, name: true, nameEn: true },
-        });
-
-        const statusNameToId = new Map<string, string>();
-        const statusNameEnToId = new Map<string, string>();
-        for (const s of assetStatuses) {
-          statusNameToId.set(s.name, s.id);
-          if (s.nameEn) statusNameEnToId.set(s.nameEn, s.id);
-        }
-
-        // الحالة الافتراضية
-        const defaultStatus = await tx.assetStatus.findFirst({
-          where: { companyId, isDefault: true },
-        });
-        let fallbackStatusId = defaultStatus?.id;
-        if (!fallbackStatusId) {
-          const anyStatus = await tx.assetStatus.findFirst({ where: { companyId } });
-          if (!anyStatus) {
-            throw new Error('لا توجد حالات أصول مسجلة للشركة. يرجى إضافة حالة أولاً.');
-          }
-          fallbackStatusId = anyStatus.id;
-        }
-
-        // ============================================================
-        // 2. حساب أعلى قيمة رقمية لكل نوع+فرع لتوليد الأكواد
-        // ============================================================
-        const existingAssets = await tx.asset.findMany({
-          where: {
-            branchId,
-            companyId,
-            code: { startsWith: `${branchCode}-` },
-          },
-          select: { code: true, typeId: true },
-        });
-
-        const maxSeqByType = new Map<string, number>();
-        for (const asset of existingAssets) {
-          const parts = asset.code.split('-');
-          if (parts.length === 3) {
-            const typePrefix = parts[1];
-            const seqNum = parseInt(parts[2], 10);
-            if (!isNaN(seqNum)) {
-              for (const [typeId, prefix] of typeIdToCode) {
-                if (prefix === typePrefix) {
-                  const currentMax = maxSeqByType.get(typeId) || 0;
-                  if (seqNum > currentMax) {
-                    maxSeqByType.set(typeId, seqNum);
-                  }
-                  break;
-                }
-              }
-            }
-          }
-        }
-
-        // ============================================================
-        // 3. معالجة كل أصل
-        // ============================================================
-        for (let i = 0; i < assets.length; i++) {
-          const asset = assets[i];
-          try {
-            if (!asset.name?.trim()) throw new Error('اسم الأصل مطلوب');
-
-            // ----- تحويل type إلى معرف -----
-            let resolvedTypeId = asset.typeId;
-            if (!resolvedTypeId && asset.type) {
-              // حاول البحث بالاسم العربي، الإنجليزي، أو الكود
-              resolvedTypeId =
-                typeNameToId.get(asset.type) ||
-                typeNameEnToId.get(asset.type) ||
-                typeCodeToId.get(asset.type.trim().toUpperCase());
-            }
-            if (!resolvedTypeId) {
-              errors.push({
-                index: i,
-                assetName: asset.name || 'غير معروف',
-                message: `نوع الأصل غير موجود أو غير معروف: ${asset.type || asset.typeId || 'غير محدد'}`,
-              });
-              continue;
-            }
-
-            const typePrefix = typeIdToCode.get(resolvedTypeId) || 'AST';
-
-            // ----- تحويل status إلى معرف (اختياري) -----
-            let resolvedStatusId = asset.statusId;
-            if (!resolvedStatusId && asset.status) {
-              resolvedStatusId =
-                statusNameToId.get(asset.status) ||
-                statusNameEnToId.get(asset.status);
-            }
-            // إذا لم يتم العثور على حالة، نستخدم الحالة الافتراضية
-            const finalStatusId = resolvedStatusId || fallbackStatusId;
-
-            // ----- حساب الرقم التسلسلي التالي -----
-            let currentMax = maxSeqByType.get(resolvedTypeId) || 0;
-            currentMax += 1;
-            maxSeqByType.set(resolvedTypeId, currentMax);
-
-            // تحديث الـ counter
-            await tx.assetCounter.upsert({
-              where: {
-                typeId_branchId: {
-                  typeId: resolvedTypeId,
-                  branchId: branchId,
-                },
-              },
-              update: { lastValue: currentMax },
-              create: { typeId: resolvedTypeId, branchId: branchId, lastValue: currentMax },
-            });
-
-            const paddedNumber = currentMax.toString().padStart(4, '0');
-            const code = `${branchCode}-${typePrefix}-${paddedNumber}`;
-
-            // ----- إنشاء الأصل -----
-            const newAsset = await tx.asset.create({
-              data: {
-                name: asset.name.trim(),
-                nameEn: asset.nameEn?.trim() || null,
-                description: asset.description?.trim() || null,
-                code,
-                typeId: resolvedTypeId,
-                statusId: finalStatusId,
-                purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate) : null,
-                operationDate: asset.operationDate ? new Date(asset.operationDate) : null,
-                warrantyEnd: asset.warrantyEnd ? new Date(asset.warrantyEnd) : null,
-                lastMaintenanceDate: asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate) : null,
-                serialNumber: asset.serialNumber?.trim() || null,
-                manufacturer: asset.manufacturer?.trim() || null,
-                model: asset.model?.trim() || null,
-                supplier: asset.supplier?.trim() || null,
-                roomId,
-                buildingId,
-                companyId,
-                branchId,
-                notes: asset.notes?.trim() || null,
-              },
-            });
-
-            createdAssets.push(newAsset);
-          } catch (err: any) {
-            console.error(`Asset import error at index ${i}:`, err);
-            errors.push({
-              index: i,
-              assetName: asset?.name || 'غير معروف',
-              message: err?.message || 'خطأ غير معروف',
-            });
-          }
-        }
-
-        // ============================================================
-        // 4. تسجيل التدقيق (حدث واحد للمجموعة)
-        // ============================================================
+      for (let i = 0; i < assets.length; i++) {
+        const asset = assets[i];
         try {
-          await createAuditLog({
-            action: AuditAction.CREATE,
-            oldData: null,
-            newData: {
-              id: `bulk-${Date.now()}`,
-              code: `BULK-${roomId}`,
-              name: `استيراد جماعي لـ ${createdAssets.length} أصول`,
-            },
-            userId: session.userId,
-            userEmail: session.email,
-            metadata: { count: createdAssets.length, roomId, companyId },
-          });
-        } catch (auditError) {
-          console.error('Audit log failed:', auditError);
-        }
+          // توليد كود فريد (يمكن تحسينه حسب منطق المشروع)
+          const code = `AST-${Date.now()}-${i}`;
 
-        return { createdAssets, errors };
-      },
-      { timeout: 60000 }
-    );
+          // إنشاء الأصل
+          const created = await tx.asset.create({
+            data: {
+              name: asset.name || 'أصل بدون اسم',
+              code,
+              typeId: asset.typeId || null,
+              statusId: asset.statusId || null,
+              roomId,
+              branchId,
+              companyId: session.companyId,
+              serialNumber: asset.serialNumber || null,
+              manufacturer: asset.manufacturer || null,
+              model: asset.model || null,
+              supplierId: asset.supplierId || null,
+              notes: asset.notes || null,
+              purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate) : null,
+              operationDate: asset.operationDate ? new Date(asset.operationDate) : null,
+              warrantyEnd: asset.warrantyEnd ? new Date(asset.warrantyEnd) : null,
+              lastMaintenanceDate: asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate) : null,
+            },
+          });
+          createdAssets.push(created);
+        } catch (err) {
+          // معالجة الخطأ من نوع unknown
+          const errorMessage = err instanceof Error ? err.message : 'خطأ غير معروف';
+          errors.push({ index: i, error: errorMessage });
+        }
+      }
+
+      return { createdAssets, errors };
+    });
 
     return NextResponse.json({
       success: true,
@@ -265,14 +100,158 @@ export async function POST(request: NextRequest) {
       failCount: result.errors.length,
       errors: result.errors,
     });
-  } catch (error: any) {
-    console.error('Bulk asset create fatal error:', error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error?.message || 'Internal server error',
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    const response = getErrorResponse(error);
+    return NextResponse.json(response.body, { status: response.status });
+  }
+}
+
+// ============================================================
+// DELETE - حذف جماعي
+// ============================================================
+export async function DELETE(request: NextRequest) {
+  try {
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { assetIds, hard } = body;
+
+    if (!Array.isArray(assetIds) || assetIds.length === 0) {
+      return NextResponse.json(
+        { error: 'يجب توفير قائمة معرفات الأصول' },
+        { status: 400 }
+      );
+    }
+
+    // تنفيذ الحذف الجماعي مباشرة
+    const result = await prisma.$transaction(async (tx) => {
+      const deletedIds: string[] = [];
+
+      for (const id of assetIds) {
+        try {
+          // التحقق من وجود الأصل
+          const asset = await tx.asset.findUnique({
+            where: { id },
+            select: { id: true, deletedAt: true },
+          });
+
+          if (!asset) {
+            continue; // الأصل غير موجود، نتجاوزه
+          }
+
+          if (hard) {
+            // حذف صلب
+            await tx.asset.delete({ where: { id } });
+          } else {
+            // حذف ناعم
+            await tx.asset.update({
+              where: { id },
+              data: { deletedAt: new Date() },
+            });
+          }
+          deletedIds.push(id);
+        } catch (err) {
+          // تجاهل الأخطاء الفردية لتكملة الحذف الجماعي
+          console.error(`فشل حذف الأصل ${id}:`, err);
+        }
+      }
+
+      return { deletedCount: deletedIds.length, deletedIds };
+    });
+
+    return NextResponse.json({
+      success: true,
+      deletedCount: result.deletedCount,
+      deletedIds: result.deletedIds,
+    });
+  } catch (error) {
+    const response = getErrorResponse(error);
+    return NextResponse.json(response.body, { status: response.status });
+  }
+}
+
+// ============================================================
+// PUT - تحديث جماعي
+// ============================================================
+export async function PUT(request: NextRequest) {
+  try {
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    const body = await request.json();
+    const { assetIds, data } = body;
+
+    if (!Array.isArray(assetIds) || assetIds.length === 0) {
+      return NextResponse.json(
+        { error: 'يجب توفير قائمة معرفات الأصول' },
+        { status: 400 }
+      );
+    }
+
+    if (!data || typeof data !== 'object') {
+      return NextResponse.json(
+        { error: 'يجب توفير بيانات التحديث' },
+        { status: 400 }
+      );
+    }
+
+    // تنفيذ التحديث الجماعي
+    const result = await prisma.$transaction(async (tx) => {
+      let updatedCount = 0;
+
+      for (const id of assetIds) {
+        try {
+          // التحقق من وجود الأصل
+          const asset = await tx.asset.findUnique({
+            where: { id },
+            select: { id: true, deletedAt: true },
+          });
+
+          if (!asset || asset.deletedAt) {
+            continue;
+          }
+
+          // إزالة الحقول غير القابلة للتحديث
+          const { id: _, createdAt, updatedAt, ...updateData } = data;
+
+          // تحويل التواريخ إذا كانت موجودة
+          if (updateData.purchaseDate) {
+            updateData.purchaseDate = new Date(updateData.purchaseDate);
+          }
+          if (updateData.operationDate) {
+            updateData.operationDate = new Date(updateData.operationDate);
+          }
+          if (updateData.warrantyEnd) {
+            updateData.warrantyEnd = new Date(updateData.warrantyEnd);
+          }
+          if (updateData.lastMaintenanceDate) {
+            updateData.lastMaintenanceDate = new Date(updateData.lastMaintenanceDate);
+          }
+
+          await tx.asset.update({
+            where: { id },
+            data: updateData,
+          });
+          updatedCount++;
+        } catch (err) {
+          console.error(`فشل تحديث الأصل ${id}:`, err);
+        }
+      }
+
+      return { updatedCount };
+    });
+
+    return NextResponse.json({
+      success: true,
+      updatedCount: result.updatedCount,
+    });
+  } catch (error) {
+    const response = getErrorResponse(error);
+    return NextResponse.json(response.body, { status: response.status });
   }
 }

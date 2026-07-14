@@ -1,219 +1,55 @@
 // src/app/api/company/users/route.ts
-import { NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
-import { prisma } from '@/lib/prisma';
-import crypto from 'crypto';
-import { sendInvitationEmail } from '@/lib/email';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/auth/permissions';
+import { UserService } from '@/lib/server/services/user.service';
+import type { SharedUserFilters } from '@/lib/shared/types/user';
 
-export const dynamic = 'force-dynamic';
-
-// GET: جلب المستخدمين (SUPERVISOR, TECHNICIAN, BRANCH_MANAGER) مع الفروع
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    // ✅ التحقق من صلاحية ADMIN
-    if (session.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
-    }
-
+    const session = await requirePermission('users.read');
     const companyId = session.companyId;
 
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة بهذا الحساب' },
-        { status: 400 }
-      );
+    const { searchParams } = new URL(request.url);
+    const filters: SharedUserFilters = {
+      search: searchParams.get('search') || undefined,
+      roleId: searchParams.get('roleId') || undefined,
+      status: searchParams.has('status') ? searchParams.get('status') === 'true' : undefined,
+      page: searchParams.has('page') ? parseInt(searchParams.get('page')!) || 1 : 1,
+      limit: searchParams.has('limit') ? parseInt(searchParams.get('limit')!) || 10 : 10,
+      sortBy: searchParams.get('sortBy') || undefined,
+      sortOrder: (searchParams.get('sortOrder') as 'asc' | 'desc') || undefined,
+    };
+
+    const result = await UserService.getUsers(companyId, filters);
+    return NextResponse.json(result);
+  } catch (error: any) {
+    console.error('GET /api/company/users', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    const users = await prisma.user.findMany({
-      where: {
-        companyId,
-        role: {
-          name: { in: ['SUPERVISOR', 'TECHNICIAN', 'BRANCH_MANAGER'] },
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: {
-          select: {
-            name: true,
-            label: true,
-          },
-        },
-        status: true,
-        createdAt: true,
-        userBranches: {
-          select: {
-            branch: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-    });
-
-    const usersWithBranches = users.map((user: any) => ({
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      role: user.role,
-      status: user.status,
-      createdAt: user.createdAt,
-      branches: user.userBranches.map((ub: any) => ub.branch),
-    }));
-
-    return NextResponse.json(usersWithBranches);
-  } catch (error) {
-    console.error('GET /api/company/users error:', error);
-    return NextResponse.json(
-      { error: 'حدث خطأ في الخادم' },
-      { status: 500 }
-    );
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+    }
+    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }
 
-// POST: إضافة مستخدم جديد
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    let session;
-    try {
-      session = await getAuthenticatedSession();
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-
-    // ✅ التحقق من صلاحية ADMIN
-    if (session.role !== 'ADMIN') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
-    }
-
+    const session = await requirePermission('users.create');
     const companyId = session.companyId;
+    const body = await request.json();
 
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة بهذا الحساب' },
-        { status: 400 }
-      );
+    const user = await UserService.createUser(companyId, body);
+    return NextResponse.json(user, { status: 201 });
+  } catch (error: any) {
+    console.error('POST /api/company/users', error);
+    if (error.message === 'UNAUTHORIZED') {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    const { name, email, roleName, branchIds } = await request.json();
-
-    if (!name || !email || !roleName) {
-      return NextResponse.json(
-        { error: 'الاسم والبريد الإلكتروني والدور مطلوبة' },
-        { status: 400 }
-      );
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
-
-    if (!['SUPERVISOR', 'TECHNICIAN', 'BRANCH_MANAGER'].includes(roleName)) {
-      return NextResponse.json(
-        { error: 'دور غير مسموح' },
-        { status: 400 }
-      );
-    }
-
-    const existingUser = await prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (existingUser) {
-      return NextResponse.json(
-        { error: 'البريد الإلكتروني مستخدم بالفعل' },
-        { status: 409 }
-      );
-    }
-
-    let role = await prisma.role.findUnique({
-      where: { name: roleName },
-    });
-
-    if (!role) {
-      role = await prisma.role.create({
-        data: {
-          name: roleName,
-          label: roleName === 'SUPERVISOR' ? 'مشرف' : (roleName === 'TECHNICIAN' ? 'فني' : 'مدير فرع'),
-        },
-      });
-    }
-
-    const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
-
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        roleId: role.id,
-        companyId,
-        status: false,
-        invitationToken: token,
-        invitationExpires: expires,
-      },
-    });
-
-    // ربط الفروع عبر UserBranch
-    if (branchIds && Array.isArray(branchIds) && branchIds.length > 0) {
-      const validBranches = await prisma.branch.findMany({
-        where: {
-          id: { in: branchIds },
-          companyId: companyId,
-        },
-        select: { id: true },
-      });
-      const validBranchIds = validBranches.map((b: { id: string }) => b.id);
-      if (validBranchIds.length > 0) {
-        await prisma.userBranch.createMany({
-          data: validBranchIds.map((branchId: string) => ({
-            userId: newUser.id,
-            branchId,
-          })),
-          skipDuplicates: true,
-        });
-      }
-    }
-
-    const company = await prisma.company.findUnique({
-      where: { id: companyId },
-      select: { name: true },
-    });
-
-    await sendInvitationEmail(
-      email,
-      token,
-      company?.name || 'شركتك'
-    );
-
-    return NextResponse.json(
-      { success: true, user: newUser },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error('POST /api/company/users error:', error);
-    return NextResponse.json(
-      { error: 'حدث خطأ في الخادم' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'حدث خطأ في الخادم' }, { status: 400 });
   }
 }

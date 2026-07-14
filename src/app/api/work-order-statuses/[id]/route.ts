@@ -1,10 +1,10 @@
 // src/app/api/work-order-statuses/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
 // ============================================================
-// GET – جلب حالة واحدة
+// GET - جلب حالة واحدة
 // ============================================================
 export async function GET(
   request: NextRequest,
@@ -16,52 +16,41 @@ export async function GET(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await checkPermission('work_orders.read');
-
     const { id } = await params;
     const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة' },
-        { status: 400 }
-      );
-    }
 
-    const item = await prisma.workOrderStatus.findFirst({
+    const status = await prisma.workOrderStatus.findFirst({
       where: { id, companyId, deletedAt: null },
       select: {
         id: true,
         name: true,
         nameEn: true,
         code: true,
-        description: true,
         color: true,
-        icon: true,
         order: true,
         isDefault: true,
         isActive: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
-    if (!item) {
-      return NextResponse.json(
-        { error: 'الحالة غير موجودة' },
-        { status: 404 }
-      );
+    if (!status) {
+      return NextResponse.json({ error: 'الحالة غير موجودة' }, { status: 404 });
     }
 
-    return NextResponse.json(item);
-  } catch (error: any) {
-    console.error('GET /api/work-order-statuses/[id] error:', error);
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json(status);
+  } catch (error) {
+    console.error('Error in GET /api/work-order-statuses/[id]:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في جلب الحالة' },
+      { status: 500 }
+    );
   }
 }
 
 // ============================================================
-// PUT – تحديث حالة
+// PUT - تحديث حالة
 // ============================================================
 export async function PUT(
   request: NextRequest,
@@ -73,107 +62,76 @@ export async function PUT(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await checkPermission('work_orders.update');
-
     const { id } = await params;
+    const companyId = session.companyId;
     const body = await request.json();
-    const {
-      name,
-      nameEn,
-      code,
-      description,
-      color,
-      icon,
-      order,
-      isDefault,
-      isActive,
-      companyId,
-    } = body;
+    const { name, nameEn, code, color, order, isDefault, isActive } = body;
 
-    if (!name || name.trim() === '') {
-      return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
-    }
-
-    let targetCompanyId = companyId;
-    if (session.role !== 'SUPER_ADMIN') {
-      targetCompanyId = session.companyId;
-    }
-    if (!targetCompanyId) {
-      return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة' },
-        { status: 400 }
-      );
-    }
-
-    const existing = await prisma.workOrderStatus.findFirst({
-      where: { id, companyId: targetCompanyId, deletedAt: null },
+    const existingStatus = await prisma.workOrderStatus.findFirst({
+      where: { id, companyId, deletedAt: null },
     });
-    if (!existing) {
-      return NextResponse.json(
-        { error: 'الحالة غير موجودة' },
-        { status: 404 }
-      );
+    if (!existingStatus) {
+      return NextResponse.json({ error: 'الحالة غير موجودة' }, { status: 404 });
     }
 
-    // التحقق من عدم تكرار الاسم أو الكود (باستثناء نفس العنصر)
-    const duplicate = await prisma.workOrderStatus.findFirst({
-      where: {
-        companyId: targetCompanyId,
-        deletedAt: null,
-        NOT: { id },
-        OR: [
-          { name: name.trim() },
-          { code: code?.trim() || undefined },
-        ],
-      },
-    });
-    if (duplicate) {
-      return NextResponse.json(
-        { error: 'يوجد حالة بنفس الاسم أو الكود بالفعل' },
-        { status: 409 }
-      );
-    }
-
-    const updated = await prisma.$transaction(async (tx) => {
-      if (isDefault === true) {
-        await tx.workOrderStatus.updateMany({
-          where: {
-            companyId: targetCompanyId,
-            isDefault: true,
-            id: { not: id },
-          },
-          data: { isDefault: false },
-        });
-      }
-
-      return tx.workOrderStatus.update({
-        where: { id },
-        data: {
+    if (name?.trim()) {
+      const duplicate = await prisma.workOrderStatus.findFirst({
+        where: {
+          companyId,
           name: name.trim(),
-          nameEn: nameEn?.trim() || null,
-          code: code?.trim() || null,
-          description: description?.trim() || null,
-          color: color || existing.color,
-          icon: icon?.trim() || null,
-          order: typeof order === 'number' ? order : existing.order,
-          isDefault: isDefault === true,
-          isActive: isActive ?? existing.isActive,
+          deletedAt: null,
+          id: { not: id },
         },
       });
+      if (duplicate) {
+        return NextResponse.json({ error: 'هناك حالة بنفس الاسم بالفعل' }, { status: 409 });
+      }
+    }
+
+    if (isDefault) {
+      await prisma.workOrderStatus.updateMany({
+        where: { companyId, deletedAt: null, id: { not: id } },
+        data: { isDefault: false },
+      });
+    }
+
+    const updated = await prisma.workOrderStatus.update({
+      where: { id },
+      data: {
+        name: name?.trim() || existingStatus.name,
+        nameEn: nameEn?.trim() || null,
+        code: code?.trim() || null,
+        color: color || '#6B7280',
+        order: order ?? 0,
+        isDefault: isDefault ?? false,
+        isActive: isActive ?? true,
+      },
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+        code: true,
+        color: true,
+        order: true,
+        isDefault: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return NextResponse.json(updated);
-  } catch (error: any) {
-    console.error('PUT /api/work-order-statuses/[id] error:', error);
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+  } catch (error) {
+    console.error('Error in PUT /api/work-order-statuses/[id]:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في تحديث الحالة' },
+      { status: 500 }
+    );
   }
 }
 
 // ============================================================
-// DELETE – حذف حالة (Soft Delete)
+// DELETE - حذف حالة (ناعم)
 // ============================================================
 export async function DELETE(
   request: NextRequest,
@@ -185,57 +143,37 @@ export async function DELETE(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    await checkPermission('work_orders.delete');
-
     const { id } = await params;
     const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة' },
-        { status: 400 }
-      );
-    }
 
-    const existing = await prisma.workOrderStatus.findFirst({
+    const existingStatus = await prisma.workOrderStatus.findFirst({
       where: { id, companyId, deletedAt: null },
+      include: {
+        workOrders: { take: 1, select: { id: true } },
+      },
     });
-    if (!existing) {
+    if (!existingStatus) {
+      return NextResponse.json({ error: 'الحالة غير موجودة' }, { status: 404 });
+    }
+
+    if (existingStatus.workOrders.length > 0) {
       return NextResponse.json(
-        { error: 'الحالة غير موجودة' },
-        { status: 404 }
+        { error: 'لا يمكن حذف الحالة لأنها مستخدمة في أوامر عمل موجودة' },
+        { status: 409 }
       );
     }
 
-    if (existing.isDefault) {
-      return NextResponse.json(
-        { error: 'لا يمكن حذف الحالة الافتراضية' },
-        { status: 400 }
-      );
-    }
-
-    // التحقق من عدم وجود أوامر عمل مرتبطة
-    const usedCount = await prisma.workOrder.count({
-      where: { statusId: id, deletedAt: null },
-    });
-    if (usedCount > 0) {
-      return NextResponse.json(
-        { error: 'لا يمكن الحذف لوجود أوامر عمل مرتبطة بهذه الحالة' },
-        { status: 400 }
-      );
-    }
-
-    // Soft Delete
     await prisma.workOrderStatus.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    console.error('DELETE /api/work-order-statuses/[id] error:', error);
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    return NextResponse.json({ success: true, message: 'تم حذف الحالة بنجاح' });
+  } catch (error) {
+    console.error('Error in DELETE /api/work-order-statuses/[id]:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في حذف الحالة' },
+      { status: 500 }
+    );
   }
 }

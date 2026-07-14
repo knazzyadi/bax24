@@ -1,33 +1,48 @@
 // src/app/api/locations/buildings/route.ts
-import { NextResponse } from 'next/server';
-import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+import { requirePermission } from '@/lib/auth/permissions';
 import { prisma } from '@/lib/prisma';
-import { revalidatePath } from 'next/cache';
 
-// GET: جلب جميع مباني الشركة (للمدير فقط)
-export async function GET() {
+// ============================================================
+// GET: جلب جميع مباني الشركة
+// ============================================================
+export async function GET(request: NextRequest) {
   try {
-    const session = await getAuthSession();
+    const session = await getAuthenticatedSession();
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
 
-    // التحقق من الصلاحية (يسمح لـ ADMIN و SUPER_ADMIN)
-    try {
-      await requirePermission('locations.read');
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    await requirePermission('locations.read');
 
     const companyId = session.companyId;
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة بهذا الحساب' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بهذا الحساب' },
+        { status: 400 }
+      );
     }
 
     const buildings = await prisma.building.findMany({
-      where: { companyId, deletedAt: null },
-      include: { branch: { select: { id: true, name: true } } },
-      orderBy: { order: 'asc' },
+      where: {
+        companyId,
+        deletedAt: null,
+      },
+      include: {
+        branch: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+      orderBy: {
+        order: 'asc',
+      },
     });
 
     const formatted = buildings.map((b) => ({
@@ -41,54 +56,117 @@ export async function GET() {
     }));
 
     return NextResponse.json(formatted);
-  } catch (error) {
+  } catch (error: any) {
     console.error('GET /api/locations/buildings error:', error);
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json(
+        { error: 'لا تملك الصلاحية' },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json(
+      { error: 'حدث خطأ في الخادم' },
+      { status: 500 }
+    );
   }
 }
 
-// POST: إضافة مبنى جديد (للمدير فقط)
-export async function POST(request: Request) {
+// ============================================================
+// POST: إضافة مبنى جديد
+// ============================================================
+export async function POST(request: NextRequest) {
   try {
-    const session = await getAuthSession();
+    const session = await getAuthenticatedSession();
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
 
-    // التحقق من الصلاحية
-    try {
-      await requirePermission('locations.write');
-    } catch {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
+    await requirePermission('locations.create');
 
     const companyId = session.companyId;
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة بهذا الحساب' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بهذا الحساب' },
+        { status: 400 }
+      );
     }
 
-    const { name, nameEn, code, order, branchId } = await request.json();
-    if (!name || !code) {
-      return NextResponse.json({ error: 'الاسم والرمز مطلوبان' }, { status: 400 });
+    const body = await request.json();
+    const { name, nameEn, code, order, branchId } = body;
+
+    // التحقق من الحقول المطلوبة
+    if (!name || name.trim() === '') {
+      return NextResponse.json(
+        { error: 'الاسم مطلوب' },
+        { status: 400 }
+      );
     }
 
+    if (!code || code.trim() === '') {
+      return NextResponse.json(
+        { error: 'الكود مطلوب' },
+        { status: 400 }
+      );
+    }
+
+    // التحقق من أن الفرع (إذا وُجد) ينتمي إلى نفس الشركة
+    if (branchId) {
+      const branch = await prisma.branch.findFirst({
+        where: {
+          id: branchId,
+          companyId,
+        },
+      });
+      if (!branch) {
+        return NextResponse.json(
+          { error: 'الفرع غير موجود أو لا ينتمي إلى هذه الشركة' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // التحقق من عدم تكرار الكود لنفس الشركة
+    const existing = await prisma.building.findFirst({
+      where: {
+        companyId,
+        code: code.trim(),
+        deletedAt: null,
+      },
+    });
+    if (existing) {
+      return NextResponse.json(
+        { error: `يوجد مبنى بنفس الكود "${code}"` },
+        { status: 409 }
+      );
+    }
+
+    // إنشاء المبنى
     const building = await prisma.building.create({
       data: {
-        name,
-        nameEn: nameEn || null,
-        code,
-        order: order || 0,
+        name: name.trim(),
+        nameEn: nameEn?.trim() || null,
+        code: code.trim(),
+        order: typeof order === 'number' ? order : 0,
         companyId,
         branchId: branchId || null,
       },
     });
 
-    // مسح كاش الصفحة
-    revalidatePath('/ar/locations/buildings');
-
     return NextResponse.json(building, { status: 201 });
-  } catch (error) {
+  } catch (error: any) {
     console.error('POST /api/locations/buildings error:', error);
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    if (error.message === 'FORBIDDEN') {
+      return NextResponse.json(
+        { error: 'لا تملك الصلاحية' },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json(
+      { error: 'حدث خطأ في الخادم' },
+      { status: 500 }
+    );
   }
 }

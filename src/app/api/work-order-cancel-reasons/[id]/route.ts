@@ -1,45 +1,25 @@
 // src/app/api/work-order-cancel-reasons/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import {
-  getAuthenticatedSession,
-  checkPermission,
-} from "@/lib/auth/auth-helper";
-
-interface RouteContext {
-  params: Promise<{
-    id: string;
-  }>;
-}
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+import { prisma } from '@/lib/prisma';
 
 // ============================================================
-// GET – جلب سبب إلغاء واحد
+// GET - جلب سبب إلغاء واحد
 // ============================================================
 export async function GET(
   request: NextRequest,
-  { params }: RouteContext
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getAuthenticatedSession();
     if (!session) {
-      return NextResponse.json(
-        { error: "غير مصرح." },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    await checkPermission("work_orders.read");
 
     const { id } = await params;
     const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json(
-        { error: "لا توجد شركة مرتبطة." },
-        { status: 400 }
-      );
-    }
 
-    const item = await prisma.workOrderCancelReason.findFirst({
+    const reason = await prisma.workOrderCancelReason.findFirst({
       where: { id, companyId, deletedAt: null },
       select: {
         id: true,
@@ -50,224 +30,143 @@ export async function GET(
         order: true,
         isDefault: true,
         isActive: true,
+        createdAt: true,
+        updatedAt: true,
       },
     });
 
-    if (!item) {
-      return NextResponse.json(
-        { error: "سبب الإلغاء غير موجود." },
-        { status: 404 }
-      );
+    if (!reason) {
+      return NextResponse.json({ error: 'سبب الإلغاء غير موجود' }, { status: 404 });
     }
 
-    return NextResponse.json(item);
-  } catch (error: any) {
-    console.error("GET /api/work-order-cancel-reasons/[id] error:", error);
-    if (error.message === "FORBIDDEN") {
-      return NextResponse.json(
-        { error: "لا تملك الصلاحية." },
-        { status: 403 }
-      );
-    }
+    return NextResponse.json(reason);
+  } catch (error) {
+    console.error('Error in GET /api/work-order-cancel-reasons/[id]:', error);
     return NextResponse.json(
-      { error: "حدث خطأ أثناء جلب البيانات." },
+      { error: 'حدث خطأ في جلب سبب الإلغاء' },
       { status: 500 }
     );
   }
 }
 
 // ============================================================
-// PUT – تحديث سبب إلغاء
+// PUT - تحديث سبب إلغاء
 // ============================================================
 export async function PUT(
   request: NextRequest,
-  { params }: RouteContext
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getAuthenticatedSession();
     if (!session) {
-      return NextResponse.json(
-        { error: "غير مصرح." },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    await checkPermission("work_orders.update");
 
     const { id } = await params;
+    const companyId = session.companyId;
     const body = await request.json();
-    const {
-      name,
-      nameEn,
-      code,
-      description,
-      order,
-      isDefault,
-      isActive,
-      companyId,
-    } = body;
+    const { name, nameEn, code, description, order, isDefault, isActive } = body;
 
-    if (!name || name.trim() === "") {
-      return NextResponse.json(
-        { error: "الاسم مطلوب." },
-        { status: 400 }
-      );
-    }
-
-    let targetCompanyId = companyId;
-    if (session.role !== "SUPER_ADMIN") {
-      targetCompanyId = session.companyId;
-    }
-    if (!targetCompanyId) {
-      return NextResponse.json(
-        { error: "لا توجد شركة مرتبطة." },
-        { status: 400 }
-      );
-    }
-
-    const existing = await prisma.workOrderCancelReason.findFirst({
-      where: { id, companyId: targetCompanyId, deletedAt: null },
+    const existingReason = await prisma.workOrderCancelReason.findFirst({
+      where: { id, companyId, deletedAt: null },
     });
-    if (!existing) {
-      return NextResponse.json(
-        { error: "سبب الإلغاء غير موجود." },
-        { status: 404 }
-      );
+    if (!existingReason) {
+      return NextResponse.json({ error: 'سبب الإلغاء غير موجود' }, { status: 404 });
     }
 
-    const duplicate = await prisma.workOrderCancelReason.findFirst({
-      where: {
-        companyId: targetCompanyId,
-        deletedAt: null,
-        NOT: { id },
-        OR: [
-          { name: name.trim() },
-          { code: code?.trim() || undefined },
-        ],
-      },
-    });
-    if (duplicate) {
-      return NextResponse.json(
-        { error: "يوجد سبب إلغاء بنفس الاسم أو الكود بالفعل." },
-        { status: 409 }
-      );
-    }
-
-    const updated = await prisma.$transaction(async (tx) => {
-      if (isDefault === true) {
-        await tx.workOrderCancelReason.updateMany({
-          where: {
-            companyId: targetCompanyId,
-            isDefault: true,
-            id: { not: id },
-          },
-          data: { isDefault: false },
-        });
-      }
-
-      return tx.workOrderCancelReason.update({
-        where: { id },
-        data: {
+    if (name?.trim()) {
+      const duplicate = await prisma.workOrderCancelReason.findFirst({
+        where: {
+          companyId,
           name: name.trim(),
-          nameEn: nameEn?.trim() || null,
-          code: code?.trim() || null,
-          description: description?.trim() || null,
-          order: typeof order === "number" ? order : existing.order,
-          isDefault: isDefault === true,
-          isActive: isActive ?? existing.isActive,
+          deletedAt: null,
+          id: { not: id },
         },
       });
+      if (duplicate) {
+        return NextResponse.json({ error: 'هناك سبب بنفس الاسم بالفعل' }, { status: 409 });
+      }
+    }
+
+    if (isDefault) {
+      await prisma.workOrderCancelReason.updateMany({
+        where: { companyId, deletedAt: null, id: { not: id } },
+        data: { isDefault: false },
+      });
+    }
+
+    const updated = await prisma.workOrderCancelReason.update({
+      where: { id },
+      data: {
+        name: name?.trim() || existingReason.name,
+        nameEn: nameEn?.trim() || null,
+        code: code?.trim() || null,
+        description: description?.trim() || null,
+        order: order ?? 0,
+        isDefault: isDefault ?? false,
+        isActive: isActive ?? true,
+      },
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+        code: true,
+        description: true,
+        order: true,
+        isDefault: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
 
     return NextResponse.json(updated);
-  } catch (error: any) {
-    console.error("PUT /api/work-order-cancel-reasons/[id] error:", error);
-    if (error.message === "FORBIDDEN") {
-      return NextResponse.json(
-        { error: "لا تملك الصلاحية." },
-        { status: 403 }
-      );
-    }
+  } catch (error) {
+    console.error('Error in PUT /api/work-order-cancel-reasons/[id]:', error);
     return NextResponse.json(
-      { error: "حدث خطأ أثناء تحديث البيانات." },
+      { error: 'حدث خطأ في تحديث سبب الإلغاء' },
       { status: 500 }
     );
   }
 }
 
 // ============================================================
-// DELETE – حذف سبب إلغاء (Soft Delete)
+// DELETE - حذف سبب إلغاء (ناعم)
 // ============================================================
 export async function DELETE(
   request: NextRequest,
-  { params }: RouteContext
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getAuthenticatedSession();
     if (!session) {
-      return NextResponse.json(
-        { error: "غير مصرح." },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-
-    await checkPermission("work_orders.delete");
 
     const { id } = await params;
     const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json(
-        { error: "لا توجد شركة مرتبطة." },
-        { status: 400 }
-      );
-    }
 
-    const existing = await prisma.workOrderCancelReason.findFirst({
+    // ✅ التحقق من وجود السبب فقط (بدون include)
+    const existingReason = await prisma.workOrderCancelReason.findFirst({
       where: { id, companyId, deletedAt: null },
+      select: { id: true },
     });
-    if (!existing) {
-      return NextResponse.json(
-        { error: "سبب الإلغاء غير موجود." },
-        { status: 404 }
-      );
+
+    if (!existingReason) {
+      return NextResponse.json({ error: 'سبب الإلغاء غير موجود' }, { status: 404 });
     }
 
-    if (existing.isDefault) {
-      return NextResponse.json(
-        { error: "لا يمكن حذف السبب الافتراضي." },
-        { status: 400 }
-      );
-    }
-
-    const usedCount = await prisma.workOrder.count({
-      where: { cancelReasonId: id, deletedAt: null },
-    });
-    if (usedCount > 0) {
-      return NextResponse.json(
-        { error: "لا يمكن الحذف لوجود أوامر عمل مرتبطة بهذا السبب." },
-        { status: 400 }
-      );
-    }
-
+    // ✅ حذف ناعم مباشرة
     await prisma.workOrderCancelReason.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
 
-    return NextResponse.json({
-      success: true,
-      message: "تم حذف سبب الإلغاء بنجاح.",
-    });
-  } catch (error: any) {
-    console.error("DELETE /api/work-order-cancel-reasons/[id] error:", error);
-    if (error.message === "FORBIDDEN") {
-      return NextResponse.json(
-        { error: "لا تملك الصلاحية." },
-        { status: 403 }
-      );
-    }
+    return NextResponse.json({ success: true, message: 'تم حذف سبب الإلغاء بنجاح' });
+  } catch (error) {
+    console.error('Error in DELETE /api/work-order-cancel-reasons/[id]:', error);
     return NextResponse.json(
-      { error: "حدث خطأ أثناء حذف البيانات." },
+      { error: 'حدث خطأ في حذف سبب الإلغاء' },
       { status: 500 }
     );
   }

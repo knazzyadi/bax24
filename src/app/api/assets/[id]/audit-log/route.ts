@@ -14,34 +14,49 @@ export async function GET(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
 
-    // التحقق من وجود الأصل
+    // ✅ تحقق من وجود الأصل
     const asset = await prisma.asset.findFirst({
-      where: { id, companyId, deletedAt: null },
-      select: { id: true },
+      where: { id, deletedAt: null },
+      select: { id: true, companyId: true },
     });
-
     if (!asset) {
       return NextResponse.json({ error: 'الأصل غير موجود' }, { status: 404 });
     }
 
-    const logs = await prisma.auditLog.findMany({
-      where: { assetId: id },
-      orderBy: { createdAt: 'desc' },
-      take: 50, // آخر 50 سجل
-      select: {
-        id: true,
-        action: true,
-        userEmail: true,
-        changes: true,
-        createdAt: true,
-      },
-    });
+    // ✅ تحقق من أن الأصل ينتمي لنفس الشركة
+    if (asset.companyId !== session.companyId) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 403 });
+    }
 
-    return NextResponse.json(logs);
+    const searchParams = request.nextUrl.searchParams;
+    const page = Math.max(Number(searchParams.get('page')) || 1, 1);
+    const limit = Math.min(Math.max(Number(searchParams.get('limit')) || 20, 1), 100);
+    const skip = (page - 1) * limit;
+
+    const [logs, total] = await Promise.all([
+      prisma.auditLog.findMany({
+        where: { assetId: id },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+        // ✅ بدون include user لتجنب أخطاء العلاقة إذا لم تكن موجودة
+      }),
+      prisma.auditLog.count({ where: { assetId: id } }),
+    ]);
+
+    return NextResponse.json({
+      data: logs,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    });
   } catch (error) {
-    console.error('GET /api/assets/[id]/audit-log error:', error);
-    return NextResponse.json({ error: 'خطأ في الخادم' }, { status: 500 });
+    console.error('❌ Error in audit-log API:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في جلب سجل التدقيق' },
+      { status: 500 }
+    );
   }
 }

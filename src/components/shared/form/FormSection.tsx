@@ -1,35 +1,65 @@
 // src/components/shared/form/FormSection.tsx
-//تقسيم النموذج إلى أجزاء
 "use client";
 
-import { ReactNode } from "react";
+import * as React from "react";
 import { cn } from "@/lib/utils";
 
-interface FormSectionProps {
-  icon?: ReactNode;
-  title: string;
-  children: ReactNode;
+export interface FormSectionProps {
+  children: React.ReactNode;
+  title?: string;
+  description?: string;
+  icon?: React.ReactNode;
+  actions?: React.ReactNode;
+  divider?: boolean;
   className?: string;
+  contentClassName?: string;
 }
 
 export function FormSection({
-  icon,
-  title,
   children,
+  title,
+  description,
+  icon,
+  actions,
+  divider = true,
   className,
+  contentClassName,
 }: FormSectionProps) {
   return (
-    <div
-      className={cn(
-        "bg-card border border-border rounded-md p-6 space-y-6 shadow-sm transition-all hover:shadow-md",
-        className
+    <section className={cn("space-y-6", className)}>
+      {(title || description || icon || actions) && (
+        <div
+          className={cn(
+            "flex items-start justify-between gap-4",
+            divider && "border-b border-slate-200/50 dark:border-slate-800/50 pb-5"
+          )}
+        >
+          <div className="flex items-start gap-3">
+            {icon && (
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 text-indigo-600 dark:text-indigo-400">
+                {icon}
+              </div>
+            )}
+            <div>
+              {title && (
+                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                  {title}
+                </h3>
+              )}
+              {description && (
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+                  {description}
+                </p>
+              )}
+            </div>
+          </div>
+          {actions && <div className="flex items-center gap-2">{actions}</div>}
+        </div>
       )}
-    >
-      <div className="flex items-center gap-2 px-1 text-foreground">
-        {icon && <span className="text-foreground">{icon}</span>}
-        <span className="font-black text-xs uppercase tracking-widest">{title}</span>
-      </div>
-      {children}
-    </div>
+
+      <div className={cn("grid gap-6", contentClassName)}>{children}</div>
+    </section>
   );
 }
+
+export default FormSection;

@@ -71,6 +71,7 @@ export default function NewAssetPage() {
   const [loading, setLoading] = useState(false);
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
   const [types, setTypes] = useState<AssetType[]>([]);
+  const [suppliers, setSuppliers] = useState<{ id: string; name: string; nameEn?: string }[]>([]);
 
   // بيانات المواقع
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -103,7 +104,7 @@ export default function NewAssetPage() {
     serialNumber: "",
     manufacturer: "",
     model: "",
-    supplier: "",
+    supplierId: "", // ✅ تغيير من supplier إلى supplierId
   });
 
   // كرت الخلفية الزجاجي
@@ -120,14 +121,16 @@ export default function NewAssetPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statusesRes, typesRes, branchesRes] = await Promise.all([
+        const [statusesRes, typesRes, branchesRes, suppliersRes] = await Promise.all([
           fetch(`/api/asset-statuses?locale=${locale}`),
           fetch(`/api/asset-types?locale=${locale}`),
           fetch(`/api/branches?locale=${locale}`),
+          fetch(`/api/suppliers?locale=${locale}`), // ✅ جلب الموردين
         ]);
         if (statusesRes.ok) setStatuses(await statusesRes.json());
         if (typesRes.ok) setTypes(await typesRes.json());
         if (branchesRes.ok) setBranches(await branchesRes.json());
+        if (suppliersRes.ok) setSuppliers(await suppliersRes.json());
       } catch (err) {
         toast.error(t("fetchError"));
       }
@@ -294,6 +297,7 @@ export default function NewAssetPage() {
           ? formData.statusId
           : null;
 
+      // ✅ إرسال supplierId مباشرة
       const payload = {
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
@@ -310,7 +314,7 @@ export default function NewAssetPage() {
         serialNumber: formData.serialNumber.trim() || null,
         manufacturer: formData.manufacturer.trim() || null,
         model: formData.model.trim() || null,
-        supplier: formData.supplier.trim() || null,
+        supplierId: formData.supplierId || null, // ✅ إرسال ID المورد
       };
 
       const res = await fetch("/api/assets", {
@@ -542,7 +546,7 @@ export default function NewAssetPage() {
                         {t("selectBuilding")}
                       </Label>
                       <BuildingSelector
-                        className="w-full"  // ✅ أضف هذه الخاصية
+                        className="w-full"
                         value={buildingId}
                         onValueChange={handleBuildingChange}
                         buildings={buildings.map(normalizeBuilding)}
@@ -560,7 +564,7 @@ export default function NewAssetPage() {
                         {t("selectFloor")}
                       </Label>
                       <FloorSelector
-                        className="w-full"  // ✅ أضف هذه الخاصية
+                        className="w-full"
                         value={floorId}
                         onValueChange={handleFloorChange}
                         floors={floors.map(normalizeFloor)}
@@ -580,7 +584,7 @@ export default function NewAssetPage() {
                         {t("selectRoom")}
                       </Label>
                       <RoomSelector
-                        className="w-full"  // ✅ أضف هذه الخاصية
+                        className="w-full"
                         value={roomId}
                         onValueChange={handleRoomChange}
                         rooms={rooms.map(normalizeRoom)}
@@ -661,18 +665,28 @@ export default function NewAssetPage() {
                   />
                 </div>
 
+                {/* ✅ حقل المورد - قائمة منسدلة */}
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <Truck className="h-4 w-4 text-indigo-400" />
-                    {isRtl ? "اسم المورد" : "Supplier"}
+                    {isRtl ? "المورد" : "Supplier"}
                   </Label>
-                  <Input
-                    name="supplier"
-                    value={formData.supplier}
-                    onChange={handleChange}
-                    placeholder={isRtl ? "أدخل اسم المورد" : "Enter supplier name"}
-                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
-                  />
+                  <Select
+                    value={formData.supplierId || ""} // ✅ استخدام supplierId
+                    onValueChange={(v) => handleSelectChange("supplierId", v)}
+                  >
+                    <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                      <SelectValue placeholder={isRtl ? "اختر المورد" : "Select supplier"} />
+                    </SelectTrigger>
+                    <SelectContent position="popper" sideOffset={4}>
+                      <SelectItem value="">{isRtl ? "بدون مورد" : "No supplier"}</SelectItem>
+                      {suppliers.map((supplier) => (
+                        <SelectItem key={supplier.id} value={supplier.id}>
+                          {isRtl ? supplier.name : supplier.nameEn || supplier.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
             </div>

@@ -39,6 +39,7 @@ model Company {
   users                  User[]
   workOrderCloseReasons  WorkOrderCloseReason[]
   workOrderCancelReasons WorkOrderCancelReason[]
+  suppliers Supplier[]
 
   @@map("companies")
 }
@@ -420,7 +421,7 @@ model Asset {
   serialNumber        String?
   manufacturer        String?
   model               String?
-  supplier            String?
+  supplierId          String?
 
   scheduleAssets    ScheduleAsset[]
   tickets           Ticket[]
@@ -433,6 +434,7 @@ model Asset {
   room              Room                   @relation(fields: [roomId], references: [id])
   status            AssetStatus?           @relation(fields: [statusId], references: [id])
   type              AssetType?             @relation(fields: [typeId], references: [id])
+  supplier          Supplier?              @relation(fields: [supplierId], references: [id])
 
   @@unique([companyId, code])
   @@index([companyId])
@@ -444,6 +446,7 @@ model Asset {
   @@index([companyId, deletedAt])
   @@index([createdAt])
   @@map("assets")
+  @@index([supplierId])  // ✅ فهرس جديد لتحسين الأداء
 }
 
 model AssetLocationHistory {
@@ -814,6 +817,37 @@ model SavedReport {
   @@index([companyId])
   @@index([userId, companyId, updatedAt(sort: Desc)])
   @@map("saved_reports")
+}
+
+// نموذج المورد (Supplier) - موجود مسبقاً
+// ============================================================
+model Supplier {
+  id            String    @id @default(cuid())
+  name          String
+  nameEn        String?
+  code          String?   @unique
+  description   String?
+  contactPerson String?
+  phone         String?
+  email         String?
+  website       String?
+  address       String?
+  taxNumber     String?
+  isActive      Boolean   @default(true)
+  companyId     String
+  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deletedAt     DateTime?
+
+  // ✅ علاقة عكسية مع الأصول (جديدة)
+  assets        Asset[]
+
+  @@unique([companyId, code])
+  @@unique([companyId, name])
+  @@index([companyId])
+  @@index([isActive])
+  @@index([deletedAt])
 }
 
 // ============================================================

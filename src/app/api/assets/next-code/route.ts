@@ -1,10 +1,10 @@
 // src/app/api/assets/next-code/route.ts
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { generateUniqueAssetCode } from '@/lib/selects/code-generator';
+import { generateAssetCode } from '@/lib/assets/helpers';
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
     if (!session) {
@@ -13,48 +13,33 @@ export async function GET(request: Request) {
 
     const companyId = session.companyId;
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    const { searchParams } = new URL(request.url);
+    const searchParams = request.nextUrl.searchParams;
     const typeId = searchParams.get('typeId');
     const roomId = searchParams.get('roomId');
 
     if (!typeId || !roomId) {
       return NextResponse.json(
-        { error: 'نوع الأصل والغرفة مطلوبان لتوليد الكود' },
+        { error: 'نوع الأصل والغرفة مطلوبان' },
         { status: 400 }
       );
     }
 
-    // جلب branchId من الغرفة
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
-      select: {
-        building: {
-          select: { branchId: true },
-        },
-      },
-    });
+    // ✅ استخدام generateAssetCode مباشرة
+    const code = await generateAssetCode(
+      typeId,
+      roomId,
+      companyId
+    );
 
-    if (!room?.building?.branchId) {
-      return NextResponse.json(
-        { error: 'الغرفة غير مرتبطة بفرع صالح' },
-        { status: 400 }
-      );
-    }
-
-    const branchId = room.building.branchId;
-
-    // ✅ توليد الكود داخل معاملة وإرجاعه مباشرة
-    const generatedCode = await prisma.$transaction(async (tx) => {
-      return await generateUniqueAssetCode(tx, companyId, branchId, typeId);
-    });
-
-    return NextResponse.json({ code: generatedCode });
+    return NextResponse.json({ code });
   } catch (error) {
-    console.error('❌ Error generating next code:', error);
-    const message = error instanceof Error ? error.message : 'فشل توليد الكود التسلسلي';
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error('Error generating next asset code:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في توليد الكود' },
+      { status: 500 }
+    );
   }
 }

@@ -17,7 +17,6 @@ export default async function AssetsPage({
   const paramsResolved = await params;
   const searchParamsResolved = await searchParams || {};
 
-  // ✅ الحصول على الجلسة مع معالجة الأخطاء
   let session;
   try {
     session = await getAuthenticatedSession();
@@ -29,7 +28,6 @@ export default async function AssetsPage({
     redirect('/login');
   }
 
-  // ✅ التحقق من الصلاحية
   if (session.role !== 'SUPER_ADMIN' && session.role !== 'ADMIN') {
     redirect('/login');
   }
@@ -46,7 +44,6 @@ export default async function AssetsPage({
   const limitNum = parseInt(limit, 10) || 10;
   const skip = (pageNum - 1) * limitNum;
 
-  // بناء شرط where
   const where: Prisma.AssetWhereInput = {
     companyId,
     deletedAt: null,
@@ -68,23 +65,19 @@ export default async function AssetsPage({
   if (typeId && typeId !== 'all') where.typeId = typeId;
   if (statusId && statusId !== 'all') where.statusId = statusId;
 
-  // ✅ جلب العدد الإجمالي (بعد تطبيق الفلاتر)
   const totalCount = await AssetRepository.count(where);
 
-  // ✅ جلب الأصول مع الترقيم المبني على الصفحة
   const result = await AssetRepository.findMany({
     where,
     limit: limitNum,
-    skip, // ✅ استخدام skip بدلاً من cursor
+    skip,
     orderBy: { createdAt: 'desc' },
   });
 
   const { data: assetsRaw } = result;
 
-  // ✅ حساب startIndex الفعلي
   const startIndex = totalCount > 0 ? skip + 1 : 0;
 
-  // تحويل البيانات
   const transformedAssets: Asset[] = assetsRaw.map((asset: any) => ({
     id: asset.id,
     name: asset.name,
@@ -92,6 +85,7 @@ export default async function AssetsPage({
     description: asset.description ?? undefined,
     descriptionEn: asset.descriptionEn ?? undefined,
     code: asset.code,
+    companyId: asset.companyId,
     type: asset.type
       ? {
           id: asset.type.id,
@@ -116,6 +110,7 @@ export default async function AssetsPage({
           name: asset.room.name,
           nameEn: asset.room.nameEn ?? undefined,
           floorId: asset.room.floorId,
+          buildingId: asset.room.buildingId, // ✅ تمت الإضافة
           floor: asset.room.floor
             ? {
                 id: asset.room.floor.id,
@@ -141,7 +136,6 @@ export default async function AssetsPage({
     updatedAt: asset.updatedAt.toISOString(),
   }));
 
-  // جلب أنواع الأصول وحالاتها
   const [assetTypesRaw, assetStatusesRaw] = await Promise.all([
     prisma.assetType.findMany({
       where: { companyId },
@@ -169,7 +163,6 @@ export default async function AssetsPage({
     color: status.color ?? undefined,
   }));
 
-  // ✅ بناء روابط التنقل مع الحفاظ على معاملات البحث
   const baseUrl = `/${locale}/assets`;
   const queryParams = new URLSearchParams();
   if (q) queryParams.set('q', q);

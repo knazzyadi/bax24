@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Upload, X } from "lucide-react";
 
 interface ImageUploadSectionProps {
-  files: File[];
-  previews: string[];
+  files?: File[]; // جعلها اختيارية
+  previews?: string[]; // جعلها اختيارية
   onAddFiles: (files: File[]) => void;
   onRemoveFile: (index: number) => void;
   isRtl: boolean;
@@ -15,8 +15,8 @@ interface ImageUploadSectionProps {
 }
 
 export function ImageUploadSection({
-  files,
-  previews,
+  files = [], // قيمة افتراضية
+  previews = [], // قيمة افتراضية
   onAddFiles,
   onRemoveFile,
   isRtl,

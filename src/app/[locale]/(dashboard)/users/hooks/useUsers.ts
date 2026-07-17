@@ -35,7 +35,7 @@ export function useUsers() {
 
   // ======================== Refs ========================
   const controllersRef = useRef<Map<string, AbortController>>(new Map());
-  const companyId = session?.companyId;
+  const companyId = session?.user?.companyId;
 
   // تنظيف الطلبات المعلقة عند إلغاء تحميل المكون
   useEffect(() => {

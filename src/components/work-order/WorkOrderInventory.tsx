@@ -49,6 +49,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     setLoading(true);
     try {
       const res = await fetch(`/api/work-orders/${workOrderId}/inventory`);
+      if (!res.ok) throw new Error();
       const data = await res.json();
       if (Array.isArray(data)) {
         setItems(data);
@@ -70,6 +71,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
     setLoadingAvailable(true);
     try {
       const res = await fetch("/api/inventory?inStock=true");
+      if (!res.ok) throw new Error();
       const data = await res.json();
       if (Array.isArray(data)) {
         setAvailableItems(data);
@@ -215,10 +217,7 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
               ) : (
                 <Select value={selectedItemId} onValueChange={setSelectedItemId}>
                   <SelectTrigger className="w-full">
-                    {/* ✅ عرض الاسم العربي فقط بعد الاختيار */}
-                    {selectedItemId
-                      ? availableItems.find((item) => item.id === selectedItemId)?.name
-                      : t("selectItem")}
+                    <SelectValue placeholder={t("selectItem")} />
                   </SelectTrigger>
                   <SelectContent>
                     {availableItems.map((item) => (

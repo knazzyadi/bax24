@@ -39,10 +39,10 @@ async function main() {
   // 2. Company
   // =========================
   const company = await prisma.company.upsert({
-    where: { name: 'الشركة التقنية الحديثة' },
+    where: { name: 'شركة باكس 24' },
     update: {},
     create: {
-      name: 'الشركة التقنية الحديثة',
+      name: 'شركة باكس 2424',
       isActive: true,
     },
   });

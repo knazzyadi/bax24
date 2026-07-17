@@ -5,7 +5,7 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export interface FormFieldProps {
-  label: string;
+  label: React.ReactNode; // ✅ تغيير من string إلى ReactNode
   children: React.ReactNode;
   description?: string;
   error?: string;

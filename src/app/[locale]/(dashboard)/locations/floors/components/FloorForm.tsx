@@ -3,12 +3,12 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { X, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Floor, Building, FloorFormData } from '../types';
-import { floorSchema, FloorFormValues } from '../schemas/floor.schema';
+import { floorSchema, type FloorFormValues } from '../schemas/floor.schema';
 import { cn } from '@/lib/utils';
 
 const glassCard =
@@ -70,11 +70,16 @@ export function FloorForm({
     }
   }, [editingFloor, reset]);
 
-  const onSubmit = async (data: FloorFormValues) => {
-    const success = await onSave(data);
-    if (success) {
-      onCancel();
-    }
+  const onSubmit: SubmitHandler<FloorFormValues> = async (data) => {
+    const formData: FloorFormData = {
+      name: data.name,
+      code: data.code,
+      order: data.order,
+      buildingId: data.buildingId,
+      nameEn: data.nameEn || '',
+    };
+    const success = await onSave(formData);
+    if (success) onCancel();
   };
 
   return (

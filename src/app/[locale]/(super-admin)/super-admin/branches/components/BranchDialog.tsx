@@ -88,7 +88,14 @@ export function BranchDialog({
   }, [open, editingBranch, reset]);
 
   const onSubmit = async (data: BranchFormValues) => {
-    const success = await onSave(data);
+    // ✅ تحويل البيانات لتتناسب مع BranchFormData
+    const formData: BranchFormData = {
+      name: data.name,
+      code: data.code,
+      companyId: data.companyId,
+      nameEn: data.nameEn || '', // ✅ تحويل undefined إلى string فارغ
+    };
+    const success = await onSave(formData);
     if (success) {
       onOpenChange(false);
     }

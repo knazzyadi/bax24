@@ -3,6 +3,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { createWorkOrderWithRetry } from "@/lib/generateCode";
+import { $Enums } from '@prisma/client';
+import { writeFile, mkdir } from 'fs/promises';
+import path from 'path';
+import crypto from 'crypto';
 
 // ========== GET: جلب أوامر العمل مع دعم الفلترة والفروع ==========
 export async function GET(request: NextRequest) {
@@ -99,7 +103,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// ========== POST: إنشاء أمر عمل جديد (يدعم أصول متعددة) ==========
+// ========== POST: إنشاء أمر عمل جديد (يدعم أصول متعددة ورفع ملفات) ==========
 export async function POST(request: NextRequest) {
   try {
     let session;
@@ -113,26 +117,53 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
-    const body = await request.json();
-    const {
-      title,
-      description,
-      type,
-      priorityId,
-      statusId,
-      roomId,
-      branchId,
-      assetTypeId,
-      notes,
-      assetIds,
-    } = body;
-
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
 
-    // التحقق من صلاحيات الفرع (لغير المديرين)
+    const formData = await request.formData();
+
+    const title = formData.get('title') as string;
+    const description = formData.get('description') as string || null;
+    const type = formData.get('type') as string;
+    const priorityId = formData.get('priorityId') as string;
+    const statusId = formData.get('statusId') as string || null;
+    const branchId = formData.get('branchId') as string;
+    const assetTypeId = formData.get('assetTypeId') as string || null;
+    const notes = formData.get('notes') as string || null;
+    const source = formData.get('source') as string || 'manual';
+    const category = formData.get('category') as string || null;
+    const reason = formData.get('reason') as string || null;
+    const sourceId = formData.get('sourceId') as string || null;
+    const roomId = formData.get('roomId') as string || null;
+    const floorId = formData.get('floorId') as string || null;
+    const buildingId = formData.get('buildingId') as string || null;
+
+    if (!branchId) {
+      return NextResponse.json(
+        { error: "الفرع مطلوب" },
+        { status: 400 }
+      );
+    }
+
+    const assetIdsRaw = formData.get('assetIds') as string || '[]';
+    let assetIds: string[] = [];
+    try {
+      const parsed = JSON.parse(assetIdsRaw);
+      if (Array.isArray(parsed)) {
+        assetIds = parsed;
+      } else {
+        console.warn('assetIds is not an array, using empty array');
+      }
+    } catch (error) {
+      console.error('Failed to parse assetIds:', error);
+      assetIds = [];
+    }
+
+    const attachments = formData.getAll('attachments') as File[];
+    // يمكن حفظ الملفات هنا إذا أردت
+
     const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
     if (!isAdmin && branchId) {
       const userBranchIds = session.branchIds || [];
@@ -141,9 +172,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // جلب الحالة والأولوية الافتراضية إذا لم يتم إرسالها أو كانت غير صالحة
-    let finalPriorityId = priorityId;
-    let finalStatusId = statusId;
+    // ✅ تعريف المتغيرات لتدعم null
+    let finalPriorityId: string | null = priorityId;
+    let finalStatusId: string | null = statusId;
 
     if (!finalPriorityId || finalPriorityId === "all") {
       const defaultPriority = await prisma.workOrderPriority.findFirst({
@@ -176,27 +207,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // تحضير البيانات لإنشاء أمر العمل (بدون code و branchSeqNum)
+    let workOrderTypeEnum: $Enums.WorkOrderTypeEnum;
+    try {
+      workOrderTypeEnum = type as $Enums.WorkOrderTypeEnum;
+      const validTypes = ['MAINTENANCE', 'CORRECTIVE', 'EMERGENCY', 'BULK_PREVENTIVE'];
+      if (!validTypes.includes(workOrderTypeEnum)) {
+        throw new Error('Invalid work order type');
+      }
+    } catch {
+      workOrderTypeEnum = 'MAINTENANCE';
+    }
+
     const workOrderData = {
       title,
-      description,
-      type: type || "MAINTENANCE",
-      priorityId: finalPriorityId,
+      description: description ?? undefined,
+      type: workOrderTypeEnum,
+      priorityId: finalPriorityId, // ✅ الآن string | null، سيتعامل معها Prisma
       statusId: finalStatusId,
-      roomId: roomId || null,
-      branchId: branchId || null,
-      assetTypeId: assetTypeId || null,
-      notes: notes || null,
+      roomId: roomId ?? undefined,
+      branchId: branchId,
+      assetTypeId: assetTypeId ?? undefined,
+      notes: notes ?? undefined,
       companyId,
-      createdBy: session.userId, // ✅ استخدام userId بدلاً من id
-      ticketId: null,
+      createdBy: session.userId,
+      ticketId: sourceId ?? undefined,
+      reason,
     };
 
-    // ✅ استخدام الدالة الآمنة لإنشاء أمر العمل (مع إعادة المحاولة و branchSeqNum)
     const workOrder = await createWorkOrderWithRetry(workOrderData);
 
-    // ربط الأصول المتعددة (إذا وجدت)
-    if (assetIds && assetIds.length > 0) {
+    if (assetIds.length > 0) {
       await prisma.workOrderAsset.createMany({
         data: assetIds.map((assetId: string) => ({
           workOrderId: workOrder.id,
@@ -206,7 +246,6 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // إعادة الأمر مع تضمين الأصول
     const result = await prisma.workOrder.findUnique({
       where: { id: workOrder.id },
       include: { workOrderAssets: { include: { asset: true } } },

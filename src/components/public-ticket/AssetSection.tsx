@@ -1,7 +1,14 @@
+// src/components/public-ticket/AssetSection.tsx
 "use client";
 
 import { Label } from "@/components/ui/label";
-import { AdaptiveSelect } from "@/components/shared/AdaptiveSelect";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface AssetSectionProps {
   roomId: string;
@@ -30,44 +37,79 @@ export function AssetSection({
   isRtl,
   disabled,
 }: AssetSectionProps) {
-  if (!roomId) return null;
-
-  const noAssetsMessage = isRtl
-    ? "لا توجد أصول مسجلة في هذه الغرفة"
-    : "No assets found in this room";
-
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      {/* نوع الأصل */}
       <div>
         <Label className="text-base font-semibold mb-2 block">
-          {isRtl ? "نوع الأصل (اختياري)" : "Asset Type (Optional)"}
+          {isRtl ? "نوع الأصل" : "Asset Type"}
         </Label>
-        <AdaptiveSelect
+        <Select
           value={assetTypeId}
-          onChange={onAssetTypeChange}
-          options={assetTypes}
-          placeholder={isRtl ? "اختر نوع الأصل" : "Select asset type"}
-          disabled={loadingAssetTypes || disabled}
-        />
+          onValueChange={onAssetTypeChange}
+          disabled={disabled || loadingAssetTypes}
+        >
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue placeholder={isRtl ? "اختر نوع الأصل" : "Select asset type"} />
+          </SelectTrigger>
+          <SelectContent>
+            {assetTypes.length === 0 ? (
+              <div className="p-2 text-sm text-muted-foreground text-center">
+                {isRtl ? "لا توجد أنواع" : "No types available"}
+              </div>
+            ) : (
+              assetTypes.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        {loadingAssetTypes && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {isRtl ? "جاري التحميل..." : "Loading..."}
+          </p>
+        )}
       </div>
+
+      {/* الأصل */}
       <div>
         <Label className="text-base font-semibold mb-2 block">
-          {isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}
+          {isRtl ? "الأصل" : "Asset"}
         </Label>
-        {assets.length === 0 && !loadingAssets ? (
-          <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-            {noAssetsMessage}
+        <Select
+          value={assetId}
+          onValueChange={onAssetChange}
+          disabled={disabled || loadingAssets || !roomId}
+        >
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue placeholder={isRtl ? "اختر الأصل" : "Select asset"} />
+          </SelectTrigger>
+          <SelectContent>
+            {assets.length === 0 ? (
+              <div className="p-2 text-sm text-muted-foreground text-center">
+                {isRtl ? "لا توجد أصول" : "No assets available"}
+              </div>
+            ) : (
+              assets.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))
+            )}
+          </SelectContent>
+        </Select>
+        {!roomId && (
+          <p className="text-xs text-amber-500 mt-1">
+            {isRtl ? "يرجى اختيار الموقع أولاً" : "Please select location first"}
           </p>
-        ) : (
-          <AdaptiveSelect
-            value={assetId}
-            onChange={onAssetChange}
-            options={assets}
-            placeholder={isRtl ? "اختر الأصل" : "Select asset"}
-            disabled={loadingAssets || disabled}
-          />
         )}
-        {loadingAssets && <p className="text-sm text-muted-foreground mt-2">{isRtl ? "جار التحميل..." : "Loading..."}</p>}
+        {loadingAssets && (
+          <p className="text-xs text-muted-foreground mt-1">
+            {isRtl ? "جاري التحميل..." : "Loading..."}
+          </p>
+        )}
       </div>
     </div>
   );

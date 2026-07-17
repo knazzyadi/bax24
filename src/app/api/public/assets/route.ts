@@ -1,8 +1,7 @@
+// src/app/api/public/assets/route.ts
 import { NextResponse } from "next/server";
-
-
-
 import { prisma } from '@/lib/prisma';
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -11,12 +10,10 @@ export async function GET(req: Request) {
     const roomId = searchParams.get("roomId");
     const typeId = searchParams.get("typeId");
 
-    // التحقق من المعاملات الأساسية
     if (!slug || !token || !roomId) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    // التحقق من صحة الفرع وتفعيل البلاغات العامة
     const branch = await prisma.branch.findFirst({
       where: { slug, publicToken: token },
       select: { companyId: true, allowPublicTickets: true },
@@ -26,17 +23,17 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid branch or public tickets disabled" }, { status: 403 });
     }
 
-    // بناء شرط البحث
     const whereClause: any = {
       roomId,
       companyId: branch.companyId,
+      // ✅ تأكد من أن deletedAt هو null (لن يتم تضمين الأصول المحذوفة)
       deletedAt: null,
     };
+
     if (typeId && typeId !== "all" && typeId !== "") {
       whereClause.typeId = typeId;
     }
 
-    // جلب الأصول مع الحقول المطلوبة للواجهة
     const assets = await prisma.asset.findMany({
       where: whereClause,
       select: {
@@ -44,14 +41,17 @@ export async function GET(req: Request) {
         name: true,
         nameEn: true,
         code: true,
-        typeId: true,      // ✅ مهم للفلترة في الواجهة
-        statusId: true,    // ✅ قد تحتاجه لعرض الحالة
+        typeId: true,
+        statusId: true,
+        deletedAt: true, // للتحقق فقط
       },
       orderBy: { name: "asc" },
     });
 
-    // إعادة الأصول بصيغة موحدة (يمكنك إضافة مفتاح `assets` لتوحيد الاستجابة)
-    return NextResponse.json({ assets });
+    // ✅ تصفية إضافية للتأكد (في حال كانت القيم غير متوقعة)
+    const filteredAssets = assets.filter(asset => asset.deletedAt === null);
+
+    return NextResponse.json({ assets: filteredAssets });
   } catch (error) {
     console.error("Public assets API error:", error);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });

@@ -59,9 +59,22 @@ model User {
   resetToken        String?      @unique
   resetExpires      DateTime?
   firstLogin        Boolean      @default(true)
+  
+  // ✅ إضافة حقل الحذف الناعم (Soft Delete)
+  deletedAt         DateTime?    // سيسمح بالاستعلام عن المستخدمين غير المحذوفين فقط
+
+  // العلاقات
   userBranches      UserBranch[]
   company           Company?     @relation(fields: [companyId], references: [id])
   role              Role?        @relation(fields: [roleId], references: [id])
+  
+  // ✅ العلاقات مع WorkOrder (تم إزالة التكرار)
+  createdWorkOrders  WorkOrder[] @relation("CreatedWorkOrders")
+  assignedWorkOrders WorkOrder[] @relation("AssignedWorkOrders")
+  // ❌ تم حذف: workOrders WorkOrder[] @relation("AssignedWorkOrders")
+
+  // ✅ إضافة علاقة التذاكر (المستخدم الذي أنشأ التذكرة)
+  tickets           Ticket[]     @relation("UserTickets")
 
   @@map("users")
 }
@@ -426,7 +439,6 @@ model Asset {
   scheduleAssets    ScheduleAsset[]
   tickets           Ticket[]
   workOrderAssets   WorkOrderAsset[]
-  auditLogs         AuditLog[]
   locationHistories AssetLocationHistory[]
   branch            Branch?                @relation(fields: [branchId], references: [id])
   building          Building               @relation(fields: [buildingId], references: [id])
@@ -487,22 +499,34 @@ model WorkOrderCounter {
 }
 
 model AuditLog {
-  id        String   @id @default(cuid())
-  assetId   String   @map("asset_id")
-  userId    String   @map("user_id")
-  userEmail String   @map("user_email")
-  action    String
-  changes   Json?
-  metadata  Json?
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id         String   @id @default(cuid())
 
-  asset Asset @relation(fields: [assetId], references: [id])
+  entityType String
+  entityId   String
 
-  @@index([assetId])
+  companyId  String
+  branchId   String?
+
+  userId     String
+  userEmail  String
+
+  action     String
+
+  field       String?
+  oldValue    String?
+  newValue    String?
+
+  changes    Json?
+  metadata   Json?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([entityType, entityId])
+  @@index([companyId])
+  @@index([branchId])
   @@index([userId])
   @@index([createdAt])
-  @@map("audit_logs")
 }
 
 model InventoryItem {
@@ -618,6 +642,9 @@ model WorkOrder {
   assetTypeId     String?
   workOrderTypeId String?
   ticketId        String?           @unique
+  sourceId        String? // معرف المصدر (ticketId, pmPlanId, checklistId)
+  sourceType      String? // 'ticket', 'pm', 'checklist', 'manual'
+  reason          String?   // سبب الإنشاء
 
   assetType     AssetType?         @relation(fields: [assetTypeId], references: [id])
   branch        Branch?            @relation(fields: [branchId], references: [id])
@@ -627,6 +654,9 @@ model WorkOrder {
   status        WorkOrderStatus?   @relation(fields: [statusId], references: [id])
   workOrderType WorkOrderType?     @relation(fields: [workOrderTypeId], references: [id])
   ticket        Ticket?            @relation(fields: [ticketId], references: [id])
+  assignedTo    String?
+  createdByUser User?             @relation("CreatedWorkOrders", fields: [createdBy], references: [id])
+  assignedUser  User?             @relation("AssignedWorkOrders", fields: [assignedTo], references: [id])
 
   workOrderAssets    WorkOrderAsset[]
   attachments        WorkOrderAttachment[]
@@ -746,6 +776,8 @@ model Ticket {
   room            Room?              @relation(fields: [roomId], references: [id])
   attachments     TicketAttachment[]
   workOrder       WorkOrder?
+  userId          String?  // ✅ أضف هذا إذا لم يكن موجوداً
+  user            User?              @relation("UserTickets", fields: [userId], references: [id])
 
   @@unique([branchId, branchSeqNum])
   @@index([companyId])

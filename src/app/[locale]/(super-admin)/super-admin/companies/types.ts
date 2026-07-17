@@ -6,23 +6,20 @@ export interface Company {
   email?: string;
   phone?: string;
   address?: string;
-  subscriptionEndDate?: string | null;
+  subscriptionEndDate?: string;
   isActive: boolean;
+  code: string;
   createdAt: string;
   updatedAt: string;
-  _count?: {
-    users: number;
-    branches: number;
-    assets: number;
-  };
 }
 
-export interface CompanyFormData {
+// ✅ يتطابق مع CompanyFormValues من schemas.ts
+export type CompanyFormData = {
   name: string;
-  nameEn: string;
-  email: string;
-  phone: string;
-  address: string;
-  subscriptionEndDate: string;
+  nameEn?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  subscriptionEndDate?: string;
   isActive: boolean;
-}
+};

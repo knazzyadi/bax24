@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   try {
     const session = await requirePermission('branches.read');
     const { searchParams } = new URL(request.url);
-    const companyIdParam = searchParams.get('companyId');
+    const companyIdParam = session.companyId ?? undefined;
     const branches = await BranchService.getAll(session, companyIdParam);
     return NextResponse.json(branches);
   } catch (error: any) {

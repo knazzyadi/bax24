@@ -26,13 +26,9 @@ import { ImageUploadSection } from "@/components/public-ticket/ImageUploadSectio
 import { ActionButtons } from "@/components/public-ticket/ActionButtons";
 import { cn } from "@/lib/utils";
 
-// =========================
-// تنسيقات موحدة (نفس باقي صفحات النظام)
-// =========================
 const glassCard =
   "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-lg";
 
-// Types
 interface Branch {
   id: string;
   name: string;
@@ -117,12 +113,8 @@ export default function PublicTicketPage() {
     router.push(`/${newLocale}/tickets/public/${slug}/${token}`);
   };
 
-  // ========== دالة إعادة تعيين النموذج بالكامل ==========
   const resetForm = useCallback(() => {
-    // 1. إعادة تعيين الملفات
     resetFiles();
-
-    // 2. إعادة تعيين بيانات النموذج
     setForm({
       title: "",
       description: "",
@@ -133,23 +125,16 @@ export default function PublicTicketPage() {
       assetTypeId: "",
       assetId: "none",
     });
-
-    // 3. إعادة تعيين الموقع (استخدام الدالة الجديدة من hook)
     if (location.resetLocation) {
       location.resetLocation();
     } else {
-      // حل بديل إذا لم تكن الدالة موجودة
       location.handleBuildingChange("");
       location.handleFloorChange("");
       location.handleRoomChange("");
     }
-
-    // 4. إعادة تعيين بيانات الأصول (استخدام الدالة الجديدة من hook)
     if (assetData.resetAssetData) {
       assetData.resetAssetData();
     }
-
-    // 5. إغلاق حوار النجاح
     setShowSuccessDialog(false);
   }, [resetFiles, location, assetData]);
 
@@ -240,7 +225,6 @@ export default function PublicTicketPage() {
     }
   };
 
-  // Memoized options for selects
   const ticketTypeOptions = useMemo(
     () => [
       { value: "MAINTENANCE", label: ticketTypeMap.MAINTENANCE },
@@ -298,17 +282,11 @@ export default function PublicTicketPage() {
     [assetData.assets, isRtl]
   );
 
-  // Loading & error states
   if (branchLoading) {
     return (
       <div className="relative min-h-screen flex items-center justify-center p-6">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 -z-10" />
-        <div className="flex flex-col items-center gap-4">
-          <Loader2 className="h-10 w-10 animate-spin text-indigo-500 dark:text-indigo-400" />
-          <span className="text-slate-500 dark:text-slate-400 text-sm font-medium">
-            {isRtl ? "جاري التحقق..." : "Verifying..."}
-          </span>
-        </div>
+        <Loader2 className="h-10 w-10 animate-spin text-indigo-500 dark:text-indigo-400" />
       </div>
     );
   }
@@ -325,14 +303,9 @@ export default function PublicTicketPage() {
             <h2 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-3">
               {branchError}
             </h2>
-            <p className="text-slate-500 dark:text-slate-400 mb-6">
-              {isRtl
-                ? "يرجى التأكد من صحة الرابط أو التواصل مع الإدارة."
-                : "Please verify the link or contact the administrator."}
-            </p>
             <Button
               onClick={() => router.push(`/${locale}`)}
-              className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20"
             >
               {isRtl ? "العودة للرئيسية" : "Back to Home"}
             </Button>
@@ -344,14 +317,11 @@ export default function PublicTicketPage() {
 
   if (!branch) return null;
 
-  // Main UI
   return (
     <div className="relative min-h-screen py-8 px-4 sm:px-6">
-      {/* خلفية متدرجة موحّدة (نفس باقي الصفحات) */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 -z-10" />
 
       <div className="max-w-5xl mx-auto">
-        {/* Top controls */}
         <div className="flex justify-end gap-3 mb-6">
           <Button
             variant="outline"
@@ -373,10 +343,8 @@ export default function PublicTicketPage() {
           </Button>
         </div>
 
-        {/* Main card - glassCard موحّد */}
         <div className={cn(glassCard, "overflow-hidden")}>
           <div className="p-6 md:p-10 space-y-8">
-            {/* Header - نفس تصميم باقي الصفحات */}
             <div className="flex items-center gap-4 border-b border-slate-200/50 dark:border-slate-800/50 pb-5">
               <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
                 <Send className="h-7 w-7 text-indigo-600 dark:text-indigo-400" />
@@ -392,7 +360,6 @@ export default function PublicTicketPage() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              {/* LEFT COLUMN */}
               <div className="space-y-8">
                 <TicketDetailsSection
                   type={form.type}
@@ -424,7 +391,6 @@ export default function PublicTicketPage() {
                 />
               </div>
 
-              {/* RIGHT COLUMN */}
               <div className="space-y-8">
                 <ReporterSection
                   name={form.reporterName}
@@ -471,7 +437,6 @@ export default function PublicTicketPage() {
               isRtl={isRtl}
             />
 
-            {/* Info note - نفس تنسيق باقي الصفحات */}
             <div className="p-4 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-800/30 flex items-start gap-3 text-sm">
               <Info size={18} className="text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
               <span className="text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -484,7 +449,6 @@ export default function PublicTicketPage() {
         </div>
       </div>
 
-      {/* ✅ Success Dialog - نفس تنسيق صفحة النجاح */}
       <Dialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
         <DialogContent className="sm:max-w-md text-center bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-xl">
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500/10 to-green-500/10 dark:from-emerald-500/20 dark:to-green-500/20 border border-emerald-200/30 dark:border-emerald-800/30 shadow-lg shadow-emerald-500/5">
@@ -503,7 +467,7 @@ export default function PublicTicketPage() {
           <div className="flex flex-col gap-3 mt-4">
             <Button
               onClick={resetForm}
-              className="w-full gap-2 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+              className="w-full gap-2 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20"
             >
               <Send size={18} />
               {isRtl ? "تقديم بلاغ آخر" : "Submit Another Ticket"}

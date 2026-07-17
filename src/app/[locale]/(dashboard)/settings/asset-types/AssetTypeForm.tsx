@@ -61,7 +61,8 @@ export function AssetTypeForm({
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ) => {
-    const { name, value, type: inputType, checked } = e.target;
+    const { name, value, type: inputType } = e.target;
+    const checked = e.target instanceof HTMLInputElement ? e.target.checked : undefined;
     setFormData((prev) => ({
       ...prev,
       [name]: inputType === "checkbox" ? checked : value,

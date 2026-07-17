@@ -10,7 +10,8 @@ import { AssetValidationError } from './errors';
 export function validateAssetData(data: unknown): ValidatedAssetData {
   const result = AssetValidationSchema.safeParse(data);
   if (!result.success) {
-    const errors = result.error.errors.map((e) => e.message).join(', ');
+    // ✅ استخدم issues بدلاً من errors
+    const errors = result.error.issues.map((e) => e.message).join(', ');
     throw new AssetValidationError(errors);
   }
   return result.data;
@@ -23,12 +24,13 @@ export function validateAssetData(data: unknown): ValidatedAssetData {
 export function normalizeAssetInput<T extends Record<string, unknown>>(
   data: T
 ): T {
-  const result = { ...data };
+  // ✅ استخدم Record<string, unknown> للفهرسة
+  const result: Record<string, unknown> = { ...data };
   for (const key of Object.keys(result)) {
     const value = result[key];
     if (typeof value === 'string') {
-      result[key] = value.trim() === '' ? null : value.trim() as T[keyof T];
+      result[key] = value.trim() === '' ? null : value.trim();
     }
   }
-  return result;
+  return result as T;
 }

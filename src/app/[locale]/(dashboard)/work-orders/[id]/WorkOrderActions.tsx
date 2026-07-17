@@ -13,7 +13,7 @@ interface WorkOrderActionsProps {
   canDelete: boolean;
 }
 
-export default function WorkOrderActions({
+export function WorkOrderActions({
   workOrderId,
   locale,
   canEdit,
@@ -24,7 +24,6 @@ export default function WorkOrderActions({
   const isRtl = locale === "ar";
 
   const handleEdit = () => {
-    console.log("Edit clicked, navigating to:", `/${locale}/work-orders/${workOrderId}/edit`);
     router.push(`/${locale}/work-orders/${workOrderId}/edit`);
   };
 

@@ -77,8 +77,8 @@ export async function createAuditLog(
         userId,
         userEmail: user?.email || 'unknown',
         action,
-        changes: changes || null,
-        metadata: metadata || null,
+        changes: changes ?? undefined,
+        metadata: metadata ?? undefined,
       },
     });
   } catch (error) {

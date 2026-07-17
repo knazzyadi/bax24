@@ -4,15 +4,15 @@
 
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Building, Plus } from 'lucide-react';
+import { Building as BuildingIcon, Plus } from 'lucide-react'; // ✅ إعادة تسمية الأيقونة
 import { useBuildings } from './hooks/useBuildings';
 import { BuildingForm } from './components/BuildingForm';
 import { BuildingsTable } from './components/BuildingsTable';
 import { DeleteBuildingDialog } from './components/DeleteBuildingDialog';
-import { Building as BuildingType } from './types';
+import type { Building, Branch } from './types'; // ✅ النوع Building
 
 interface BuildingsClientProps {
-  initialBuildings: BuildingType[];
+  initialBuildings: Building[]; // ✅ استخدام النوع مباشرة
   initialBranches: Branch[];
   locale: string;
 }
@@ -39,7 +39,7 @@ export default function BuildingsClient({
   } = useBuildings(initialBuildings, initialBranches);
 
   const [showForm, setShowForm] = useState(false);
-  const [editingBuilding, setEditingBuilding] = useState<BuildingType | null>(null);
+  const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deletingName, setDeletingName] = useState('');
@@ -49,7 +49,7 @@ export default function BuildingsClient({
     setShowForm(true);
   };
 
-  const handleEdit = (building: BuildingType) => {
+  const handleEdit = (building: Building) => {
     setEditingBuilding(building);
     setShowForm(true);
   };
@@ -87,7 +87,7 @@ export default function BuildingsClient({
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
-            <Building className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+            <BuildingIcon className="h-8 w-8 text-indigo-600 dark:text-indigo-400" /> {/* ✅ استخدام الأيقونة المعدلة */}
           </div>
           <div>
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">

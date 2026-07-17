@@ -6,11 +6,11 @@ import { useSession } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { useCompanies } from './hooks/useCompanies';
-import { CompanyToolbar } from './components/CompanyToolbar';
-import { CompanyTable } from './components/CompanyTable';
-import { CompanyDialog } from './components/CompanyDialog';
-import { DeleteCompanyDialog } from './components/DeleteCompanyDialog';
+import { useCompanies } from './useCompanies';
+import { CompanyToolbar } from './CompanyToolbar';
+import { CompanyTable } from './CompanyTable';
+import { CompanyDialog } from './CompanyDialog';
+import { DeleteCompanyDialog } from './DeleteCompanyDialog';
 import { Company, CompanyFormData } from './types';
 
 export default function CompaniesPage() {

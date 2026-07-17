@@ -1,11 +1,7 @@
 // src/app/api/inventory/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-
 import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 
 export async function GET(request: NextRequest) {
   try {
@@ -88,7 +84,7 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { name: 'asc' },
       });
-      // نعيد مصفوفة مباشرة (بدون pagination)
+      // ✅ نعيد مصفوفة مباشرة (بدون pagination)
       return NextResponse.json(items);
     }
 

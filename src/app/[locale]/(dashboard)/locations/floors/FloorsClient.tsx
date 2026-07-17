@@ -9,7 +9,7 @@ import { useFloors } from './hooks/useFloors';
 import { FloorForm } from './components/FloorForm';
 import { FloorsTable } from './components/FloorsTable';
 import { DeleteFloorDialog } from './components/DeleteFloorDialog';
-import { Floor as FloorType } from './types';
+import { Floor as FloorType, Building } from './types'; // ✅ استيراد Building من الملف المحلي
 
 interface FloorsClientProps {
   initialFloors: FloorType[];

@@ -4,21 +4,7 @@ import { redirect } from 'next/navigation';
 import { requireRole } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
 import BuildingsClient from './BuildingsClient';
-
-interface Building {
-  id: string;
-  name: string;
-  nameEn: string | null;
-  code: string;
-  order: number;
-  branchId: string | null;
-  branchName: string | null;
-}
-
-interface Branch {
-  id: string;
-  name: string;
-}
+import type { Building, Branch } from './types'; // ✅ استيراد من الملف الموحد
 
 export default async function BuildingsPage({
   params,

@@ -24,10 +24,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // التحقق من وجود الغرفة والحصول على branchId
+    // ✅ التحقق من وجود الغرفة والحصول على branchId و buildingId
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       select: {
+        buildingId: true, // ✅ إضافة buildingId
         building: {
           select: {
             branchId: true,
@@ -51,6 +52,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ استخراج buildingId من الغرفة
+    const buildingId = room.buildingId;
+    if (!buildingId) {
+      return NextResponse.json(
+        { error: 'الغرفة غير مرتبطة بمبنى' },
+        { status: 400 }
+      );
+    }
+
     // استخدام المعاملة لإنشاء الأصول بشكل جماعي
     const result = await prisma.$transaction(async (tx) => {
       const createdAssets = [];
@@ -62,7 +72,7 @@ export async function POST(request: NextRequest) {
           // توليد كود فريد (يمكن تحسينه حسب منطق المشروع)
           const code = `AST-${Date.now()}-${i}`;
 
-          // إنشاء الأصل
+          // ✅ إنشاء الأصل مع إضافة buildingId
           const created = await tx.asset.create({
             data: {
               name: asset.name || 'أصل بدون اسم',
@@ -70,6 +80,7 @@ export async function POST(request: NextRequest) {
               typeId: asset.typeId || null,
               statusId: asset.statusId || null,
               roomId,
+              buildingId, // ✅ تمت الإضافة
               branchId,
               companyId: session.companyId,
               serialNumber: asset.serialNumber || null,

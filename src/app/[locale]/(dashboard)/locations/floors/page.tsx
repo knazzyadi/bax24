@@ -1,26 +1,10 @@
 // src/app/[locale]/(dashboard)/locations/floors/page.tsx
+
 import { redirect } from 'next/navigation';
 import { requireRole } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
 import FloorsClient from './FloorsClient';
-
-interface Floor {
-  id: string;
-  name: string;
-  nameEn: string | null;
-  code: string;
-  order: number;
-  buildingId: string;
-  building: {
-    id: string;
-    name: string;
-  };
-}
-
-interface Building {
-  id: string;
-  name: string;
-}
+import type { Floor, Building } from './types'; // ✅ استيراد من الملف المحلي
 
 export default async function FloorsPage({
   params,

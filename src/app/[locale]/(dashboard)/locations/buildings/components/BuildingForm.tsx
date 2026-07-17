@@ -1,5 +1,7 @@
 // src/app/[locale]/(dashboard)/locations/buildings/components/BuildingForm.tsx
 
+// src/app/[locale]/(dashboard)/locations/buildings/components/BuildingForm.tsx
+
 'use client';
 
 import { useEffect } from 'react';
@@ -7,22 +9,45 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { X, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
-import { Building, Branch, BuildingFormData } from '../types';
-import { buildingSchema, BuildingFormValues } from '../schemas/building.schema';
+import { z } from 'zod';
 import { cn } from '@/lib/utils';
+import type { Building, Branch } from '../types'; // ✅ استيراد من الملف المحلي
 
+// ============================================================
+// 1. تعريف الـ Schema (المصدر الوحيد للحقيقة)
+// ============================================================
+const buildingSchema = z.object({
+  name: z.string().min(1, 'الاسم مطلوب'),
+  nameEn: z.string().optional(),
+  code: z.string().min(1, 'الكود مطلوب'),
+  order: z.number().min(0).default(0),
+  branchId: z.string().optional(),
+});
+
+// ============================================================
+// 2. أنواع الإدخال والإخراج المستخلصة من الـ Schema
+// ============================================================
+type BuildingFormInput = z.input<typeof buildingSchema>;
+type BuildingFormOutput = z.output<typeof buildingSchema>;
+
+// ============================================================
+// 3. واجهة Props
+// ============================================================
 const glassCard =
   'bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-sm';
 
 interface BuildingFormProps {
   editingBuilding: Building | null;
   branches: Branch[];
-  onSave: (data: BuildingFormData) => Promise<boolean>;
+  onSave: (data: BuildingFormOutput) => Promise<boolean>;
   onCancel: () => void;
   isSaving: boolean;
   locale: string;
 }
 
+// ============================================================
+// 4. المكون
+// ============================================================
 export function BuildingForm({
   editingBuilding,
   branches,
@@ -34,12 +59,13 @@ export function BuildingForm({
   const t = useTranslations('Locations');
   const isRTL = locale === 'ar';
 
+  // ✅ useForm يستخدم نوع الإدخال (مناسب للـ resolver)
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors },
-  } = useForm<BuildingFormValues>({
+  } = useForm<BuildingFormInput>({
     resolver: zodResolver(buildingSchema),
     defaultValues: {
       name: '',
@@ -56,7 +82,7 @@ export function BuildingForm({
         name: editingBuilding.name,
         nameEn: editingBuilding.nameEn || '',
         code: editingBuilding.code,
-        order: editingBuilding.order,
+        order: editingBuilding.order ?? 0,
         branchId: editingBuilding.branchId || '',
       });
     } else {
@@ -70,8 +96,11 @@ export function BuildingForm({
     }
   }, [editingBuilding, reset]);
 
-  const onSubmit = async (data: BuildingFormValues) => {
-    const success = await onSave(data);
+  // ✅ دالة الـ onSubmit تطبق القيم الافتراضية باستخدام `buildingSchema.parse`
+  const onSubmit = async (data: BuildingFormInput) => {
+    // تطبيق القيم الافتراضية (مثل order: 0)
+    const validatedData: BuildingFormOutput = buildingSchema.parse(data);
+    const success = await onSave(validatedData);
     if (success) {
       onCancel();
     }

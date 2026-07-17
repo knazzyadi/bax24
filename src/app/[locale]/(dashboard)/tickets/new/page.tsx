@@ -41,7 +41,6 @@ import { BranchSelector } from "@/components/shared/BranchSelector";
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
-import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
 
 interface Building {
   id: string;
@@ -223,7 +222,7 @@ export default function NewTicketPage() {
     fetchRooms();
   }, [floorId, buildingId, buildings, floors]);
 
-  // جلب الأصول
+  // ✅ جلب الأصول بناءً على الغرفة ونوع الأصل
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
@@ -235,14 +234,16 @@ export default function NewTicketPage() {
       try {
         const params = new URLSearchParams();
         params.append("roomId", roomId);
-        if (formData.assetTypeId && formData.assetTypeId !== "all") {
+        if (formData.assetTypeId && formData.assetTypeId !== "all" && formData.assetTypeId !== "") {
           params.append("typeId", formData.assetTypeId);
         }
 
         const res = await fetch(`/api/assets?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
-          setAssets(data.assets || []);
+          // استخراج الأصول من البيانات (قد تأتي في data أو data.assets)
+          const assetsData = data.data || data.assets || data || [];
+          setAssets(Array.isArray(assetsData) ? assetsData : []);
         } else {
           setAssets([]);
         }
@@ -257,10 +258,10 @@ export default function NewTicketPage() {
     fetchAssets();
   }, [roomId, formData.assetTypeId]);
 
-  // عند تغيير الغرفة، نمسح الأصول المحددة
+  // عند تغيير الغرفة أو نوع الأصل، نمسح الأصل المحدد
   useEffect(() => {
     setFormData((prev) => ({ ...prev, assetId: "" }));
-  }, [roomId]);
+  }, [roomId, formData.assetTypeId]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -391,7 +392,7 @@ export default function NewTicketPage() {
                     value={formData.type}
                     onValueChange={(v) => setFormData({ ...formData, type: v })}
                   >
-                    <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                    <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                       <SelectValue
                         placeholder={isRtl ? "اختر نوع البلاغ" : "Select ticket type"}
                       />
@@ -422,7 +423,7 @@ export default function NewTicketPage() {
                     onChange={(e) =>
                       setFormData({ ...formData, title: e.target.value })
                     }
-                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
+                    className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
                   />
                 </div>
               </div>
@@ -440,7 +441,7 @@ export default function NewTicketPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, description: e.target.value })
                   }
-                  className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[120px]"
+                  className="w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all p-4 min-h-[120px]"
                 />
               </div>
             </div>
@@ -466,6 +467,7 @@ export default function NewTicketPage() {
                     {isRtl ? "المبنى أو المنطقة" : "Building / Zone"}
                   </Label>
                   <BuildingSelector
+                    className="w-full"
                     value={buildingId}
                     onValueChange={(val) => {
                       setBuildingId(val);
@@ -474,6 +476,8 @@ export default function NewTicketPage() {
                     }}
                     buildings={buildings}
                     loading={loadingBuildings}
+                    placeholder={isRtl ? "اختر المبنى" : "Select building"}
+                    emptyMessage={isRtl ? "لا توجد مباني" : "No buildings"}
                   />
                 </div>
 
@@ -483,6 +487,7 @@ export default function NewTicketPage() {
                     {isRtl ? "الدور أو المنطقة" : "Floor / Zone"}
                   </Label>
                   <FloorSelector
+                    className="w-full"
                     value={floorId}
                     onValueChange={(val) => {
                       setFloorId(val);
@@ -491,6 +496,9 @@ export default function NewTicketPage() {
                     floors={floors}
                     buildingId={buildingId}
                     loading={loadingFloors}
+                    placeholder={isRtl ? "اختر الدور" : "Select floor"}
+                    emptyMessage={isRtl ? "لا توجد أدوار" : "No floors"}
+                    noBuildingMessage={isRtl ? "اختر مبنى أولاً" : "Select building first"}
                   />
                 </div>
 
@@ -500,11 +508,15 @@ export default function NewTicketPage() {
                     {isRtl ? "الوحدة" : "Unit"}
                   </Label>
                   <RoomSelector
+                    className="w-full"
                     value={roomId}
                     onValueChange={setRoomId}
                     rooms={rooms}
                     floorId={floorId}
                     loading={loadingRooms}
+                    placeholder={isRtl ? "اختر الغرفة" : "Select room"}
+                    emptyMessage={isRtl ? "لا توجد غرف" : "No rooms"}
+                    noFloorMessage={isRtl ? "اختر دور أولاً" : "Select floor first"}
                   />
                 </div>
               </div>
@@ -543,27 +555,35 @@ export default function NewTicketPage() {
                 <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
                   {isRtl ? "نوع الأصل" : "Asset Type"}
                 </Label>
-                <AssetTypeField
+                <Select
                   value={formData.assetTypeId}
-                  onChange={(val) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      assetTypeId: val ?? "",
-                      assetId: "",
-                    }))
-                  }
-                  assetTypes={assetTypes}
+                  onValueChange={(val) => {
+                    setFormData((prev) => ({ ...prev, assetTypeId: val, assetId: "" }));
+                  }}
                   disabled={!roomId}
-                  placeholder={
-                    roomId
-                      ? isRtl
-                        ? "اختر نوع الأصل"
-                        : "Select asset type"
-                      : isRtl
-                      ? "اختر الموقع أولاً"
-                      : "Select location first"
-                  }
-                />
+                >
+                  <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                    <SelectValue
+                      placeholder={
+                        roomId
+                          ? isRtl
+                            ? "اختر نوع الأصل"
+                            : "Select asset type"
+                          : isRtl
+                          ? "اختر الموقع أولاً"
+                          : "Select location first"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">{isRtl ? "جميع الأنواع" : "All types"}</SelectItem>
+                    {assetTypes.map((type) => (
+                      <SelectItem key={type.id} value={type.id}>
+                        {type.name} {type.code ? `(${type.code})` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div className="space-y-1.5">
@@ -577,7 +597,7 @@ export default function NewTicketPage() {
                   }
                   disabled={!roomId || loadingAssets}
                 >
-                  <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
+                  <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                     <SelectValue
                       placeholder={
                         loadingAssets
@@ -598,10 +618,10 @@ export default function NewTicketPage() {
                       }
                     />
                   </SelectTrigger>
-                  <SelectContent className="z-50">
+                  <SelectContent>
                     {assets.map((asset) => (
                       <SelectItem key={asset.id} value={asset.id}>
-                        {asset.name} ({asset.code})
+                        {isRtl ? asset.name : asset.nameEn || asset.name} ({asset.code})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -615,9 +635,7 @@ export default function NewTicketPage() {
 
               {formData.assetId &&
                 (() => {
-                  const selectedAsset = assets.find(
-                    (a) => a.id === formData.assetId
-                  );
+                  const selectedAsset = assets.find((a) => a.id === formData.assetId);
                   if (!selectedAsset) return null;
                   return (
                     <div className="mt-4 p-4 rounded-xl bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/50 dark:border-indigo-800/30 flex items-center justify-between">
@@ -625,7 +643,7 @@ export default function NewTicketPage() {
                         {isRtl ? "الأصل المختار:" : "Selected Asset:"}
                       </span>
                       <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
-                        {selectedAsset.name} ({selectedAsset.code})
+                        {isRtl ? selectedAsset.name : selectedAsset.nameEn || selectedAsset.name} ({selectedAsset.code})
                       </span>
                     </div>
                   );
@@ -658,7 +676,7 @@ export default function NewTicketPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, reporterName: e.target.value })
                   }
-                  className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
+                  className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
                 />
               </div>
 
@@ -673,7 +691,7 @@ export default function NewTicketPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, reporterEmail: e.target.value })
                   }
-                  className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
+                  className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
                 />
               </div>
 
@@ -687,7 +705,7 @@ export default function NewTicketPage() {
                   onChange={(e) =>
                     setFormData({ ...formData, phone: e.target.value })
                   }
-                  className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
+                  className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
                 />
               </div>
             </div>
@@ -703,7 +721,7 @@ export default function NewTicketPage() {
                 {isRtl ? "الفرع" : "Branch"} <span className="text-rose-500">*</span>
               </h3>
             </div>
-            <BranchSelector value={branchId} onValueChange={setBranchId} />
+            <BranchSelector className="w-full" value={branchId} onValueChange={setBranchId} />
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-4">
               {isRtl
                 ? "الفرع الذي سيتم توجيه البلاغ إليه."
@@ -728,7 +746,7 @@ export default function NewTicketPage() {
                 accept="image/*"
                 multiple
                 onChange={handleFileChange}
-                className="cursor-pointer rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50"
+                className="w-full cursor-pointer rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50"
               />
 
               {previews.length > 0 && (
@@ -777,7 +795,7 @@ export default function NewTicketPage() {
               variant="outline"
               className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 h-12 font-medium"
             >
-              <X className="h-4 w-4 ml-2" />
+              <X className="h-4 w-4 mr-2" />
               {isRtl ? "إلغاء" : "Cancel"}
             </Button>
             <Button
@@ -788,7 +806,7 @@ export default function NewTicketPage() {
               {isSubmitting ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Send className="h-5 w-5 ml-2" />
+                <Send className="h-5 w-5 mr-2" />
               )}
               {isRtl ? "إرسال البلاغ" : "Submit"}
             </Button>

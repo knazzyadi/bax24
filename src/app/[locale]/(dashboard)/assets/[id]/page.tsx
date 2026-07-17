@@ -2,20 +2,18 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import {
-  AssetHeader,
-  AssetBasicInfo,
-  AssetExtraInfo,
-  AssetLocationCard,
-  AssetLifecycleCard,
-  AssetWorkOrders,
-  AssetMaintenanceHistory,
-  AssetSkeleton,
-  AssetNotes,
-  AssetError,
-  AssetAuditLog,
-} from "./components";
-import { useAssetDetail } from "./hooks/useAssetDetail";
+import { useAssetDetail } from "./useAssetDetail";
+import { AssetHeader } from "./AssetHeader";
+import { AssetBasicInfo } from "./AssetBasicInfo";
+import { AssetExtraInfo } from "./AssetExtraInfo";
+import { AssetLocationCard } from "./AssetLocationCard";
+import { AssetLifecycleCard } from "./AssetLifecycleCard";
+import { AssetWorkOrders } from "./AssetWorkOrders";
+import { AssetMaintenanceHistory } from "./AssetMaintenanceHistory";
+import { AssetSkeleton } from "./AssetSkeleton";
+import { AssetNotes } from "./AssetNotes";
+import { AssetError } from "./AssetError";
+import { AssetAuditLog } from "./AssetAuditLog";
 
 export default function AssetDetailPage() {
   const params = useParams<{ id: string }>();

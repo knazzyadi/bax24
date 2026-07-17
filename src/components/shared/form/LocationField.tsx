@@ -10,7 +10,8 @@ interface LocationFieldProps {
 
 export function LocationField({ value, onChange }: LocationFieldProps) {
   return (
-    <FormField label="تحديد الموقع" icon={<MapPin size={14} />}>
+    <FormField
+    label={<span><MapPin size={14} className="inline" /> تحديد الموقع</span>}>
       <LocationSelector value={value} onChange={onChange} />
     </FormField>
   );

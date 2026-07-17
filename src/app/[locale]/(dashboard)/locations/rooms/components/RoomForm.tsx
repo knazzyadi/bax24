@@ -3,12 +3,12 @@
 'use client';
 
 import { useEffect, useMemo } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { X, Loader2 } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import { Room, Floor, RoomFormData } from '../types';
-import { roomSchema, RoomFormValues } from '../schemas/room.schema';
+import { roomSchema, type RoomFormValues } from '../schemas/room.schema'; // ✅ استيراد النوع من الـ schema
 import { cn } from '@/lib/utils';
 
 const glassCard =
@@ -55,7 +55,6 @@ export function RoomForm({
 
   const selectedFloorId = watch('floorId');
 
-  // تحديد المبنى تلقائياً عند اختيار الدور
   const selectedFloor = useMemo(() => {
     return floors.find((f) => f.id === selectedFloorId);
   }, [floors, selectedFloorId]);
@@ -88,8 +87,16 @@ export function RoomForm({
     }
   }, [editingRoom, reset]);
 
-  const onSubmit = async (data: RoomFormValues) => {
-    const success = await onSave(data);
+  const onSubmit: SubmitHandler<RoomFormValues> = async (data) => {
+    const formData: RoomFormData = {
+      name: data.name,
+      code: data.code,
+      order: data.order,
+      floorId: data.floorId,
+      buildingId: data.buildingId,
+      nameEn: data.nameEn || '',
+    };
+    const success = await onSave(formData);
     if (success) {
       onCancel();
     }

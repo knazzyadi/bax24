@@ -3,7 +3,13 @@
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { AdaptiveSelect } from "@/components/shared/AdaptiveSelect";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface TicketDetailsSectionProps {
   type: string;
@@ -30,18 +36,30 @@ export function TicketDetailsSection({
 }: TicketDetailsSectionProps) {
   return (
     <div className="space-y-6">
+      {/* نوع البلاغ - باستخدام Select من shadcn/ui */}
       <div>
         <Label className="text-base font-semibold mb-2 block">
           {isRtl ? "نوع البلاغ *" : "Ticket Type *"}
         </Label>
-        <AdaptiveSelect
+        <Select
           value={type}
-          onChange={onTypeChange}
-          options={ticketTypeOptions}
-          placeholder={isRtl ? "اختر نوع البلاغ" : "Select type"}
+          onValueChange={onTypeChange}
           disabled={disabled}
-        />
+        >
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue placeholder={isRtl ? "اختر نوع البلاغ" : "Select type"} />
+          </SelectTrigger>
+          <SelectContent>
+            {ticketTypeOptions.map((option) => (
+              <SelectItem key={option.value} value={option.value}>
+                {option.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
+
+      {/* عنوان البلاغ */}
       <div>
         <Label className="text-base font-semibold mb-2 block">
           {isRtl ? "عنوان البلاغ *" : "Ticket Title *"}
@@ -49,12 +67,14 @@ export function TicketDetailsSection({
         <Input
           value={title}
           onChange={(e) => onTitleChange(e.target.value)}
-          className="h-12 text-base"
+          className="h-12 text-base rounded-xl"
           placeholder={isRtl ? "مثال: عطل في التكييف" : "e.g., AC malfunction"}
           disabled={disabled}
           autoComplete="off"
         />
       </div>
+
+      {/* وصف البلاغ */}
       <div>
         <Label className="text-base font-semibold mb-2 block">
           {isRtl ? "وصف البلاغ *" : "Description *"}
@@ -63,7 +83,7 @@ export function TicketDetailsSection({
           rows={5}
           value={description}
           onChange={(e) => onDescriptionChange(e.target.value)}
-          className="text-base"
+          className="text-base rounded-xl"
           placeholder={isRtl ? "تفاصيل المشكلة" : "Problem details"}
           disabled={disabled}
           autoComplete="off"

@@ -1,7 +1,12 @@
-import type { UserWithRelations } from '@/lib/server/repositories/user.repository';
+// src/lib/server/mappers/user.mapper.ts
+import type { UserWithRelations } from '@/lib/repositories/user.repository';
 import type { User } from '@/app/[locale]/(dashboard)/users/types';
 
 export function mapUserToView(user: UserWithRelations): User {
+  if (!user.role) {
+    throw new Error('User role is null');
+  }
+  
   return {
     id: user.id,
     name: user.name,

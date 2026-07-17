@@ -1,20 +1,7 @@
 // src/hooks/useAssetData.ts
+"use client";
+
 import { useState, useEffect, useCallback } from "react";
-import { toast } from "sonner";
-
-interface AssetType {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-}
-
-interface Asset {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code: string;
-}
 
 interface UseAssetDataProps {
   slug: string;
@@ -25,71 +12,105 @@ interface UseAssetDataProps {
 }
 
 export function useAssetData({ slug, token, roomId, assetTypeId, isRtl }: UseAssetDataProps) {
-  const [assetTypes, setAssetTypes] = useState<AssetType[]>([]);
-  const [assets, setAssets] = useState<Asset[]>([]);
-  const [loadingAssetTypes, setLoadingAssetTypes] = useState(false);
+  const [assets, setAssets] = useState<any[]>([]);
+  const [assetTypes, setAssetTypes] = useState<any[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
+  const [loadingAssetTypes, setLoadingAssetTypes] = useState(false);
 
-  // جلب أنواع الأصول (API عام)
+  // جلب أنواع الأصول
   const fetchAssetTypes = useCallback(async () => {
-    if (!slug || !token) return;
+    if (!slug || !token) {
+      console.warn("⚠️ fetchAssetTypes: slug or token missing");
+      return;
+    }
     setLoadingAssetTypes(true);
     try {
-      const res = await fetch(`/api/public/asset-types?slug=${slug}&token=${token}`);
-      if (!res.ok) throw new Error();
+      const url = `/api/public/asset-types?slug=${slug}&token=${token}`;
+      console.log("🔍 Fetching asset types from:", url);
+      const res = await fetch(url);
       const data = await res.json();
-      setAssetTypes(data);
-    } catch {
-      toast.error(isRtl ? "فشل تحميل أنواع الأصول" : "Failed to load asset types");
+      console.log("📦 Asset types response:", data);
+      if (res.ok) {
+        // تأكد من أن البيانات هي مصفوفة
+        const types = data.assetTypes || data || [];
+        setAssetTypes(types);
+        console.log("✅ Asset types loaded:", types.length);
+      } else {
+        console.error("❌ Failed to fetch asset types:", data.error);
+        setAssetTypes([]);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching asset types:", error);
+      setAssetTypes([]);
     } finally {
       setLoadingAssetTypes(false);
     }
-  }, [slug, token, isRtl]);
+  }, [slug, token]);
 
-  // جلب الأصول بناءً على الغرفة ونوع الأصل (مع إضافة slug و token)
+  // جلب الأصول (مع تصفية المحذوفة)
   const fetchAssets = useCallback(async () => {
-    if (!roomId) {
+    if (!roomId || !slug || !token) {
       setAssets([]);
       return;
     }
     setLoadingAssets(true);
     try {
-      const params = new URLSearchParams();
-      params.append('slug', slug);
-      params.append('token', token);
-      params.append('roomId', roomId);
-      if (assetTypeId && assetTypeId !== "none" && assetTypeId !== "") {
-        params.append('typeId', assetTypeId);
-      }
-      const res = await fetch(`/api/public/assets?${params.toString()}`);
-      if (!res.ok) throw new Error();
+      const params = new URLSearchParams({
+        slug,
+        token,
+        roomId,
+        ...(assetTypeId && assetTypeId !== "all" && assetTypeId !== "" && { typeId: assetTypeId }),
+      });
+      const url = `/api/public/assets?${params.toString()}`;
+      console.log("🔍 Fetching assets from:", url);
+      const res = await fetch(url);
       const data = await res.json();
-      setAssets(data.assets || []);
-    } catch {
+      console.log("📦 Assets response:", data);
+      if (res.ok) {
+        const rawAssets = data.assets || data || [];
+        // ✅ تصفية الأصول المحذوفة: قبول فقط deletedAt === null أو undefined
+        const activeAssets = rawAssets.filter((asset: any) => {
+          if (asset.deletedAt === null || asset.deletedAt === undefined) return true;
+          if (!asset.deletedAt) return true;
+          return false;
+        });
+        setAssets(activeAssets);
+        console.log("✅ Assets loaded:", activeAssets.length);
+      } else {
+        console.error("❌ Failed to fetch assets:", data.error);
+        setAssets([]);
+      }
+    } catch (error) {
+      console.error("❌ Error fetching assets:", error);
       setAssets([]);
     } finally {
       setLoadingAssets(false);
     }
-  }, [slug, token, roomId, assetTypeId]);
+  }, [roomId, slug, token, assetTypeId]);
 
+  // جلب الأصول عند تغيير الغرفة أو نوع الأصل
   useEffect(() => {
     fetchAssets();
   }, [fetchAssets]);
 
-  // ========== ✅ دالة إعادة تعيين بيانات الأصول بالكامل ==========
+  // جلب أنواع الأصول عند تحميل الصفحة (مرة واحدة)
+  useEffect(() => {
+    fetchAssetTypes();
+  }, [fetchAssetTypes]);
+
+  // إعادة تعيين بيانات الأصول
   const resetAssetData = useCallback(() => {
-    setAssetTypes([]);
     setAssets([]);
-    setLoadingAssetTypes(false);
-    setLoadingAssets(false);
+    setAssetTypes([]);
   }, []);
 
   return {
-    assetTypes,
     assets,
-    loadingAssetTypes,
+    assetTypes,
     loadingAssets,
+    loadingAssetTypes,
     fetchAssetTypes,
-    resetAssetData, // ✅ دالة إعادة التعيين الجديدة
+    fetchAssets,
+    resetAssetData,
   };
 }

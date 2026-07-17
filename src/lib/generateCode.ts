@@ -1,6 +1,9 @@
 // src/lib/generateCode.ts
 import { prisma } from "@/lib/prisma";
-import type { Prisma, WorkOrderType } from "@prisma/client";
+import { Prisma, $Enums } from "@prisma/client";
+
+// ✅ استخدم الـ Enum الصحيح
+type WorkOrderTypeEnum = $Enums.WorkOrderTypeEnum;
 
 // ========== دالة توليد كود أمر العمل ==========
 export async function generateWorkOrderCode(
@@ -41,24 +44,40 @@ export async function createWorkOrderWithRetry(
     ticketId?: string | null;
     assetTypeId?: string | null;
     notes?: string | null;
-    assetId?: string | null; // ✅ معرف الأصل المراد ربطه (منفصل)
+    assetId?: string | null;
   },
   maxRetries = 3
 ) {
+  // ✅ قائمة القيم المسموح بها من الـ Enum
+  const validTypes: WorkOrderTypeEnum[] = [
+    'MAINTENANCE',
+    'CORRECTIVE',
+    'EMERGENCY',
+    'BULK_PREVENTIVE'
+  ];
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const { code, branchSeqNum } = await generateWorkOrderCode(data.branchId);
       
-      // ✅ استخراج assetId من data لتجنب تمريره إلى prisma.workOrder.create
       const { assetId, ...workOrderData } = data;
 
-      // إنشاء أمر العمل (بدون assetId)
+      // ✅ التحقق من صحة النوع
+      if (!validTypes.includes(workOrderData.type as WorkOrderTypeEnum)) {
+        throw new Error(
+          `Invalid work order type: ${workOrderData.type}. ` +
+          `Allowed types: ${validTypes.join(', ')}`
+        );
+      }
+
+      const workOrderType = workOrderData.type as WorkOrderTypeEnum;
+
       const workOrder = await prisma.workOrder.create({
         data: {
           ...workOrderData,
           code,
           branchSeqNum,
-          type: workOrderData.type as WorkOrderType,
+          type: workOrderType, // ✅ الآن النوع صحيح
           roomId: workOrderData.roomId ?? undefined,
           ticketId: workOrderData.ticketId ?? undefined,
           assetTypeId: workOrderData.assetTypeId ?? undefined,
@@ -67,7 +86,6 @@ export async function createWorkOrderWithRetry(
         },
       });
 
-      // ✅ إذا تم تمرير assetId، نقوم بربط الأصل بأمر العمل
       if (assetId) {
         await prisma.workOrderAsset.create({
           data: {
@@ -80,7 +98,7 @@ export async function createWorkOrderWithRetry(
       return workOrder;
     } catch (error: unknown) {
       const isPrismaError = typeof error === 'object' && error !== null && 'code' in error;
-      if (isPrismaError && error.code === "P2002" && attempt < maxRetries) {
+      if (isPrismaError && (error as any).code === "P2002" && attempt < maxRetries) {
         console.log(`⚠️ Duplicate work order code, retrying (attempt ${attempt + 1})...`);
         continue;
       }

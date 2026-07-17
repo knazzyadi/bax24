@@ -1,7 +1,13 @@
 "use client";
 
 import { Label } from "@/components/ui/label";
-import { AdaptiveSelect } from "@/components/shared/AdaptiveSelect";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface LocationSectionProps {
   buildingId: string;
@@ -38,51 +44,86 @@ export function LocationSection({
 }: LocationSectionProps) {
   return (
     <div className="space-y-4">
+      {/* المبنى */}
       <div>
         <Label className="text-base font-semibold mb-2 block">
           {isRtl ? "المبنى *" : "Building *"}
         </Label>
-        <AdaptiveSelect
+        <Select
           value={buildingId}
-          onChange={onBuildingChange}
-          options={buildings}
-          placeholder={isRtl ? "اختر المبنى" : "Select building"}
-          disabled={loadingBuildings || disabled}
-        />
-        {loadingBuildings && <p className="text-sm text-muted-foreground mt-1">جار تحميل المباني...</p>}
+          onValueChange={onBuildingChange}
+          disabled={disabled || loadingBuildings || buildings.length === 0}
+        >
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue placeholder={
+              loadingBuildings
+                ? (isRtl ? "جاري التحميل..." : "Loading...")
+                : (isRtl ? "اختر المبنى" : "Select building")
+            } />
+          </SelectTrigger>
+          <SelectContent>
+            {buildings.map((building) => (
+              <SelectItem key={building.value} value={building.value}>
+                {building.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {buildingId && (
-        <div>
-          <Label className="text-base font-semibold mb-2 block">
-            {isRtl ? "الدور *" : "Floor *"}
-          </Label>
-          <AdaptiveSelect
-            value={floorId}
-            onChange={onFloorChange}
-            options={floors}
-            placeholder={isRtl ? "اختر الدور" : "Select floor"}
-            disabled={loadingFloors || disabled}
-          />
-          {loadingFloors && <p className="text-sm text-muted-foreground mt-1">جار تحميل الأدوار...</p>}
-        </div>
-      )}
+      {/* الدور */}
+      <div>
+        <Label className="text-base font-semibold mb-2 block">
+          {isRtl ? "الدور *" : "Floor *"}
+        </Label>
+        <Select
+          value={floorId}
+          onValueChange={onFloorChange}
+          disabled={disabled || loadingFloors || floors.length === 0 || !buildingId}
+        >
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue placeholder={
+              loadingFloors
+                ? (isRtl ? "جاري التحميل..." : "Loading...")
+                : (isRtl ? "اختر الدور" : "Select floor")
+            } />
+          </SelectTrigger>
+          <SelectContent>
+            {floors.map((floor) => (
+              <SelectItem key={floor.value} value={floor.value}>
+                {floor.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-      {floorId && (
-        <div>
-          <Label className="text-base font-semibold mb-2 block">
-            {isRtl ? "الغرفة *" : "Room *"}
-          </Label>
-          <AdaptiveSelect
-            value={roomId}
-            onChange={onRoomChange}
-            options={rooms}
-            placeholder={isRtl ? "اختر الغرفة" : "Select room"}
-            disabled={loadingRooms || disabled}
-          />
-          {loadingRooms && <p className="text-sm text-muted-foreground mt-1">جار تحميل الغرف...</p>}
-        </div>
-      )}
+      {/* الغرفة */}
+      <div>
+        <Label className="text-base font-semibold mb-2 block">
+          {isRtl ? "الغرفة *" : "Room *"}
+        </Label>
+        <Select
+          value={roomId}
+          onValueChange={onRoomChange}
+          disabled={disabled || loadingRooms || rooms.length === 0 || !floorId}
+        >
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue placeholder={
+              loadingRooms
+                ? (isRtl ? "جاري التحميل..." : "Loading...")
+                : (isRtl ? "اختر الغرفة" : "Select room")
+            } />
+          </SelectTrigger>
+          <SelectContent>
+            {rooms.map((room) => (
+              <SelectItem key={room.value} value={room.value}>
+                {room.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }

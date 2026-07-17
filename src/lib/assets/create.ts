@@ -47,7 +47,13 @@ export async function createAsset(
       throw new AssetValidationError('الغرفة غير مرتبطة بمبنى');
     }
 
-    ensureBranchAccess(session, room.floor.building.branchId);
+    // ✅ التحقق من وجود branchId
+    const branchId = room.floor.building.branchId;
+    if (!branchId) {
+      throw new AssetValidationError('المبنى غير مرتبط بفرع');
+    }
+
+    ensureBranchAccess(session, branchId); // ✅ استخدام branchId المؤكد
     ensureCompanyAccess(session, session.companyId);
 
     // توليد الكود
@@ -83,7 +89,7 @@ export async function createAsset(
         statusId: validated.statusId,
         roomId: validated.roomId,
         buildingId: room.buildingId,
-        branchId: room.floor.building.branchId,
+        branchId: branchId, // ✅ استخدام branchId المؤكد
         companyId: session.companyId,
         purchaseDate: validated.purchaseDate ? new Date(validated.purchaseDate) : null,
         operationDate: validated.operationDate ? new Date(validated.operationDate) : null,

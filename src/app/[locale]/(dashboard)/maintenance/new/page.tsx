@@ -8,14 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 // ========== المكونات المنفصلة ==========
-import { BasicInfoSection } from "./components/BasicInfoSection";
-import { LocationSection } from "./components/LocationSection";
-import { AssetSection } from "./components/AssetSection";
-import { NotesSection } from "./components/NotesSection";
-import { AssetDialog } from "./components/AssetDialog";
+import { BasicInfoSection } from "./BasicInfoSection";
+import { LocationSection } from "./LocationSection";
+import { AssetSection } from "./AssetSection";
+import { NotesSection } from "./NotesSection";
+import { AssetDialog } from "./AssetDialog";
 
 // ========== الـ Hook ==========
-import { useMaintenanceForm } from "./hooks/useMaintenanceForm";
+import { useMaintenanceForm } from "./useMaintenanceForm";
 
 // ========== كرت الخلفية الزجاجي ==========
 const glassCard =

@@ -20,6 +20,7 @@ interface UsersTableProps {
   onToggleStatus: (id: string) => void;
   onResendInvite: (id: string) => void;
   isPending?: boolean;
+  isRtl?: boolean; // ✅ إضافة isRtl اختيارية
 }
 
 export function UsersTable({
@@ -29,8 +30,8 @@ export function UsersTable({
   onToggleStatus,
   onResendInvite,
   isPending,
+  isRtl = true, // ✅ قيمة افتراضية
 }: UsersTableProps) {
-  const isRtl = true;
   const t = useTranslations('UsersPage');
 
   if (users.length === 0) {
@@ -81,7 +82,7 @@ export function UsersTable({
               </TableCell>
               <TableCell className="text-slate-600 dark:text-slate-300">{user.email}</TableCell>
               <TableCell className="text-slate-600 dark:text-slate-300">
-                {user.role.label || user.role.name}
+                {user.role?.label || user.role?.name || '-'}
               </TableCell>
               <TableCell className="text-slate-600 dark:text-slate-300">
                 {user.branches && user.branches.length > 0

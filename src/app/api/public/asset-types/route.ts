@@ -1,8 +1,7 @@
+// src/app/api/public/asset-types/route.ts
 import { NextResponse } from "next/server";
-
-
-
 import { prisma } from '@/lib/prisma';
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -22,15 +21,26 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Invalid branch or public tickets disabled" }, { status: 403 });
     }
 
+    // ✅ استبعاد الأنواع المحذوفة
     const assetTypes = await prisma.assetType.findMany({
-      where: { companyId: branch.companyId },
-      select: { id: true, name: true, nameEn: true, code: true },
-      orderBy: { name: "asc" },
+      where: {
+        companyId: branch.companyId,
+        deletedAt: null, // ✅ الشرط المهم
+      },
+      orderBy: { order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+        code: true,
+        order: true,
+        isDefault: true,
+      },
     });
 
-    return NextResponse.json(assetTypes);
+    return NextResponse.json({ assetTypes });
   } catch (error) {
-    console.error("Public asset-types API error:", error);
+    console.error("Public asset types API error:", error);
     return NextResponse.json({ error: "Internal error" }, { status: 500 });
   }
 }

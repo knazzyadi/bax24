@@ -190,23 +190,25 @@ export class UserService {
   }
 
   /**
-   * حذف مستخدم
+   * حذف مستخدم - التحقق من وجود بيانات مرتبطة باستخدام count
    */
   static async delete(id: string) {
-    const existing = await prisma.user.findUnique({
-      where: { id },
-      include: {
-        tickets: { take: 1 },
-        workOrders: { take: 1 },
-      },
-    });
-
+    const existing = await prisma.user.findUnique({ where: { id } });
     if (!existing) {
       throw new Error('المستخدم غير موجود');
     }
 
-    if (existing.tickets.length > 0 || existing.workOrders.length > 0) {
-      throw new Error('لا يمكن حذف المستخدم لوجود بيانات مرتبطة');
+    // ✅ استخدام count بدلاً من include لتجنب مشاكل الأنواع
+    const [ticketCount, createdWorkOrderCount, assignedWorkOrderCount] = await Promise.all([
+      prisma.ticket.count({ where: { userId: id } }),
+      prisma.workOrder.count({ where: { createdBy: id } }),
+      prisma.workOrder.count({ where: { assignedTo: id } }),
+    ]);
+
+    const hasRelated = ticketCount > 0 || createdWorkOrderCount > 0 || assignedWorkOrderCount > 0;
+
+    if (hasRelated) {
+      throw new Error('لا يمكن حذف المستخدم لوجود بيانات مرتبطة (تذاكر أو أوامر عمل)');
     }
 
     return prisma.user.delete({ where: { id } });

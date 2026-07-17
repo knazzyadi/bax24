@@ -29,7 +29,6 @@ export class InventoryRepository {
       orderBy = { createdAt: 'desc' },
     } = options;
 
-    // InventoryItem يحتوي على companyId مباشرة
     const baseWhere: Prisma.InventoryItemWhereInput = {
       companyId: session.companyId,
       deletedAt: null,
@@ -82,7 +81,7 @@ export class InventoryRepository {
 
   /**
    * جلب عنصر مخزون واحد بالمعرف مع تفاصيل كاملة
-   * ✅ تم تغيير findUnique → findFirst ليتيح استخدام شروط إضافية
+   * ✅ استخدم include بدلاً من select لتجنب تعقيد الأنواع
    */
   static findById = cache(async (id: string) => {
     const session = await getAuthSession();
@@ -95,36 +94,41 @@ export class InventoryRepository {
       ...branchFilter,
     };
 
-    const detailSelect: Prisma.InventoryItemSelect = {
-      ...inventoryListSelect,
-      notes: true,
-      createdAt: true,
-      updatedAt: true,
-      workOrderInventory: {
-        select: {
-          id: true,
-          quantity: true,
-          notes: true,
-          workOrder: {
-            select: {
-              id: true,
-              code: true,
-              title: true,
-              status: {
-                select: { id: true, name: true, color: true },
+    // ✅ استخدام include بدلاً من select لحل مشكلة تعقيد الأنواع
+    return prisma.inventoryItem.findFirst({
+      where,
+      include: {
+        room: {
+          include: {
+            floor: {
+              include: {
+                building: {
+                  include: {
+                    branch: true,
+                  },
+                },
               },
-              createdAt: true,
             },
           },
         },
-        take: 10,
-        orderBy: { workOrder: { createdAt: 'desc' } },
+        workOrderInventory: {
+          include: {
+            workOrder: {
+              select: {
+                id: true,
+                code: true,
+                title: true,
+                status: {
+                  select: { id: true, name: true, color: true },
+                },
+                createdAt: true,
+              },
+            },
+          },
+          take: 10,
+          orderBy: { workOrder: { createdAt: 'desc' } },
+        },
       },
-    };
-
-    return prisma.inventoryItem.findFirst({
-      where,
-      select: detailSelect,
     });
   });
 

@@ -1,60 +1,155 @@
-//src\components\shared\form\LocationSection.tsx
-//حاوية الموقع اللوكيشن
 "use client";
 
-import { cn } from "@/lib/utils";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-interface RoomInfo {
-  name: string;
-  code?: string;
-  fullCode?: string;
+interface LocationSectionProps {
+  buildingId: string;
+  floorId: string;
+  roomId: string;
+  buildings: { value: string; label: string }[];
+  floors: { value: string; label: string }[];
+  rooms: { value: string; label: string }[];
+  loadingBuildings: boolean;
+  loadingFloors: boolean;
+  loadingRooms: boolean;
+  onBuildingChange: (val: string) => void;
+  onFloorChange: (val: string) => void;
+  onRoomChange: (val: string) => void;
+  isRtl: boolean;
+  disabled: boolean;
 }
 
-interface Props {
-  title: string;
-  children: React.ReactNode;
-  room?: RoomInfo | null;
-  isRtl?: boolean;
-}
-
-export function LocationSection({ title, children, room, isRtl }: Props) {
+export function LocationSection({
+  buildingId,
+  floorId,
+  roomId,
+  buildings,
+  floors,
+  rooms,
+  loadingBuildings,
+  loadingFloors,
+  loadingRooms,
+  onBuildingChange,
+  onFloorChange,
+  onRoomChange,
+  isRtl,
+  disabled,
+}: LocationSectionProps) {
   return (
-    <div className="bg-card border border-border rounded-md p-6 shadow-sm space-y-4">
-      
-      {/* العنوان */}
-      <h3 className="text-foreground font-black text-lg uppercase tracking-widest flex items-center gap-2">
-        📍 {title}
-      </h3>
-
-      {/* المحتوى (المبنى / الدور / الغرفة) */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {children}
+    <div className="space-y-4">
+      {/* المبنى */}
+      <div>
+        <Label className="text-base font-semibold mb-2 block">
+          {isRtl ? "المبنى *" : "Building *"}
+        </Label>
+        <Select
+          value={buildingId}
+          onValueChange={onBuildingChange}
+          disabled={disabled || loadingBuildings || buildings.length === 0}
+        >
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue
+              placeholder={
+                loadingBuildings
+                  ? isRtl
+                    ? "جاري التحميل..."
+                    : "Loading..."
+                  : isRtl
+                  ? "اختر المبنى"
+                  : "Select Building"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {buildings.map((building) => (
+              <SelectItem key={building.value} value={building.value}>
+                {building.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      {/* بطاقة الغرفة (الجديدة) */}
-      {room && (
-        <div
-          className={cn(
-            "mt-4 w-full p-4 rounded-md border shadow-sm transition-all",
-            "bg-purple-500/10 border-purple-500/30"
-          )}
-          style={{
-            boxShadow: "0 0 18px rgba(168,85,247,0.35)",
-          }}
+      {/* الدور */}
+      <div>
+        <Label className="text-base font-semibold mb-2 block">
+          {isRtl ? "الدور *" : "Floor *"}
+        </Label>
+        <Select
+          value={floorId}
+          onValueChange={onFloorChange}
+          disabled={disabled || loadingFloors || !buildingId || floors.length === 0}
         >
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
-            
-            <span className="text-sm font-semibold text-foreground">
-              {isRtl ? "الغرفة المختارة:" : "Selected Room:"}
-            </span>
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue
+              placeholder={
+                !buildingId
+                  ? isRtl
+                    ? "اختر المبنى أولاً"
+                    : "Select building first"
+                  : loadingFloors
+                  ? isRtl
+                    ? "جاري التحميل..."
+                    : "Loading..."
+                  : isRtl
+                  ? "اختر الدور"
+                  : "Select Floor"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {floors.map((floor) => (
+              <SelectItem key={floor.value} value={floor.value}>
+                {floor.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-            <span className="text-sm font-mono font-bold text-purple-400">
-              {room.name} ({room.fullCode || room.code})
-            </span>
-
-          </div>
-        </div>
-      )}
+      {/* الغرفة */}
+      <div>
+        <Label className="text-base font-semibold mb-2 block">
+          {isRtl ? "الغرفة *" : "Room *"}
+        </Label>
+        <Select
+          value={roomId}
+          onValueChange={onRoomChange}
+          disabled={disabled || loadingRooms || !floorId || rooms.length === 0}
+        >
+          <SelectTrigger className="h-12 text-base rounded-xl">
+            <SelectValue
+              placeholder={
+                !floorId
+                  ? isRtl
+                    ? "اختر الدور أولاً"
+                    : "Select floor first"
+                  : loadingRooms
+                  ? isRtl
+                    ? "جاري التحميل..."
+                    : "Loading..."
+                  : isRtl
+                  ? "اختر الغرفة"
+                  : "Select Room"
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            {rooms.map((room) => (
+              <SelectItem key={room.value} value={room.value}>
+                {room.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
     </div>
   );
 }

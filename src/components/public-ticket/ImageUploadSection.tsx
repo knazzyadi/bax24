@@ -1,3 +1,4 @@
+// src/components/public-ticket/ImageUploadSection.tsx
 "use client";
 
 import { useRef } from "react";
@@ -6,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Upload, X } from "lucide-react";
 
 interface ImageUploadSectionProps {
-  files?: File[]; // جعلها اختيارية
-  previews?: string[]; // جعلها اختيارية
+  files: File[];
+  previews: string[];
   onAddFiles: (files: File[]) => void;
   onRemoveFile: (index: number) => void;
   isRtl: boolean;
@@ -15,8 +16,8 @@ interface ImageUploadSectionProps {
 }
 
 export function ImageUploadSection({
-  files = [], // قيمة افتراضية
-  previews = [], // قيمة افتراضية
+  files,
+  previews,
   onAddFiles,
   onRemoveFile,
   isRtl,
@@ -26,7 +27,11 @@ export function ImageUploadSection({
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
-    if (selected.length) onAddFiles(selected);
+    if (selected.length && typeof onAddFiles === "function") {
+      onAddFiles(selected);
+    } else {
+      console.error("onAddFiles is not a function", onAddFiles);
+    }
     e.target.value = "";
   };
 

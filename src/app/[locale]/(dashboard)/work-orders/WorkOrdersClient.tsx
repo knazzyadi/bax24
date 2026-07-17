@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/work-orders/WorkOrdersClient.tsx
 "use client";
 
-import React, {
+import {
   useState,
   useCallback,
   useEffect,
@@ -9,7 +9,6 @@ import React, {
   useTransition,
 } from "react";
 import { useRouter, usePathname } from "next/navigation";
-import { useLocale } from "next-intl";
 import {
   Wrench,
   AlertCircle,
@@ -29,7 +28,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { DataList, type ItemActions } from "@/components/shared/DataList";
-import { cn } from "@/lib/utils";
 
 // =========================
 // Types
@@ -171,18 +169,15 @@ function getFullLocation(room: WorkOrder["room"], isRtl: boolean): string {
   if (!room) return "—";
   const floor = room.floor;
   const building = floor?.building;
-  const buildingName = building
-    ? isRtl
-      ? building.name
-      : building.nameEn || building.name
-    : "";
-  const floorName = floor
-    ? isRtl
-      ? floor.name
-      : floor.nameEn || floor.name
-    : "";
-  const roomName = isRtl ? room.name : room.nameEn || room.name;
-  return [buildingName, floorName, roomName].filter(Boolean).join(" - ");
+  const parts: string[] = [];
+  if (building) {
+    parts.push(isRtl ? building.name : building.nameEn || building.name);
+  }
+  if (floor) {
+    parts.push(isRtl ? floor.name : floor.nameEn || floor.name);
+  }
+  parts.push(isRtl ? room.name : room.nameEn || room.name);
+  return parts.filter(Boolean).join(" - ");
 }
 
 // =========================
@@ -204,7 +199,7 @@ export default function WorkOrdersClient({
   const router = useRouter();
   const pathname = usePathname();
   const isRtl = locale === "ar";
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [selectedStatusId, setSelectedStatusId] = useState(initialStatusId || "all");
@@ -229,7 +224,7 @@ export default function WorkOrdersClient({
     }, 400);
 
     return () => clearTimeout(timeout);
-  }, [searchTerm, selectedStatusId, selectedPriorityId, currentPage, pathname, router]);
+  }, [searchTerm, selectedStatusId, selectedPriorityId, currentPage, pathname, router, startTransition]);
 
   // =========================
   // Actions
@@ -237,12 +232,8 @@ export default function WorkOrdersClient({
 
   const handleDelete = useCallback(
     async (id: string, name: string) => {
-      const controller = new AbortController();
       try {
-        const res = await fetch(`/api/work-orders/${id}`, {
-          method: "DELETE",
-          signal: controller.signal,
-        });
+        const res = await fetch(`/api/work-orders/${id}`, { method: "DELETE" });
         if (!res.ok) {
           const error = await res.json();
           throw new Error(error.error || (isRtl ? "فشل حذف أمر العمل" : "Failed to delete work order"));
@@ -295,6 +286,27 @@ export default function WorkOrdersClient({
     [isRtl, statuses, priorities]
   );
 
+  const filterValues = useMemo(
+    () => ({
+      statusId: selectedStatusId,
+      priorityId: selectedPriorityId,
+    }),
+    [selectedStatusId, selectedPriorityId]
+  );
+
+  const onFilterChange = useCallback((id: string, value: string) => {
+    if (id === "statusId") setSelectedStatusId(value);
+    if (id === "priorityId") setSelectedPriorityId(value);
+    setCurrentPage(1);
+  }, []);
+
+  const onReset = useCallback(() => {
+    setSearchTerm("");
+    setSelectedStatusId("all");
+    setSelectedPriorityId("all");
+    setCurrentPage(1);
+  }, []);
+
   // =========================
   // Render Item
   // =========================
@@ -304,7 +316,9 @@ export default function WorkOrdersClient({
       const statusInfo = getStatusDisplay(workOrder.status, isRtl);
       const priorityInfo = getPriorityDisplay(workOrder.priority, isRtl);
       const fullLocation = getFullLocation(workOrder.room, isRtl);
-      const formattedDate = new Intl.DateTimeFormat(isRtl ? "ar-SA" : "en-US").format(new Date(workOrder.createdAt));
+      const formattedDate = new Intl.DateTimeFormat(isRtl ? "ar-SA" : "en-US").format(
+        new Date(workOrder.createdAt)
+      );
 
       return (
         <div
@@ -312,10 +326,8 @@ export default function WorkOrdersClient({
           onClick={() => router.push(`/${locale}/work-orders/${workOrder.id}`)}
           className="group relative flex flex-col md:flex-row items-start md:items-center gap-6 p-6 rounded-2xl transition-all duration-300 cursor-pointer bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 hover:bg-white/90 dark:hover:bg-slate-900/90 hover:scale-[1.01] hover:shadow-xl shadow-sm hover:shadow-indigo-500/5 dark:hover:shadow-indigo-400/5"
         >
-          {/* خلفية متدرجة خفيفة */}
           <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-50/30 to-purple-50/30 dark:from-indigo-950/20 dark:to-purple-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-          {/* الأيقونة الرئيسية */}
           <div
             className="relative z-10 h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
             style={{
@@ -327,7 +339,6 @@ export default function WorkOrdersClient({
             <statusInfo.icon size={28} style={{ color: statusInfo.hex }} />
           </div>
 
-          {/* البيانات الأساسية */}
           <div className="relative z-10 flex-1 min-w-0 space-y-1.5">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200 truncate leading-none">
@@ -359,7 +370,6 @@ export default function WorkOrdersClient({
             </div>
           </div>
 
-          {/* الأولوية والحالة والإجراءات */}
           <div className="relative z-10 flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
             <span
               className="rounded-full text-xs font-semibold px-3 py-1.5 inline-flex items-center gap-1.5 border border-slate-200/30 dark:border-slate-700/30 shadow-sm"
@@ -419,10 +429,8 @@ export default function WorkOrdersClient({
 
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      {/* رأس الصفحة المخصص (مطابق لباقي الصفحات) */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
@@ -447,7 +455,6 @@ export default function WorkOrdersClient({
         </button>
       </div>
 
-      {/* DataList بدون عنوان وزر إضافة (لتجنب التكرار) */}
       <DataList
         searchValue={searchTerm}
         onSearchChange={setSearchTerm}
@@ -457,21 +464,9 @@ export default function WorkOrdersClient({
             : "Search by title, code, or location..."
         }
         filterSections={filterSections}
-        filterValues={{
-          statusId: selectedStatusId,
-          priorityId: selectedPriorityId,
-        }}
-        onFilterChange={(id, value) => {
-          if (id === "statusId") setSelectedStatusId(value);
-          if (id === "priorityId") setSelectedPriorityId(value);
-          setCurrentPage(1);
-        }}
-        onReset={() => {
-          setSearchTerm("");
-          setSelectedStatusId("all");
-          setSelectedPriorityId("all");
-          setCurrentPage(1);
-        }}
+        filterValues={filterValues}
+        onFilterChange={onFilterChange}
+        onReset={onReset}
         items={initialWorkOrders}
         total={total}
         currentPage={currentPage}
@@ -485,7 +480,6 @@ export default function WorkOrdersClient({
         className="relative z-10"
       />
 
-      {/* ملخص الحالات */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm border border-slate-200/30 dark:border-slate-800/30 text-sm text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-3">
           <Sparkles size={16} className="text-indigo-400 dark:text-indigo-500" />

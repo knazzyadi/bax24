@@ -78,62 +78,41 @@ export default async function AssetsPage({
 
   const startIndex = totalCount > 0 ? skip + 1 : 0;
 
+  // ✅ استخدام ...asset للحفاظ على جميع الحقول بما فيها companyId
   const transformedAssets: Asset[] = assetsRaw.map((asset: any) => ({
-    id: asset.id,
-    name: asset.name,
+    ...asset,
     nameEn: asset.nameEn ?? undefined,
     description: asset.description ?? undefined,
     descriptionEn: asset.descriptionEn ?? undefined,
-    code: asset.code,
-    companyId: asset.companyId,
-    type: asset.type
-      ? {
-          id: asset.type.id,
-          name: asset.type.name,
-          nameEn: asset.type.nameEn ?? undefined,
-          description: asset.type.description ?? undefined,
-          order: asset.type.order,
-          isDefault: asset.type.isDefault,
-        }
-      : undefined,
-    status: asset.status
-      ? {
-          id: asset.status.id,
-          name: asset.status.name,
-          nameEn: asset.status.nameEn ?? undefined,
-          color: asset.status.color ?? undefined,
-        }
-      : undefined,
-    room: asset.room
-      ? {
-          id: asset.room.id,
-          name: asset.room.name,
-          nameEn: asset.room.nameEn ?? undefined,
-          floorId: asset.room.floorId,
-          buildingId: asset.room.buildingId, // ✅ تمت الإضافة
-          floor: asset.room.floor
-            ? {
-                id: asset.room.floor.id,
-                name: asset.room.floor.name,
-                nameEn: asset.room.floor.nameEn ?? undefined,
-                buildingId: asset.room.floor.buildingId,
-                building: asset.room.floor.building
-                  ? {
-                      id: asset.room.floor.building.id,
-                      name: asset.room.floor.building.name,
-                      nameEn: asset.room.floor.building.nameEn ?? undefined,
-                    }
-                  : undefined,
-              }
-            : undefined,
-        }
-      : undefined,
     purchaseDate: asset.purchaseDate?.toISOString() ?? null,
     warrantyEnd: asset.warrantyEnd?.toISOString() ?? null,
     lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString() ?? null,
     notes: asset.notes ?? undefined,
     createdAt: asset.createdAt.toISOString(),
     updatedAt: asset.updatedAt.toISOString(),
+    // ✅ type و status مع companyId
+    type: asset.type ? {
+      ...asset.type,
+      nameEn: asset.type.nameEn ?? undefined,
+      description: asset.type.description ?? undefined,
+    } : undefined,
+    status: asset.status ? {
+      ...asset.status,
+      nameEn: asset.status.nameEn ?? undefined,
+      color: asset.status.color ?? undefined,
+    } : undefined,
+    room: asset.room ? {
+      ...asset.room,
+      nameEn: asset.room.nameEn ?? undefined,
+      floor: asset.room.floor ? {
+        ...asset.room.floor,
+        nameEn: asset.room.floor.nameEn ?? undefined,
+        building: asset.room.floor.building ? {
+          ...asset.room.floor.building,
+          nameEn: asset.room.floor.building.nameEn ?? undefined,
+        } : undefined,
+      } : undefined,
+    } : undefined,
   }));
 
   const [assetTypesRaw, assetStatusesRaw] = await Promise.all([
@@ -147,18 +126,16 @@ export default async function AssetsPage({
     }),
   ]);
 
+  // ✅ استخدام ...type للحفاظ على companyId
   const assetTypes: AssetType[] = assetTypesRaw.map((type: any) => ({
-    id: type.id,
-    name: type.name,
+    ...type,
     nameEn: type.nameEn ?? undefined,
     description: type.description ?? undefined,
-    order: type.order,
-    isDefault: type.isDefault,
   }));
 
+  // ✅ استخدام ...status للحفاظ على companyId
   const assetStatuses: AssetStatus[] = assetStatusesRaw.map((status: any) => ({
-    id: status.id,
-    name: status.name,
+    ...status,
     nameEn: status.nameEn ?? undefined,
     color: status.color ?? undefined,
   }));

@@ -1,241 +1,249 @@
 // src/lib/repositories/asset.repository.ts
-import { Prisma } from '@prisma/client';
-import { cache } from 'react';
+
 import { prisma } from '@/lib/prisma';
-import { getAuthSession, getBranchFilter } from '@/lib/auth/auth-helper';
-import { assetListSelect } from '@/lib/selects/asset/list.select';
-import { assetDashboardSelect } from '@/lib/selects/asset/dashboard.select';
+import { getAuthSession } from '@/lib/auth/auth-helper';
+import { cache } from 'react';
+import { Prisma } from '@prisma/client';
 
-export interface AssetPaginationParams {
-  limit?: number;
-  cursor?: string;
-  search?: string;
-  statusId?: string;
-  typeId?: string;
-  roomId?: string;
-  buildingId?: string;
-}
+// ============================================================
+// 1. تعريف select ثابت باستخدام Prisma.validator
+//    مطابق تماماً لنموذج Asset في schema.prisma
+// ============================================================
+const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
+  // الحقول الأساسية
+  id: true,
+  code: true,
+  name: true,                // ✅ بدلاً من title
+  nameEn: true,
+  description: true,
+  serialNumber: true,
+  manufacturer: true,
+  model: true,               // حقل model الخاص بالأصل (وليس العلاقة)
+  purchaseDate: true,
+  operationDate: true,
+  warrantyEnd: true,
+  lastMaintenanceDate: true,
+  notes: true,
+  qrCode: true,
+  createdAt: true,
+  updatedAt: true,
+  deletedAt: true,
 
-export interface AssetFindManyOptions {
-  where?: Prisma.AssetWhereInput;
-  select?: Prisma.AssetSelect;
-  limit?: number;
-  skip?: number; // ✅ أضف هذا
-  cursor?: { id: string } | undefined;
-  orderBy?: Prisma.AssetOrderByWithRelationInput;
-}
+  // المعرفات (للمرجعية)
+  typeId: true,
+  statusId: true,
+  roomId: true,
+  companyId: true,
+  buildingId: true,
+  branchId: true,
+  supplierId: true,
 
-export class AssetRepository {
-  /**
-   * جلب قائمة الأصول مع Cursor Pagination
-   */
-  static findMany = cache(async (options: AssetFindManyOptions = {}) => {
-    const session = await getAuthSession();
-    const branchFilter = getBranchFilter(session);
-
-    const {
-      where = {},
-      select = assetListSelect,
-      limit = 30,
-      skip, // ✅ أضف skip إلى عملية التدمير
-      cursor,
-      orderBy = { createdAt: 'desc' },
-    } = options;
-
-    const baseWhere: Prisma.AssetWhereInput = {
-      companyId: session.companyId,
-      deletedAt: null,
-      ...branchFilter,
-      ...where,
-    };
-
-    const queryOptions: Prisma.AssetFindManyArgs = {
-      where: baseWhere,
-      select,
-      take: limit,
-      skip, // ✅ استخدم skip
-      orderBy,
-    };
-
-    if (cursor?.id) {
-      queryOptions.cursor = { id: cursor.id };
-      queryOptions.skip = 1;
-    }
-
-    const data = await prisma.asset.findMany(queryOptions);
-    const hasMore = data.length === limit;
-    const nextCursor = hasMore ? data[data.length - 1].id : undefined;
-
-    return {
-      data,
-      pagination: {
-        hasMore,
-        nextCursor,
-        total: data.length,
-      },
-    };
-  });
-
-  /**
-   * جلب عدد الأصول
-   */
-  static count = cache(async (where: Prisma.AssetWhereInput = {}) => {
-    const session = await getAuthSession();
-    const branchFilter = getBranchFilter(session);
-
-    const baseWhere: Prisma.AssetWhereInput = {
-      companyId: session.companyId,
-      deletedAt: null,
-      ...branchFilter,
-      ...where,
-    };
-
-    return prisma.asset.count({ where: baseWhere });
-  });
-
-  /**
-   * جلب أصل واحد بالمعرف مع تفاصيل كاملة
-   * ✅ تم تغيير findUnique → findFirst ليتيح استخدام شروط إضافية
-   */
-  static findById = cache(async (id: string) => {
-    const session = await getAuthSession();
-    const branchFilter = getBranchFilter(session);
-
-    const where: Prisma.AssetWhereInput = {
-      id,
-      companyId: session.companyId,
-      deletedAt: null,
-      ...branchFilter,
-    };
-
-    const detailSelect: Prisma.AssetSelect = {
-      ...assetListSelect,
-      notes: true,
-      qrCode: true,
-      purchaseDate: true,
-      warrantyEnd: true,
-      createdAt: true,
-      updatedAt: true,
-      lastMaintenanceDate: true,
-      tickets: {
-        where: { deletedAt: null },
+  // ============================================================
+  // العلاقات (باستخدام select داخلي)
+  // ============================================================
+  type: {
+    select: {
+      id: true,
+      name: true,
+      nameEn: true,
+    },
+  },
+  status: {
+    select: {
+      id: true,
+      name: true,
+      nameEn: true,
+      code: true,
+      color: true,   // تأكد من وجوده في نموذج AssetStatus
+    },
+  },
+  room: {
+    select: {
+      id: true,
+      name: true,
+      nameEn: true,
+      floor: {
         select: {
           id: true,
-          code: true,
-          title: true,
-          status: true,
-          createdAt: true,
-        },
-        take: 5,
-        orderBy: { createdAt: 'desc' },
-      },
-      workOrderAssets: {
-        select: {
-          workOrder: {
-            select: {
-              id: true,
-              code: true,
-              title: true,
-              status: {
-                select: { id: true, name: true, color: true },
-              },
-              createdAt: true,
-            },
-          },
-        },
-        take: 5,
-        orderBy: { workOrder: { createdAt: 'desc' } },
-      },
-      scheduleAssets: {
-        select: {
-          schedule: {
+          name: true,
+          nameEn: true,
+          building: {
             select: {
               id: true,
               name: true,
-              frequency: true,
-              lastRunAt: true,
+              nameEn: true,
+              branch: {
+                select: {
+                  id: true,
+                  name: true,
+                  nameEn: true,
+                },
+              },
             },
           },
         },
       },
-    };
+    },
+  },
+  supplier: {                // ✅ علاقة المورد بدلاً من supplierName
+    select: {
+      id: true,
+      name: true,
+      nameEn: true,
+      // أضف أي حقول أخرى تحتاجها من Supplier
+    },
+  },
+  branch: {
+    select: {
+      id: true,
+      name: true,
+      nameEn: true,
+    },
+  },
+  building: {
+    select: {
+      id: true,
+      name: true,
+      nameEn: true,
+    },
+  },
+  company: {
+    select: {
+      id: true,
+      name: true,
+      nameEn: true,
+    },
+  },
+});
 
-    return prisma.asset.findFirst({
-      where,
-      select: detailSelect,
-    });
-  });
+// ============================================================
+// 2. استنتاج النوع للاستخدام في بقية التطبيق
+// ============================================================
+export type AssetWithRelations = Prisma.AssetGetPayload<{
+  select: typeof assetSelect;
+}>;
+
+// ============================================================
+// 3. الـ Repository الكامل
+// ============================================================
+export class AssetRepository {
+  /**
+   * الحصول على الجلسة الحالية مع companyId
+   */
+  private static async getSession() {
+    const session = await getAuthSession();
+    if (!session?.companyId) {
+      throw new Error('Unauthorized: No company ID found');
+    }
+    return session;
+  }
 
   /**
-   * جلب إحصائيات سريعة للداشبورد
+   * جلب قائمة الأصول مع التصفية والترقيم
    */
-  static getDashboardStats = cache(async () => {
-    const session = await getAuthSession();
-    const branchFilter = getBranchFilter(session);
-
-    const where: Prisma.AssetWhereInput = {
-      companyId: session.companyId,
-      deletedAt: null,
-      ...branchFilter,
-    };
-
-    const total = await prisma.asset.count({ where });
-
-    const byStatus = await prisma.asset.groupBy({
-      by: ['statusId'],
+  static findMany = cache(
+    async ({
       where,
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-    });
+      orderBy,
+      skip,
+      limit,
+    }: {
+      where?: Prisma.AssetWhereInput;
+      orderBy?: Prisma.AssetOrderByWithRelationInput;
+      skip?: number;
+      limit?: number;
+    }) => {
+      const session = await this.getSession();
 
-    const byType = await prisma.asset.groupBy({
-      by: ['typeId'],
-      where,
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-      take: 5,
-    });
+      const assets = await prisma.asset.findMany({
+        where: {
+          ...where,
+          companyId: session.companyId,
+        },
+        select: assetSelect,
+        orderBy,
+        skip,
+        take: limit,
+      });
 
-    const byBuilding = await prisma.asset.groupBy({
-      by: ['buildingId'],
-      where,
-      _count: { id: true },
-      orderBy: { _count: { id: 'desc' } },
-      take: 5,
-    });
-
-    return {
-      total,
-      byStatus,
-      byType,
-      byBuilding,
-    };
-  });
+      return {
+        data: assets,
+        pagination: {
+          skip: skip || 0,
+          limit: limit || 10,
+        },
+      };
+    }
+  );
 
   /**
-   * البحث عن الأصول
+   * حساب عدد الأصول حسب الشروط
    */
-  static search = cache(async (searchTerm: string, options: { limit?: number } = {}) => {
-    const session = await getAuthSession();
-    const branchFilter = getBranchFilter(session);
-    const limit = options.limit || 20;
+  static count = cache(
+    async (where?: Prisma.AssetWhereInput) => {
+      const session = await this.getSession();
+      return prisma.asset.count({
+        where: {
+          ...where,
+          companyId: session.companyId,
+        },
+      });
+    }
+  );
 
-    const where: Prisma.AssetWhereInput = {
-      companyId: session.companyId,
-      deletedAt: null,
-      ...branchFilter,
-      OR: [
-        { name: { contains: searchTerm, mode: 'insensitive' } },
-        { nameEn: { contains: searchTerm, mode: 'insensitive' } },
-        { code: { contains: searchTerm, mode: 'insensitive' } },
-      ],
-    };
+  /**
+   * جلب أصل واحد بواسطة المعرف
+   */
+  static findById = cache(
+    async (id: string) => {
+      const session = await this.getSession();
+      return prisma.asset.findUnique({
+        where: {
+          id,
+          companyId: session.companyId,
+        },
+        select: assetSelect,
+      });
+    }
+  );
 
-    return prisma.asset.findMany({
-      where,
-      select: assetListSelect,
-      take: limit,
+  /**
+   * جلب أنواع الأصول (للفلاتر)
+   */
+  static getTypes = cache(async () => {
+    const session = await this.getSession();
+    return prisma.assetType.findMany({
+      where: { companyId: session.companyId },
       orderBy: { name: 'asc' },
     });
+  });
+
+  /**
+   * جلب حالات الأصول (للفلاتر)
+   */
+  static getStatuses = cache(async () => {
+    const session = await this.getSession();
+    return prisma.assetStatus.findMany({
+      where: { companyId: session.companyId },
+      orderBy: { name: 'asc' },
+    });
+  });
+
+  /**
+   * جلب إحصائيات لوحة التحكم
+   */
+  static getDashboardStats = cache(async () => {
+    const session = await this.getSession();
+    const [total, byStatus] = await Promise.all([
+      prisma.asset.count({
+        where: { companyId: session.companyId },
+      }),
+      prisma.asset.groupBy({
+        by: ['statusId'],
+        where: { companyId: session.companyId },
+        _count: true,
+      }),
+    ]);
+    return { total, byStatus };
   });
 }

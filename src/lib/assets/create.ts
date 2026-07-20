@@ -1,9 +1,9 @@
 // src/lib/assets/create.ts
-
 import { prisma } from '@/lib/prisma';
 import { validateAssetData, normalizeAssetInput } from './validation';
 import { generateAssetCode, serializeAsset, type AssetResponse } from './helpers';
-import { createAuditLog } from './audit';
+import { createAssetAudit } from '@/lib/audit/asset';
+import { AuditAction } from '@/lib/audit/types';
 import {
   ensureCanCreateAsset,
   ensureBranchAccess,
@@ -47,23 +47,26 @@ export async function createAsset(
       throw new AssetValidationError('الغرفة غير مرتبطة بمبنى');
     }
 
-    // ✅ التحقق من وجود branchId
     const branchId = room.floor.building.branchId;
     if (!branchId) {
       throw new AssetValidationError('المبنى غير مرتبط بفرع');
     }
 
-    ensureBranchAccess(session, branchId); // ✅ استخدام branchId المؤكد
-    ensureCompanyAccess(session, session.companyId);
+    ensureBranchAccess(session, branchId);
+    ensureCompanyAccess(session, session.companyId!);
 
     // توليد الكود
-    const code = await generateAssetCode(validated.typeId, validated.roomId, session.companyId);
+    const code = await generateAssetCode(
+      validated.typeId,
+      branchId,
+      session.companyId!
+    );
 
     // التحقق من الرقم التسلسلي (إن وجد)
     if (validated.serialNumber) {
       const existing = await prisma.asset.findFirst({
         where: {
-          companyId: session.companyId,
+          companyId: session.companyId!,
           serialNumber: validated.serialNumber,
           deletedAt: null,
         },
@@ -89,8 +92,8 @@ export async function createAsset(
         statusId: validated.statusId,
         roomId: validated.roomId,
         buildingId: room.buildingId,
-        branchId: branchId, // ✅ استخدام branchId المؤكد
-        companyId: session.companyId,
+        branchId: branchId,
+        companyId: session.companyId!,
         purchaseDate: validated.purchaseDate ? new Date(validated.purchaseDate) : null,
         operationDate: validated.operationDate ? new Date(validated.operationDate) : null,
         warrantyEnd: validated.warrantyEnd ? new Date(validated.warrantyEnd) : null,
@@ -116,13 +119,15 @@ export async function createAsset(
       },
     });
 
-    // تسجيل التدقيق
-    await createAuditLog(
-      session.userId,
+    // ✅ تسجيل التدقيق
+    await createAssetAudit(
+      AuditAction.CREATE,
       asset.id,
-      'CREATE',
+      session.userId,
+      session.email,
       null,
-      { name: asset.name, code: asset.code }
+      asset,
+      { createdFrom: input }
     );
 
     return serializeAsset(asset);

@@ -1,4 +1,5 @@
 // src/app/api/suppliers/[id]/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
@@ -17,7 +18,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
     const supplier = await prisma.supplier.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -63,7 +64,7 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
     const body = await request.json();
     const { name, nameEn, code, contactPerson, phone, email, isActive } = body;
 
@@ -137,7 +138,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
     const existingSupplier = await prisma.supplier.findFirst({
       where: { id, companyId, deletedAt: null },

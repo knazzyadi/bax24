@@ -25,49 +25,30 @@ export interface ItemActions {
 }
 
 export interface DataListProps<T = any> {
-  // البيانات الأساسية
   items: T[];
   total: number;
   currentPage: number;
   totalPages: number;
   onPageChange: (page: number) => void;
   itemsPerPage?: number;
-
-  // عرض العناصر
   renderItem: (item: T, actions: ItemActions) => ReactNode;
-
-  // العنوان والوصف
   title?: string;
   subtitle?: string;
   icon?: ReactNode;
-
-  // إضافة جديدة
   addButtonLabel?: string;
   addButtonLink?: string;
-
-  // البحث
   searchPlaceholder?: string;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
   searchDebounce?: number;
-
-  // الفلاتر
   filterSections?: FilterSection[];
   filterValues?: Record<string, string>;
   onFilterChange?: (sectionId: string, value: string) => void;
-  onReset?: () => void; // ✅ إضافة onReset
-
-  // العمليات
+  onReset?: () => void;
   onEdit?: (id: string) => void;
   onDelete?: (id: string, name: string) => Promise<void>;
-
-  // رسائل فارغة
   emptyMessage?: string;
-
-  // إخفاء الـ Pagination الداخلي
   showPagination?: boolean;
-
-  // إضافات
   className?: string;
 }
 
@@ -78,40 +59,30 @@ export function DataList<T extends { id: string; name?: string }>({
   totalPages,
   onPageChange,
   itemsPerPage = 10,
-
   renderItem,
-
   title,
   subtitle,
   icon,
-
   addButtonLabel,
   addButtonLink,
-
   searchPlaceholder = "بحث...",
   searchValue = "",
   onSearchChange,
   searchDebounce = 300,
-
   filterSections = [],
   filterValues = {},
   onFilterChange,
-  onReset, // ✅ استقبال onReset
-
+  onReset,
   onEdit,
   onDelete,
-
   emptyMessage = "لا توجد بيانات",
-
   showPagination = true,
-
   className = "",
 }: DataListProps) {
   const router = useRouter();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  // دالة الحذف
   const handleDelete = async (id: string, name: string) => {
     if (!onDelete) return;
     setIsDeleting(true);
@@ -137,20 +108,35 @@ export function DataList<T extends { id: string; name?: string }>({
     deletingId,
   };
 
-  // دالة التنقل للصفحات
   const goToPage = (page: number) => {
     if (page >= 1 && page <= totalPages && page !== currentPage) {
       onPageChange(page);
     }
   };
 
-  // حساب نطاق الأرقام المعروضة
   const startIndex = total > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
   const endIndex = Math.min(currentPage * itemsPerPage, total);
 
+  // ✅ تحويل filterSections إلى مصفوفة آمنة مع خيارات صالحة
+  const safeFilterSections = useMemo(() => {
+    return filterSections.map(section => ({
+      ...section,
+      options: Array.isArray(section.options) 
+        ? section.options.filter(opt => opt && typeof opt === 'object' && 'value' in opt && 'label' in opt)
+        : []
+    }));
+  }, [filterSections]);
+
+  // ✅ دالة للحصول على الخيارات الآمنة مع قيمة افتراضية في حالة الفراغ
+  const getSafeOptions = (section: FilterSection): FilterOption[] => {
+    if (section.options.length === 0) {
+      return [{ value: "all", label: section.label || "الكل" }];
+    }
+    return section.options;
+  };
+
   return (
     <div className={`space-y-4 ${className}`}>
-      {/* رأس الصفحة */}
       {(title || addButtonLabel) && (
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -172,8 +158,7 @@ export function DataList<T extends { id: string; name?: string }>({
         </div>
       )}
 
-      {/* البحث والفلاتر */}
-      {(onSearchChange || filterSections.length > 0 || onReset) && (
+      {(onSearchChange || safeFilterSections.length > 0 || onReset) && (
         <div className="flex flex-wrap items-center gap-3">
           {onSearchChange && (
             <div className="relative flex-1 min-w-[200px]">
@@ -187,35 +172,39 @@ export function DataList<T extends { id: string; name?: string }>({
               />
             </div>
           )}
-          {filterSections.map((section) => (
-            <div key={section.id} className="flex items-center gap-2">
-              <Filter size={16} className="text-muted-foreground" />
-              <select
-                value={filterValues[section.id] || "all"}
-                onChange={(e) => onFilterChange?.(section.id, e.target.value)}
-                className="px-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary"
-              >
-                {section.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
+          {safeFilterSections.map((section) => {
+            const safeOptions = getSafeOptions(section);
+            const currentValue = filterValues[section.id] || safeOptions[0]?.value || "all";
+
+            return (
+              <div key={section.id} className="flex items-center gap-2">
+                <Filter size={16} className="text-muted-foreground" />
+                <select
+                  value={currentValue}
+                  onChange={(e) => onFilterChange?.(section.id, e.target.value)}
+                  className="px-3 py-2 border border-border rounded-xl bg-background focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  {safeOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            );
+          })}
           {onReset && (
             <button
               onClick={onReset}
               className="inline-flex items-center gap-1 px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <X size={16} />
-              {searchValue || Object.values(filterValues).some(v => v !== "all") ? "إعادة تعيين" : ""}
+              {searchValue || Object.values(filterValues).some(v => v && v !== "all") ? "إعادة تعيين" : ""}
             </button>
           )}
         </div>
       )}
 
-      {/* قائمة العناصر */}
       <div className="space-y-3">
         {items.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">{emptyMessage}</div>
@@ -224,7 +213,6 @@ export function DataList<T extends { id: string; name?: string }>({
         )}
       </div>
 
-      {/* Pagination الداخلي - يظهر فقط إذا showPagination = true */}
       {showPagination && totalPages > 1 && (
         <div className="flex items-center justify-between mt-4 px-4">
           <div className="text-sm text-muted-foreground">

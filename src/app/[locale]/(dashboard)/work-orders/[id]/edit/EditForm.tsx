@@ -1,13 +1,11 @@
-// src/app/[locale]/(dashboard)/work-orders/[id]/edit/components/EditForm.tsx
+// src/app/[locale]/(dashboard)/work-orders/[id]/edit/EditForm.tsx
 "use client";
 
-import {
-  BasicInfoCard,
-  LocationCard,
-  NotesCard,
-  GuidelinesCard,
-} from "@/app/[locale]/(dashboard)/work-orders/shared";
-import { glassCard } from "@/app/[locale]/(dashboard)/work-orders/constants";
+import { BasicInfoCard } from "../../BasicInfoCard";
+import { LocationCard } from "../../LocationCard";
+import { NotesEditor } from "../../NotesEditor";
+import { GuidelinesCard } from "../../GuidelinesCard";
+import { glassCard } from "../../constants";
 import { Button } from "@/components/ui/button";
 import { Loader2, Save, X, MapPin } from "lucide-react";
 
@@ -27,6 +25,8 @@ interface EditFormProps {
   isRtl: boolean;
   t: any;
   workOrderTypes: any[];
+  // ✅ إضافة selectedAssets لتمرير الأصول المرتبطة
+  selectedAssets: any[];
 }
 
 export function EditForm({
@@ -45,6 +45,7 @@ export function EditForm({
   isRtl,
   t,
   workOrderTypes,
+  selectedAssets, // ✅ استقبال الأصول المرتبطة
 }: EditFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -98,7 +99,8 @@ export function EditForm({
             isRtl={isRtl}
             // الأصول
             assetTypes={assetTypes}
-            assets={[]}
+            // ✅ تمرير الأصول الفعلية (المرتبطة) بدلاً من []
+            assets={selectedAssets}
             selectedAssetIds={formData.assetIds || []}
             loadingAssets={false}
             assetDialogOpen={false}
@@ -120,9 +122,14 @@ export function EditForm({
       </div>
 
       <div className="space-y-6">
-        <NotesCard
+        <NotesEditor
           value={formData.notes || ""}
-          onChange={(value) => setFormData({ ...formData, notes: value })}
+          onChange={(value: string) =>
+            setFormData({
+              ...formData,
+              notes: value,
+            })
+          }
           isRtl={isRtl}
           t={t}
         />

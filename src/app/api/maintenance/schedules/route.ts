@@ -1,12 +1,8 @@
 // src/app/api/maintenance/schedules/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper'; // ✅
 import { prisma } from '@/lib/prisma';
-
-
-
 
 // دالة مساعدة لتحويل تردد نصي إلى عدد الأيام
 function frequencyStringToDays(freq: string): number {
@@ -22,7 +18,7 @@ function frequencyStringToDays(freq: string): number {
     case 'yearly':
       return 365;
     default:
-      return 30; // القيمة الافتراضية شهر
+      return 30;
   }
 }
 
@@ -33,7 +29,7 @@ export async function GET(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("maintenance.read");
+    await requirePermission("maintenance.read"); // ✅
 
     const searchParams = request.nextUrl.searchParams;
     const page = parseInt(searchParams.get("page") || "1");
@@ -82,14 +78,13 @@ export async function GET(request: NextRequest) {
       prisma.maintenanceSchedule.count({ where }),
     ]);
 
-    // ✅ إضافة frequencyDays في الرد
     const serialized = schedules.map((s: any) => ({
       ...s,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
       startDate: s.startDate?.toISOString() || null,
       lastRunAt: s.lastRunAt?.toISOString() || null,
-      frequencyDays: s.frequencyDays ?? frequencyStringToDays(s.frequency) // احتياطي
+      frequencyDays: s.frequencyDays ?? frequencyStringToDays(s.frequency)
     }));
 
     return NextResponse.json({ items: serialized, total, currentPage: page, totalPages: Math.ceil(total / limit), limit });
@@ -106,13 +101,13 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("maintenance.create");
+    await requirePermission("maintenance.create"); // ✅
 
     const body = await request.json();
     const {
       name,
-      frequency,        // قد يكون نصياً (للتوافق القديم)
-      frequencyDays,   // العدد الجديد (أيام)
+      frequency,
+      frequencyDays,
       leadDays,
       startDate,
       branchId,
@@ -128,7 +123,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
 
-    // التحقق من صحة النطاق
     if (branchId && buildingId) {
       const building = await prisma.building.findFirst({ where: { id: buildingId, branchId } });
       if (!building) {
@@ -136,19 +130,18 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // تحديد عدد الأيام: الأولوية لـ frequencyDays، ثم تحويل frequency النصي
     let finalFrequencyDays: number | null = null;
     if (frequencyDays !== undefined && typeof frequencyDays === 'number') {
       finalFrequencyDays = frequencyDays;
     } else if (frequency) {
       finalFrequencyDays = frequencyStringToDays(frequency);
     } else {
-      finalFrequencyDays = 30; // القيمة الافتراضية
+      finalFrequencyDays = 30;
     }
 
     const scheduleData: any = {
       name,
-      frequency: frequency || "monthly",   // نحتفظ بالحقل النصي للتوافق القديم (يمكن حذفه لاحقاً)
+      frequency: frequency || "monthly",
       frequencyDays: finalFrequencyDays,
       leadDays: leadDays || 30,
       startDate: startDate ? new Date(startDate) : null,

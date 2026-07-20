@@ -1,31 +1,12 @@
 // src/lib/assets/update.ts
-
 import { prisma } from '@/lib/prisma';
 import { validateAssetData, normalizeAssetInput } from './validation';
 import { serializeAsset, type AssetResponse } from './helpers';
-import { buildDiff, createAuditLog } from './audit';
+import { createAssetAudit } from '@/lib/audit/asset';
+import { AuditAction } from '@/lib/audit/types';
 import { ensureCanEditAsset, ensureAssetAccess, type AuthSession } from './permissions';
 import { AssetValidationError, handlePrismaError } from './errors';
 import type { UpdateAssetInput } from './types';
-
-// ✅ جميع الحقول القابلة للتعديل
-const COMPARABLE_FIELDS = [
-  'name',
-  'nameEn',
-  'description',
-  'serialNumber',
-  'manufacturer',
-  'model',
-  'supplierId',
-  'typeId',
-  'statusId',
-  'roomId',
-  'purchaseDate',
-  'operationDate',
-  'warrantyEnd',
-  'lastMaintenanceDate',
-  'notes',
-] as const;
 
 export async function updateAsset(
   session: AuthSession,
@@ -33,8 +14,6 @@ export async function updateAsset(
   input: unknown
 ): Promise<AssetResponse> {
   try {
-    console.log('🔄 Starting updateAsset for:', assetId);
-
     ensureCanEditAsset(session);
     await ensureAssetAccess(session, assetId);
 
@@ -63,12 +42,10 @@ export async function updateAsset(
     if (!oldAsset) {
       throw new AssetValidationError('الأصل غير موجود');
     }
-    console.log('📦 Old asset fetched:', oldAsset.id);
 
-    // 2. تنظيف المدخلات
+    // 2. تنظيف المدخلات والتحقق
     const normalized = normalizeAssetInput(input as Record<string, unknown>);
     const validated = validateAssetData(normalized);
-    console.log('📝 Validated input:', validated);
 
     // 3. بناء بيانات التحديث
     const updateData: Record<string, unknown> = {};
@@ -104,11 +81,8 @@ export async function updateAsset(
       updateData.lastMaintenanceDate = validated.lastMaintenanceDate ? new Date(validated.lastMaintenanceDate) : null;
     }
 
-    console.log('📦 Update data:', updateData);
-
     // 4. إذا لم توجد تغييرات، نعيد الأصل دون تحديث
     if (Object.keys(updateData).length === 0) {
-      console.log('⚠️ No update data, returning old asset');
       return serializeAsset(oldAsset);
     }
 
@@ -135,43 +109,20 @@ export async function updateAsset(
         },
       },
     });
-    console.log('✅ Asset updated successfully');
 
-    // 6. حساب الفروقات
-    const changes: Record<string, { old: unknown; new: unknown }> = {};
-    for (const field of COMPARABLE_FIELDS) {
-      const oldVal = oldAsset[field as keyof typeof oldAsset];
-      const newVal = updatedAsset[field as keyof typeof updatedAsset];
-      
-      // تحويل التواريخ إلى نصوص للمقارنة
-      const oldStr = oldVal instanceof Date ? oldVal.toISOString() : oldVal;
-      const newStr = newVal instanceof Date ? newVal.toISOString() : newVal;
-      
-      if (JSON.stringify(oldStr) !== JSON.stringify(newStr)) {
-        changes[field] = { old: oldStr, new: newStr };
-      }
-    }
-
-    console.log('📊 Changes detected:', changes);
-
-    // 7. تسجيل التدقيق
-    if (Object.keys(changes).length > 0) {
-      console.log('📝 Creating audit log...');
-      await createAuditLog(
-        session.userId,
-        assetId,
-        'UPDATE',
-        changes,
-        { updatedFields: Object.keys(updateData) }
-      );
-      console.log('✅ Audit log created successfully');
-    } else {
-      console.log('⚠️ No changes detected, skipping audit log');
-    }
+    // 6. تسجيل التدقيق باستخدام النظام الجديد
+    await createAssetAudit(
+      AuditAction.UPDATE,
+      assetId,
+      session.userId,
+      session.email,
+      oldAsset,
+      updatedAsset,
+      { updatedFields: Object.keys(updateData) }
+    );
 
     return serializeAsset(updatedAsset);
   } catch (error) {
-    console.error('❌ Error in updateAsset:', error);
     throw handlePrismaError(error);
   }
 }

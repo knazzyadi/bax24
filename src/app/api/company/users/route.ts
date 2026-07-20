@@ -1,14 +1,39 @@
 // src/app/api/company/users/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { requirePermission } from '@/lib/auth/permissions';
 import { UserService } from '@/lib/server/services/user.service';
 import type { SharedUserFilters } from '@/lib/shared/types/user';
 
+// ============================================================
+// GET - جلب قائمة المستخدمين
+// ============================================================
 export async function GET(request: NextRequest) {
   try {
-    const session = await requirePermission('users.read');
-    const companyId = session.companyId;
+    // ✅ 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
+        { status: 401 }
+      );
+    }
 
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'users.read');
+    if (permissionError) return permissionError;
+
+    // ✅ 3. استخراج companyId
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'معرف الشركة غير متوفر' },
+        { status: 400 }
+      );
+    }
+
+    // ✅ 4. معالجة الفلاتر
     const { searchParams } = new URL(request.url);
     const filters: SharedUserFilters = {
       search: searchParams.get('search') || undefined,
@@ -20,6 +45,7 @@ export async function GET(request: NextRequest) {
       sortOrder: (searchParams.get('sortOrder') as 'asc' | 'desc') || undefined,
     };
 
+    // ✅ 5. تنفيذ المنطق
     const result = await UserService.getUsers(companyId, filters);
     return NextResponse.json(result);
   } catch (error: any) {
@@ -34,12 +60,37 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// ============================================================
+// POST - إنشاء مستخدم جديد
+// ============================================================
 export async function POST(request: NextRequest) {
   try {
-    const session = await requirePermission('users.create');
+    // ✅ 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
+        { status: 401 }
+      );
+    }
+
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'users.create');
+    if (permissionError) return permissionError;
+
+    // ✅ 3. استخراج companyId
     const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'معرف الشركة غير متوفر' },
+        { status: 400 }
+      );
+    }
+
+    // ✅ 4. قراءة الجسم
     const body = await request.json();
 
+    // ✅ 5. تنفيذ المنطق
     const user = await UserService.createUser(companyId, body);
     return NextResponse.json(user, { status: 201 });
   } catch (error: any) {

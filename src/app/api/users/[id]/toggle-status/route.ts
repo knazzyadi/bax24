@@ -1,5 +1,6 @@
 // src/app/api/users/[id]/toggle-status/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { requirePermission } from '@/lib/auth/permissions';
 import { UserService } from '@/services/UserService';
 
@@ -7,10 +8,28 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+// ============================================================
+// PATCH - تبديل حالة المستخدم (تفعيل/تعطيل)
+// ============================================================
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   try {
-    const session = await requirePermission('users.update');
+    // ✅ 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
+        { status: 401 }
+      );
+    }
+
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'users.update');
+    if (permissionError) return permissionError;
+
+    // ✅ 3. استخراج id من params
     const { id } = await params;
+
+    // ✅ 4. تنفيذ المنطق
     const updated = await UserService.toggleStatus(id);
     return NextResponse.json(updated);
   } catch (error: any) {

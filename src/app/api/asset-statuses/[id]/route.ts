@@ -1,4 +1,5 @@
 // src/app/api/asset-statuses/[id]/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
@@ -17,7 +18,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
     const status = await prisma.assetStatus.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -63,11 +64,10 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
     const body = await request.json();
     const { name, nameEn, code, color, order, isDefault, isActive } = body;
 
-    // التحقق من وجود الحالة
     const existingStatus = await prisma.assetStatus.findFirst({
       where: { id, companyId, deletedAt: null },
     });
@@ -75,7 +75,6 @@ export async function PUT(
       return NextResponse.json({ error: 'الحالة غير موجودة' }, { status: 404 });
     }
 
-    // التحقق من الاسم
     if (name?.trim()) {
       const duplicate = await prisma.assetStatus.findFirst({
         where: {
@@ -90,7 +89,6 @@ export async function PUT(
       }
     }
 
-    // إذا كان isDefault = true، نعيد تعيين باقي الحالات إلى false
     if (isDefault) {
       await prisma.assetStatus.updateMany({
         where: { companyId, deletedAt: null, id: { not: id } },
@@ -147,9 +145,8 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
-    // التحقق من وجود الحالة
     const existingStatus = await prisma.assetStatus.findFirst({
       where: { id, companyId, deletedAt: null },
       include: {
@@ -160,7 +157,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'الحالة غير موجودة' }, { status: 404 });
     }
 
-    // التحقق من وجود أصول مرتبطة بهذه الحالة
     if (existingStatus.assets.length > 0) {
       return NextResponse.json(
         { error: 'لا يمكن حذف الحالة لأنها مستخدمة في أصول موجودة' },
@@ -168,7 +164,6 @@ export async function DELETE(
       );
     }
 
-    // حذف ناعم
     await prisma.assetStatus.update({
       where: { id },
       data: { deletedAt: new Date() },

@@ -1,85 +1,90 @@
 // src/lib/permissions.ts
-import { prisma } from '@/lib/prisma';
 
-const roleCache = new Map<string, string | null>();
+import { getAuthenticatedSession, type AuthSession } from "@/lib/auth";
 
 /**
- * 🔐 جلب اسم الدور (مع Cache)
+ * تعريف الصلاحيات لكل دور (ثابت)
+ * يمكن تعديلها حسب احتياجات المشروع
  */
-export async function getUserRole(userId: string): Promise<string | null> {
-  if (roleCache.has(userId)) return roleCache.get(userId)!;
+const rolePermissions: Record<string, string[]> = {
+  SUPER_ADMIN: ['*'], // كل شيء
+  ADMIN: ['*'], // كل شيء
+  BRANCH_MANAGER: [
+    // الأصول
+    'assets.read', 'assets.create', 'assets.edit', 'assets.update', 'assets.delete',
+    // أوامر العمل
+    'work_orders.read', 'work_orders.create', 'work_orders.edit', 'work_orders.update', 'work_orders.delete', 'work_orders.execute',
+    // التذاكر
+    'tickets.read', 'tickets.create', 'tickets.update', 'tickets.delete',
+    // المستخدمين (قراءة فقط)
+    'users.read',
+    // التقارير ولوحة التحكم
+    'reports.view', 'dashboard.view',
+    // العقود
+    'contracts.read', 'contracts.create', 'contracts.edit', 'contracts.update', 'contracts.delete',
+    // جداول الصيانة الوقائية
+    'maintenance.read', 'maintenance.create', 'maintenance.update', 'maintenance.delete', 'maintenance.execute',
+  ],
+  TECH: [
+    'assets.read',
+    'work_orders.read', 'work_orders.execute',
+    'tickets.read',
+    'maintenance.read',
+  ],
+};
 
+/**
+ * 🔐 الحصول على جلسة المستخدم (مع تحقق من وجودها)
+ */
+async function getSessionOrThrow(session?: AuthSession | null): Promise<AuthSession> {
+  if (session) return session;
+  return getAuthenticatedSession();
+}
+
+/**
+ * 🔐 الحصول على صلاحيات المستخدم بناءً على دوره
+ */
+export function getUserPermissionsFromRole(role: string): string[] {
+  return rolePermissions[role] || [];
+}
+
+/**
+ * 🔐 الحصول على صلاحيات المستخدم (تقبل session أو userId)
+ * - إذا مررت session، تستخدم الدور منه.
+ * - إذا مررت userId، تجلب الدور من قاعدة البيانات (حفاظاً على التوافق).
+ */
+export async function getUserPermissions(
+  userIdOrSession: string | AuthSession
+): Promise<string[]> {
+  // إذا كان المدخل كائن جلسة
+  if (typeof userIdOrSession !== 'string' && userIdOrSession?.role) {
+    return getUserPermissionsFromRole(userIdOrSession.role);
+  }
+
+  // إذا كان userId (نص) – نحتاج لجلب الدور من قاعدة البيانات
+  const userId = typeof userIdOrSession === 'string' ? userIdOrSession : userIdOrSession?.userId;
+  if (!userId) return [];
+
+  // جلب الدور من قاعدة البيانات (لحالات نادرة)
+  const { prisma } = await import('@/lib/prisma');
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { role: { select: { name: true } } },
   });
 
-  const roleName = user?.role?.name || null;
-  roleCache.set(userId, roleName);
-  return roleName;
+  const roleName = user?.role?.name || 'USER';
+  return getUserPermissionsFromRole(roleName);
 }
 
 /**
- * 🔐 جلب صلاحيات المستخدم بناءً على دوره (بدون جداول صلاحيات)
- */
-export async function getUserPermissions(userId: string): Promise<string[]> {
-  const roleName = await getUserRole(userId);
-  if (!roleName) return [];
-
-  // تعريف الصلاحيات لكل دور بشكل ثابت (يمكن تعديلها حسب المشروع)
-  const rolePermissions: Record<string, string[]> = {
-    SUPER_ADMIN: ['*'], // كل شيء
-    ADMIN: ['*'], // كل شيء
-    BRANCH_MANAGER: [
-      // الأصول
-      'assets.read', 'assets.create', 'assets.edit', 'assets.update', 'assets.delete',
-      // أوامر العمل
-      'work_orders.read', 'work_orders.create', 'work_orders.edit', 'work_orders.update', 'work_orders.delete', 'work_orders.execute',
-      // التذاكر
-      'tickets.read', 'tickets.create', 'tickets.update', 'tickets.delete',
-      // المستخدمين (قراءة فقط)
-      'users.read',
-      // التقارير ولوحة التحكم
-      'reports.view', 'dashboard.view',
-      // العقود
-      'contracts.read', 'contracts.create', 'contracts.edit', 'contracts.update', 'contracts.delete',
-      // جداول الصيانة الوقائية
-      'maintenance.read', 'maintenance.create', 'maintenance.update', 'maintenance.delete', 'maintenance.execute',
-    ],
-    TECH: [
-      'assets.read',
-      'work_orders.read', 'work_orders.execute',
-      'tickets.read',
-      'maintenance.read', // يمكن للفني عرض جداول الصيانة
-    ],
-  };
-
-  return rolePermissions[roleName] || [];
-}
-
-/**
- * 🔐 التحقق من وجود جلسة صالحة
- */
-async function getSessionOrThrow(session?: any) {
-  // ✅ استيراد ديناميكي
-  const { auth } = await import('@/auth');
-  const currentSession = session || (await auth());
-  if (!currentSession?.user?.id) {
-    throw new Error('UNAUTHORIZED: لا توجد جلسة نشطة');
-  }
-  return currentSession;
-}
-
-/**
- * 🔐 التحقق من صلاحية واحدة (Throws) – مع دعم `*` للصلاحية الكاملة
+ * 🔐 التحقق من صلاحية واحدة (Throws)
  */
 export async function requirePermission(
   permissionName: string,
-  session?: any
+  session?: AuthSession | null
 ): Promise<boolean> {
   const currentSession = await getSessionOrThrow(session);
-  const userId = currentSession.user.id;
-  const permissions = await getUserPermissions(userId);
+  const permissions = getUserPermissionsFromRole(currentSession.role);
 
   if (permissions.includes('*') || permissions.includes(permissionName)) {
     return true;
@@ -93,11 +98,10 @@ export async function requirePermission(
  */
 export async function requireAnyPermission(
   permissionNames: string[],
-  session?: any
+  session?: AuthSession | null
 ): Promise<boolean> {
   const currentSession = await getSessionOrThrow(session);
-  const userId = currentSession.user.id;
-  const permissions = await getUserPermissions(userId);
+  const permissions = getUserPermissionsFromRole(currentSession.role);
 
   if (permissions.includes('*') || permissionNames.some((p) => permissions.includes(p))) {
     return true;
@@ -113,11 +117,10 @@ export async function requireAnyPermission(
  */
 export async function requireAllPermissions(
   permissionNames: string[],
-  session?: any
+  session?: AuthSession | null
 ): Promise<boolean> {
   const currentSession = await getSessionOrThrow(session);
-  const userId = currentSession.user.id;
-  const permissions = await getUserPermissions(userId);
+  const permissions = getUserPermissionsFromRole(currentSession.role);
 
   if (permissions.includes('*')) return true;
   if (permissionNames.every((p) => permissions.includes(p))) return true;
@@ -132,7 +135,7 @@ export async function requireAllPermissions(
  */
 export async function hasPermission(
   permissionName: string,
-  session?: any
+  session?: AuthSession | null
 ): Promise<boolean> {
   try {
     await requirePermission(permissionName, session);
@@ -144,7 +147,7 @@ export async function hasPermission(
 
 export async function hasAnyPermission(
   permissionNames: string[],
-  session?: any
+  session?: AuthSession | null
 ): Promise<boolean> {
   try {
     await requireAnyPermission(permissionNames, session);
@@ -156,7 +159,7 @@ export async function hasAnyPermission(
 
 export async function hasAllPermissions(
   permissionNames: string[],
-  session?: any
+  session?: AuthSession | null
 ): Promise<boolean> {
   try {
     await requireAllPermissions(permissionNames, session);
@@ -167,12 +170,21 @@ export async function hasAllPermissions(
 }
 
 /**
- * 🧹 مسح الكاش (عند تحديث بيانات المستخدم)
+ * 🧹 الحصول على دور المستخدم من الجلسة (بدون قاعدة بيانات)
  */
-export function clearPermissionCache(userId?: string) {
-  if (userId) {
-    roleCache.delete(userId);
-  } else {
-    roleCache.clear();
-  }
+export function getUserRoleFromSession(session: AuthSession): string {
+  return session.role || 'USER';
+}
+
+/**
+ * 🧹 (للتوافق مع الكود القديم) جلب اسم الدور من userId
+ * - يُفضل استخدام الجلسة بدلاً من ذلك.
+ */
+export async function getUserRole(userId: string): Promise<string | null> {
+  const { prisma } = await import('@/lib/prisma');
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: { select: { name: true } } },
+  });
+  return user?.role?.name || null;
 }

@@ -1,4 +1,5 @@
 // src/app/api/work-order-statuses/[id]/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
@@ -17,7 +18,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
     const status = await prisma.workOrderStatus.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -63,7 +64,7 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
     const body = await request.json();
     const { name, nameEn, code, color, order, isDefault, isActive } = body;
 
@@ -144,7 +145,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
     const existingStatus = await prisma.workOrderStatus.findFirst({
       where: { id, companyId, deletedAt: null },

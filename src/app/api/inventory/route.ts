@@ -1,6 +1,7 @@
 // src/app/api/inventory/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper'; // ✅ استبدال checkPermission بـ requirePermission
 import { prisma } from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
@@ -9,7 +10,7 @@ export async function GET(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await checkPermission('assets.read');
+    await requirePermission('assets.read'); // ✅
 
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get('q') || '';
@@ -19,7 +20,7 @@ export async function GET(request: NextRequest) {
     const limit = 10;
     const skip = (page - 1) * limit;
 
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -154,7 +155,7 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await checkPermission('assets.create');
+    await requirePermission('assets.create'); // ✅
 
     const body = await request.json();
     const { name, nameEn, sku, quantity, minQuantity, unit, roomId, notes } = body;
@@ -163,7 +164,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'الاسم والغرفة إلزاميان' }, { status: 400 });
     }
 
-    const companyId = session.companyId!;
+    const companyId = session.companyId!; // ✅
 
     // التحقق من أن الغرفة تنتمي إلى الشركة وإلى فرع المستخدم (إذا لم يكن أدمن)
     const room = await prisma.room.findFirst({

@@ -1,14 +1,18 @@
 // src/lib/assets/permissions.ts
-
 import { prisma } from '@/lib/prisma';
 import { AssetNotFoundError, AssetBusinessError, AssetPermissionError } from './errors';
 
+// ✅ استخدم نفس تعريف AuthSession من auth-helper
 export interface AuthSession {
   userId: string;
-  email?: string;
-  companyId: string;
+  email: string; // ✅ أضف email
+  name: string | null;
   role: string;
-  branchIds?: string[];
+  companyId: string | null; // ✅ غيّر إلى string | null
+  companyName: string | null;
+  branchIds: string[];
+  isAdmin: boolean;
+  isSuperAdmin: boolean;
 }
 
 // ============================================================
@@ -56,7 +60,8 @@ export async function ensureAssetAccess(
     throw new AssetNotFoundError('الأصل غير موجود');
   }
 
-  if (asset.companyId !== session.companyId) {
+  // ✅ التعامل مع null
+  if (!session.companyId || asset.companyId !== session.companyId) {
     throw new AssetPermissionError('لا تملك صلاحية الوصول إلى هذا الأصل');
   }
 
@@ -82,7 +87,8 @@ export function ensureBranchAccess(session: AuthSession, branchId: string) {
 }
 
 export function ensureCompanyAccess(session: AuthSession, companyId: string) {
-  if (session.companyId !== companyId) {
+  // ✅ التعامل مع null
+  if (!session.companyId || session.companyId !== companyId) {
     throw new AssetPermissionError('الشركة غير متطابقة');
   }
 }
@@ -108,6 +114,11 @@ export async function filterAllowedAssetIds(
 ): Promise<string[]> {
   const allowedBranchIds = getAllowedBranchIds(session);
   const companyId = session.companyId;
+
+  // ✅ التعامل مع null
+  if (!companyId) {
+    return [];
+  }
 
   const assets = await prisma.asset.findMany({
     where: {

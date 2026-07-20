@@ -5,10 +5,10 @@ import { cn } from '@/lib/utils';
 
 interface Column<T> {
   key: keyof T | string;
-  header?: string;           // ✅ دعم header
-  title?: string;            // ✅ دعم title (كبديل)
-  cell?: (item: T) => React.ReactNode;  // ✅ دعم cell
-  render?: (item: T) => React.ReactNode; // ✅ دعم render (كبديل)
+  header?: string;
+  title?: string;
+  cell?: (item: T, index: number) => React.ReactNode; // ✅ index كمعامل ثانٍ
+  render?: (item: T, index: number) => React.ReactNode; // ✅ أيضاً دعم render مع index
   className?: string;
 }
 
@@ -18,7 +18,7 @@ interface DataTableProps<T> {
   emptyMessage?: string;
   rowClassName?: string;
   onRowClick?: (item: T) => void;
-  rowKey?: keyof T | string;  // ✅ إضافة rowKey
+  rowKey?: keyof T | string;
 }
 
 export function DataTable<T extends Record<string, any>>({
@@ -37,7 +37,6 @@ export function DataTable<T extends Record<string, any>>({
     );
   }
 
-  // دالة للحصول على القيمة الأساسية للصف
   const getRowKey = (item: T, index: number): string => {
     if (rowKey && item[rowKey as keyof T] !== undefined) {
       return String(item[rowKey as keyof T]);
@@ -74,7 +73,11 @@ export function DataTable<T extends Record<string, any>>({
               >
                 {columns.map((col) => (
                   <td key={String(col.key)} className={cn("p-4", col.className)}>
-                    {col.cell ? col.cell(item) : col.render ? col.render(item) : (item[col.key as keyof T] as React.ReactNode)}
+                    {col.cell
+                      ? col.cell(item, index)
+                      : col.render
+                      ? col.render(item, index)
+                      : (item[col.key as keyof T] as React.ReactNode)}
                   </td>
                 ))}
               </tr>

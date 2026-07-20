@@ -1,6 +1,7 @@
 // src/app/api/assets/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession, type AuthSession } from '@/lib/auth/auth-helper';
 import {
   listAssets,
   createAsset,
@@ -20,6 +21,26 @@ const ALLOWED_SORT_FIELDS = [
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
+
+// ============================================================
+// دالة مساعدة لتحويل الجلسة إلى النوع المطلوب من lib/assets
+// ============================================================
+function toAssetsSession(session: AuthSession): any {
+  return {
+    ...session,
+    userId: session.userId,
+    email: session.email,
+    name: session.name,
+    role: session.role,
+    companyId: session.companyId ?? null,
+    companyName: session.companyName ?? null,
+    companyNameEn: session.companyNameEn ?? null,
+    branchId: session.branchId ?? null,
+    branchIds: session.branchIds ?? [],
+    isAdmin: session.isAdmin,
+    isSuperAdmin: session.isSuperAdmin,
+  };
+}
 
 // ============================================================
 // GET - قائمة الأصول
@@ -58,7 +79,7 @@ export async function GET(request: NextRequest) {
       sortOrder,
     };
 
-    const result = await listAssets(session, options);
+    const result = await listAssets(toAssetsSession(session), options);
 
     return NextResponse.json(result, {
       headers: {
@@ -98,7 +119,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'بيانات الطلب غير صحيحة' }, { status: 400 });
     }
 
-    const asset = await createAsset(session, body);
+    const asset = await createAsset(toAssetsSession(session), body);
 
     return NextResponse.json(asset, {
       status: 201,

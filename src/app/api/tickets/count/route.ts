@@ -1,12 +1,13 @@
 // src/app/api/tickets/count/route.ts
-import { NextResponse } from "next/server";
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+
+import { NextRequest, NextResponse } from "next/server";
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper'; // ✅
 import { prisma } from '@/lib/prisma';
 
 // قيم TicketStatus المسموحة
 const validStatuses = ["PENDING", "IN_PROGRESS", "COMPLETED", "REJECTED", "CANCELLED"];
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
     if (!session) {
@@ -17,8 +18,7 @@ export async function GET(request: Request) {
     // ✅ تحقق من وجود permission (إذا فشل، لا نمنع الطلب)
     let hasPermission = true;
     try {
-      const { checkPermission } = await import('@/lib/auth/auth-helper');
-      await checkPermission("tickets.read");
+      await requirePermission("tickets.read"); // ✅ استخدم requirePermission
     } catch {
       hasPermission = false;
     }
@@ -35,25 +35,30 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "قيمة حالة غير صالحة" }, { status: 400 });
     }
 
-    const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ count: 0 });
-    }
-
-    const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
+    const isSuperAdmin = session.role === "SUPER_ADMIN";
+    const isAdmin = session.role === "ADMIN" || isSuperAdmin;
     const userBranchIds = session.branchIds || [];
 
+    // ✅ بناء شرط where بشكل آمن
     const where: any = {
-      companyId,
       status,
       deletedAt: null,
     };
 
-    if (!isAdmin) {
-      if (userBranchIds.length === 0) {
+    // ✅ فقط إذا لم يكن السوبر أدمن، نضيف فلترة companyId
+    if (!isSuperAdmin) {
+      if (!session.companyId) {
         return NextResponse.json({ count: 0 });
       }
-      where.branchId = { in: userBranchIds };
+      where.companyId = session.companyId;
+
+      // ✅ فلترة الفروع للمستخدمين غير الإداريين
+      if (!isAdmin) {
+        if (userBranchIds.length === 0) {
+          return NextResponse.json({ count: 0 });
+        }
+        where.branchId = { in: userBranchIds };
+      }
     }
 
     const count = await prisma.ticket.count({ where });

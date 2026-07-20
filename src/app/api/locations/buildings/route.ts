@@ -9,16 +9,20 @@ import { prisma } from '@/lib/prisma';
 // ============================================================
 export async function GET(request: NextRequest) {
   try {
+    // ✅ 1. جلب الجلسة
     const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json(
-        { error: 'غير مصرح' },
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
         { status: 401 }
       );
     }
 
-    await requirePermission('locations.read');
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'locations.read');
+    if (permissionError) return permissionError;
 
+    // ✅ 3. استخراج companyId
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json(
@@ -76,16 +80,20 @@ export async function GET(request: NextRequest) {
 // ============================================================
 export async function POST(request: NextRequest) {
   try {
+    // ✅ 1. جلب الجلسة
     const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json(
-        { error: 'غير مصرح' },
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
         { status: 401 }
       );
     }
 
-    await requirePermission('locations.create');
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'locations.create');
+    if (permissionError) return permissionError;
 
+    // ✅ 3. استخراج companyId
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json(

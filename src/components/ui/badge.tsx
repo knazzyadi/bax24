@@ -1,6 +1,7 @@
+// src/components/ui/badge.tsx
 import * as React from "react"
 import { cva, type VariantProps } from "class-variance-authority"
-import { Slot } from "radix-ui"
+import { Slot } from "@radix-ui/react-slot"
 
 import { cn } from "@/lib/utils"
 
@@ -19,6 +20,9 @@ const badgeVariants = cva(
         ghost:
           "hover:bg-muted hover:text-muted-foreground dark:hover:bg-muted/50",
         link: "text-primary underline-offset-4 hover:underline",
+        // ✅ إضافة variant جديد للـ success
+        success:
+          "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 [a]:hover:bg-emerald-200/80 dark:[a]:hover:bg-emerald-900/50",
       },
     },
     defaultVariants: {
@@ -34,7 +38,8 @@ function Badge({
   ...props
 }: React.ComponentProps<"span"> &
   VariantProps<typeof badgeVariants> & { asChild?: boolean }) {
-  const Comp = asChild ? Slot.Root : "span"
+  // ✅ التصحيح: استخدم Slot مباشرة بدلاً من Slot.Root
+  const Comp = asChild ? Slot : "span"
 
   return (
     <Comp

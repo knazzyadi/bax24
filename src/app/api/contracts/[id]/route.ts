@@ -1,11 +1,9 @@
 // src/app/api/contracts/[id]/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 import { deleteFileFromR2 } from '@/lib/storage';
 
 // GET: جلب عقد واحد مع مرفقاته وحقول المندوب
@@ -16,10 +14,10 @@ export async function GET(
   try {
     const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await checkPermission('contracts.read');
+    await requirePermission('contracts.read');
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!;
     if (!companyId) return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
 
     const contract = await prisma.contract.findFirst({
@@ -48,7 +46,6 @@ export async function GET(
       endDate: contract.endDate.toISOString().split('T')[0],
       createdAt: contract.createdAt.toISOString(),
       updatedAt: contract.updatedAt.toISOString(),
-      // ✅ تضمين حقول المندوب (الموجودة في الـ model)
       agentName: contract.agentName || null,
       agentPhone: contract.agentPhone || null,
       agentEmail: contract.agentEmail || null,
@@ -69,14 +66,14 @@ export async function PUT(
   try {
     const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await checkPermission('contracts.update');
+    await requirePermission('contracts.update');
 
     const { id } = await params;
     const body = await request.json();
-    const { 
-      title, supplier, value, startDate, endDate, description, notes, 
+    const {
+      title, supplier, value, startDate, endDate, description, notes,
       buildingId, attachmentIds,
-      agentName, agentPhone, agentEmail  // ✅ إضافة حقول المندوب
+      agentName, agentPhone, agentEmail
     } = body;
 
     if (!title || !supplier || !startDate || !endDate) {
@@ -114,7 +111,7 @@ export async function PUT(
       }
     }
 
-    // معالجة المرفقات (نفس الكود السابق)
+    // معالجة المرفقات
     if (attachmentIds && Array.isArray(attachmentIds) && attachmentIds.length > 0) {
       const currentAttachments = existing.attachments as { id: string; key: string }[];
       const toKeepIds = attachmentIds.filter((id: string) =>
@@ -140,7 +137,7 @@ export async function PUT(
       }
     }
 
-    // تحديث بيانات العقد (بما فيها حقول المندوب)
+    // تحديث بيانات العقد
     const updated = await prisma.contract.update({
       where: { id },
       data: {
@@ -174,7 +171,7 @@ export async function DELETE(
   try {
     const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await checkPermission('contracts.delete');
+    await requirePermission('contracts.delete');
 
     const { id } = await params;
     const companyId = session.companyId!;

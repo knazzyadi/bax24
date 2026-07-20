@@ -7,7 +7,7 @@ import { useTranslations } from "next-intl";
 import { ArrowLeft, Loader2, Wrench, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { EditForm } from "./components/EditForm";
+import { EditForm } from "./EditForm";
 
 interface EditWorkOrderClientProps {
   locale: string;
@@ -32,10 +32,18 @@ export function EditWorkOrderClient({
   const isRtl = locale === "ar";
   const t = useTranslations("WorkOrdersForm");
 
-  const [formData, setFormData] = useState(initialData);
+  // ✅ التأكد من أن جميع الحقول المطلوبة موجودة في formData
+  const [formData, setFormData] = useState({
+    ...initialData,
+    assetTypeId: initialData.assetTypeId ?? null,
+    workOrderTypeId: initialData.workOrderTypeId ?? "",
+    source: initialData.source ?? "manual",
+    sourceId: initialData.sourceId ?? null,
+    selectedAssets: initialData.selectedAssets || [],
+  });
+
   const [saving, setSaving] = useState(false);
 
-  // تحميل البيانات الإضافية عند تغيير الموقع
   const [floors, setFloors] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
   const [loadingFloors, setLoadingFloors] = useState(false);
@@ -66,7 +74,7 @@ export function EditWorkOrderClient({
     fetchFloors();
   }, [formData.buildingId]);
 
-  // جلب الغرف
+  // جلب الغرف - بدون إنشاء fullCode باستخدام المعرفات الطويلة
   useEffect(() => {
     if (!formData.floorId) {
       setRooms([]);
@@ -78,11 +86,9 @@ export function EditWorkOrderClient({
         const res = await fetch(`/api/floors/${formData.floorId}/rooms`);
         if (res.ok) {
           const data = await res.json();
-          const roomsWithCode = (Array.isArray(data) ? data : []).map((room: any) => ({
-            ...room,
-            fullCode: `${formData.buildingId}-${formData.floorId}-${room.code || ""}`,
-          }));
-          setRooms(roomsWithCode);
+          // ✅ نمرر الغرف كما هي، مع الحفاظ على room.code و room.name
+          const roomsData = Array.isArray(data) ? data : [];
+          setRooms(roomsData);
         } else {
           setRooms([]);
         }
@@ -101,7 +107,7 @@ export function EditWorkOrderClient({
       const payload = {
         title: data.title.trim(),
         description: data.description?.trim() || null,
-        type: data.type,
+        workOrderTypeId: data.workOrderTypeId || null,
         priorityId: data.priorityId || null,
         statusId: data.statusId || null,
         branchId: data.branchId,
@@ -111,6 +117,8 @@ export function EditWorkOrderClient({
         roomId: data.locationLevel === "room" ? data.roomId : null,
         floorId: data.locationLevel === "floor" ? data.floorId : null,
         buildingId: data.locationLevel === "building" ? data.buildingId : null,
+        source: data.source,
+        sourceId: data.sourceId,
       };
 
       const res = await fetch(`/api/work-orders/${formData.id}`, {
@@ -174,6 +182,8 @@ export function EditWorkOrderClient({
         isRtl={isRtl}
         t={t}
         workOrderTypes={initialWorkOrderTypes}
+        // ✅ تمرير الأصول المختارة إلى EditForm
+        selectedAssets={formData.selectedAssets || []}
       />
     </div>
   );

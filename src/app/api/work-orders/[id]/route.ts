@@ -1,13 +1,12 @@
+// src/app/api/work-orders/[id]/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper'; // ✅ استبدال checkPermission بـ requirePermission
 import { prisma } from '@/lib/prisma';
+import { createWorkOrderAudit, buildWorkOrderDTO } from '@/lib/audit/work-order';
+import { AuditAction } from '@/lib/audit/types';
 
-
-
-
-// ========== GET: جلب أمر عمل واحد مع التفاصيل (وتضمين buildingId/floorId إذا وجدت) ==========
+// ========== GET: جلب أمر عمل واحد مع التفاصيل ==========
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -17,7 +16,7 @@ export async function GET(
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await checkPermission("work_orders.read");
+    await requirePermission("work_orders.read"); // ✅
 
     const { id } = await params;
     const companyId = session.companyId;
@@ -49,7 +48,6 @@ export async function GET(
       return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
     }
 
-    // فلترة الفروع للمستخدمين غير المديرين
     const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
     if (!isAdmin) {
       const userBranchIds = session.branchIds || [];
@@ -58,7 +56,6 @@ export async function GET(
       }
     }
 
-    // إضافة حقل buildingId و floorId من العلاقة (لتسهيل عرضها في الواجهة)
     let buildingId: string | null = null;
     let floorId: string | null = null;
     if (workOrder.room?.floor) {
@@ -81,7 +78,7 @@ export async function GET(
   }
 }
 
-// ========== PUT: تحديث أمر العمل (يدعم تحديث الموقع والأصول المتعددة) ==========
+// ========== PUT: تحديث أمر العمل ==========
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -89,14 +86,14 @@ export async function PUT(
   try {
     const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-    await checkPermission("work_orders.update");
+    await requirePermission("work_orders.update"); // ✅
 
     const { id } = await params;
     const body = await request.json();
     const {
       title,
       description,
-      type,
+      workOrderTypeId,
       priorityId,
       statusId,
       branchId,
@@ -113,15 +110,35 @@ export async function PUT(
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
 
-    // التأكد من وجود أمر العمل
-    const existing = await prisma.workOrder.findFirst({
+    // جلب النسخة القديمة
+    const oldWorkOrder = await prisma.workOrder.findFirst({
       where: { id, companyId, deletedAt: null },
+      include: {
+        priority: true,
+        status: true,
+        assetType: true,
+        branch: true,
+        room: {
+          include: {
+            floor: {
+              include: { building: true },
+            },
+          },
+        },
+        workOrderAssets: {
+          include: { asset: true },
+        },
+        workOrderType: true,
+        assignedUser: true,
+        createdByUser: true,
+      },
     });
-    if (!existing) {
+
+    if (!oldWorkOrder) {
       return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
     }
 
-    // ========== معالجة القيم غير الصالحة للأولوية والحالة ==========
+    // التحقق من صحة الأولوية والحالة
     let validPriorityId = null;
     if (priorityId && priorityId !== "" && priorityId !== "null" && priorityId !== "undefined" && priorityId !== "all") {
       const priorityExists = await prisma.workOrderPriority.findFirst({
@@ -139,29 +156,18 @@ export async function PUT(
       });
       if (statusExists) validStatusId = statusId;
     }
-    // ============================================================
 
-    // تجميع حقول التحديث الأساسية
     const updateData: any = {};
     if (title !== undefined) updateData.title = title;
     if (description !== undefined) updateData.description = description;
-    if (type !== undefined) updateData.type = type;
+    if (workOrderTypeId !== undefined) updateData.workOrderTypeId = workOrderTypeId;
     if (priorityId !== undefined) updateData.priorityId = validPriorityId;
     if (statusId !== undefined) updateData.statusId = validStatusId;
     if (branchId !== undefined) updateData.branchId = branchId;
     if (assetTypeId !== undefined) updateData.assetTypeId = assetTypeId;
     if (notes !== undefined) updateData.notes = notes;
+    if (roomId !== undefined) updateData.roomId = roomId;
 
-    // تحديث حقل roomId إذا وُجد (الأولوية للـ roomId)
-    if (roomId !== undefined) {
-      updateData.roomId = roomId;
-      // إذا تم تعيين roomId، يجب إلغاء buildingId و floorId (لأن العلاقة عبر roomId)
-      // لكن إذا كان النموذج لا يحتوي على buildingId/floorId، فلا داعي لإلغائهما.
-    }
-    // إذا لم يكن هناك roomId ولكن تم إرسال floorId أو buildingId، فيمكن تحديث fields إضافية (إذا كانت موجودة في النموذج)
-    // لا يوجد حالياً buildingId و floorId في نموذج WorkOrder؛ نتركه للاستخدام المستقبلي.
-
-    // تحديث الأصول المرتبطة (تحل محل الأصول القديمة)
     let updateAssets = undefined;
     if (assetIds !== undefined) {
       updateAssets = {
@@ -176,8 +182,37 @@ export async function PUT(
         ...updateData,
         workOrderAssets: updateAssets,
       },
-      include: { workOrderAssets: { include: { asset: true } } },
+      include: {
+        priority: true,
+        status: true,
+        assetType: true,
+        branch: true,
+        room: {
+          include: {
+            floor: {
+              include: { building: true },
+            },
+          },
+        },
+        workOrderAssets: {
+          include: { asset: { include: { type: true, status: true } } },
+        },
+        workOrderType: true,
+        assignedUser: true,
+        createdByUser: true,
+      },
     });
+
+    // ✅ تسجيل التدقيق - استخدام session.email
+    await createWorkOrderAudit(
+      AuditAction.UPDATE,
+      id,
+      session.userId,
+      session.email,
+      oldWorkOrder,
+      updatedWorkOrder,
+      { updatedFields: Object.keys(body) }
+    );
 
     return NextResponse.json(updatedWorkOrder);
   } catch (error) {
@@ -186,7 +221,7 @@ export async function PUT(
   }
 }
 
-// ========== DELETE: حذف أمر العمل (soft delete) ==========
+// ========== DELETE: حذف أمر العمل ==========
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -194,7 +229,7 @@ export async function DELETE(
   try {
     const session = await getAuthenticatedSession();
     if (!session) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-    await checkPermission("work_orders.delete");
+    await requirePermission("work_orders.delete"); // ✅
 
     const { id } = await params;
     const companyId = session.companyId;
@@ -202,10 +237,31 @@ export async function DELETE(
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
 
-    const existing = await prisma.workOrder.findFirst({
+    // جلب النسخة قبل الحذف
+    const oldWorkOrder = await prisma.workOrder.findFirst({
       where: { id, companyId, deletedAt: null },
+      include: {
+        priority: true,
+        status: true,
+        assetType: true,
+        branch: true,
+        room: {
+          include: {
+            floor: {
+              include: { building: true },
+            },
+          },
+        },
+        workOrderAssets: {
+          include: { asset: true },
+        },
+        workOrderType: true,
+        assignedUser: true,
+        createdByUser: true,
+      },
     });
-    if (!existing) {
+
+    if (!oldWorkOrder) {
       return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
     }
 
@@ -213,6 +269,17 @@ export async function DELETE(
       where: { id },
       data: { deletedAt: new Date() },
     });
+
+    // ✅ تسجيل التدقيق (حذف) - استخدام session.email
+    await createWorkOrderAudit(
+      AuditAction.DELETE,
+      id,
+      session.userId,
+      session.email,
+      oldWorkOrder,
+      null,
+      { softDelete: true }
+    );
 
     return NextResponse.json({ message: "تم حذف أمر العمل بنجاح" });
   } catch (error) {

@@ -1,28 +1,32 @@
+//contracts/[id]/cancel/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
-
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    await checkPermission('contracts.update');
+    // ✅ استخدام requirePermission للتحقق من الصلاحية والحصول على الجلسة معاً
+    const session = await requirePermission('contracts.update');
+    // الآن الجلسة مضمونة والصلاحية مؤكدة
 
     const { id } = await params;
     const { reason } = await request.json();
     const companyId = session.companyId!;
 
-    const contract = await prisma.contract.findFirst({ where: { id, companyId, deletedAt: null } });
-    if (!contract) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
+    const contract = await prisma.contract.findFirst({
+      where: { id, companyId, deletedAt: null },
+    });
+    if (!contract) {
+      return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
+    }
     if (contract.status !== 'ACTIVE' && contract.status !== 'PENDING_REVIEW') {
-      return NextResponse.json({ error: 'لا يمكن فسخ عقد غير نشط أو قيد المراجعة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا يمكن فسخ عقد غير نشط أو قيد المراجعة' },
+        { status: 400 }
+      );
     }
 
     const updated = await prisma.contract.update({

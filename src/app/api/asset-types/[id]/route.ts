@@ -1,4 +1,5 @@
 // src/app/api/asset-types/[id]/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
@@ -12,12 +13,14 @@ export async function GET(
 ) {
   try {
     const session = await getAuthenticatedSession();
+    // getAuthenticatedSession ترمي خطأ إذا لم توجد جلسة، لذا هذا التحقق غير ضروري
+    // لكن نتركه للأمان
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
     const type = await prisma.assetType.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -63,7 +66,7 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
     const body = await request.json();
     const { name, nameEn, code, description, order, isDefault, isActive } = body;
 
@@ -144,7 +147,7 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
     const existingType = await prisma.assetType.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -156,6 +159,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'النوع غير موجود' }, { status: 404 });
     }
 
+    // ✅ الآن خاصية assets موجودة لأننا أضفنا include
     if (existingType.assets.length > 0) {
       return NextResponse.json(
         { error: 'لا يمكن حذف النوع لأنه مستخدم في أصول موجودة' },

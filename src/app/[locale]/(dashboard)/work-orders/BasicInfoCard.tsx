@@ -1,4 +1,4 @@
-// src/app/[locale]/(dashboard)/work-orders/shared/BasicInfoCard.tsx
+// src/app/[locale]/(dashboard)/work-orders/BasicInfoCard.tsx
 "use client";
 
 import { Label } from "@/components/ui/label";
@@ -11,8 +11,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { WorkOrderSourceSelector } from "../components/SourceSelector";
-import type { WorkOrderFormData } from "../types";
+import { WorkOrderSourceSelector } from "./SourceSelector";
+import type { WorkOrderFormData } from "./types";
 import { Info } from "lucide-react";
 
 interface BasicInfoCardProps {
@@ -23,7 +23,7 @@ interface BasicInfoCardProps {
   workOrderTypes: any[];
   isRtl: boolean;
   t: any;
-  isSourceEditable?: boolean; // ✅ صلاحية تعديل المصدر
+  isSourceEditable?: boolean;
 }
 
 export function BasicInfoCard({
@@ -34,9 +34,8 @@ export function BasicInfoCard({
   workOrderTypes,
   isRtl,
   t,
-  isSourceEditable = false, // القيمة الافتراضية false
+  isSourceEditable = false,
 }: BasicInfoCardProps) {
-  // ✅ رسالة توضيحية بناءً على المصدر
   const getSourceHelperText = () => {
     if (formData.source === "manual") {
       return isRtl ? "تم إنشاء هذا الأمر يدوياً" : "Manually created work order";
@@ -62,7 +61,7 @@ export function BasicInfoCard({
             value={formData.source}
             onChange={(value) => setFormData({ ...formData, source: value })}
             isRtl={isRtl}
-            disabled={!isSourceEditable} // ✅ تعطيل إذا لم يكن مسموحاً
+            disabled={!isSourceEditable}
           />
           {!isSourceEditable && (
             <div className="flex items-center gap-1.5 text-xs text-slate-400 dark:text-slate-500">
@@ -75,9 +74,10 @@ export function BasicInfoCard({
           <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
             {t("type")} <span className="text-rose-500">*</span>
           </Label>
+          {/* ✅ التغيير الأساسي: استخدم workOrderTypeId بدلاً من type */}
           <Select
-            value={formData.type}
-            onValueChange={(v) => setFormData({ ...formData, type: v as any })}
+            value={formData.workOrderTypeId || ""}
+            onValueChange={(v) => setFormData({ ...formData, workOrderTypeId: v })}
           >
             <SelectTrigger className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
               <SelectValue placeholder={t("selectType")} />

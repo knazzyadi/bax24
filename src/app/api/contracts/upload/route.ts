@@ -1,12 +1,9 @@
 // src/app/api/contracts/upload/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
-
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
 import { uploadFileToR2 } from '@/lib/storage';
-
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +11,9 @@ export async function POST(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await checkPermission('contracts.create');
+    
+    // ✅ استخدم requirePermission بدلاً من checkPermission
+    await requirePermission('contracts.create');
 
     const formData = await request.formData();
     const file = formData.get('file') as File | null;
@@ -22,7 +21,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'لا يوجد ملف مرفق' }, { status: 400 });
     }
 
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    const allowedTypes = [
+      'application/pdf',
+      'image/jpeg',
+      'image/png',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ];
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json({ error: 'نوع الملف غير مدعوم' }, { status: 400 });
     }
@@ -34,7 +39,6 @@ export async function POST(request: NextRequest) {
 
     const uploaded = await uploadFileToR2(file, 'contracts');
 
-    // ✅ الآن يمكننا استخدام null مباشرة
     const attachment = await prisma.contractAttachment.create({
       data: {
         url: uploaded.url,
@@ -43,7 +47,7 @@ export async function POST(request: NextRequest) {
         mimeType: uploaded.mimeType,
         size: uploaded.size,
         originalName: uploaded.originalName,
-        contractId: null, // ✅ مسموح به بعد تعديل الـ Schema
+        contractId: null,
       },
       select: { id: true, url: true, originalName: true },
     });

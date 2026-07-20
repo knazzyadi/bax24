@@ -1,4 +1,4 @@
-// src/app/[locale]/(dashboard)/work-orders/shared/LocationCard.tsx
+// src/app/[locale]/(dashboard)/work-orders/LocationCard.tsx
 "use client";
 
 import { useState, useMemo } from "react";
@@ -9,7 +9,7 @@ import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import { BranchSelector } from "@/components/shared/BranchSelector";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
-import type { WorkOrderFormData } from "../types";
+import type { WorkOrderFormData } from "./types";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -156,11 +156,14 @@ export function LocationCard({
   }
 
   // ✅ الوضع الكامل (للنماذج – الإنشاء/التعديل)
-  // (الكود الحالي للنماذج مع إضافة `||` و `??` للتعامل مع القيم الاختيارية)
   const getSelectedLocationSummary = () => {
     if (locationLevel === "room" && formData?.roomId) {
       const roomItem = rooms.find((r) => r.id === formData.roomId);
-      return roomItem ? `${roomItem.name} (${roomItem.fullCode})` : (isRtl ? "غرفة" : "Room");
+      if (roomItem) {
+        // ✅ التغيير الأساسي: استخدام room.code و room.name بدلاً من fullCode
+        return roomItem.code ? `${roomItem.code} - ${roomItem.name}` : roomItem.name;
+      }
+      return isRtl ? "غرفة" : "Room";
     }
     if (locationLevel === "floor" && formData?.floorId) {
       const floorItem = floors.find((f) => f.id === formData.floorId);
@@ -188,7 +191,6 @@ export function LocationCard({
     return isRtl ? name : asset?.nameEn || name;
   };
 
-  // (الكود الكامل للنماذج هنا - كما هو مع تحسين التعامل مع القيم الاختيارية)
   return (
     <div className="space-y-5">
       {/* الصف الأول: الفرع | المبنى */}

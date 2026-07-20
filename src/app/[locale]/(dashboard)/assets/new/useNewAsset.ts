@@ -69,6 +69,10 @@ export function useNewAsset() {
   useEffect(() => {
     const fetchData = async () => {
       try {
+        fetch('/api/auth/session')
+  .then(res => res.json())
+  .then(data => console.log('Session:', data))
+  
         const [statusesRes, typesRes, branchesRes, suppliersRes] = await Promise.all([
           fetch(`/api/asset-statuses?locale=${locale}`),
           fetch(`/api/asset-types?locale=${locale}`),

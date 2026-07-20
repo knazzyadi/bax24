@@ -1,10 +1,10 @@
 // src/app/[locale]/(dashboard)/work-orders/[id]/print/page.tsx
+
 import { redirect } from "next/navigation";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { WorkOrderPrint } from "./WorkOrderPrint";
 
-// ✅ منع التخزين المؤقت وضمان تحديث البيانات
 export const dynamic = 'force-dynamic';
 
 export default async function WorkOrderPrintPage({
@@ -17,10 +17,10 @@ export default async function WorkOrderPrintPage({
   const session = await getAuthenticatedSession();
   if (!session) redirect("/login");
 
-  const companyId = session.companyId;
+  const companyId = session.companyId!; // ✅ تأكيد non-null
   if (!companyId) redirect("/login");
 
-  // جلب بيانات أمر العمل
+  // 1. جلب بيانات أمر العمل
   const workOrder = await prisma.workOrder.findFirst({
     where: { id, companyId, deletedAt: null },
     include: {
@@ -68,7 +68,50 @@ export default async function WorkOrderPrintPage({
     redirect(`/${locale}/work-orders`);
   }
 
-  // جلب بيانات الشركة (بدون شعار)
+  // 2. جلب سجل التدقيق باستخدام entityType و entityId
+  const auditLogsRaw = await prisma.auditLog.findMany({
+    where: {
+      entityType: 'workOrder',
+      entityId: id,
+    },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+
+  // 3. جلب المستخدمين المرتبطين بسجلات التدقيق (للحصول على الأسماء)
+  const userIds = auditLogsRaw.map(log => log.userId).filter((id): id is string => id !== null);
+  let usersMap: Record<string, { id: string; name: string; email: string }> = {};
+  if (userIds.length > 0) {
+    const users = await prisma.user.findMany({
+      where: { id: { in: userIds } },
+      select: { id: true, name: true, email: true },
+    });
+    usersMap = users.reduce((acc, user) => {
+      acc[user.id] = {
+        id: user.id,
+        name: user.name ?? '', // ✅ تحويل null إلى string فارغة
+        email: user.email,
+      };
+      return acc;
+    }, {} as Record<string, { id: string; name: string; email: string }>);
+  }
+
+  // 4. تنسيق سجل التدقيق مع إضافة اسم المستخدم
+  const auditLogs = auditLogsRaw.map((log) => ({
+    id: log.id,
+    action: log.action,
+    createdAt: log.createdAt.toISOString(),
+    user: log.userId
+      ? (usersMap[log.userId] || {
+          id: log.userId,
+          name: log.userEmail || log.userId,
+          email: log.userEmail || '',
+        })
+      : null,
+    details: log.changes || log.metadata || null,
+  }));
+
+  // 5. جلب بيانات الشركة
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     select: { name: true, nameEn: true },
@@ -108,6 +151,7 @@ export default async function WorkOrderPrintPage({
     createdBy: workOrder.createdByUser,
     assignedTo: workOrder.assignedUser,
     company,
+    auditLogs,
   };
 
   return (

@@ -12,16 +12,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ 1. جلب الجلسة
     const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json(
-        { error: 'غير مصرح' },
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
         { status: 401 }
       );
     }
 
-    await requirePermission('locations.read');
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'locations.read');
+    if (permissionError) return permissionError;
 
+    // ✅ 3. استخراج companyId
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json(
@@ -78,16 +82,20 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ 1. جلب الجلسة
     const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json(
-        { error: 'غير مصرح' },
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
         { status: 401 }
       );
     }
 
-    await requirePermission('locations.update');
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'locations.update');
+    if (permissionError) return permissionError;
 
+    // ✅ 3. استخراج companyId
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json(
@@ -197,16 +205,20 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ 1. جلب الجلسة
     const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json(
-        { error: 'غير مصرح' },
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
         { status: 401 }
       );
     }
 
-    await requirePermission('locations.delete');
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'locations.delete');
+    if (permissionError) return permissionError;
 
+    // ✅ 3. استخراج companyId
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json(

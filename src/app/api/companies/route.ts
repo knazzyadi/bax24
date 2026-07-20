@@ -1,13 +1,26 @@
 ﻿// src/app/api/companies/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { requirePermission } from '@/lib/auth/permissions';
 import { CompanyService } from '@/services/CompanyService';
 
 // GET: جلب جميع الشركات
 export async function GET(request: NextRequest) {
   try {
-    await requirePermission('companies.read');
+    // ✅ 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
+    }
 
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'companies.read');
+    if (permissionError) return permissionError;
+
+    // ✅ 3. تنفيذ المنطق
     const companies = await CompanyService.getAll();
 
     return NextResponse.json(companies);
@@ -49,8 +62,20 @@ export async function GET(request: NextRequest) {
 // POST: إنشاء شركة جديدة
 export async function POST(request: NextRequest) {
   try {
-    await requirePermission('companies.create');
+    // ✅ 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
+    }
 
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'companies.create');
+    if (permissionError) return permissionError;
+
+    // ✅ 3. تنفيذ المنطق
     const body = await request.json();
 
     const company = await CompanyService.create(body);

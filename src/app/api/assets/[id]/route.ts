@@ -1,12 +1,35 @@
 // src/app/api/assets/[id]/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession, type AuthSession } from '@/lib/auth/auth-helper';
 import {
   getAsset,
   updateAsset,
   deleteAsset,
   getErrorResponseStatus,
 } from '@/lib/assets';
+import { createAssetAudit, buildAssetDTO } from '@/lib/audit/asset';
+import { AuditAction } from '@/lib/audit/types';
+
+// ============================================================
+// تحويل الجلسة إلى النوع المطلوب من lib/assets
+// ============================================================
+function toAssetsSession(session: AuthSession): any {
+  return {
+    ...session,
+    userId: session.userId,
+    email: session.email,
+    name: session.name,
+    role: session.role,
+    companyId: session.companyId ?? null,
+    companyName: session.companyName ?? null,
+    companyNameEn: session.companyNameEn ?? null,
+    branchId: session.branchId ?? null,
+    branchIds: session.branchIds ?? [],
+    isAdmin: session.isAdmin,
+    isSuperAdmin: session.isSuperAdmin,
+  };
+}
 
 // ============================================================
 // GET - تفاصيل أصل واحد
@@ -23,7 +46,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const asset = await getAsset(session, id);
+    const asset = await getAsset(toAssetsSession(session), id);
     return NextResponse.json(asset);
   } catch (error) {
     const response = getErrorResponseStatus(error);
@@ -46,9 +69,24 @@ export async function PUT(
     }
 
     const { id } = await params;
+    const prepared = toAssetsSession(session);
+
+    const oldAsset = await getAsset(prepared, id);
+
     const body = await request.json();
-    const asset = await updateAsset(session, id, body);
-    return NextResponse.json(asset);
+    const updatedAsset = await updateAsset(prepared, id, body);
+
+    await createAssetAudit(
+      AuditAction.UPDATE,
+      id,
+      session.userId,
+      session.email,
+      oldAsset,
+      updatedAsset,
+      { updatedFields: Object.keys(body) }
+    );
+
+    return NextResponse.json(updatedAsset);
   } catch (error) {
     const response = getErrorResponseStatus(error);
     return NextResponse.json(response.body, { status: response.status });
@@ -72,8 +110,22 @@ export async function DELETE(
     const { id } = await params;
     const searchParams = request.nextUrl.searchParams;
     const hard = searchParams.get('hard') === 'true';
+    const prepared = toAssetsSession(session);
 
-    const result = await deleteAsset(session, id, { hard });
+    const oldAsset = await getAsset(prepared, id);
+
+    const result = await deleteAsset(prepared, id, { hard });
+
+    await createAssetAudit(
+      AuditAction.DELETE,
+      id,
+      session.userId,
+      session.email,
+      oldAsset,
+      null,
+      { hard }
+    );
+
     return NextResponse.json(result);
   } catch (error) {
     const response = getErrorResponseStatus(error);

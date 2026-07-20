@@ -1,6 +1,7 @@
 // src/app/[locale]/(dashboard)/locations/rooms/page.tsx
+
 import { redirect } from 'next/navigation';
-import { requireRole } from '@/lib/authz';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import RoomsClient from './RoomsClient';
 
@@ -41,9 +42,17 @@ export default async function RoomsPage({
 }) {
   const { locale } = await params;
 
-  const session = await requireRole(['ADMIN', 'SUPER_ADMIN']);
+  // ✅ استخدام الجلسة الموحدة
+  const session = await getAuthenticatedSession();
 
-  const companyId = session.user.companyId;
+  // ✅ التحقق من الدور
+  const allowedRoles = ['ADMIN', 'SUPER_ADMIN'];
+  if (!allowedRoles.includes(session.role)) {
+    throw new Error('Forbidden: You do not have permission to access this page.');
+  }
+
+  // ✅ استخراج companyId (مضمون)
+  const companyId = session.companyId!;
   if (!companyId) {
     throw new Error('Company ID is missing');
   }

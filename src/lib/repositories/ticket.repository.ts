@@ -1,4 +1,5 @@
 // src/lib/repositories/ticket.repository.ts
+
 import { Prisma } from '@prisma/client';
 import { cache } from 'react';
 import { prisma } from '@/lib/prisma';
@@ -19,6 +20,9 @@ export class TicketRepository {
    */
   static findMany = cache(async (options: TicketFindManyOptions = {}) => {
     const session = await getAuthSession();
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+
     const branchFilter = getBranchFilter(session);
 
     const {
@@ -30,7 +34,7 @@ export class TicketRepository {
     } = options;
 
     const baseWhere: Prisma.TicketWhereInput = {
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
       ...where,
@@ -67,10 +71,13 @@ export class TicketRepository {
    */
   static count = cache(async (where: Prisma.TicketWhereInput = {}) => {
     const session = await getAuthSession();
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+
     const branchFilter = getBranchFilter(session);
 
     const baseWhere: Prisma.TicketWhereInput = {
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
       ...where,
@@ -81,26 +88,25 @@ export class TicketRepository {
 
   /**
    * جلب تذكرة واحدة بالمعرف مع تفاصيل كاملة
-   * ✅ تم تغيير findUnique → findFirst ليتيح استخدام شروط إضافية
    */
   static findById = cache(async (id: string) => {
     const session = await getAuthSession();
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+
     const branchFilter = getBranchFilter(session);
 
     const where: Prisma.TicketWhereInput = {
       id,
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
     };
 
-    const detailSelect: Prisma.TicketSelect = {
+    // ✅ الحل: لا تستخدم : Prisma.TicketSelect، استخدم satisfies
+    const detailSelect = {
       ...ticketListSelect,
-      description: true,
-      notes: true,
-      rejectionReason: true,
-      createdAt: true,
-      updatedAt: true,
+      // إضافة الحقول الإضافية المطلوبة للتفاصيل
       attachments: {
         select: {
           id: true,
@@ -113,6 +119,7 @@ export class TicketRepository {
           createdAt: true,
         },
       },
+      // ✅ دمج workOrder مع الحقول الإضافية (يتم دمجها مع workOrder من ticketListSelect)
       workOrder: {
         select: {
           id: true,
@@ -128,7 +135,7 @@ export class TicketRepository {
           createdAt: true,
         },
       },
-    };
+    } satisfies Prisma.TicketSelect; // ✅ استخدام satisfies بدلاً من النوع الصريح
 
     return prisma.ticket.findFirst({
       where,
@@ -141,11 +148,14 @@ export class TicketRepository {
    */
   static search = cache(async (searchTerm: string, options: { limit?: number } = {}) => {
     const session = await getAuthSession();
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+
     const branchFilter = getBranchFilter(session);
     const limit = options.limit || 20;
 
     const where: Prisma.TicketWhereInput = {
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
       OR: [
@@ -170,10 +180,13 @@ export class TicketRepository {
    */
   static getDashboardStats = cache(async () => {
     const session = await getAuthSession();
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+
     const branchFilter = getBranchFilter(session);
 
     const where: Prisma.TicketWhereInput = {
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
     };

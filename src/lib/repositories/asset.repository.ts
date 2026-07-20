@@ -1,9 +1,9 @@
 // src/lib/repositories/asset.repository.ts
 
 import { prisma } from '@/lib/prisma';
-import { getAuthSession } from '@/lib/auth/auth-helper';
 import { cache } from 'react';
 import { Prisma } from '@prisma/client';
+import { BaseRepository } from './base.repository';
 
 // ============================================================
 // 1. تعريف select ثابت باستخدام Prisma.validator
@@ -13,12 +13,12 @@ const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
   // الحقول الأساسية
   id: true,
   code: true,
-  name: true,                // ✅ بدلاً من title
+  name: true,
   nameEn: true,
   description: true,
   serialNumber: true,
   manufacturer: true,
-  model: true,               // حقل model الخاص بالأصل (وليس العلاقة)
+  model: true,
   purchaseDate: true,
   operationDate: true,
   warrantyEnd: true,
@@ -38,9 +38,7 @@ const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
   branchId: true,
   supplierId: true,
 
-  // ============================================================
-  // العلاقات (باستخدام select داخلي)
-  // ============================================================
+  // العلاقات
   type: {
     select: {
       id: true,
@@ -54,7 +52,7 @@ const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
       name: true,
       nameEn: true,
       code: true,
-      color: true,   // تأكد من وجوده في نموذج AssetStatus
+      color: true,
     },
   },
   room: {
@@ -85,12 +83,11 @@ const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
       },
     },
   },
-  supplier: {                // ✅ علاقة المورد بدلاً من supplierName
+  supplier: {
     select: {
       id: true,
       name: true,
       nameEn: true,
-      // أضف أي حقول أخرى تحتاجها من Supplier
     },
   },
   branch: {
@@ -124,20 +121,9 @@ export type AssetWithRelations = Prisma.AssetGetPayload<{
 }>;
 
 // ============================================================
-// 3. الـ Repository الكامل
+// 3. الـ Repository المعدل - يرث من BaseRepository
 // ============================================================
-export class AssetRepository {
-  /**
-   * الحصول على الجلسة الحالية مع companyId
-   */
-  private static async getSession() {
-    const session = await getAuthSession();
-    if (!session?.companyId) {
-      throw new Error('Unauthorized: No company ID found');
-    }
-    return session;
-  }
-
+export class AssetRepository extends BaseRepository {
   /**
    * جلب قائمة الأصول مع التصفية والترقيم
    */
@@ -153,12 +139,13 @@ export class AssetRepository {
       skip?: number;
       limit?: number;
     }) => {
-      const session = await this.getSession();
+      // ✅ استخدم الخصائص المسطحة مباشرة (بدون user)
+      const { companyId } = await this.company();
 
       const assets = await prisma.asset.findMany({
         where: {
           ...where,
-          companyId: session.companyId,
+          companyId,
         },
         select: assetSelect,
         orderBy,
@@ -181,11 +168,12 @@ export class AssetRepository {
    */
   static count = cache(
     async (where?: Prisma.AssetWhereInput) => {
-      const session = await this.getSession();
+      const { companyId } = await this.company();
+
       return prisma.asset.count({
         where: {
           ...where,
-          companyId: session.companyId,
+          companyId,
         },
       });
     }
@@ -196,11 +184,12 @@ export class AssetRepository {
    */
   static findById = cache(
     async (id: string) => {
-      const session = await this.getSession();
+      const { companyId } = await this.company();
+
       return prisma.asset.findUnique({
         where: {
           id,
-          companyId: session.companyId,
+          companyId,
         },
         select: assetSelect,
       });
@@ -211,9 +200,10 @@ export class AssetRepository {
    * جلب أنواع الأصول (للفلاتر)
    */
   static getTypes = cache(async () => {
-    const session = await this.getSession();
+    const { companyId } = await this.company();
+
     return prisma.assetType.findMany({
-      where: { companyId: session.companyId },
+      where: { companyId },
       orderBy: { name: 'asc' },
     });
   });
@@ -222,9 +212,10 @@ export class AssetRepository {
    * جلب حالات الأصول (للفلاتر)
    */
   static getStatuses = cache(async () => {
-    const session = await this.getSession();
+    const { companyId } = await this.company();
+
     return prisma.assetStatus.findMany({
-      where: { companyId: session.companyId },
+      where: { companyId },
       orderBy: { name: 'asc' },
     });
   });
@@ -233,14 +224,15 @@ export class AssetRepository {
    * جلب إحصائيات لوحة التحكم
    */
   static getDashboardStats = cache(async () => {
-    const session = await this.getSession();
+    const { companyId } = await this.company();
+
     const [total, byStatus] = await Promise.all([
       prisma.asset.count({
-        where: { companyId: session.companyId },
+        where: { companyId },
       }),
       prisma.asset.groupBy({
         by: ['statusId'],
-        where: { companyId: session.companyId },
+        where: { companyId },
         _count: true,
       }),
     ]);

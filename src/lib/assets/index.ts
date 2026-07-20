@@ -16,7 +16,6 @@ export { listAssets } from './list';
 
 export { validateAssetData, normalizeAssetInput } from './validation';
 export { generateAssetCode, serializeAsset, serializeAssetList } from './helpers';
-export { createAuditLog, buildDiff } from './audit';
 
 // ============================================================
 // تصدير دوال الصلاحيات
@@ -66,4 +65,8 @@ export type {
 } from './types';
 
 export type { AssetResponse } from './helpers';
-export type { AuditAction, AuditLogChanges } from './audit';
+
+// ============================================================
+// ❌ تم حذف التصديرات القديمة للتدقيق
+// تم استبدالها بنظام التدقيق الجديد في src/lib/audit/
+// ============================================================

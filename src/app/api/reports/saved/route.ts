@@ -1,4 +1,5 @@
 // src/app/api/reports/saved/route.ts
+
 import { NextResponse } from 'next/server';
 import { requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
@@ -8,10 +9,18 @@ export async function GET() {
   try {
     const session = await requirePermission('reports.view');
 
+    // ✅ التحقق من وجود companyId
+    if (!session.companyId) {
+      return NextResponse.json(
+        { error: 'معرف الشركة غير متوفر' },
+        { status: 400 }
+      );
+    }
+
     const reports = await prisma.savedReport.findMany({
       where: {
         userId: session.userId,
-        companyId: session.companyId,
+        companyId: session.companyId, // الآن هو string بالتأكيد
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -30,6 +39,14 @@ export async function GET() {
 export async function POST(request: Request) {
   try {
     const session = await requirePermission('reports.create');
+
+    // ✅ التحقق من وجود companyId
+    if (!session.companyId) {
+      return NextResponse.json(
+        { error: 'معرف الشركة غير متوفر' },
+        { status: 400 }
+      );
+    }
 
     const body = await request.json();
     const { name, description, modelType, columns, filters, sortBy } = body;
@@ -50,7 +67,7 @@ export async function POST(request: Request) {
         filters: filters ? JSON.stringify(filters) : null,
         sortBy: sortBy ? JSON.stringify(sortBy) : null,
         userId: session.userId,
-        companyId: session.companyId,
+        companyId: session.companyId, // الآن هو string بالتأكيد
       },
     });
 

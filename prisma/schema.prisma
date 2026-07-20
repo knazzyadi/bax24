@@ -881,6 +881,121 @@ model Supplier {
   @@index([isActive])
   @@index([deletedAt])
 }
+// ==========================================
+// نماذج الفحص (Inspection)
+// ==========================================
+
+enum RiskLevel {
+  low
+  medium
+  high
+  critical
+}
+
+enum InputType {
+  pass_fail
+  numeric
+  text
+}
+
+enum InspectionStatus {
+  draft
+  in_progress
+  completed
+  approved
+}
+
+enum ResultStatus {
+  pass
+  fail
+  na
+}
+
+// عنوان رئيسي للفحص (مثل: السلامة، التكييف)
+model inspectionCategory {
+  id          String    @id @default(cuid())
+  name        String    @db.VarChar(255)
+  nameAr      String?   @db.VarChar(255)
+  description String?   @db.Text
+  isActive    Boolean   @default(true)
+  items       InspectionItem[]
+  selections  InspectionCategorySelection[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("inspection_categories")
+}
+
+// بند فرعي (مثل: طفاية حريق، درجة حرارة)
+model InspectionItem {
+  id          String      @id @default(cuid())
+  categoryId  String
+  category    inspectionCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name        String      @db.VarChar(255)
+  nameAr      String?     @db.VarChar(255)
+  cbahiCode   String?     @db.VarChar(50)
+  riskLevel   RiskLevel   @default(medium)
+  inputType   InputType   @default(pass_fail)
+  sortOrder   Int         @default(0)
+  isActive    Boolean     @default(true)
+  results     InspectionResult[]
+
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@map("inspection_items")
+}
+
+// رأس الفحص (الفحص نفسه)
+model Inspection {
+  id                String                  @id @default(cuid())
+  title             String                  @db.VarChar(255)
+  locationName      String?                 @db.VarChar(255)
+  scheduledDate     DateTime                @default(now())
+  inspectorName     String?                 @db.VarChar(255)
+  status            InspectionStatus        @default(draft)
+  inspectorSignature String?                @db.Text
+  supervisorSignature String?               @db.Text
+  
+  selectedCategories InspectionCategorySelection[]
+  results           InspectionResult[]
+
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+
+  @@map("inspections")
+}
+
+// ربط العناوين المختارة بالفحص
+model InspectionCategorySelection {
+  id           String   @id @default(cuid())
+  inspectionId String
+  inspection   Inspection @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  categoryId   String
+  category     inspectionCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  sortOrder    Int      @default(0)
+
+  @@unique([inspectionId, categoryId])
+  @@map("inspection_category_selections")
+}
+
+// نتيجة كل بند في الفحص
+model InspectionResult {
+  id            String       @id @default(cuid())
+  inspectionId  String
+  inspection    Inspection   @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  itemId        String
+  item          InspectionItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  result        ResultStatus @default(na)
+  notes         String?      @db.Text
+  imageUrl      String?      @db.Text
+  workOrderId   String?      @db.VarChar(255)   // رابط لأمر العمل إن وجد
+  executedAt    DateTime?    @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@unique([inspectionId, itemId])
+  @@map("inspection_results")
+}
 
 // ============================================================
 // 4. النوعان (Enums)

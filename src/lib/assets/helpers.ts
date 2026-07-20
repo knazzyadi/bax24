@@ -1,5 +1,4 @@
 // src/lib/assets/helpers.ts
-
 import { prisma } from '@/lib/prisma';
 import { AssetBusinessError } from './errors';
 
@@ -10,14 +9,15 @@ import { AssetBusinessError } from './errors';
 const CODE_DIGITS = 4;
 
 // ============================================================
-// توليد الكود التسلسلي
+// توليد الكود التسلسلي (النظام الجديد: الفرع + النوع + رقم تسلسلي)
 // ============================================================
 
 export async function generateAssetCode(
   typeId: string,
-  roomId: string,
+  branchId: string,
   companyId: string
 ): Promise<string> {
+  // 1. جلب رمز النوع
   const assetType = await prisma.assetType.findUnique({
     where: { id: typeId },
     select: { code: true },
@@ -26,38 +26,43 @@ export async function generateAssetCode(
     throw new AssetBusinessError('نوع الأصل غير موجود أو لا يحتوي على رمز');
   }
 
-  const room = await prisma.room.findUnique({
-    where: { id: roomId },
-    include: {
-      floor: {
-        include: {
-          building: {
-            select: { code: true },
-          },
-        },
-      },
-    },
+  // 2. جلب رمز الفرع
+  const branch = await prisma.branch.findUnique({
+    where: { id: branchId },
+    select: { code: true },
   });
-  if (!room?.floor?.building?.code) {
-    throw new AssetBusinessError('الغرفة غير موجودة أو لا تحتوي على رمز مبنى');
+  if (!branch?.code) {
+    throw new AssetBusinessError('الفرع غير موجود أو لا يحتوي على رمز');
   }
 
-  const buildingCode = room.floor.building.code;
-  const roomCode = room.code || '';
-
-  const count = await prisma.asset.count({
+  // 3. البحث عن آخر أصل لنفس (الشركة + الفرع + النوع)
+  const lastAsset = await prisma.asset.findFirst({
     where: {
       companyId,
+      branchId,
       typeId,
-      roomId,
       deletedAt: null,
     },
+    orderBy: {
+      // ترتيب تنازلي حسب الكود (الأبجدي يعمل مع الأصفار الرائدة)
+      code: 'desc',
+    },
+    select: { code: true },
   });
 
-  const sequenceNumber = count + 1;
-  const sequencePart = String(sequenceNumber).padStart(CODE_DIGITS, '0');
+  let nextNumber = 1;
+  if (lastAsset?.code) {
+    // استخراج الرقم التسلسلي من آخر كود (الجزء الأخير بعد آخر شرطة)
+    const parts = lastAsset.code.split('-');
+    const lastSeq = parseInt(parts[parts.length - 1], 10);
+    if (!isNaN(lastSeq)) {
+      nextNumber = lastSeq + 1;
+    }
+  }
 
-  return `${buildingCode}-${roomCode}-${sequencePart}`;
+  // 4. توليد الكود النهائي
+  const sequencePart = String(nextNumber).padStart(CODE_DIGITS, '0');
+  return `${branch.code}-${assetType.code}-${sequencePart}`;
 }
 
 // ============================================================
@@ -163,7 +168,7 @@ export function serializeAsset(asset: any): AssetResponse {
   };
 }
 
-// ✅ دالة تحويل قائمة الأصول (مطلوبة في list.ts)
+// ✅ دالة تحويل قائمة الأصول
 export function serializeAssetList(assets: any[]): any[] {
   return assets.map(serializeAsset);
 }

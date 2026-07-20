@@ -1,7 +1,7 @@
 // src/app/api/work-orders/[id]/audit-log/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
+import { getAuditLogs } from "@/lib/audit/service";
 
 export async function GET(
   request: NextRequest,
@@ -10,54 +10,17 @@ export async function GET(
   try {
     const session = await getAuthenticatedSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
 
     const { id } = await params;
 
-    // التحقق من وجود أمر العمل وصلاحية الشركة
-    const workOrder = await prisma.workOrder.findFirst({
-      where: {
-        id,
-        companyId: session.companyId,
-        deletedAt: null,
-      },
-      select: { id: true },
-    });
-
-    if (!workOrder) {
-      return NextResponse.json(
-        { error: "Work order not found" },
-        { status: 404 }
-      );
-    }
-
-    // جلب سجل التدقيق من قاعدة البيانات
-    // ✅ تأكد من أن نموذج AuditLog موجود في Prisma
-    const logs = await prisma.auditLog.findMany({
-      where: {
-        workOrderId: id,
-        companyId: session.companyId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
+    const logs = await getAuditLogs('WORK_ORDER', id, session.companyId);
     return NextResponse.json(logs);
   } catch (error) {
-    console.error("Error fetching audit logs:", error);
+    console.error('Error fetching work order audit logs:', error);
     return NextResponse.json(
-      { error: "Failed to fetch audit logs" },
+      { error: "حدث خطأ في جلب سجل التدقيق" },
       { status: 500 }
     );
   }

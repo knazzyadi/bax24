@@ -1,4 +1,5 @@
 // src/lib/repositories/inventory.repository.ts
+
 import { Prisma } from '@prisma/client';
 import { cache } from 'react';
 import { prisma } from '@/lib/prisma';
@@ -19,6 +20,11 @@ export class InventoryRepository {
    */
   static findMany = cache(async (options: InventoryFindManyOptions = {}) => {
     const session = await getAuthSession();
+    // ✅ التحقق من وجود session و companyId
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+    if (!companyId) throw new Error('Company context required');
+
     const branchFilter = getBranchFilter(session);
 
     const {
@@ -30,7 +36,7 @@ export class InventoryRepository {
     } = options;
 
     const baseWhere: Prisma.InventoryItemWhereInput = {
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
       ...where,
@@ -67,10 +73,14 @@ export class InventoryRepository {
    */
   static count = cache(async (where: Prisma.InventoryItemWhereInput = {}) => {
     const session = await getAuthSession();
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+    if (!companyId) throw new Error('Company context required');
+
     const branchFilter = getBranchFilter(session);
 
     const baseWhere: Prisma.InventoryItemWhereInput = {
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
       ...where,
@@ -81,20 +91,22 @@ export class InventoryRepository {
 
   /**
    * جلب عنصر مخزون واحد بالمعرف مع تفاصيل كاملة
-   * ✅ استخدم include بدلاً من select لتجنب تعقيد الأنواع
    */
   static findById = cache(async (id: string) => {
     const session = await getAuthSession();
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+    if (!companyId) throw new Error('Company context required');
+
     const branchFilter = getBranchFilter(session);
 
     const where: Prisma.InventoryItemWhereInput = {
       id,
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
     };
 
-    // ✅ استخدام include بدلاً من select لحل مشكلة تعقيد الأنواع
     return prisma.inventoryItem.findFirst({
       where,
       include: {
@@ -137,11 +149,15 @@ export class InventoryRepository {
    */
   static search = cache(async (searchTerm: string, options: { limit?: number } = {}) => {
     const session = await getAuthSession();
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+    if (!companyId) throw new Error('Company context required');
+
     const branchFilter = getBranchFilter(session);
     const limit = options.limit || 20;
 
     const where: Prisma.InventoryItemWhereInput = {
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
       OR: [
@@ -165,10 +181,14 @@ export class InventoryRepository {
    */
   static getDashboardStats = cache(async () => {
     const session = await getAuthSession();
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!;
+    if (!companyId) throw new Error('Company context required');
+
     const branchFilter = getBranchFilter(session);
 
     const where: Prisma.InventoryItemWhereInput = {
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
     };

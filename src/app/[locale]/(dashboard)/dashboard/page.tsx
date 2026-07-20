@@ -1,4 +1,5 @@
 // src/app/[locale]/(dashboard)/dashboard/page.tsx
+
 "use client";
 
 import { useEffect, useState, useMemo, useCallback } from "react";
@@ -63,12 +64,13 @@ export default function DashboardPage() {
 
   const isSessionLoading = status === "loading";
 
+  // ✅ استخدام session.user.* بدلاً من session.* مباشرة
   let companyDisplayName = isRTL ? "شركتك" : "Your Company";
   if (!isSessionLoading && session?.user) {
     if (isRTL) {
-      companyDisplayName = session.user.companyName || "شركتك";
+      companyDisplayName = (session.user as any).companyName || "شركتك";
     } else {
-      companyDisplayName = session.user.companyNameEn || session.user.companyName || "Your Company";
+      companyDisplayName = (session.user as any).companyNameEn || (session.user as any).companyName || "Your Company";
     }
   }
 
@@ -269,7 +271,7 @@ export default function DashboardPage() {
         })}
       </div>
 
-      {/* ✅ قسم الوصول السريع - مع padding داخلي كافٍ */}
+      {/* ✅ قسم الوصول السريع */}
       <div className="relative grid gap-6 md:grid-cols-5">
         <div className={cn("md:col-span-3", glassCard)}>
           <CardHeader className="pb-2 pt-5 px-6">
@@ -325,7 +327,7 @@ export default function DashboardPage() {
           </CardContent>
         </div>
 
-        {/* ✅ بطاقة حالة النظام - مع padding داخلي كافٍ */}
+        {/* ✅ بطاقة حالة النظام */}
         <div className={cn("md:col-span-2", glassCard)}>
           <CardHeader className="pb-2 pt-5 px-6">
             <div className="flex items-center justify-between">

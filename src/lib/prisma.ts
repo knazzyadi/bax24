@@ -1,9 +1,17 @@
 // src/lib/prisma.ts
+
 import { PrismaClient, Prisma } from '@prisma/client';
 import { RequestContext } from './request-context';
 
 // ============================================================
-// Type Exports - الحل الرسمي لتوافق الأنواع مع Prisma Extensions
+// 1. ✅ العميل الأساسي (بدون extensions) لـ PrismaAdapter
+// ============================================================
+export const prismaBase = new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+});
+
+// ============================================================
+// 2. بقية الكود كما هو (العميل الممتد للتطبيق)
 // ============================================================
 
 export type TxClient = Prisma.TransactionClient;
@@ -20,11 +28,8 @@ const MODELS_WITHOUT_COMPANY_ID = [
 ] as const;
 
 function createExtendedClient() {
-  const baseClient = new PrismaClient({
-    log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
-  });
-
-  return baseClient.$extends({
+  // ✅ استخدم prismaBase كقاعدة للتمديد
+  return prismaBase.$extends({
     query: {
       $allModels: {
         async $allOperations(payload: any) {

@@ -1,6 +1,7 @@
 // src/app/api/admin/setup-roles/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/auth/permissions';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+import { requireSuperAdmin } from '@/lib/auth/permissions';
 import { prisma } from '@/lib/prisma';
 
 const ROLES = [
@@ -13,8 +14,17 @@ const ROLES = [
 // GET: جلب جميع الأدوار (للسوبر أدمن فقط)
 export async function GET(request: NextRequest) {
   try {
-    const session = await requirePermission('admin.setup');
+    // 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
+    // 2. التحقق من صلاحية SUPER_ADMIN
+    const permissionError = requireSuperAdmin(session);
+    if (permissionError) return permissionError;
+
+    // 3. تنفيذ المنطق
     const roles = await prisma.role.findMany({
       select: { id: true, name: true, label: true },
       orderBy: { name: 'asc' },
@@ -23,12 +33,6 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(roles);
   } catch (error: any) {
     console.error('GET /api/admin/setup-roles', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'خطأ في جلب الأدوار' }, { status: 500 });
   }
 }
@@ -36,8 +40,17 @@ export async function GET(request: NextRequest) {
 // POST: إنشاء/تهيئة الأدوار (للسوبر أدمن فقط)
 export async function POST(request: NextRequest) {
   try {
-    const session = await requirePermission('admin.setup');
+    // 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
 
+    // 2. التحقق من صلاحية SUPER_ADMIN
+    const permissionError = requireSuperAdmin(session);
+    if (permissionError) return permissionError;
+
+    // 3. تنفيذ المنطق
     const results = [];
 
     for (const role of ROLES) {
@@ -52,12 +65,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, created: results });
   } catch (error: any) {
     console.error('POST /api/admin/setup-roles', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
     return NextResponse.json({ error: 'فشل في تهيئة الأدوار' }, { status: 500 });
   }
 }

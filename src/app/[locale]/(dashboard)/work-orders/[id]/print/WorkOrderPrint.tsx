@@ -1,3 +1,4 @@
+//src/app/[locale]/(dashboard)/work-orders/[id]/print/WorkOrderPrint.tsx
 "use client";
 
 import { useEffect } from "react";
@@ -10,7 +11,6 @@ interface WorkOrderPrintProps {
 
 export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
   useEffect(() => {
-    // إضافة كلاس printing إلى body
     document.body.classList.add("printing");
 
     const timer = setTimeout(() => {
@@ -65,6 +65,21 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
     if (floor) parts.push(isRtl ? floor.name : floor.nameEn || floor.name);
     parts.push(isRtl ? room.name : room.nameEn || room.name);
     return parts.join(" - ");
+  };
+
+  // ✅ دالة لعرض نص الإجراء باللغة المناسبة
+  const getActionLabel = (action: string) => {
+    const actions: Record<string, { ar: string; en: string }> = {
+      CREATED: { ar: "تم الإنشاء", en: "Created" },
+      UPDATED: { ar: "تم التحديث", en: "Updated" },
+      STATUS_CHANGED: { ar: "تغيير الحالة", en: "Status Changed" },
+      ASSIGNED: { ar: "تم الإسناد", en: "Assigned" },
+      COMPLETED: { ar: "تم الإكمال", en: "Completed" },
+      CANCELLED: { ar: "تم الإلغاء", en: "Cancelled" },
+      COMMENT_ADDED: { ar: "إضافة تعليق", en: "Comment Added" },
+      // أضف المزيد حسب احتياجاتك
+    };
+    return isRtl ? actions[action]?.ar || action : actions[action]?.en || action;
   };
 
   return (
@@ -165,7 +180,7 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
         )}
       </div>
 
-      {/* ========== الأصول ========== */}
+      {/* ========== الأصول المرتبطة ========== */}
       {data.workOrderAssets && data.workOrderAssets.length > 0 && (
         <div className="mb-4">
           <h2 className="text-lg font-bold border-b-2 border-gray-300 pb-2 mb-4" style={{ color: "#000000" }}>
@@ -234,14 +249,66 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
         </div>
       )}
 
-      {/* ========== سجل التنفيذ ========== */}
+      {/* ============================================================
+          ✅ سجل التدقيق (Audit Log) – بدلاً من "سجل التنفيذ"
+          ============================================================ */}
       <div className="mb-4">
         <h2 className="text-lg font-bold border-b-2 border-gray-300 pb-2 mb-4" style={{ color: "#000000" }}>
-          {isRtl ? "سجل التنفيذ" : "Execution Log"}
+          {isRtl ? "سجل التدقيق" : "Audit Log"}
         </h2>
-        <p className="text-sm" style={{ color: "#555555" }}>
-          {isRtl ? "لا توجد سجلات تنفيذ متاحة" : "No execution logs available"}
-        </p>
+
+        {data.auditLogs && data.auditLogs.length > 0 ? (
+          <div className="space-y-2">
+            <table className="w-full text-sm border-collapse">
+              <thead>
+                <tr className="bg-gray-100">
+                  <th className="border border-gray-300 px-3 py-1.5 text-left" style={{ color: "#000000" }}>
+                    {isRtl ? "التاريخ" : "Date"}
+                  </th>
+                  <th className="border border-gray-300 px-3 py-1.5 text-left" style={{ color: "#000000" }}>
+                    {isRtl ? "الإجراء" : "Action"}
+                  </th>
+                  <th className="border border-gray-300 px-3 py-1.5 text-left" style={{ color: "#000000" }}>
+                    {isRtl ? "المستخدم" : "User"}
+                  </th>
+                  <th className="border border-gray-300 px-3 py-1.5 text-left" style={{ color: "#000000" }}>
+                    {isRtl ? "التفاصيل" : "Details"}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.auditLogs.map((log: any) => (
+                  <tr key={log.id}>
+                    <td className="border border-gray-300 px-3 py-1.5 text-xs" style={{ color: "#000000" }}>
+                      {formatDate(log.createdAt)}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-1.5 text-sm" style={{ color: "#000000" }}>
+                      {getActionLabel(log.action)}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-1.5 text-sm" style={{ color: "#000000" }}>
+                      {log.user?.name || "—"}
+                    </td>
+                    <td className="border border-gray-300 px-3 py-1.5 text-xs" style={{ color: "#555555" }}>
+                      {log.details ? (
+                        typeof log.details === "string" ? (
+                          log.details
+                        ) : (
+                          JSON.stringify(log.details, null, 2)
+                        )
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-sm" style={{ color: "#555555" }}>
+            {isRtl ? "لا توجد سجلات تدقيق" : "No audit logs available"}
+          </p>
+        )}
       </div>
 
       {/* ========== التوقيعات ========== */}
@@ -275,16 +342,13 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
         <span style={{ color: "#555555" }}>{isRtl ? "الصفحة" : "Page"} 1 / 1</span>
       </div>
 
-      {/* ========== أنماط الطباعة ========== */}
+      {/* ========== أنماط الطباعة ========== (كما هي، لم تتغير) ========== */}
       <style jsx global>{`
-        /* عند إضافة كلاس printing إلى الـ body */
         body.printing {
           margin: 0 !important;
           padding: 0 !important;
           background: #ffffff !important;
         }
-
-        /* ✅ إخفاء كل عناصر الداشبورد */
         body.printing aside,
         body.printing header,
         body.printing nav,
@@ -301,13 +365,9 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
         body.printing .no-print {
           display: none !important;
         }
-
-        /* ✅ إخفاء جميع عناصر #__next مباشرةً، مع إبقاء #print-area ظاهرة */
         body.printing #__next > *:not(#print-area) {
           display: none !important;
         }
-
-        /* ✅ تأكد من ظهور #print-area */
         body.printing #print-area {
           display: block !important;
           position: absolute !important;
@@ -321,25 +381,20 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
           visibility: visible !important;
           z-index: 9999 !important;
         }
-
         body.printing #print-area * {
           visibility: visible !important;
           color: #000000 !important;
           background-color: transparent !important;
         }
-
         body.printing #print-area .border-gray-300 {
           border-color: #cccccc !important;
         }
-
         body.printing #print-area .bg-gray-100 {
           background-color: #f5f5f5 !important;
         }
-
         body.printing #print-area .bg-white {
           background-color: white !important;
         }
-
         @media print {
           html,
           body {
@@ -347,16 +402,13 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
             padding: 0 !important;
             background: #ffffff !important;
           }
-
           body * {
             visibility: hidden !important;
           }
-
           #print-area,
           #print-area * {
             visibility: visible !important;
           }
-
           #print-area {
             position: absolute !important;
             inset: 0 !important;
@@ -367,37 +419,29 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
             box-shadow: none !important;
             border-radius: 0 !important;
           }
-
           #print-area * {
             color: #000000 !important;
             background-color: transparent !important;
           }
-
           #print-area .border-gray-300 {
             border-color: #cccccc !important;
           }
-
           #print-area .bg-gray-100 {
             background-color: #f5f5f5 !important;
           }
-
           #print-area .bg-white {
             background-color: white !important;
           }
-
           table {
             page-break-inside: auto;
           }
-
           tr {
             page-break-inside: avoid;
             page-break-after: auto;
           }
-
           thead {
             display: table-header-group;
           }
-
           tfoot {
             display: table-footer-group;
           }

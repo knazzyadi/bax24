@@ -1,8 +1,10 @@
 // src/app/api/assets/bulk/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { getErrorResponse } from '@/lib/assets/errors';
+import type { AuthSession } from '@/lib/auth/auth-helper';
 
 // ============================================================
 // POST - إنشاء جماعي (مخصص لاستيراد Excel/CSV)
@@ -12,6 +14,15 @@ export async function POST(request: NextRequest) {
     const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
+    // ✅ تأكيد وجود companyId
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'معرف الشركة غير متوفر' },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
@@ -28,7 +39,7 @@ export async function POST(request: NextRequest) {
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       select: {
-        buildingId: true, // ✅ إضافة buildingId
+        buildingId: true,
         building: {
           select: {
             branchId: true,
@@ -52,7 +63,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ استخراج buildingId من الغرفة
     const buildingId = room.buildingId;
     if (!buildingId) {
       return NextResponse.json(
@@ -69,10 +79,8 @@ export async function POST(request: NextRequest) {
       for (let i = 0; i < assets.length; i++) {
         const asset = assets[i];
         try {
-          // توليد كود فريد (يمكن تحسينه حسب منطق المشروع)
           const code = `AST-${Date.now()}-${i}`;
 
-          // ✅ إنشاء الأصل مع إضافة buildingId
           const created = await tx.asset.create({
             data: {
               name: asset.name || 'أصل بدون اسم',
@@ -80,9 +88,9 @@ export async function POST(request: NextRequest) {
               typeId: asset.typeId || null,
               statusId: asset.statusId || null,
               roomId,
-              buildingId, // ✅ تمت الإضافة
+              buildingId,
               branchId,
-              companyId: session.companyId,
+              companyId, // ✅ استخدم companyId (string)
               serialNumber: asset.serialNumber || null,
               manufacturer: asset.manufacturer || null,
               model: asset.model || null,
@@ -96,7 +104,6 @@ export async function POST(request: NextRequest) {
           });
           createdAssets.push(created);
         } catch (err) {
-          // معالجة الخطأ من نوع unknown
           const errorMessage = err instanceof Error ? err.message : 'خطأ غير معروف';
           errors.push({ index: i, error: errorMessage });
         }
@@ -127,6 +134,15 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
+    // ✅ تأكيد وجود companyId (للأمان)
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'معرف الشركة غير متوفر' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const { assetIds, hard } = body;
 
@@ -137,27 +153,24 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    // تنفيذ الحذف الجماعي مباشرة
     const result = await prisma.$transaction(async (tx) => {
       const deletedIds: string[] = [];
 
       for (const id of assetIds) {
         try {
-          // التحقق من وجود الأصل
+          // ✅ التحقق من وجود الأصل مع companyId
           const asset = await tx.asset.findUnique({
             where: { id },
-            select: { id: true, deletedAt: true },
+            select: { id: true, deletedAt: true, companyId: true },
           });
 
-          if (!asset) {
-            continue; // الأصل غير موجود، نتجاوزه
+          if (!asset || asset.deletedAt || asset.companyId !== companyId) {
+            continue; // ليس لهذا الشركة أو محذوف
           }
 
           if (hard) {
-            // حذف صلب
             await tx.asset.delete({ where: { id } });
           } else {
-            // حذف ناعم
             await tx.asset.update({
               where: { id },
               data: { deletedAt: new Date() },
@@ -165,7 +178,6 @@ export async function DELETE(request: NextRequest) {
           }
           deletedIds.push(id);
         } catch (err) {
-          // تجاهل الأخطاء الفردية لتكملة الحذف الجماعي
           console.error(`فشل حذف الأصل ${id}:`, err);
         }
       }
@@ -194,6 +206,15 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
+    // ✅ تأكيد وجود companyId (للأمان)
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'معرف الشركة غير متوفر' },
+        { status: 400 }
+      );
+    }
+
     const body = await request.json();
     const { assetIds, data } = body;
 
@@ -211,26 +232,23 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // تنفيذ التحديث الجماعي
     const result = await prisma.$transaction(async (tx) => {
       let updatedCount = 0;
 
       for (const id of assetIds) {
         try {
-          // التحقق من وجود الأصل
+          // ✅ التحقق من وجود الأصل مع companyId
           const asset = await tx.asset.findUnique({
             where: { id },
-            select: { id: true, deletedAt: true },
+            select: { id: true, deletedAt: true, companyId: true },
           });
 
-          if (!asset || asset.deletedAt) {
+          if (!asset || asset.deletedAt || asset.companyId !== companyId) {
             continue;
           }
 
-          // إزالة الحقول غير القابلة للتحديث
           const { id: _, createdAt, updatedAt, ...updateData } = data;
 
-          // تحويل التواريخ إذا كانت موجودة
           if (updateData.purchaseDate) {
             updateData.purchaseDate = new Date(updateData.purchaseDate);
           }

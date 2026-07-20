@@ -1,19 +1,39 @@
 // src/app/api/users/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { requirePermission } from '@/lib/auth/permissions';
 import { UserService } from '@/services/UserService';
 
+// ============================================================
 // GET: جلب جميع المستخدمين (للسوبر أدمن فقط)
+// ============================================================
 export async function GET(request: NextRequest) {
   try {
-    const session = await requirePermission('users.read');
+    // ✅ 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
+        { status: 401 }
+      );
+    }
 
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'users.read');
+    if (permissionError) return permissionError;
+
+    // ✅ 3. استخراج companyId وتحويل null إلى undefined
+    const companyId = session.companyId;
     const { searchParams } = new URL(request.url);
     const role = searchParams.get('role') || undefined;
-    const companyId = searchParams.get('companyId') || undefined;
     const search = searchParams.get('search') || undefined;
 
-    const users = await UserService.getAll({ role, companyId, search });
+    // ✅ 4. تنفيذ المنطق مع تحويل null إلى undefined
+    const users = await UserService.getAll({
+      role,
+      search,
+      companyId: session.role === 'SUPER_ADMIN' ? undefined : (companyId ?? undefined),
+    });
     return NextResponse.json(users);
   } catch (error: any) {
     console.error('GET /api/users', error);
@@ -27,11 +47,28 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// ============================================================
 // POST: إنشاء مستخدم جديد (للسوبر أدمن فقط)
+// ============================================================
 export async function POST(request: NextRequest) {
   try {
-    const session = await requirePermission('users.create');
+    // ✅ 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
+        { status: 401 }
+      );
+    }
+
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'users.create');
+    if (permissionError) return permissionError;
+
+    // ✅ 3. قراءة الجسم
     const body = await request.json();
+
+    // ✅ 4. تنفيذ المنطق
     const user = await UserService.create(body);
     return NextResponse.json(user, { status: 201 });
   } catch (error: any) {
@@ -42,7 +79,7 @@ export async function POST(request: NextRequest) {
     if (error.message === 'FORBIDDEN') {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
-    if (error.message === 'الاسم مطلوب' || error.message === 'البريد الإلكتروني مطلوب' || 
+    if (error.message === 'الاسم مطلوب' || error.message === 'البريد الإلكتروني مطلوب' ||
         error.message === 'الدور مطلوب' || error.message === 'الشركة مطلوبة') {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }

@@ -1,4 +1,4 @@
-// src/app/[locale]/(dashboard)/work-orders/[id]/components/LocationCard.tsx
+// src/app/[locale]/(dashboard)/work-orders/[id]/LocationCard.tsx
 "use client";
 
 interface LocationCardProps {

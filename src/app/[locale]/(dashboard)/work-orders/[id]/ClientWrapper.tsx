@@ -1,4 +1,5 @@
 // src/app/[locale]/(dashboard)/work-orders/[id]/ClientWrapper.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,9 +21,10 @@ import { QuickUpdateDialog } from "./QuickUpdateDialog";
 import { LocationCard } from "../LocationCard";
 import { InfoBar } from "../InfoBar";
 import { WorkOrderActions } from "./WorkOrderActions";
-import { WorkOrderAuditLog } from "./WorkOrderAuditLog"; // ✅ تم الاستيراد
+import { WorkOrderAuditLog } from "./WorkOrderAuditLog";
+import { glassCard } from "../constants"; // ✅ استيراد التنسيق الموحد
 
-// تعريف الأنواع (كما هي)
+// تعريف الأنواع (مع إضافة workOrderType)
 interface WorkOrderAsset {
   assetId: string;
   completedAt: string | null;
@@ -41,6 +43,11 @@ interface WorkOrderDetailData {
   title: string;
   description: string | null;
   type: string;
+  workOrderType: {
+    id: string;
+    name: string;
+    nameEn?: string | null;
+  } | null;
   priority: { id: string; name: string; nameEn?: string; color?: string } | null;
   status: { id: string; name: string; nameEn?: string; color?: string } | null;
   room: any;
@@ -97,6 +104,7 @@ export function WorkOrderDetailClient({
         setWorkOrder({
           ...data,
           attachments: data.attachments || [],
+          workOrderType: data.workOrderType || null,
         });
       }
     } catch (error) {
@@ -284,24 +292,34 @@ export function WorkOrderDetailClient({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* ========== العمود الرئيسي ========== */}
         <div className="lg:col-span-2 space-y-8">
-          <DetailsCard workOrder={workOrder} isRtl={isRtl} t={t} />
+          {/* ✅ DetailsCard باستخدام glassCard */}
+          <div className={glassCard}>
+            <DetailsCard workOrder={workOrder} isRtl={isRtl} t={t} />
+          </div>
 
-          <AssetsCard
-            workOrderAssets={workOrder.workOrderAssets}
-            pendingCount={pendingAssetsCount}
-            hasAssets={hasAssets}
-            onCompleteAsset={openCompleteDialog}
-            onCompleteAll={() => openCompleteDialog(null)}
-            isRtl={isRtl}
-            t={t}
-            actionLoading={actionLoading}
-            locale={locale}
-          />
+          {/* ✅ AssetsCard باستخدام glassCard */}
+          <div className={glassCard}>
+            <AssetsCard
+              workOrderAssets={workOrder.workOrderAssets}
+              pendingCount={pendingAssetsCount}
+              hasAssets={hasAssets}
+              onCompleteAsset={openCompleteDialog}
+              onCompleteAll={() => openCompleteDialog(null)}
+              isRtl={isRtl}
+              t={t}
+              actionLoading={actionLoading}
+              locale={locale}
+            />
+          </div>
 
-          <SparePartsCard workOrderId={workOrder.id} locale={locale} />
+          {/* ✅ SparePartsCard باستخدام glassCard */}
+          <div className={glassCard}>
+            <SparePartsCard workOrderId={workOrder.id} locale={locale} />
+          </div>
 
+          {/* ✅ Notes باستخدام glassCard */}
           {workOrder.notes && (
-            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300">
+            <div className={glassCard}>
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 rounded-xl bg-slate-50 dark:bg-slate-800/30">
                   <FileText className="h-5 w-5 text-slate-500 dark:text-slate-400" />
@@ -314,16 +332,17 @@ export function WorkOrderDetailClient({
             </div>
           )}
 
-          {/* ✅ سجل التدقيق - أضف هنا */}
-          <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300">
+          {/* ✅ AuditLog باستخدام glassCard */}
+          <div className={glassCard}>
             <WorkOrderAuditLog workOrderId={workOrder.id} />
           </div>
         </div>
 
         {/* ========== العمود الجانبي ========== */}
         <div className="space-y-6">
+          {/* ✅ المرفقات باستخدام glassCard */}
           {workOrder.attachments && workOrder.attachments.length > 0 && (
-            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300">
+            <div className={glassCard}>
               <div className="flex items-center gap-3 mb-5">
                 <div className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40">
                   <span className="h-5 w-5 text-rose-600 dark:text-rose-400">📎</span>
@@ -351,7 +370,8 @@ export function WorkOrderDetailClient({
             </div>
           )}
 
-          <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300">
+          {/* ✅ معلومات إضافية باستخدام glassCard */}
+          <div className={glassCard}>
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
                 <span className="h-5 w-5 text-blue-600 dark:text-blue-400">📅</span>
@@ -408,8 +428,9 @@ export function WorkOrderDetailClient({
             </div>
           </div>
 
+          {/* ✅ Location باستخدام glassCard */}
           {workOrder.room && (
-            <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300">
+            <div className={glassCard}>
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
                   <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
@@ -427,7 +448,8 @@ export function WorkOrderDetailClient({
             </div>
           )}
 
-          <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300">
+          {/* ✅ زر الطباعة باستخدام glassCard */}
+          <div className={glassCard}>
             <Link
               href={`/${locale}/work-orders/${workOrder.id}/print`}
               target="_blank"

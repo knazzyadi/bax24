@@ -1,189 +1,119 @@
 // src/lib/repositories/workorder.repository.ts
+
 import { Prisma } from '@prisma/client';
 import { cache } from 'react';
 import { prisma } from '@/lib/prisma';
 import { getAuthSession, getBranchFilter } from '@/lib/auth/auth-helper';
-import { workOrderListSelect } from '@/lib/selects/workorder/list.select';
-
-export interface WorkOrderFindManyOptions {
-  where?: Prisma.WorkOrderWhereInput;
-  select?: Prisma.WorkOrderSelect;
-  limit?: number;
-  cursor?: { id: string } | undefined;
-  orderBy?: Prisma.WorkOrderOrderByWithRelationInput;
-}
 
 export class WorkOrderRepository {
-  /**
-   * جلب قائمة أوامر العمل مع Cursor Pagination
-   */
-  static findMany = cache(async (options: WorkOrderFindManyOptions = {}) => {
-    const session = await getAuthSession();
-    const branchFilter = getBranchFilter(session);
-
-    const {
-      where = {},
-      select = workOrderListSelect,
-      limit = 30,
-      cursor,
-      orderBy = { createdAt: 'desc' },
-    } = options;
-
-    const baseWhere: Prisma.WorkOrderWhereInput = {
-      companyId: session.companyId,
-      deletedAt: null,
-      ...branchFilter,
-      ...where,
-    };
-
-    const queryOptions: Prisma.WorkOrderFindManyArgs = {
-      where: baseWhere,
-      select,
-      take: limit,
+  static findMany = cache(
+    async ({
+      where,
       orderBy,
-    };
+      skip,
+      limit,
+    }: {
+      where?: Prisma.WorkOrderWhereInput;
+      orderBy?: Prisma.WorkOrderOrderByWithRelationInput;
+      skip?: number;
+      limit?: number;
+    }) => {
+      const session = await getAuthSession();
+      if (!session) throw new Error('Unauthorized: No session found');
+      const companyId = session.companyId!; // ✅ تأكيد non-null
 
-    if (cursor?.id) {
-      queryOptions.cursor = { id: cursor.id };
-      queryOptions.skip = 1;
+      const branchFilter = getBranchFilter(session);
+
+      const workOrders = await prisma.workOrder.findMany({
+        where: {
+          ...where,
+          companyId,
+          deletedAt: null,
+          ...branchFilter,
+        },
+        orderBy,
+        skip,
+        take: limit,
+      });
+
+      return {
+        data: workOrders,
+        pagination: {
+          skip: skip || 0,
+          limit: limit || 10,
+        },
+      };
     }
+  );
 
-    const data = await prisma.workOrder.findMany(queryOptions);
-    const hasMore = data.length === limit;
-    const nextCursor = hasMore ? data[data.length - 1].id : undefined;
+  static count = cache(
+    async (where?: Prisma.WorkOrderWhereInput) => {
+      const session = await getAuthSession();
+      if (!session) throw new Error('Unauthorized: No session found');
+      const companyId = session.companyId!; // ✅
 
-    return {
-      data,
-      pagination: {
-        hasMore,
-        nextCursor,
-        total: data.length,
-      },
-    };
-  });
+      const branchFilter = getBranchFilter(session);
 
-  /**
-   * جلب عدد أوامر العمل
-   */
-  static count = cache(async (where: Prisma.WorkOrderWhereInput = {}) => {
+      return prisma.workOrder.count({
+        where: {
+          ...where,
+          companyId,
+          deletedAt: null,
+          ...branchFilter,
+        },
+      });
+    }
+  );
+
+  static findById = cache(
+    async (id: string) => {
+      const session = await getAuthSession();
+      if (!session) throw new Error('Unauthorized: No session found');
+      const companyId = session.companyId!; // ✅
+
+      const branchFilter = getBranchFilter(session);
+
+      return prisma.workOrder.findFirst({
+        where: {
+          id,
+          companyId,
+          deletedAt: null,
+          ...branchFilter,
+        },
+        include: {
+          // أضف العلاقات المطلوبة حسب الحاجة
+        },
+      });
+    }
+  );
+
+  static getDashboardStats = cache(async () => {
     const session = await getAuthSession();
-    const branchFilter = getBranchFilter(session);
+    if (!session) throw new Error('Unauthorized: No session found');
+    const companyId = session.companyId!; // ✅
 
-    const baseWhere: Prisma.WorkOrderWhereInput = {
-      companyId: session.companyId,
-      deletedAt: null,
-      ...branchFilter,
-      ...where,
-    };
-
-    return prisma.workOrder.count({ where: baseWhere });
-  });
-
-  /**
-   * جلب أمر عمل واحد بالمعرف مع تفاصيل كاملة
-   */
-  static findById = cache(async (id: string) => {
-    const session = await getAuthSession();
     const branchFilter = getBranchFilter(session);
 
     const where: Prisma.WorkOrderWhereInput = {
-      id,
-      companyId: session.companyId,
+      companyId,
       deletedAt: null,
       ...branchFilter,
     };
 
-    const detailSelect: Prisma.WorkOrderSelect = {
-      ...workOrderListSelect,
-      description: true,
-      notes: true,
-      createdAt: true,
-      updatedAt: true,
-      workOrderAssets: {
-        select: {
-          // ✅ تم إزالة id لأنه غير موجود في الـ schema
-          completedAt: true,
-          notes: true,
-          asset: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              nameEn: true,
-              status: {
-                select: { id: true, name: true, color: true },
-              },
-            },
-          },
-        },
-      },
-      attachments: {
-        select: {
-          id: true,
-          url: true,
-          fileName: true,
-          originalName: true,
-          provider: true,
-          mimeType: true,
-          size: true,
-          createdAt: true,
-        },
-      },
-      workOrderInventory: {
-        select: {
-          id: true,
-          quantity: true,
-          notes: true,
-          inventoryItem: {
-            select: {
-              id: true,
-              name: true,
-              sku: true,
-              quantity: true,
-            },
-          },
-        },
-      },
-      ticket: {
-        select: {
-          id: true,
-          code: true,
-          title: true,
-          status: true,
-        },
-      },
-    };
+    const [total, byStatus, byPriority] = await Promise.all([
+      prisma.workOrder.count({ where }),
+      prisma.workOrder.groupBy({
+        by: ['statusId'],
+        where,
+        _count: { id: true },
+      }),
+      prisma.workOrder.groupBy({
+        by: ['priorityId'],
+        where,
+        _count: { id: true },
+      }),
+    ]);
 
-    return prisma.workOrder.findFirst({
-      where,
-      select: detailSelect,
-    });
-  });
-
-  /**
-   * البحث عن أوامر العمل
-   */
-  static search = cache(async (searchTerm: string, options: { limit?: number } = {}) => {
-    const session = await getAuthSession();
-    const branchFilter = getBranchFilter(session);
-    const limit = options.limit || 20;
-
-    const where: Prisma.WorkOrderWhereInput = {
-      companyId: session.companyId,
-      deletedAt: null,
-      ...branchFilter,
-      OR: [
-        { title: { contains: searchTerm, mode: 'insensitive' } },
-        { code: { contains: searchTerm, mode: 'insensitive' } },
-        { description: { contains: searchTerm, mode: 'insensitive' } },
-      ],
-    };
-
-    return prisma.workOrder.findMany({
-      where,
-      select: workOrderListSelect,
-      take: limit,
-      orderBy: { title: 'asc' },
-    });
+    return { total, byStatus, byPriority };
   });
 }

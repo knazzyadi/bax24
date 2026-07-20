@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { generateAssetCode } from '@/lib/assets/helpers';
+import { AssetBusinessError } from '@/lib/assets/errors';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,32 +12,64 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
-    }
-
-    const searchParams = request.nextUrl.searchParams;
+    const { searchParams } = new URL(request.url);
     const typeId = searchParams.get('typeId');
     const roomId = searchParams.get('roomId');
 
-    if (!typeId || !roomId) {
+    if (!typeId) {
       return NextResponse.json(
-        { error: 'نوع الأصل والغرفة مطلوبان' },
+        { error: 'نوع الأصل مطلوب' },
+        { status: 400 }
+      );
+    }
+    if (!roomId) {
+      return NextResponse.json(
+        { error: 'الغرفة مطلوبة' },
         { status: 400 }
       );
     }
 
-    // ✅ استخدام generateAssetCode مباشرة
+    // ✅ جلب تفاصيل الغرفة لاستخراج branchId
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        floor: {
+          include: {
+            building: {
+              select: {
+                branchId: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!room?.floor?.building?.branchId) {
+      return NextResponse.json(
+        { error: 'الغرفة غير مرتبطة بفرع' },
+        { status: 400 }
+      );
+    }
+
+    const branchId = room.floor.building.branchId;
+
+    // ✅ توليد الكود باستخدام الدالة الجديدة
     const code = await generateAssetCode(
       typeId,
-      roomId,
-      companyId
+      branchId,
+      session.companyId!
     );
 
     return NextResponse.json({ code });
   } catch (error) {
-    console.error('Error generating next asset code:', error);
+    console.error('❌ Error generating asset code:', error);
+    if (error instanceof AssetBusinessError) {
+      return NextResponse.json(
+        { error: error.message },
+        { status: 400 }
+      );
+    }
     return NextResponse.json(
       { error: 'حدث خطأ في توليد الكود' },
       { status: 500 }

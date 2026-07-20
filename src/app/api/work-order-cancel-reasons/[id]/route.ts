@@ -1,4 +1,5 @@
 // src/app/api/work-order-cancel-reasons/[id]/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
@@ -17,7 +18,7 @@ export async function GET(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
     const reason = await prisma.workOrderCancelReason.findFirst({
       where: { id, companyId, deletedAt: null },
@@ -63,7 +64,7 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
     const body = await request.json();
     const { name, nameEn, code, description, order, isDefault, isActive } = body;
 
@@ -144,9 +145,8 @@ export async function DELETE(
     }
 
     const { id } = await params;
-    const companyId = session.companyId;
+    const companyId = session.companyId!; // ✅ تأكيد non-null
 
-    // ✅ التحقق من وجود السبب فقط (بدون include)
     const existingReason = await prisma.workOrderCancelReason.findFirst({
       where: { id, companyId, deletedAt: null },
       select: { id: true },
@@ -156,7 +156,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'سبب الإلغاء غير موجود' }, { status: 404 });
     }
 
-    // ✅ حذف ناعم مباشرة
     await prisma.workOrderCancelReason.update({
       where: { id },
       data: { deletedAt: new Date() },

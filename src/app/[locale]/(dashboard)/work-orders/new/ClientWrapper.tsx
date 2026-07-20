@@ -1,4 +1,5 @@
 // src/app/[locale]/(dashboard)/work-orders/new/ClientWrapper.tsx
+
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -15,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
-// ✅ استيرادات مباشرة من الملفات في جذر work-orders
 import { BasicInfoCard } from "../BasicInfoCard";
 import { LocationCard } from "../LocationCard";
 import { InfoBar } from "../InfoBar";
@@ -100,14 +100,18 @@ export function NewWorkOrderClient({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
 
-  const defaultTypeId = initialWorkOrderTypes.length > 0 ? initialWorkOrderTypes[0].id : "";
-  const defaultPriorityId = initialPriorities.length > 0 ? initialPriorities[0].id : "";
-  const defaultStatusId = initialStatuses.length > 0 ? initialStatuses[0].id : "";
+  const defaultWorkOrderTypeId =
+    initialWorkOrderTypes.length > 0 ? initialWorkOrderTypes[0].id : "";
+  const defaultPriorityId =
+    initialPriorities.length > 0 ? initialPriorities[0].id : "";
+  const defaultStatusId =
+    initialStatuses.length > 0 ? initialStatuses[0].id : "";
 
+  // ✅ استخدام النوع الأصلي مباشرة (بدون إضافة type)
   const [formData, setFormData] = useState<WorkOrderFormData>({
     title: "",
     description: "",
-    type: defaultTypeId,
+    workOrderTypeId: defaultWorkOrderTypeId,
     source: initialSource,
     priorityId: defaultPriorityId,
     statusId: defaultStatusId,
@@ -124,7 +128,9 @@ export function NewWorkOrderClient({
     sourceId: initialSourceId,
   });
 
-  const [locationLevel, setLocationLevel] = useState<"building" | "floor" | "room">("room");
+  const [locationLevel, setLocationLevel] = useState<
+    "building" | "floor" | "room"
+  >("room");
 
   const [buildings] = useState<Building[]>(initialBuildings);
   const [floors, setFloors] = useState<any[]>([]);
@@ -137,16 +143,24 @@ export function NewWorkOrderClient({
   const [loadingAssets, setLoadingAssets] = useState(false);
 
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
-  const [tempSelectedAssetIds, setTempSelectedAssetIds] = useState<string[]>([]);
+  const [tempSelectedAssetIds, setTempSelectedAssetIds] = useState<string[]>(
+    []
+  );
 
   const currentUser = session?.user?.name || "Unknown";
   const currentDate = new Date().toLocaleString(
     isRtl ? "ar-SA" : "en-US",
-    { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" }
+    {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    }
   );
 
   // ============================================================
-  // دوال جلب البيانات
+  // جلب الأدوار (Floors)
   // ============================================================
 
   useEffect(() => {
@@ -157,11 +171,15 @@ export function NewWorkOrderClient({
     async function fetchFloors() {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/buildings/${formData.buildingId}/floors`);
+        const res = await fetch(
+          `/api/buildings/${formData.buildingId}/floors`
+        );
         if (res.ok) {
           const data = await res.json();
           setFloors(data);
-        } else setFloors([]);
+        } else {
+          setFloors([]);
+        }
       } catch {
         setFloors([]);
       } finally {
@@ -171,6 +189,10 @@ export function NewWorkOrderClient({
     fetchFloors();
   }, [formData.buildingId]);
 
+  // ============================================================
+  // جلب الغرف (Rooms)
+  // ============================================================
+
   useEffect(() => {
     if (!formData.floorId) {
       setRooms([]);
@@ -179,11 +201,17 @@ export function NewWorkOrderClient({
     async function fetchRooms() {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/floors/${formData.floorId}/rooms`);
+        const res = await fetch(
+          `/api/floors/${formData.floorId}/rooms`
+        );
         if (res.ok) {
           const data = await res.json();
-          const currentBuilding = buildings.find((b) => b.id === formData.buildingId);
-          const currentFloor = floors.find((f) => f.id === formData.floorId);
+          const currentBuilding = buildings.find(
+            (b) => b.id === formData.buildingId
+          );
+          const currentFloor = floors.find(
+            (f) => f.id === formData.floorId
+          );
           const buildingCode = currentBuilding?.code || "";
           const floorCode = currentFloor?.code || "";
           const roomsWithCode = data.map((room: any) => ({
@@ -196,7 +224,9 @@ export function NewWorkOrderClient({
             fullCode: `${buildingCode}-${floorCode}-${room.code || ""}`,
           }));
           setRooms(roomsWithCode);
-        } else setRooms([]);
+        } else {
+          setRooms([]);
+        }
       } catch {
         setRooms([]);
       } finally {
@@ -205,6 +235,10 @@ export function NewWorkOrderClient({
     }
     fetchRooms();
   }, [formData.floorId, formData.buildingId, buildings, floors]);
+
+  // ============================================================
+  // جلب الأصول (Assets)
+  // ============================================================
 
   useEffect(() => {
     const hasAssetType = formData.assetTypeId && formData.assetTypeId !== "";
@@ -252,19 +286,19 @@ export function NewWorkOrderClient({
           } else if (Array.isArray(data)) {
             fetchedAssets = data;
           } else {
-            console.warn("⚠️ Unexpected assets response structure:", data);
+            console.warn("Unexpected assets response structure:", data);
             fetchedAssets = [];
           }
           setAssets(fetchedAssets);
           if (fetchedAssets.length === 0) {
-            console.warn("⚠️ No assets found for this type and location");
+            console.warn("No assets found for this type and location");
           }
         } else {
-          console.error("❌ Failed to fetch assets:", await res.text());
+          console.error("Failed to fetch assets:", await res.text());
           setAssets([]);
         }
       } catch (error) {
-        console.error("❌ Error fetching assets:", error);
+        console.error("Error fetching assets:", error);
         setAssets([]);
       } finally {
         setLoadingAssets(false);
@@ -310,8 +344,10 @@ export function NewWorkOrderClient({
 
     let locationValid = false;
     if (locationLevel === "room" && formData.roomId) locationValid = true;
-    else if (locationLevel === "floor" && formData.floorId) locationValid = true;
-    else if (locationLevel === "building" && formData.buildingId) locationValid = true;
+    else if (locationLevel === "floor" && formData.floorId)
+      locationValid = true;
+    else if (locationLevel === "building" && formData.buildingId)
+      locationValid = true;
 
     if (!locationValid) {
       toast.error(t("locationRequired"));
@@ -333,7 +369,8 @@ export function NewWorkOrderClient({
       const formDataToSend = new FormData();
       formDataToSend.append("title", formData.title);
       formDataToSend.append("description", formData.description || "");
-      formDataToSend.append("type", formData.type);
+      // ✅ إرسال workOrderTypeId بدلاً من type
+      formDataToSend.append("workOrderTypeId", formData.workOrderTypeId);
       formDataToSend.append("priorityId", formData.priorityId);
       formDataToSend.append("statusId", formData.statusId || "");
       formDataToSend.append("branchId", formData.branchId);
@@ -378,7 +415,7 @@ export function NewWorkOrderClient({
   }, [formData, selectedAssetIds, locationLevel, attachedFiles, router, locale, t]);
 
   // ============================================================
-  // التصميم
+  // التصميم (JSX)
   // ============================================================
 
   return (

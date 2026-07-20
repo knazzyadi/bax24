@@ -16,7 +16,7 @@ export default async function BuildingsPage({
   // ✅ التحقق من الصلاحية في الخادم
   const session = await requireRole(['ADMIN', 'SUPER_ADMIN']);
 
-  const companyId = session.user.companyId;
+const companyId = session.companyId!;
   if (!companyId) {
     throw new Error('Company ID is missing');
   }

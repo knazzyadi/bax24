@@ -1,16 +1,11 @@
 // src/lib/auth-guard.ts
-import { NextResponse } from 'next/server';
 
-export async function requireSuperAdmin() {
-  // ✅ استيراد ديناميكي لتجنب التحميل أثناء البناء
-  const { auth } = await import('@/auth');
-  const session = await auth();
+import { getAuthenticatedSession, checkPermission } from "@/lib/auth";
 
-  if (!session || session.user?.role !== 'SUPER_ADMIN') {
-    return {
-      error: NextResponse.json({ error: 'غير مصرح' }, { status: 401 }),
-    };
+export async function authGuard(requiredRole?: string | string[]) {
+  const session = await getAuthenticatedSession();
+  if (!checkPermission(session, requiredRole)) {
+    throw new Error("FORBIDDEN");
   }
-
-  return { session };
+  return session;
 }

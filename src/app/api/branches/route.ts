@@ -1,14 +1,23 @@
 // src/app/api/branches/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/auth/permissions';
+import { requirePermission } from '@/lib/auth/auth-helper'; // ✅ استيراد صحيح
 import { BranchService } from '@/services/BranchService';
 
-// GET: جلب جميع الفروع
+// ============================================================
+// GET - جلب قائمة الفروع
+// ============================================================
 export async function GET(request: NextRequest) {
   try {
     const session = await requirePermission('branches.read');
     const { searchParams } = new URL(request.url);
-    const companyIdParam = session.companyId ?? undefined;
+
+    // ✅ فقط السوبر أدمن يمكنه تمرير companyId كـ Query Parameter
+    const companyIdParam =
+      session.role === 'SUPER_ADMIN'
+        ? searchParams.get('companyId') ?? undefined
+        : undefined;
+
     const branches = await BranchService.getAll(session, companyIdParam);
     return NextResponse.json(branches);
   } catch (error: any) {
@@ -23,7 +32,9 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: إنشاء فرع جديد
+// ============================================================
+// POST - إنشاء فرع جديد
+// ============================================================
 export async function POST(request: NextRequest) {
   try {
     const session = await requirePermission('branches.create');
@@ -38,7 +49,11 @@ export async function POST(request: NextRequest) {
     if (error.message === 'FORBIDDEN') {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
-    if (error.message === 'يوجد فرع بنفس الكود' || error.message === 'اسم الفرع مطلوب' || error.message === 'كود الفرع مطلوب') {
+    if (
+      error.message === 'يوجد فرع بنفس الكود' ||
+      error.message === 'اسم الفرع مطلوب' ||
+      error.message === 'كود الفرع مطلوب'
+    ) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });

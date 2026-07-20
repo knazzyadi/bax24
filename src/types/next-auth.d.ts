@@ -1,7 +1,6 @@
-//src\types\next-auth.d.ts
-//هو الذي “يعلّم TypeScript” أن بيانات المستخدم في NextAuth ليست افتراضية
+// src/types/next-auth.d.ts
+
 import { DefaultSession } from "next-auth";
-import { JWT as DefaultJWT } from "next-auth/jwt";
 
 declare module "next-auth" {
   interface Session {
@@ -9,10 +8,10 @@ declare module "next-auth" {
       id: string;
       role: string;
       companyId?: string | null;
-      companyName?: string | null;
-      companyNameEn?: string | null;
+      companyName?: string | null;     // ✅ أضفنا
+      companyNameEn?: string | null;   // ✅ أضفنا
       branchId?: string | null;
-      branchIds?: string[] | null; // 🔥 إضافة
+      branchIds?: string[] | null;
     } & DefaultSession["user"];
   }
 
@@ -20,21 +19,21 @@ declare module "next-auth" {
     id: string;
     role: string;
     companyId?: string | null;
-    companyName?: string | null;
-    companyNameEn?: string | null;
+    companyName?: string | null;       // ✅ أضفنا
+    companyNameEn?: string | null;     // ✅ أضفنا
     branchId?: string | null;
-    branchIds?: string[] | null; // 🔥 إضافة
+    branchIds?: string[] | null;
   }
 }
 
 declare module "next-auth/jwt" {
-  interface JWT extends DefaultJWT {
+  interface JWT {
     id: string;
     role: string;
     companyId?: string | null;
-    companyName?: string | null;
-    companyNameEn?: string | null;
+    companyName?: string | null;       // ✅ أضفنا
+    companyNameEn?: string | null;     // ✅ أضفنا
     branchId?: string | null;
-    branchIds?: string[] | null; // 🔥 إضافة
+    branchIds?: string[] | null;
   }
 }

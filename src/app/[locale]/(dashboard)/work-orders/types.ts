@@ -8,7 +8,9 @@ export interface WorkOrderFormData {
   id?: string;
   title: string;
   description?: string | null;
-  type: string; // ✅ تم التغيير من WorkOrderType إلى string
+  // ✅ استخدم workOrderTypeId بدلاً من type (للتمييز عن enum)
+  workOrderTypeId: string; // معرف نوع أمر العمل من جدول الإعدادات
+  // ❌ تم إزالة `type: string` القديم
   source: WorkOrderSource;
   priorityId?: string | null;
   statusId?: string | null;
@@ -73,7 +75,7 @@ export interface Room {
 }
 
 // ============================================================
-// الأنواع الأساسية
+// الأنواع الأساسية (للمنطق الداخلي فقط)
 // ============================================================
 
 export type WorkOrderType = "MAINTENANCE" | "CORRECTIVE" | "EMERGENCY" | "BULK_PREVENTIVE";
@@ -85,7 +87,7 @@ export interface WorkOrder {
   code: string;
   title: string;
   description: string | null;
-  type: WorkOrderType;
+  type: WorkOrderType; // هذا هو enum الموجود في قاعدة البيانات
   priority: {
     id: string;
     code?: PriorityCode;

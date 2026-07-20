@@ -1,5 +1,7 @@
 // src/lib/guard.ts
-import { RequestContext } from './request-context';
+
+import { getAuthenticatedSession } from "@/lib/auth";
+import { RequestContext } from "./request-context";
 
 type Role = 'SUPER_ADMIN' | 'ADMIN' | 'SUPERVISOR' | 'TECH';
 
@@ -8,24 +10,23 @@ type GuardOptions = {
 };
 
 export async function guard(options: GuardOptions = {}) {
-  // ✅ استيراد ديناميكي
-  const { auth } = await import('@/auth');
-  const session = await auth();
+  // ✅ استخدام getAuthenticatedSession بدلاً من auth()
+  const session = await getAuthenticatedSession();
 
-  if (!session?.user) {
+  if (!session?.userId) {
     throw new Error('UNAUTHORIZED');
   }
 
-  const role = session.user.role as Role;
+  const role = session.role as Role;
 
   // 🧠 تخزين السياق تلقائيًا
   RequestContext.run(
     {
       user: {
-        id: session.user.id,
+        id: session.userId,
         role,
-        companyId: session.user.companyId,
-        branchId: (session.user as any).branchId,
+        companyId: session.companyId,
+        branchId: session.branchId,
       },
     },
     () => {}

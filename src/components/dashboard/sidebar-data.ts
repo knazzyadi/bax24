@@ -21,10 +21,10 @@ import {
   Layers,
   ListChecks,
   Home,
+  ClipboardCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-// واجهة تدعم القوائم المتداخلة
 export interface NavItem {
   href?: string;
   labelKey: string;
@@ -32,122 +32,128 @@ export interface NavItem {
   children?: NavItem[];
 }
 
-// =========================
-// القائمة الرئيسية
-// =========================
 export const MAIN_MENU_ITEMS: NavItem[] = [
+  // =========================
+  // 1. الرئيسية
+  // =========================
   { href: "/dashboard", labelKey: "nav.dashboard", icon: LayoutDashboard },
+
+  // =========================
+  // 2. أوامر العمل
+  // =========================
   { href: "/work-orders", labelKey: "nav.workOrders", icon: ClipboardList },
+
+  // =========================
+  // 4. التذاكر
+  // =========================
   { href: "/tickets", labelKey: "nav.tickets", icon: FileText },
+
+  // =========================
+  // 5. الصيانة الدورية
+  // =========================
   { href: "/maintenance", labelKey: "nav.maintenance", icon: Calendar },
+  
+  // =========================
+  // ✅ 3. الفحص (جديد - بعد أوامر العمل وقبل العقود)
+  // =========================
+  { href: "/inspections", labelKey: "nav.inspections", icon: ClipboardCheck },
+
+  // =========================
+  // 6. العقود
+  // =========================
   { href: "/contracts", labelKey: "nav.contracts", icon: FileSpreadsheet },
+
+  // =========================
+  // 7. الأصول
+  // =========================
   { href: "/assets", labelKey: "nav.assets", icon: Package },
+
+  // =========================
+  // 8. المخزون
+  // =========================
   { href: "/inventory", labelKey: "nav.inventory", icon: Box },
+
+  // =========================
+  // 9. التقارير
+  // =========================
   { href: "/reports", labelKey: "nav.reports", icon: FileText },
 
   // =========================
-  // Settings
+  // 10. الإعدادات
   // =========================
   {
     labelKey: "nav.settingsTitle",
     icon: Settings,
     children: [
       // =========================
-      // ✅ Locations (بدون href، قائمة فرعية فقط)
+      // 1. المواقع
       // =========================
       {
         labelKey: "nav.settings.locations",
         icon: MapPin,
         children: [
-          {
-            href: "/locations/buildings",
-            labelKey: "nav.buildings",
-            icon: Building,
-          },
-          {
-            href: "/locations/floors",
-            labelKey: "nav.floors",
-            icon: Layers,
-          },
-          {
-            href: "/locations/rooms",
-            labelKey: "nav.rooms",
-            icon: Home,
-          },
+          { href: "/locations/buildings", labelKey: "nav.buildings", icon: Building },
+          { href: "/locations/floors", labelKey: "nav.floors", icon: Layers },
+          { href: "/locations/rooms", labelKey: "nav.rooms", icon: Home },
         ],
       },
 
-      // Assets
-      {
-        labelKey: "nav.settings.assets",
-        icon: Layers,
-        children: [
-          {
-            href: "/settings/asset-types",
-            labelKey: "nav.settings.assetTypes",
-            icon: Package,
-          },
-          {
-            href: "/settings/asset-statuses",
-            labelKey: "nav.settings.assetStatuses",
-            icon: CheckCircle,
-          },
-        ],
-      },
-
-      // Work Orders
+      // =========================
+      // ✅ 2. أوامر العمل (الإعدادات)
+      // =========================
       {
         labelKey: "nav.settings.workOrders",
         icon: ListChecks,
         children: [
+          { href: "/settings/work-order-types", labelKey: "nav.settings.workOrderTypes", icon: Wrench },
+          { href: "/settings/work-order-priorities", labelKey: "nav.settings.workOrderPriorities", icon: Flag },
+          { href: "/settings/work-order-statuses", labelKey: "nav.settings.workOrderStatuses", icon: AlertCircle },
+          { href: "/settings/work-order-close-reasons", labelKey: "nav.settings.workOrderCloseReasons", icon: CheckCircle },
+          { href: "/settings/work-order-cancel-reasons", labelKey: "nav.settings.workOrderCancelReasons", icon: XCircle },
+        ],
+      },
+
+      // =========================
+      // ✅ 3. الفحص (الإعدادات) - تحت أوامر العمل مباشرة
+      // =========================
+      {
+        labelKey: "nav.settings.inspections",
+        icon: ClipboardCheck,
+        children: [
           {
-            href: "/settings/work-order-types",
-            labelKey: "nav.settings.workOrderTypes",
-            icon: Wrench,
-          },
-          {
-            href: "/settings/work-order-priorities",
-            labelKey: "nav.settings.workOrderPriorities",
-            icon: Flag,
-          },
-          {
-            href: "/settings/work-order-statuses",
-            labelKey: "nav.settings.workOrderStatuses",
-            icon: AlertCircle,
-          },
-          {
-            href: "/settings/work-order-close-reasons",
-            labelKey: "nav.settings.workOrderCloseReasons",
-            icon: CheckCircle,
-          },
-          {
-            href: "/settings/work-order-cancel-reasons",
-            labelKey: "nav.settings.workOrderCancelReasons",
-            icon: XCircle,
+            href: "/settings/inspection-types",
+            labelKey: "nav.settings.inspectionTypes",
+            icon: ClipboardCheck,
           },
         ],
       },
 
-      // Suppliers
+      // =========================
+      // 4. الأصول (الإعدادات)
+      // =========================
       {
-        href: "/settings/suppliers",
-        labelKey: "nav.settings.suppliers",
-        icon: Building2,
+        labelKey: "nav.settings.assets",
+        icon: Layers,
+        children: [
+          { href: "/settings/asset-types", labelKey: "nav.settings.assetTypes", icon: Package },
+          { href: "/settings/asset-statuses", labelKey: "nav.settings.assetStatuses", icon: CheckCircle },
+        ],
       },
 
-      // Users
-        {
-          href: "/users",
-          labelKey: "nav.settings.users",
-          icon: Users,
-        },
+      // =========================
+      // 5. الموردون
+      // =========================
+      { href: "/settings/suppliers", labelKey: "nav.settings.suppliers", icon: Building2 },
 
-      // Roles
-      {
-        href: "/settings/roles",
-        labelKey: "nav.settings.roles",
-        icon: ShieldCheck,
-      },
+      // =========================
+      // 6. المستخدمون
+      // =========================
+      { href: "/users", labelKey: "nav.settings.users", icon: Users },
+
+      // =========================
+      // 7. الصلاحيات
+      // =========================
+      { href: "/settings/roles", labelKey: "nav.settings.roles", icon: ShieldCheck },
     ],
   },
 ];

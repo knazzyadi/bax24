@@ -1,25 +1,28 @@
-// src/app/[locale]/(super-admin)/super-admin/companies/types.ts
 export interface Company {
   id: string;
   name: string;
-  nameEn?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  subscriptionEndDate?: string;
+  nameEn?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  subscriptionEndDate?: string | null;
   isActive: boolean;
-  code: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date | string;
+  updatedAt?: Date | string;
+  deletedAt?: Date | string | null;
+  _count?: {
+    users: number;
+    branches: number;
+    assets: number;
+  };
 }
 
-// ✅ يتطابق مع CompanyFormValues من schemas.ts
-export type CompanyFormData = {
+export interface CompanyFormData {
   name: string;
-  nameEn?: string;
-  email?: string;
-  phone?: string;
-  address?: string;
-  subscriptionEndDate?: string;
-  isActive: boolean;
-};
+  nameEn?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  subscriptionEndDate?: string | null;
+  isActive?: boolean;
+}

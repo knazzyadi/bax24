@@ -1,11 +1,8 @@
 // src/app/api/maintenance/schedules/[id]/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper'; // ✅
 import { prisma } from '@/lib/prisma';
-
-
-
 
 export async function GET(
   req: NextRequest,
@@ -16,12 +13,11 @@ export async function GET(
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await checkPermission('maintenance.read');
+    await requirePermission('maintenance.read'); // ✅
 
     const { id } = await params;
     const companyId = session.companyId;
 
-    // ✅ التحقق من وجود companyId
     if (!companyId) {
       return NextResponse.json(
         { error: 'لا توجد شركة مرتبطة بالمستخدم' },
@@ -32,7 +28,7 @@ export async function GET(
     const schedule = await prisma.maintenanceSchedule.findFirst({
       where: { 
         id, 
-        companyId,  // الآن companyId مضمون أنه string
+        companyId,
       },
       include: {
         assetType: true,
@@ -70,7 +66,7 @@ export async function PUT(
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await checkPermission('maintenance.update');
+    await requirePermission('maintenance.update'); // ✅
 
     const { id } = await params;
     const companyId = session.companyId;
@@ -94,7 +90,6 @@ export async function PUT(
       isActive,
     } = body;
 
-    // التحقق من وجود الجدول
     const existing = await prisma.maintenanceSchedule.findFirst({
       where: { id, companyId },
     });
@@ -106,7 +101,6 @@ export async function PUT(
       );
     }
 
-    // تحديث الجدول
     const updated = await prisma.maintenanceSchedule.update({
       where: { id },
       data: {
@@ -139,7 +133,7 @@ export async function DELETE(
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await checkPermission('maintenance.delete');
+    await requirePermission('maintenance.delete'); // ✅
 
     const { id } = await params;
     const companyId = session.companyId;
@@ -151,7 +145,6 @@ export async function DELETE(
       );
     }
 
-    // التحقق من وجود الجدول
     const existing = await prisma.maintenanceSchedule.findFirst({
       where: { id, companyId },
     });
@@ -163,7 +156,6 @@ export async function DELETE(
       );
     }
 
-    // حذف الجدول (أو يمكنك استخدام soft delete إذا كان لديك حقل deletedAt)
     await prisma.maintenanceSchedule.delete({
       where: { id },
     });

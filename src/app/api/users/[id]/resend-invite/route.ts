@@ -1,15 +1,34 @@
 // src/app/api/users/[id]/resend-invite/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { requirePermission } from '@/lib/auth/permissions';
 import { UserService } from '@/services/UserService';
 
+// ============================================================
+// POST - إعادة إرسال دعوة لمستخدم
+// ============================================================
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const session = await requirePermission('users.update');
+    // ✅ 1. جلب الجلسة
+    const session = await getAuthenticatedSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: 'غير مصرح: يرجى تسجيل الدخول' },
+        { status: 401 }
+      );
+    }
+
+    // ✅ 2. التحقق من الصلاحية
+    const permissionError = requirePermission(session, 'users.update');
+    if (permissionError) return permissionError;
+
+    // ✅ 3. استخراج id من params
     const { id } = await params;
+
+    // ✅ 4. تنفيذ المنطق
     await UserService.resendInvite(id);
     return NextResponse.json({
       success: true,

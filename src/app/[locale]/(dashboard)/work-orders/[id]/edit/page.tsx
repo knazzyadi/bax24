@@ -17,7 +17,7 @@ export default async function EditWorkOrderPage({
   const companyId = session.companyId;
   if (!companyId) redirect("/login");
 
-  // جلب بيانات أمر العمل مع المرفقات والتذكرة المرتبطة
+  // جلب بيانات أمر العمل مع جميع العلاقات
   const workOrder = await prisma.workOrder.findFirst({
     where: {
       id,
@@ -51,6 +51,13 @@ export default async function EditWorkOrderPage({
         },
       },
       assetType: { select: { id: true, name: true, nameEn: true } },
+      workOrderType: {
+        select: {
+          id: true,
+          name: true,
+          nameEn: true,
+        },
+      },
       workOrderAssets: {
         include: {
           asset: {
@@ -63,7 +70,6 @@ export default async function EditWorkOrderPage({
           },
         },
       },
-      // ✅ جلب التذكرة المرتبطة (إن وجدت)
       ticket: {
         select: {
           id: true,
@@ -71,7 +77,6 @@ export default async function EditWorkOrderPage({
           description: true,
         },
       },
-      // ✅ جلب المرفقات
       attachments: {
         select: {
           id: true,
@@ -92,52 +97,55 @@ export default async function EditWorkOrderPage({
   }
 
   // جلب البيانات الأولية للنموذج
-  const [priorities, statuses, assetTypes, buildings, workOrderTypes] = await Promise.all([
-    prisma.workOrderPriority.findMany({
-      where: { companyId, deletedAt: null },
-      orderBy: { order: "asc" },
-      select: { id: true, name: true, nameEn: true, color: true },
-    }),
-    prisma.workOrderStatus.findMany({
-      where: { companyId, deletedAt: null },
-      orderBy: { order: "asc" },
-      select: { id: true, name: true, nameEn: true, color: true },
-    }),
-    prisma.assetType.findMany({
-      where: { companyId, deletedAt: null },
-      orderBy: { order: "asc" },
-      select: { id: true, name: true, nameEn: true, code: true },
-    }),
-    prisma.building.findMany({
-      where: { companyId, deletedAt: null },
-      orderBy: { name: "asc" },
-      select: { id: true, name: true, nameEn: true, code: true },
-    }),
-    prisma.workOrderType.findMany({
-      where: {
-        companyId,
-        deletedAt: null,
-        isActive: true,
-      },
-      orderBy: { order: "asc" },
-      select: {
-        id: true,
-        name: true,
-        nameEn: true,
-        code: true,
-      },
-    }).then((data) => data.map((type) => ({
-      ...type,
-      nameEn: type.nameEn ?? undefined,
-      code: type.code ?? undefined,
-    }))),
-  ]);
+  const [priorities, statuses, assetTypes, buildings, workOrderTypes] =
+    await Promise.all([
+      prisma.workOrderPriority.findMany({
+        where: { companyId, deletedAt: null },
+        orderBy: { order: "asc" },
+        select: { id: true, name: true, nameEn: true, color: true },
+      }),
+      prisma.workOrderStatus.findMany({
+        where: { companyId, deletedAt: null },
+        orderBy: { order: "asc" },
+        select: { id: true, name: true, nameEn: true, color: true },
+      }),
+      prisma.assetType.findMany({
+        where: { companyId, deletedAt: null },
+        orderBy: { order: "asc" },
+        select: { id: true, name: true, nameEn: true, code: true },
+      }),
+      prisma.building.findMany({
+        where: { companyId, deletedAt: null },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, nameEn: true, code: true },
+      }),
+      prisma.workOrderType
+        .findMany({
+          where: {
+            companyId,
+            deletedAt: null,
+            isActive: true,
+          },
+          orderBy: { order: "asc" },
+          select: {
+            id: true,
+            name: true,
+            nameEn: true,
+            code: true,
+          },
+        })
+        .then((data) =>
+          data.map((type) => ({
+            ...type,
+            nameEn: type.nameEn ?? undefined,
+            code: type.code ?? undefined,
+          }))
+        ),
+    ]);
 
-  // استنتاج floorId و buildingId من room
   const floorId = workOrder.room?.floor?.id ?? null;
   const buildingId = workOrder.room?.floor?.building?.id ?? null;
 
-  // تحديد مستوى الموقع بناءً على البيانات المتاحة
   const locationLevel = workOrder.roomId
     ? "room"
     : floorId
@@ -146,32 +154,36 @@ export default async function EditWorkOrderPage({
     ? "building"
     : "building";
 
-  // ✅ تحديد المصدر بناءً على وجود تذكرة مرتبطة
-  let source: "manual" | "ticket" | "pm" | "checklist" = "manual";
-  if (workOrder.ticketId) {
-    source = "ticket";
-  }
-  // يمكن لاحقاً إضافة منطق لتحديد المصدر من PM أو Checklist إذا كانت موجودة في قاعدة البيانات
+  // ✅ المشكلة الأولى: استخدم sourceType من قاعدة البيانات بدلاً من الاعتماد على ticketId
+  const source = workOrder.sourceType ?? "manual";
+  const sourceId = workOrder.sourceId ?? null;
 
-  // ✅ تحويل بيانات أمر العمل إلى صيغة مناسبة
+  // ✅ المشكلة الثانية: الأصول المختارة مع بياناتها الكاملة
+  const selectedAssets = workOrder.workOrderAssets.map((woa) => ({
+    id: woa.asset.id,
+    name: woa.asset.name,
+    nameEn: woa.asset.nameEn,
+    code: woa.asset.code,
+  }));
+
   const initialData = {
     id: workOrder.id,
     title: workOrder.title,
     description: workOrder.description,
-    type: workOrder.type,
+    workOrderTypeId: workOrder.workOrderTypeId ?? "",
     priorityId: workOrder.priorityId,
     statusId: workOrder.statusId,
-    assetTypeId: workOrder.assetTypeId,
+    assetTypeId: workOrder.assetTypeId, // ✅ assetTypeId موجود
     notes: workOrder.notes,
     branchId: workOrder.branchId,
     buildingId,
     floorId,
     roomId: workOrder.room?.id ?? null,
     assetIds: workOrder.workOrderAssets.map((woa) => woa.assetId),
+    selectedAssets, // ✅ الأصول الكاملة
     locationLevel,
-    // ✅ إضافة الحقول الجديدة
-    source,
-    sourceId: workOrder.ticketId || null,
+    source, // ✅ المصدر الصحيح
+    sourceId, // ✅ معرف المصدر الصحيح
     ticket: workOrder.ticket || null,
     attachments: workOrder.attachments || [],
   };

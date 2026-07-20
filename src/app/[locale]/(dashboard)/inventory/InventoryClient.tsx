@@ -110,7 +110,8 @@ export default function InventoryClient({
     router.push(`/${locale}/inventory/${id}/edit`);
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  // ✅ إضافة نوع الإرجاع الصريح Promise<void>
+  const handleDelete = async (id: string, name: string): Promise<void> => {
     try {
       const res = await fetch(`/api/inventory/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -121,7 +122,7 @@ export default function InventoryClient({
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("deleteError"));
-      throw error;
+      throw error; // إعادة رمي الخطأ ليتعامل معه DataList
     }
   };
 
@@ -150,7 +151,7 @@ export default function InventoryClient({
     }
   };
 
-  // ===== عرض عنصر المخزون (بتنسيق موحّد) =====
+  // ===== عرض عنصر المخزون =====
   const renderInventoryItem = (item: InventoryItem, actions: ItemActions) => {
     const isLow = item.quantity <= item.minQuantity;
     const statusColor = isLow ? "#ef4444" : "#22c55e";
@@ -241,14 +242,14 @@ export default function InventoryClient({
   };
 
   // ============================================================
-  // العرض النهائي (مع تنسيقات موحّدة)
+  // العرض النهائي
   // ============================================================
   return (
     <div className="relative space-y-8 p-6">
       {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      {/* رأس الصفحة (مخصص) */}
+      {/* رأس الصفحة */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
@@ -271,7 +272,7 @@ export default function InventoryClient({
         </button>
       </div>
 
-      {/* DataList بدون عنوان أو زر إضافة (لتجنب التكرار) */}
+      {/* DataList */}
       <DataList
         searchPlaceholder={t("searchPlaceholder")}
         searchValue={searchTerm}
@@ -291,7 +292,6 @@ export default function InventoryClient({
         itemsPerPage={itemsPerPage}
         showPagination={true}
         className="relative z-10"
-        // لا نمرر title, subtitle, addButtonLabel, addButtonLink
       />
 
       {/* ملخص سريع */}

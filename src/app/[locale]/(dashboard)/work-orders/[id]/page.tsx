@@ -40,6 +40,13 @@ export default async function WorkOrderDetailPage({
         },
       },
       assetType: { select: { id: true, name: true, nameEn: true } },
+      workOrderType: {
+        select: {
+          id: true,
+          name: true,
+          nameEn: true,
+        },
+      },
       workOrderAssets: {
         include: {
           asset: {
@@ -99,6 +106,7 @@ export default async function WorkOrderDetailPage({
     title: workOrder.title,
     description: workOrder.description,
     type: workOrder.type,
+    workOrderType: workOrder.workOrderType,
     priority: workOrder.priority ? {
       ...workOrder.priority,
       nameEn: workOrder.priority.nameEn ?? undefined,
@@ -130,7 +138,6 @@ export default async function WorkOrderDetailPage({
     source,
     sourceId: workOrder.ticketId || null,
     reason: workOrder.reason || null,
-    // ✅ تحويل name من null إلى string
     createdBy: workOrder.createdByUser ? {
       id: workOrder.createdByUser.id,
       name: workOrder.createdByUser.name ?? "غير معروف",

@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
-import type { WorkOrderFormData } from "../types";
+import type { WorkOrderFormData } from "./types";
 
 interface AssetCardProps {
   formData: WorkOrderFormData;

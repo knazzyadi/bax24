@@ -33,10 +33,9 @@ interface InspectionTypesViewProps {
   selectedSectionId: string | null;
   selectedTemplateId: string | null;
   selectedCategoryId: string | null;
-  // ✅ السماح بـ undefined في الـ Maps
-  templatesMap: Record<string, InspectionTemplate[] | undefined>;
-  categoriesMap: Record<string, InspectionCategory[] | undefined>;
-  itemsMap: Record<string, InspectionItem[] | undefined>;
+  templatesMap: Record<string, InspectionTemplate[]>;
+  categoriesMap: Record<string, InspectionCategory[]>;
+  itemsMap: Record<string, InspectionItem[]>;
   loadingTemplates: Record<string, boolean>;
   loadingCategories: Record<string, boolean>;
   loadingItems: Record<string, boolean>;

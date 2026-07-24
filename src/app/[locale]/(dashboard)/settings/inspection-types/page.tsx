@@ -452,6 +452,11 @@ export default function InspectionTypesPage() {
       onCategoryDialogClose={handleCategoryDialogClose}
       onItemDialogClose={handleItemDialogClose}
       onItemReorder={handleItemReorder}
+
+      // ✅ إضافة الخصائص المطلوبة للقوائم المنسدلة
+      sections={sections}
+      templatesMap={templatesMap}
+      categoriesMap={categoriesMap}
     />
   );
 }

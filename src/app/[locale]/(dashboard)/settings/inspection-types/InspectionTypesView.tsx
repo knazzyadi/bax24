@@ -1,7 +1,6 @@
-// src/app/[locale]/(dashboard)/settings/inspection-types/InspectionTypesView.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   ClipboardList,
@@ -34,7 +33,6 @@ import type {
   InspectionItem,
 } from "./types";
 
-// 🌳 نوع العقدة في الشجرة
 interface TreeNode {
   id: string;
   name: string;
@@ -83,9 +81,13 @@ interface InspectionTypesViewProps {
   onCategoryDialogClose: (refetch?: boolean, templateId?: string) => void;
   onItemDialogClose: (refetch?: boolean, categoryId?: string) => void;
   onItemReorder: (items: InspectionItem[], categoryId: string) => void;
+
+  // ✅ إضافة هذه البروبس للقوائم المنسدلة
+  sections: InspectionSection[];
+  templatesMap: Record<string, InspectionTemplate[]>;
+  categoriesMap: Record<string, InspectionCategory[]>;
 }
 
-// 🌳 دالة للحصول على الأيقونة حسب النوع
 function getIcon(type: string, isExpanded: boolean) {
   switch (type) {
     case "section":
@@ -101,7 +103,6 @@ function getIcon(type: string, isExpanded: boolean) {
   }
 }
 
-// 🌳 مكون العقدة المتداخلة
 function TreeNode({
   node,
   level,
@@ -131,7 +132,6 @@ function TreeNode({
 
   return (
     <div className="relative">
-      {/* الخط العمودي */}
       {level > 0 && (
         <div
           className={cn(
@@ -142,7 +142,6 @@ function TreeNode({
         />
       )}
 
-      {/* الخط الأفقي */}
       {level > 0 && !isLast && (
         <div
           className={cn(
@@ -154,10 +153,8 @@ function TreeNode({
       )}
 
       <div className="relative flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group">
-        {/* المسافة البادئة */}
         <div style={{ width: level * 16 }} className="flex-shrink-0" />
 
-        {/* زر الطي/التوسع */}
         {hasChildren && (
           <button
             onClick={() => setExpanded(!expanded)}
@@ -172,22 +169,18 @@ function TreeNode({
         )}
         {!hasChildren && <div className="w-4 flex-shrink-0" />}
 
-        {/* الأيقونة */}
         <span className="flex-shrink-0">{getIcon(node.type, expanded)}</span>
 
-        {/* الاسم */}
         <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
           {node.name}
         </span>
 
-        {/* عدد الأبناء */}
         {hasChildren && (
           <Badge variant="secondary" className="text-xs font-normal px-1.5 h-4">
             {node.children.length}
           </Badge>
         )}
 
-        {/* الأزرار */}
         <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
           {node.type !== "item" && (
             <Button
@@ -223,7 +216,6 @@ function TreeNode({
         </div>
       </div>
 
-      {/* الأبناء */}
       {expanded && hasChildren && (
         <div className="relative ml-4 space-y-0.5 mt-0.5">
           {node.children.map((child, index) => (
@@ -276,8 +268,17 @@ export default function InspectionTypesView({
   onCategoryDialogClose,
   onItemDialogClose,
   onItemReorder,
+  // ✅ استقبال البروبس الجديدة
+  sections,
+  templatesMap,
+  categoriesMap,
 }: InspectionTypesViewProps) {
   const t = useTranslations("InspectionTypes");
+
+  // تجميع جميع النماذج في مصفوفة واحدة للقائمة المنسدلة
+  const allTemplates = useMemo(() => {
+    return Object.values(templatesMap).flat();
+  }, [templatesMap]);
 
   const handleAddChild = (node: TreeNode) => {
     switch (node.type) {
@@ -325,10 +326,8 @@ export default function InspectionTypesView({
           isRtl ? "text-right" : "text-left"
         )}
       >
-        {/* خلفية متدرجة */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 -z-10" />
 
-        {/* رأس الصفحة */}
         <header className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30">
@@ -352,7 +351,6 @@ export default function InspectionTypesView({
           </Button>
         </header>
 
-        {/* المحتوى الرئيسي */}
         <div className="relative">
           {loadingSections ? (
             <div className="flex justify-center py-20">
@@ -395,7 +393,7 @@ export default function InspectionTypesView({
           )}
         </div>
 
-        {/* حوارات الإضافة والتعديل */}
+        {/* ✅ الحوارات مع تمرير البيانات */}
         <SectionDialog
           open={sectionDialogOpen}
           onOpenChange={onSectionDialogClose}
@@ -410,7 +408,7 @@ export default function InspectionTypesView({
           }}
           template={editingTemplate}
           sectionId={editingTemplate?.sectionId || ""}
-          sections={[]}
+          sections={sections} // ✅ تمرير الأقسام
           isRtl={isRtl}
         />
 
@@ -421,7 +419,7 @@ export default function InspectionTypesView({
           }}
           category={editingCategory}
           templateId={categoryDialogTemplateId}
-          templates={[]}
+          templates={allTemplates} // ✅ تمرير جميع النماذج
           isRtl={isRtl}
         />
 

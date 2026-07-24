@@ -25,8 +25,11 @@ interface BuildingSelectorProps {
   placeholder?: string;
   emptyMessage?: string;
   className?: string;
-  disabled?: boolean; // ✅ إضافة disabled
+  disabled?: boolean;
 }
+
+// ✅ نقل الثابت خارج المكون لتجنب إعادة الإنشاء في كل ريندر
+const NONE_VALUE = "__none__";
 
 export function BuildingSelector({
   value,
@@ -36,13 +39,33 @@ export function BuildingSelector({
   placeholder = "اختر المبنى",
   emptyMessage = "لا توجد مباني",
   className,
-  disabled = false, // ✅ إضافة قيمة افتراضية
+  disabled = false,
 }: BuildingSelectorProps) {
+  // ✅ حماية البيانات من null/undefined
+  const safeBuildings = (buildings || []).filter(Boolean);
+
+  // ✅ خيار افتراضي يظهر دائماً (حتى لو كانت البيانات فارغة)
+  const defaultOption = { id: NONE_VALUE, name: placeholder, code: "" };
+
+  // ✅ دمج الخيار الافتراضي مع المباني دائماً
+  const displayBuildings = [defaultOption, ...safeBuildings];
+
+  // تحويل القيمة الفارغة ("" ) إلى القيمة المميزة للعرض
+  const selectValue = value || NONE_VALUE;
+
+  const handleValueChange = (val: string) => {
+    if (val === NONE_VALUE) {
+      onValueChange(""); // إعادة تعيين إلى قيمة فارغة (لا شيء محدد)
+    } else {
+      onValueChange(val);
+    }
+  };
+
   return (
     <Select
-      value={value}
-      onValueChange={onValueChange}
-      disabled={disabled || loading} // ✅ استخدام disabled
+      value={selectValue}
+      onValueChange={handleValueChange}
+      disabled={disabled || loading}
     >
       <SelectTrigger
         className={cn(
@@ -50,21 +73,23 @@ export function BuildingSelector({
           className
         )}
       >
-        <SelectValue placeholder={loading ? "جاري التحميل..." : placeholder} />
+        <SelectValue />
       </SelectTrigger>
       <SelectContent>
         {loading ? (
-          <div className="p-2 text-center text-sm text-muted-foreground">
+          <div className="px-2 py-2 text-sm text-muted-foreground">
             جاري التحميل...
           </div>
-        ) : buildings.length === 0 ? (
-          <div className="p-2 text-center text-sm text-muted-foreground">
+        ) : safeBuildings.length === 0 ? (
+          <div className="px-2 py-2 text-sm text-muted-foreground">
             {emptyMessage}
           </div>
         ) : (
-          buildings.map((building) => (
+          displayBuildings.map((building) => (
             <SelectItem key={building.id} value={building.id}>
-              {building.name} {building.code ? `(${building.code})` : ""}
+              {building.id === NONE_VALUE
+                ? building.name
+                : `${building.code || ""}${building.code ? ". " : ""}${building.name}`}
             </SelectItem>
           ))
         )}

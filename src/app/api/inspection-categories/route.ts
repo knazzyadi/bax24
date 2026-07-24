@@ -1,32 +1,27 @@
 // src/app/api/inspection-categories/route.ts
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from "next-auth";
-import { prisma } from "@/lib/prisma"; // تأكد من مسار الـ Prisma Client الخاص بك
+import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
+import { InspectionCategoryRepository } from "@/lib/repositories/inspection-category.repository";
+import { CreateInspectionCategorySchema } from "@/lib/validations/inspection-category.schema";
 
-// GET: جلب جميع العناوين مع عدد البنود المرتبطة
+// GET: جلب الفئات (اختياري: حسب النموذج)
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const categories = await prisma.inspectionCategory.findMany({
-      orderBy: { createdAt: "desc" },
-      include: {
-        _count: {
-          select: { items: true },
-        },
-      },
-    });
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: "Company not found" }, { status: 400 });
+    }
 
-    // إعادة تنسيق البيانات لتتناسب مع الـ Frontend (إضافة itemsCount)
-    const formattedCategories = categories.map((cat) => ({
-      ...cat,
-      itemsCount: cat._count.items,
-    }));
+    const { searchParams } = new URL(req.url);
+    const templateId = searchParams.get("templateId") || undefined;
 
-    return NextResponse.json(formattedCategories);
+    const categories = await InspectionCategoryRepository.findAll(companyId, templateId);
+    return NextResponse.json(categories);
   } catch (error) {
     console.error("Error fetching inspection categories:", error);
     return NextResponse.json(
@@ -36,35 +31,55 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: إنشاء عنوان رئيسي جديد
+// POST: إنشاء فئة جديدة
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession();
+    const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await req.json();
-    const { name, nameAr, description, isActive } = body;
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json({ error: "Company not found" }, { status: 400 });
+    }
 
-    // التحقق من صحة الإدخال
-    if (!name?.trim() && !nameAr?.trim()) {
+    const body = await req.json();
+
+    // ✅ التحقق من صحة البيانات باستخدام Schema الجديد
+    const validation = CreateInspectionCategorySchema.safeParse(body);
+    if (!validation.success) {
+      // ✅ استخدام issues بدلاً من errors (Zod v3+)
+      const errorMessage = validation.error?.issues?.[0]?.message || "بيانات غير صالحة";
       return NextResponse.json(
-        { error: "Name is required in at least one language" },
+        { error: errorMessage },
         { status: 400 }
       );
     }
 
-    const newCategory = await prisma.inspectionCategory.create({
-      data: {
-        name: name?.trim() || nameAr?.trim() || "Untitled",
-        nameAr: nameAr?.trim() || null,
-        description: description?.trim() || null,
-        isActive: isActive ?? true,
-      },
+    const { templateId, code, name, nameAr, description, sortOrder, isActive } = validation.data;
+
+    // ✅ التحقق من عدم وجود كود مكرر
+    const existing = await InspectionCategoryRepository.findByCode(code, companyId);
+    if (existing) {
+      return NextResponse.json(
+        { error: "Category code already exists" },
+        { status: 409 }
+      );
+    }
+
+    const category = await InspectionCategoryRepository.create({
+      companyId,
+      templateId,
+      code: code.trim(),
+      name: name.trim(),
+      nameAr: nameAr?.trim() || null,
+      description: description?.trim() || null,
+      sortOrder: sortOrder || 0,
+      isActive: isActive ?? true,
     });
 
-    return NextResponse.json(newCategory, { status: 201 });
+    return NextResponse.json(category, { status: 201 });
   } catch (error) {
     console.error("Error creating inspection category:", error);
     return NextResponse.json(

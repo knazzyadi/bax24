@@ -28,9 +28,7 @@ export function WorkOrderPriorityForm({
   const [formData, setFormData] = useState({
     name: "",
     nameEn: "",
-    code: "",
     color: "#6B7280",
-    order: 0,
     isDefault: false,
     isActive: true,
   });
@@ -40,9 +38,7 @@ export function WorkOrderPriorityForm({
       setFormData({
         name: priority.name || "",
         nameEn: priority.nameEn || "",
-        code: priority.code || "",
         color: priority.color || "#6B7280",
-        order: priority.order ?? 0,
         isDefault: priority.isDefault || false,
         isActive: priority.isActive !== undefined ? priority.isActive : true,
       });
@@ -50,9 +46,7 @@ export function WorkOrderPriorityForm({
       setFormData({
         name: "",
         nameEn: "",
-        code: "",
         color: "#6B7280",
-        order: 0,
         isDefault: false,
         isActive: true,
       });
@@ -81,11 +75,11 @@ export function WorkOrderPriorityForm({
     setLoading(true);
     try {
       const payload = {
-        ...formData,
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
-        code: formData.code.trim() || null,
-        order: Number(formData.order),
+        color: formData.color,
+        isDefault: formData.isDefault,
+        isActive: formData.isActive,
       };
 
       const url = priority
@@ -100,8 +94,8 @@ export function WorkOrderPriorityForm({
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to save");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save");
       }
 
       toast.success(priority ? t("updateSuccess") : t("createSuccess"));
@@ -115,10 +109,10 @@ export function WorkOrderPriorityForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 py-4">
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground">
-          {t("name")} <span className="text-destructive">*</span>
+    <form onSubmit={handleSubmit} className="space-y-6 py-4">
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          {t("name")} <span className="text-rose-500">*</span>
         </Label>
         <Input
           name="name"
@@ -126,12 +120,12 @@ export function WorkOrderPriorityForm({
           onChange={handleChange}
           placeholder={isRtl ? "أدخل اسم الأولوية" : "Enter priority name"}
           required
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+          className="h-12 rounded-2xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground">
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {t("nameEn")}
         </Label>
         <Input
@@ -139,20 +133,7 @@ export function WorkOrderPriorityForm({
           value={formData.nameEn}
           onChange={handleChange}
           placeholder={isRtl ? "الاسم بالإنجليزية" : "Name in English"}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground">
-          {t("code")}
-        </Label>
-        <Input
-          name="code"
-          value={formData.code}
-          onChange={handleChange}
-          placeholder={isRtl ? "أدخل الكود" : "Enter code"}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+          className="h-12 rounded-2xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
         />
       </div>
 
@@ -162,60 +143,49 @@ export function WorkOrderPriorityForm({
         onChange={handleColorChange}
       />
 
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground">
-          {t("order")}
-        </Label>
-        <Input
-          name="order"
-          type="number"
-          value={formData.order}
-          onChange={handleChange}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
-        />
+      <div className="space-y-4 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="isDefault"
+            checked={formData.isDefault}
+            onCheckedChange={(checked) =>
+              setFormData((prev) => ({ ...prev, isDefault: !!checked }))
+            }
+            className="h-5 w-5 rounded-lg border-slate-300 dark:border-slate-600 data-[state=checked]:bg-indigo-600"
+          />
+          <Label htmlFor="isDefault" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+            {t("setAsDefault")}
+          </Label>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="isActive"
+            checked={formData.isActive}
+            onCheckedChange={(checked) =>
+              setFormData((prev) => ({ ...prev, isActive: !!checked }))
+            }
+            className="h-5 w-5 rounded-lg border-slate-300 dark:border-slate-600 data-[state=checked]:bg-emerald-600"
+          />
+          <Label htmlFor="isActive" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+            {t("active")}
+          </Label>
+        </div>
       </div>
 
-      <div className="flex items-center gap-3 pt-2">
-        <Checkbox
-          id="isDefault"
-          name="isDefault"
-          checked={formData.isDefault}
-          onCheckedChange={(checked) =>
-            setFormData((prev) => ({ ...prev, isDefault: !!checked }))
-          }
-        />
-        <Label htmlFor="isDefault" className="text-sm font-medium text-foreground cursor-pointer">
-          {t("setAsDefault")}
-        </Label>
-      </div>
-
-      <div className="flex items-center gap-3">
-        <Checkbox
-          id="isActive"
-          name="isActive"
-          checked={formData.isActive}
-          onCheckedChange={(checked) =>
-            setFormData((prev) => ({ ...prev, isActive: !!checked }))
-          }
-        />
-        <Label htmlFor="isActive" className="text-sm font-medium text-foreground cursor-pointer">
-          {t("active")}
-        </Label>
-      </div>
-
-      <div className="flex gap-3 pt-4 border-t border-border">
+      <div className="flex gap-3 pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
         <Button
           type="button"
           variant="outline"
           onClick={() => onSuccess()}
-          className="flex-1 rounded-xl border-border h-11"
+          className="flex-1 h-12 rounded-2xl border-slate-300/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium transition-all"
         >
           {isRtl ? "إلغاء" : "Cancel"}
         </Button>
         <Button
           type="submit"
           disabled={loading}
-          className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-11 shadow-lg shadow-indigo-500/20"
+          className="flex-1 h-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
         >
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
           {priority ? (isRtl ? "تحديث" : "Update") : (isRtl ? "حفظ" : "Save")}

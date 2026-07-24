@@ -29,6 +29,9 @@ interface AssetSelectorProps {
   placeholder?: string;
 }
 
+// ✅ نقل الثابت خارج المكون
+const NONE_VALUE = "__none__";
+
 export default function AssetSelector({
   value,
   locationId,
@@ -92,33 +95,89 @@ export default function AssetSelector({
     fetchAssets();
   }, [locationId, assetTypeId, isRtl]);
 
+  // ✅ حماية البيانات من null/undefined
+  const safeAssets = (assets || []).filter(Boolean);
+
+  // ✅ خيار افتراضي يظهر دائماً (إذا كان هناك موقع محدد)
+  const defaultOption = {
+    id: NONE_VALUE,
+    label: isRtl ? "— اختر الأصل —" : "— Select asset —",
+  };
+
+  // ✅ بناء الخيارات مع الخيار الافتراضي
+  const getDisplayName = (asset: Asset) => {
+    const name = isRtl ? asset.name : (asset.nameEn || asset.name);
+    return asset.code ? `${asset.code}. ${name}` : name;
+  };
+
+  // ✅ دمج الخيار الافتراضي مع الأصول دائماً (إذا كان هناك موقع محدد)
+  const assetOptions = locationId
+    ? [defaultOption, ...safeAssets.map((asset) => ({ id: asset.id, label: getDisplayName(asset) }))]
+    : [];
+
+  // ✅ تحويل القيمة الفارغة إلى القيمة المميزة للعرض
+  const selectValue = value || NONE_VALUE;
+
+  const handleValueChange = (val: string) => {
+    if (val === NONE_VALUE) {
+      onChange(""); // إعادة تعيين إلى قيمة فارغة (لا شيء محدد)
+    } else {
+      onChange(val);
+    }
+  };
+
+  // ✅ العنصر المختار للعرض في الـ Trigger
+  const selectedAsset = safeAssets.find((a) => a.id === value);
+  const displayValue = selectedAsset ? getDisplayName(selectedAsset) : undefined;
+
+  // ✅ تحديد ما إذا كان Select معطلاً
+  const isDisabled = disabled || !locationId || loading;
+
   const defaultPlaceholder = isRtl ? "اختر الأصل..." : "Select asset...";
+  const noLocationMessage = isRtl ? "اختر الموقع أولاً" : "Select location first";
+  const noAssetsMessage = isRtl ? "لا توجد أصول في هذا الموقع" : "No assets at this location";
 
   return (
-    <Select value={value} onValueChange={onChange} disabled={disabled || !locationId || loading}>
-      <SelectTrigger className={className}>
-        <SelectValue placeholder={placeholder || defaultPlaceholder} />
+    <Select
+      value={selectValue}
+      onValueChange={handleValueChange}
+      disabled={isDisabled}
+    >
+      <SelectTrigger
+        className={className || "h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"}
+      >
+        {/* ✅ بدون placeholder، لأن القيمة موجودة دائماً */}
+        <SelectValue>
+          {displayValue}
+        </SelectValue>
       </SelectTrigger>
       <SelectContent>
-        {loading && (
-          <div className="flex items-center justify-center py-4">
+        {!locationId ? (
+          <div className="px-2 py-2 text-sm text-amber-500">
+            {noLocationMessage}
+          </div>
+        ) : loading ? (
+          <div className="flex items-center justify-center py-4 gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
+            <span className="text-sm text-muted-foreground">
+              {isRtl ? "جاري التحميل..." : "Loading..."}
+            </span>
           </div>
-        )}
-        {error && (
-          <div className="text-red-500 text-sm py-2 px-2">{error}</div>
-        )}
-        {!loading && !error && assets.length === 0 && (
-          <div className="text-muted-foreground text-sm py-2 px-2 text-center">
-            {isRtl ? "لا توجد أصول في هذا الموقع" : "No assets at this location"}
+        ) : error ? (
+          <div className="px-2 py-2 text-sm text-rose-500">
+            {error}
           </div>
+        ) : safeAssets.length === 0 ? (
+          <div className="px-2 py-2 text-sm text-muted-foreground">
+            {noAssetsMessage}
+          </div>
+        ) : (
+          assetOptions.map((option) => (
+            <SelectItem key={option.id} value={option.id}>
+              {option.label}
+            </SelectItem>
+          ))
         )}
-        {assets.map((asset) => (
-          <SelectItem key={asset.id} value={asset.id}>
-            {isRtl ? asset.name : (asset.nameEn || asset.name)}
-            {asset.code && ` (${asset.code})`}
-          </SelectItem>
-        ))}
       </SelectContent>
     </Select>
   );

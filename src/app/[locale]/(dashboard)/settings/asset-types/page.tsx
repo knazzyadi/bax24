@@ -32,6 +32,25 @@ export default function AssetTypesPage() {
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id?: string }>({ open: false });
   const [deleting, setDeleting] = useState(false);
 
+  // ✅ دالة إعادة الترتيب (السحب والإفلات)
+  const handleReorder = async (newItems: AssetType[]) => {
+    try {
+      const res = await fetch("/api/asset-types/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: newItems.map((item) => item.id) }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "فشل تحديث الترتيب");
+      }
+      toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to update order"));
+    }
+  };
+
   const handleCreate = () => {
     setEditingType(null);
     setDialogOpen(true);
@@ -116,6 +135,7 @@ export default function AssetTypesPage() {
                 data={types}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
+                onReorder={handleReorder}
                 isRtl={isRtl}
               />
             )}

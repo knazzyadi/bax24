@@ -5,7 +5,8 @@ export interface Inspection {
   locationName?: string;
   scheduledDate: string;
   inspectorName?: string;
-  status: 'draft' | 'in_progress' | 'completed' | 'approved';
+  // ✅ إضافة 'cancelled' لتتوافق مع Prisma enum
+  status: 'draft' | 'in_progress' | 'completed' | 'approved' | 'cancelled';
   inspectorSignature?: string;
   supervisorSignature?: string;
   createdAt: string;

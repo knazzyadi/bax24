@@ -2,7 +2,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Building, Branch, BuildingFormData, BuildingFilters } from './types';
-import { BuildingService } from './BuildingService';
+import { BuildingService } from '@/lib/services/locations/buildings.service'; // ✅ مسار جديد
+
 
 export function useBuildings(initialBuildings: Building[], initialBranches: Branch[]) {
   const [buildings, setBuildings] = useState<Building[]>(initialBuildings);
@@ -18,7 +19,8 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
     sortOrder: 'asc',
   });
 
-  const refreshBuildings = useCallback(async () => {
+  // ✅ دالة refetch (مستعارة من refreshBuildings)
+  const refetch = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await BuildingService.getAll();
@@ -30,12 +32,13 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
     }
   }, []);
 
+  // ✅ استخدام refetch بدلاً من refreshBuildings
   const createBuilding = useCallback(async (data: BuildingFormData) => {
     setIsSaving(true);
     try {
       await BuildingService.create(data);
       toast.success('تم إضافة المبنى بنجاح');
-      await refreshBuildings();
+      await refetch();
       return true;
     } catch (error: any) {
       toast.error(error.message);
@@ -43,14 +46,14 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
     } finally {
       setIsSaving(false);
     }
-  }, [refreshBuildings]);
+  }, [refetch]);
 
   const updateBuilding = useCallback(async (id: string, data: BuildingFormData) => {
     setIsSaving(true);
     try {
       await BuildingService.update(id, data);
       toast.success('تم تحديث المبنى بنجاح');
-      await refreshBuildings();
+      await refetch();
       return true;
     } catch (error: any) {
       toast.error(error.message);
@@ -58,14 +61,14 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
     } finally {
       setIsSaving(false);
     }
-  }, [refreshBuildings]);
+  }, [refetch]);
 
   const deleteBuilding = useCallback(async (id: string) => {
     setIsDeleting(true);
     try {
       await BuildingService.delete(id);
       toast.success('تم حذف المبنى بنجاح');
-      await refreshBuildings();
+      await refetch();
       return true;
     } catch (error: any) {
       toast.error(error.message);
@@ -73,7 +76,7 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
     } finally {
       setIsDeleting(false);
     }
-  }, [refreshBuildings]);
+  }, [refetch]);
 
   const updateFilters = useCallback((newFilters: Partial<BuildingFilters>) => {
     setFilters((prev) => ({ ...prev, ...newFilters }));
@@ -126,6 +129,6 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
     createBuilding,
     updateBuilding,
     deleteBuilding,
-    refreshBuildings,
+    refetch, // ✅ أضفنا refetch بدلاً من refreshBuildings
   };
 }

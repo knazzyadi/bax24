@@ -138,12 +138,12 @@ export default function NewTicketPage() {
     }
   }, [session]);
 
-  // جلب المباني وأنواع الأصول
+  // جلب المباني وأنواع الأصول (مع المسار الجديد)
   useEffect(() => {
     async function fetchInitialData() {
       try {
         const [buildingsRes, assetTypesRes] = await Promise.all([
-          fetch("/api/buildings"),
+          fetch("/api/locations/buildings"), // ✅ تم التحديث
           fetch("/api/asset-types"),
         ]);
         const buildingsData = await buildingsRes.json();
@@ -161,7 +161,7 @@ export default function NewTicketPage() {
     fetchInitialData();
   }, [t]);
 
-  // جلب الأدوار
+  // جلب الأدوار (مع المسار الجديد)
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -170,7 +170,7 @@ export default function NewTicketPage() {
     async function fetchFloors() {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/buildings/${buildingId}/floors`);
+        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`); // ✅ تم التحديث
         if (res.ok) {
           const data = await res.json();
           setFloors(Array.isArray(data) ? data : []);
@@ -184,7 +184,7 @@ export default function NewTicketPage() {
     fetchFloors();
   }, [buildingId]);
 
-  // جلب الغرف مع الكود الكامل
+  // جلب الغرف مع الكود الكامل (مع المسار الجديد)
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -193,7 +193,7 @@ export default function NewTicketPage() {
     async function fetchRooms() {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/floors/${floorId}/rooms`);
+        const res = await fetch(`/api/locations/floors/${floorId}/rooms`); // ✅ تم التحديث
         if (res.ok) {
           const data = await res.json();
           const currentBuilding = buildings.find((b) => b.id === buildingId);
@@ -222,7 +222,7 @@ export default function NewTicketPage() {
     fetchRooms();
   }, [floorId, buildingId, buildings, floors]);
 
-  // ✅ جلب الأصول بناءً على الغرفة ونوع الأصل
+  // ✅ جلب الأصول بناءً على الغرفة ونوع الأصل (لا يتغير لأنه يستخدم /api/assets)
   useEffect(() => {
     if (!roomId) {
       setAssets([]);
@@ -241,7 +241,6 @@ export default function NewTicketPage() {
         const res = await fetch(`/api/assets?${params.toString()}`);
         if (res.ok) {
           const data = await res.json();
-          // استخراج الأصول من البيانات (قد تأتي في data أو data.assets)
           const assetsData = data.data || data.assets || data || [];
           setAssets(Array.isArray(assetsData) ? assetsData : []);
         } else {

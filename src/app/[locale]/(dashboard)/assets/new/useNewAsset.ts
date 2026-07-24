@@ -9,13 +9,13 @@ import type { AssetStatus, AssetType, Building, Floor, Room, Branch } from "@/ty
 import type { NewAssetFormData } from "./types";
 import { generateSequentialCode } from "@/services/api/assets";
 
-// تعريف نوع الغرفة من API
+// تعريف نوع الغرفة من API (مع حقل order اختياري)
 interface ApiRoom {
   id: string;
   name: string;
   nameEn?: string;
   code?: string;
-  order?: number; // ✅ اختياري
+  order?: number;
 }
 
 export function useNewAsset() {
@@ -64,19 +64,15 @@ export function useNewAsset() {
   });
 
   // =========================
-  // جلب البيانات الأولية
+  // جلب البيانات الأولية (مع المسارات الجديدة)
   // =========================
   useEffect(() => {
     const fetchData = async () => {
       try {
-        fetch('/api/auth/session')
-  .then(res => res.json())
-  .then(data => console.log('Session:', data))
-  
         const [statusesRes, typesRes, branchesRes, suppliersRes] = await Promise.all([
           fetch(`/api/asset-statuses?locale=${locale}`),
           fetch(`/api/asset-types?locale=${locale}`),
-          fetch(`/api/branches?locale=${locale}`),
+          fetch(`/api/locations/branches?locale=${locale}`), // ✅ تحديث المسار
           fetch(`/api/suppliers?locale=${locale}`),
         ]);
         if (statusesRes.ok) setStatuses(await statusesRes.json());
@@ -90,7 +86,7 @@ export function useNewAsset() {
     fetchData();
   }, [locale, t]);
 
-  // جلب المباني
+  // جلب المباني (مع المسار الجديد)
   useEffect(() => {
     if (!branchId) {
       setBuildings([]);
@@ -98,7 +94,7 @@ export function useNewAsset() {
     }
     async function fetchBuildings() {
       try {
-        const res = await fetch(`/api/buildings?branchId=${branchId}`);
+        const res = await fetch(`/api/locations/buildings?branchId=${branchId}`); // ✅ تحديث المسار
         if (res.ok) setBuildings(await res.json());
         else setBuildings([]);
       } catch {
@@ -108,7 +104,7 @@ export function useNewAsset() {
     fetchBuildings();
   }, [branchId]);
 
-  // جلب الأدوار
+  // جلب الأدوار (مع المسار الجديد)
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -118,7 +114,7 @@ export function useNewAsset() {
     async function fetchFloors() {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/buildings/${buildingId}/floors`);
+        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`); // ✅ تحديث المسار
         if (res.ok) setFloors(await res.json());
         else setFloors([]);
       } catch {
@@ -130,7 +126,7 @@ export function useNewAsset() {
     fetchFloors();
   }, [buildingId]);
 
-  // جلب الغرف مع نوع محدد
+  // جلب الغرف (مع المسار الجديد)
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -140,7 +136,7 @@ export function useNewAsset() {
     async function fetchRooms() {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/floors/${floorId}/rooms`);
+        const res = await fetch(`/api/locations/floors/${floorId}/rooms`); // ✅ تحديث المسار
         if (res.ok) {
           const data = (await res.json()) as ApiRoom[];
           const currentBuilding = buildings.find((b) => b.id === buildingId);
@@ -156,7 +152,7 @@ export function useNewAsset() {
             buildingId: buildingId,
             code: room.code || "",
             fullCode: `${buildingCode}-${floorCode}-${room.code || ""}`,
-            order: 0, // ✅ أضف قيمة افتراضية
+            order: room.order ?? 0,
           }));
           setRooms(roomsWithCode);
         } else {
@@ -172,7 +168,7 @@ export function useNewAsset() {
   }, [floorId, buildingId, buildings, floors]);
 
   // =========================
-  // دوال التحكم
+  // دوال التحكم (بدون تغيير)
   // =========================
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -217,7 +213,7 @@ export function useNewAsset() {
   };
 
   // =========================
-  // الإرسال
+  // الإرسال (بدون تغيير)
   // =========================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -299,7 +295,6 @@ export function useNewAsset() {
   };
 
   return {
-    // البيانات
     formData,
     statuses,
     types,
@@ -317,7 +312,6 @@ export function useNewAsset() {
     loadingRooms,
     loading,
     isRtl,
-    // دوال التحكم فقط
     handleChange,
     handleSelectChange,
     handleBranchChange,

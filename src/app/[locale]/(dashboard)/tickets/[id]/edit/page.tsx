@@ -126,14 +126,14 @@ export default function EditTicketPage() {
   const glassCard =
     "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
-  // جلب أنواع الأصول والمباني
+  // جلب أنواع الأصول والمباني (مع المسار الجديد)
   useEffect(() => {
     const controller = new AbortController();
     const fetchInitialData = async () => {
       try {
         const [assetTypesRes, buildingsRes] = await Promise.all([
           fetch("/api/asset-types", { signal: controller.signal }),
-          fetch("/api/buildings", { signal: controller.signal }),
+          fetch("/api/locations/buildings", { signal: controller.signal }), // ✅ تم التحديث
         ]);
         if (assetTypesRes.ok) {
           const data = await assetTypesRes.json();
@@ -154,7 +154,7 @@ export default function EditTicketPage() {
     return () => controller.abort();
   }, []);
 
-  // جلب الأدوار
+  // جلب الأدوار (مع المسار الجديد)
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -164,7 +164,7 @@ export default function EditTicketPage() {
     const fetchFloors = async () => {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/buildings/${buildingId}/floors`, {
+        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`, { // ✅ تم التحديث
           signal: controller.signal,
         });
         if (res.ok) {
@@ -182,7 +182,7 @@ export default function EditTicketPage() {
     return () => controller.abort();
   }, [buildingId]);
 
-  // جلب الغرف
+  // جلب الغرف (مع المسار الجديد)
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -192,7 +192,7 @@ export default function EditTicketPage() {
     const fetchRooms = async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/floors/${floorId}/rooms`, {
+        const res = await fetch(`/api/locations/floors/${floorId}/rooms`, { // ✅ تم التحديث
           signal: controller.signal,
         });
         if (res.ok) {
@@ -225,7 +225,7 @@ export default function EditTicketPage() {
     return () => controller.abort();
   }, [floorId, buildingId, buildings, floors]);
 
-  // جلب الأصول بناءً على الغرفة ونوع الأصل
+  // جلب الأصول بناءً على الغرفة ونوع الأصل (لا يتغير)
   useEffect(() => {
     if (!roomId) {
       setAssets([]);

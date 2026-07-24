@@ -1,69 +1,56 @@
 // src/app/[locale]/(dashboard)/locations/buildings/BuildingForm.tsx
 'use client';
 
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { X, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { z } from 'zod';
-import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
 import type { Building, Branch } from './types';
-import { buildingSchema } from './building.schema';
-
-type BuildingFormInput = z.input<typeof buildingSchema>;
-type BuildingFormOutput = z.output<typeof buildingSchema>;
-
-const glassCard =
-  'bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-sm p-6'; // ✅ إضافة padding p-6
 
 interface BuildingFormProps {
   editingBuilding: Building | null;
   branches: Branch[];
-  onSave: (data: BuildingFormOutput) => Promise<boolean>;
-  onCancel: () => void;
-  isSaving: boolean;
-  locale: string;
+  onSuccess: () => void;
+  isRtl: boolean;
 }
 
 export function BuildingForm({
   editingBuilding,
   branches,
-  onSave,
-  onCancel,
-  isSaving,
-  locale,
+  onSuccess,
+  isRtl,
 }: BuildingFormProps) {
   const t = useTranslations('Locations');
-  const isRTL = locale === 'ar';
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    formState: { errors },
-  } = useForm<BuildingFormInput>({
-    resolver: zodResolver(buildingSchema),
-    defaultValues: {
-      name: '',
-      nameEn: '',
-      code: '',
-      order: 0,
-      branchId: '',
-    },
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    nameEn: '',
+    code: '',
+    order: 0,
+    branchId: '',
   });
 
   useEffect(() => {
     if (editingBuilding) {
-      reset({
-        name: editingBuilding.name,
+      setFormData({
+        name: editingBuilding.name || '',
         nameEn: editingBuilding.nameEn || '',
-        code: editingBuilding.code,
+        code: editingBuilding.code || '',
         order: editingBuilding.order ?? 0,
         branchId: editingBuilding.branchId || '',
       });
     } else {
-      reset({
+      setFormData({
         name: '',
         nameEn: '',
         code: '',
@@ -71,117 +58,182 @@ export function BuildingForm({
         branchId: '',
       });
     }
-  }, [editingBuilding, reset]);
+  }, [editingBuilding]);
 
-  const onSubmit = async (data: BuildingFormInput) => {
-    const validatedData: BuildingFormOutput = buildingSchema.parse(data);
-    const success = await onSave(validatedData);
-    if (success) {
-      onCancel();
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'number' ? Number(value) : value,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error(isRtl ? 'الاسم مطلوب' : 'Name is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const payload = {
+        ...formData,
+        name: formData.name.trim(),
+        nameEn: formData.nameEn.trim() || null,
+        code: formData.code.trim() || null,
+        order: Number(formData.order),
+        branchId: formData.branchId || null,
+      };
+
+      const url = editingBuilding
+        ? `/api/locations/buildings/${editingBuilding.id}`
+        : '/api/locations/buildings';
+      const method = editingBuilding ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to save');
+      }
+
+      toast.success(
+        editingBuilding
+          ? isRtl
+            ? 'تم تحديث المبنى بنجاح'
+            : 'Building updated successfully'
+          : isRtl
+          ? 'تم إنشاء المبنى بنجاح'
+          : 'Building created successfully'
+      );
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error.message || (isRtl ? 'حدث خطأ أثناء الحفظ' : 'Save error'));
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className={glassCard}>
-      {/* رأس النموذج */}
-      <div className="flex justify-between items-center mb-6"> {/* ✅ زيادة المسافة السفلية */}
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-          {editingBuilding
-            ? isRTL ? 'تعديل مبنى' : 'Edit Building'
-            : isRTL ? 'إضافة مبنى' : 'Add Building'}
-        </h2>
-        <button
-          onClick={onCancel}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1"
-        >
-          <X size={20} />
-        </button>
+    <form onSubmit={handleSubmit} className="space-y-5 py-4">
+      {/* الاسم بالعربية */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الاسم بالعربية' : 'Arabic Name'} <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder={isRtl ? 'أدخل اسم المبنى' : 'Enter building name'}
+          required
+          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+        />
       </div>
 
-      {/* النموذج مع تباعد داخلي أكبر */}
-      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="space-y-1">
-          <input
-            type="text"
-            placeholder={isRTL ? 'الاسم بالعربية *' : 'Arabic Name *'}
-            {...register('name')}
-            className={cn(
-              'h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4',
-              errors.name && 'border-rose-500 focus:ring-rose-500'
-            )}
-          />
-          {errors.name && (
-            <p className="text-sm text-rose-500 mt-1">{errors.name.message}</p>
-          )}
-        </div>
+      {/* الاسم بالإنجليزية */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الاسم بالإنجليزية' : 'English Name'}
+        </Label>
+        <Input
+          name="nameEn"
+          value={formData.nameEn}
+          onChange={handleChange}
+          placeholder={isRtl ? 'الاسم بالإنجليزية' : 'Name in English'}
+          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+        />
+      </div>
 
-        <div className="space-y-1">
-          <input
-            type="text"
-            placeholder={isRTL ? 'الاسم بالإنجليزية' : 'English Name'}
-            {...register('nameEn')}
-            className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
-          />
-        </div>
+      {/* الكود */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الكود' : 'Code'} <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          name="code"
+          value={formData.code}
+          onChange={handleChange}
+          placeholder={isRtl ? 'أدخل الكود' : 'Enter code'}
+          required
+          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all font-mono uppercase tracking-wider"
+        />
+      </div>
 
-        <div className="space-y-1">
-          <input
-            type="text"
-            placeholder={isRTL ? 'الكود *' : 'Code *'}
-            {...register('code')}
-            className={cn(
-              'h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4 font-mono uppercase tracking-wider',
-              errors.code && 'border-rose-500 focus:ring-rose-500'
-            )}
-          />
-          {errors.code && (
-            <p className="text-sm text-rose-500 mt-1">{errors.code.message}</p>
-          )}
-        </div>
+      {/* الترتيب */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الترتيب' : 'Order'}
+        </Label>
+        <Input
+          name="order"
+          type="number"
+          value={formData.order}
+          onChange={handleChange}
+          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+        />
+      </div>
 
-        <div className="space-y-1">
-          <input
-            type="number"
-            placeholder={isRTL ? 'الترتيب' : 'Order'}
-            {...register('order', { valueAsNumber: true })}
-            className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
-          />
-        </div>
-
-        <div className="md:col-span-2 space-y-1">
-          <select
-            {...register('branchId')}
-            className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4 appearance-none"
-          >
-            <option value="">{isRTL ? 'اختر الفرع (اختياري)' : 'Select branch (optional)'}</option>
+      {/* الفرع */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الفرع' : 'Branch'}
+        </Label>
+        <Select
+          value={formData.branchId}
+          onValueChange={(value) =>
+            setFormData((prev) => ({ ...prev, branchId: value }))
+          }
+        >
+          <SelectTrigger className="h-11 rounded-xl border-border bg-background/50">
+            <SelectValue
+              placeholder={isRtl ? 'اختر الفرع (اختياري)' : 'Select branch (optional)'}
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="">{isRtl ? 'بدون فرع' : 'No branch'}</SelectItem>
             {branches.map((branch) => (
-              <option key={branch.id} value={branch.id}>
+              <SelectItem key={branch.id} value={branch.id}>
                 {branch.name}
-              </option>
+              </SelectItem>
             ))}
-          </select>
-        </div>
+          </SelectContent>
+        </Select>
+      </div>
 
-        <div className="md:col-span-2 flex gap-3 mt-2"> {/* ✅ إضافة هامش علوي */}
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="flex-1 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {isSaving
-              ? isRTL ? 'جاري الحفظ...' : 'Saving...'
-              : isRTL ? 'حفظ' : 'Save'}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 font-medium transition-all duration-200"
-          >
-            {isRTL ? 'إلغاء' : 'Cancel'}
-          </button>
-        </div>
-      </form>
-    </div>
+      {/* الأزرار */}
+      <div className="flex gap-3 pt-4 border-t border-border">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onSuccess()}
+          className="flex-1 rounded-xl border-border h-11"
+        >
+          {isRtl ? 'إلغاء' : 'Cancel'}
+        </Button>
+        <Button
+          type="submit"
+          disabled={loading}
+          className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-11 shadow-lg shadow-indigo-500/20"
+        >
+          {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+          {editingBuilding
+            ? isRtl
+              ? 'تحديث'
+              : 'Update'
+            : isRtl
+            ? 'حفظ'
+            : 'Save'}
+        </Button>
+      </div>
+    </form>
   );
 }

@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { Ban, Plus, Loader2 } from "lucide-react";
+import { XCircle, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminGuard } from "@/lib/client-guard";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,25 @@ export default function WorkOrderCancelReasonsPage() {
   const [editingReason, setEditingReason] = useState<WorkOrderCancelReason | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id?: string }>({ open: false });
   const [deleting, setDeleting] = useState(false);
+
+  // ✅ دالة إعادة الترتيب (السحب والإفلات)
+  const handleReorder = async (newItems: WorkOrderCancelReason[]) => {
+    try {
+      const res = await fetch("/api/work-order-cancel-reasons/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: newItems.map((item) => item.id) }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "فشل تحديث الترتيب");
+      }
+      toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
+      refetch(); // إعادة تحميل البيانات من الخادم
+    } catch (error: any) {
+      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to update order"));
+    }
+  };
 
   const handleCreate = () => {
     setEditingReason(null);
@@ -80,13 +99,13 @@ export default function WorkOrderCancelReasonsPage() {
           isRtl ? "text-right" : "text-left"
         )}
       >
-        {/* ✅ خلفية متدرجة حمراء/برتقالية */}
-        <div className="absolute inset-0 bg-gradient-to-br from-rose-100/20 via-transparent to-orange-100/20 dark:from-rose-950/10 dark:via-transparent dark:to-orange-950/10 rounded-3xl -z-10" />
+        {/* خلفية متدرجة حمراء/وردية */}
+        <div className="absolute inset-0 bg-gradient-to-br from-rose-100/20 via-transparent to-red-100/20 dark:from-rose-950/10 dark:via-transparent dark:to-red-950/10 rounded-3xl -z-10" />
 
         <header className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-500/10 to-orange-500/10 dark:from-rose-500/20 dark:to-orange-500/20 border border-rose-200/30 dark:border-rose-800/30 shadow-lg shadow-rose-500/5">
-              <Ban className="h-8 w-8 text-rose-600 dark:text-rose-400" />
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-500/10 to-red-500/10 dark:from-rose-500/20 dark:to-red-500/20 border border-rose-200/30 dark:border-rose-800/30 shadow-lg shadow-rose-500/5">
+              <XCircle className="h-8 w-8 text-rose-600 dark:text-rose-400" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
@@ -117,6 +136,7 @@ export default function WorkOrderCancelReasonsPage() {
                 data={reasons}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
+                onReorder={handleReorder} // ✅ تمرير دالة إعادة الترتيب
                 isRtl={isRtl}
               />
             )}

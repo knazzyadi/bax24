@@ -28,8 +28,12 @@ interface FloorSelectorProps {
   emptyMessage?: string;
   noBuildingMessage?: string;
   className?: string;
-  disabled?: boolean; // ✅ إضافة disabled
+  disabled?: boolean;
+  isRtl?: boolean;
 }
+
+// ✅ نقل الثابت خارج المكون
+const NONE_VALUE = "__none__";
 
 export function FloorSelector({
   value,
@@ -42,13 +46,45 @@ export function FloorSelector({
   noBuildingMessage = "اختر المبنى أولاً",
   className,
   disabled = false,
+  isRtl = true,
 }: FloorSelectorProps) {
+  // ✅ حماية البيانات من null/undefined
+  const safeFloors = (floors || []).filter(Boolean);
+
+  // ✅ خيار افتراضي يظهر دائماً (حتى لو كانت البيانات فارغة)
+  const defaultOption = {
+    id: NONE_VALUE,
+    name: isRtl ? "— اختر الدور —" : "— Select floor —",
+    code: "",
+    buildingId: "",
+  };
+
+  // ✅ دمج الخيار الافتراضي مع الأدوار دائماً (إذا كان هناك مبنى محدد)
+  const displayFloors = buildingId ? [defaultOption, ...safeFloors] : [];
+
+  // تحويل القيمة الفارغة ("") إلى القيمة المميزة للعرض
+  const selectValue = value || NONE_VALUE;
+
+  const handleValueChange = (val: string) => {
+    if (val === NONE_VALUE) {
+      onValueChange(""); // إعادة تعيين إلى قيمة فارغة (لا شيء محدد)
+    } else {
+      onValueChange(val);
+    }
+  };
+
+  // ✅ عرض اسم الدور مع الرمز (مثل BuildingSelector)
+  const getFloorDisplay = (floor: Floor) => {
+    const name = isRtl ? floor.name : (floor.nameEn || floor.name);
+    return floor.code ? `${floor.code}. ${name}` : name;
+  };
+
   const isDisabled = disabled || loading || !buildingId;
 
   return (
     <Select
-      value={value}
-      onValueChange={onValueChange}
+      value={selectValue}
+      onValueChange={handleValueChange}
       disabled={isDisabled}
     >
       <SelectTrigger
@@ -57,33 +93,30 @@ export function FloorSelector({
           className
         )}
       >
-        <SelectValue
-          placeholder={
-            !buildingId
-              ? noBuildingMessage
-              : loading
-              ? "جاري التحميل..."
-              : placeholder
-          }
-        />
+        <SelectValue /> {/* ✅ بدون placeholder، لأن القيمة موجودة دائماً */}
       </SelectTrigger>
       <SelectContent>
         {!buildingId ? (
-          <div className="p-2 text-center text-sm text-amber-500">
+          // ✅ رسالة "اختر المبنى أولاً" كعنصر عادي
+          <div className="px-2 py-2 text-sm text-amber-500">
             {noBuildingMessage}
           </div>
         ) : loading ? (
-          <div className="p-2 text-center text-sm text-muted-foreground">
-            جاري التحميل...
+          // ✅ رسالة تحميل كعنصر عادي
+          <div className="px-2 py-2 text-sm text-muted-foreground">
+            {isRtl ? "جاري التحميل..." : "Loading..."}
           </div>
-        ) : floors.length === 0 ? (
-          <div className="p-2 text-center text-sm text-muted-foreground">
+        ) : safeFloors.length === 0 ? (
+          // ✅ رسالة فارغة كعنصر عادي
+          <div className="px-2 py-2 text-sm text-muted-foreground">
             {emptyMessage}
           </div>
         ) : (
-          floors.map((floor) => (
+          displayFloors.map((floor) => (
             <SelectItem key={floor.id} value={floor.id}>
-              {floor.name} {floor.code ? `(${floor.code})` : ""}
+              {floor.id === NONE_VALUE
+                ? floor.name
+                : getFloorDisplay(floor)}
             </SelectItem>
           ))
         )}

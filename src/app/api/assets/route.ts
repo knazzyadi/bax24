@@ -1,13 +1,10 @@
-// src/app/api/assets/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession, type AuthSession } from '@/lib/auth/auth-helper';
+import { prisma } from '@/lib/prisma';
 import {
-  listAssets,
   createAsset,
   getErrorResponse,
   getErrorResponseStatus,
-  type ListAssetsOptions,
 } from '@/lib/assets';
 
 const ALLOWED_SORT_FIELDS = [
@@ -22,9 +19,6 @@ const ALLOWED_SORT_FIELDS = [
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
 
-// ============================================================
-// دالة مساعدة لتحويل الجلسة إلى النوع المطلوب من lib/assets
-// ============================================================
 function toAssetsSession(session: AuthSession): any {
   return {
     ...session,
@@ -41,10 +35,6 @@ function toAssetsSession(session: AuthSession): any {
     isSuperAdmin: session.isSuperAdmin,
   };
 }
-
-// ============================================================
-// GET - قائمة الأصول
-// ============================================================
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,24 +57,117 @@ export async function GET(request: NextRequest) {
     const sortOrderParam = searchParams.get('sortOrder');
     const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
 
-    const options: ListAssetsOptions = {
+    // قراءة المعاملات
+    const branchId = searchParams.get('branchId') || undefined;
+    const roomId = searchParams.get('roomId') || undefined;
+    const floorId = searchParams.get('floorId') || undefined;
+    const buildingId = searchParams.get('buildingId') || undefined;
+    const status = searchParams.get('status') || undefined;
+    const typeId = searchParams.get('typeId') || undefined;
+    const search = searchParams.get('q') || undefined;
+
+    // بناء شرط where
+    const where: any = {};
+
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { nameEn: { contains: search, mode: 'insensitive' } },
+        { code: { contains: search, mode: 'insensitive' } },
+        { serialNumber: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+
+    if (status) where.statusId = status;
+    if (typeId) where.typeId = typeId;
+    if (branchId) where.branchId = branchId;
+
+    // معالجة الموقع: إذا كان roomId موجوداً استخدمه، وإلا إذا كان floorId موجوداً جلب كل الغرف في ذلك الدور، وإذا كان buildingId موجوداً جلب كل الغرف في كل أدوار المبنى.
+    let roomIds: string[] | undefined;
+    if (roomId) {
+      roomIds = [roomId];
+    } else if (floorId) {
+      const rooms = await prisma.room.findMany({
+        where: { floorId },
+        select: { id: true },
+      });
+      roomIds = rooms.map(r => r.id);
+      if (roomIds.length === 0) {
+        return NextResponse.json({
+          assets: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        });
+      }
+    } else if (buildingId) {
+      const floors = await prisma.floor.findMany({
+        where: { buildingId },
+        select: { id: true },
+      });
+      const floorIds = floors.map(f => f.id);
+      if (floorIds.length === 0) {
+        return NextResponse.json({
+          assets: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        });
+      }
+      const rooms = await prisma.room.findMany({
+        where: { floorId: { in: floorIds } },
+        select: { id: true },
+      });
+      roomIds = rooms.map(r => r.id);
+      if (roomIds.length === 0) {
+        return NextResponse.json({
+          assets: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        });
+      }
+    }
+
+    if (roomIds && roomIds.length > 0) {
+      where.roomId = { in: roomIds };
+    }
+
+    const skip = (page - 1) * limit;
+
+    const [assets, total] = await Promise.all([
+      prisma.asset.findMany({
+        where,
+        include: {
+          type: true,
+          status: true,
+          branch: true,
+          room: {
+            include: {
+              floor: {
+                include: {
+                  building: true,
+                },
+              },
+            },
+          },
+        },
+        orderBy: { [sortBy]: sortOrder },
+        skip,
+        take: limit,
+      }),
+      prisma.asset.count({ where }),
+    ]);
+
+    return NextResponse.json({
+      assets,
+      total,
       page,
       limit,
-      search: searchParams.get('q') || undefined,
-      status: searchParams.get('status') || undefined,
-      typeId: searchParams.get('typeId') || undefined,
-      roomId: searchParams.get('roomId') || undefined,
-      branchId: searchParams.get('branchId') || undefined,
-      sortBy,
-      sortOrder,
-    };
-
-    const result = await listAssets(toAssetsSession(session), options);
-
-    return NextResponse.json(result, {
-      headers: {
-        'Cache-Control': 'no-store, must-revalidate',
-      },
+      totalPages: Math.ceil(total / limit),
     });
   } catch (error) {
     const response = getErrorResponseStatus(error);
@@ -96,10 +179,6 @@ export async function GET(request: NextRequest) {
     });
   }
 }
-
-// ============================================================
-// POST - إنشاء أصل جديد
-// ============================================================
 
 export async function POST(request: NextRequest) {
   try {

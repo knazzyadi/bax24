@@ -1,217 +1,245 @@
 // src/app/[locale]/(dashboard)/locations/rooms/RoomForm.tsx
 'use client';
 
-import { useEffect, useMemo } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { X, Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { Room, Floor, RoomFormData } from './types';
-import { roomSchema, type RoomFormValues } from './room.schema';
-import { cn } from '@/lib/utils';
-
-// ✅ خلفية الصندوق - تباين واضح
-const glassCard =
-  'bg-white dark:bg-slate-900/90 border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-sm p-6';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Loader2 } from 'lucide-react';
+import type { Room, Floor } from './types';
 
 interface RoomFormProps {
   editingRoom: Room | null;
   floors: Floor[];
-  onSave: (data: RoomFormData) => Promise<boolean>;
-  onCancel: () => void;
-  isSaving: boolean;
-  locale: string;
+  onSuccess: () => void;
+  isRtl: boolean;
 }
 
 export function RoomForm({
   editingRoom,
   floors,
-  onSave,
-  onCancel,
-  isSaving,
-  locale,
+  onSuccess,
+  isRtl,
 }: RoomFormProps) {
   const t = useTranslations('Locations');
-  const isRTL = locale === 'ar';
-
-  const {
-    register,
-    handleSubmit,
-    reset,
-    watch,
-    setValue,
-    formState: { errors },
-  } = useForm<RoomFormValues>({
-    resolver: zodResolver(roomSchema),
-    defaultValues: {
-      name: '',
-      nameEn: '',
-      code: '',
-      order: 0,
-      floorId: '',
-      buildingId: '',
-    },
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    nameEn: '',
+    code: '',
+    order: 0,
+    floorId: '',
   });
-
-  const selectedFloorId = watch('floorId');
-
-  const selectedFloor = useMemo(() => {
-    return floors.find((f) => f.id === selectedFloorId);
-  }, [floors, selectedFloorId]);
-
-  useEffect(() => {
-    if (selectedFloor) {
-      setValue('buildingId', selectedFloor.buildingId);
-    }
-  }, [selectedFloor, setValue]);
 
   useEffect(() => {
     if (editingRoom) {
-      reset({
-        name: editingRoom.name,
+      setFormData({
+        name: editingRoom.name || '',
         nameEn: editingRoom.nameEn || '',
-        code: editingRoom.code,
-        order: editingRoom.order,
-        floorId: editingRoom.floorId,
-        buildingId: editingRoom.floor.building.id,
+        code: editingRoom.code || '',
+        order: editingRoom.order ?? 0,
+        floorId: editingRoom.floorId || '',
       });
     } else {
-      reset({
+      setFormData({
         name: '',
         nameEn: '',
         code: '',
         order: 0,
         floorId: '',
-        buildingId: '',
       });
     }
-  }, [editingRoom, reset]);
+  }, [editingRoom]);
 
-  const onSubmit: SubmitHandler<RoomFormValues> = async (data) => {
-    const formData: RoomFormData = {
-      name: data.name,
-      code: data.code,
-      order: data.order,
-      floorId: data.floorId,
-      buildingId: data.buildingId,
-      nameEn: data.nameEn || '',
-    };
-    const success = await onSave(formData);
-    if (success) {
-      onCancel();
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'number' ? Number(value) : value,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) {
+      toast.error(isRtl ? 'الاسم مطلوب' : 'Name is required');
+      return;
+    }
+    if (!formData.floorId) {
+      toast.error(isRtl ? 'الدور مطلوب' : 'Floor is required');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const selectedFloor = floors.find((f) => f.id === formData.floorId);
+      if (!selectedFloor) {
+        throw new Error('Floor not found');
+      }
+
+      const payload = {
+        ...formData,
+        name: formData.name.trim(),
+        nameEn: formData.nameEn.trim() || null,
+        code: formData.code.trim() || null,
+        order: Number(formData.order),
+        floorId: formData.floorId,
+        buildingId: selectedFloor.buildingId,
+      };
+
+      const url = editingRoom
+        ? `/api/locations/rooms/${editingRoom.id}`
+        : '/api/locations/rooms';
+      const method = editingRoom ? 'PUT' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to save');
+      }
+
+      toast.success(
+        editingRoom
+          ? isRtl
+            ? 'تم تحديث الغرفة بنجاح'
+            : 'Room updated successfully'
+          : isRtl
+          ? 'تم إنشاء الغرفة بنجاح'
+          : 'Room created successfully'
+      );
+      onSuccess();
+    } catch (error: any) {
+      toast.error(error.message || (isRtl ? 'حدث خطأ أثناء الحفظ' : 'Save error'));
+      console.error(error);
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
-    <div className={glassCard}>
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">
-          {editingRoom
-            ? isRTL ? 'تعديل غرفة' : 'Edit Room'
-            : isRTL ? 'إضافة غرفة' : 'Add Room'}
-        </h2>
-        <button
-          onClick={onCancel}
-          className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors p-1"
+    <form onSubmit={handleSubmit} className="space-y-5 py-4">
+      {/* الدور - قائمة منسدلة مع كود الدور والمبنى */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الدور' : 'Floor'} <span className="text-destructive">*</span>
+        </Label>
+        <Select
+          value={formData.floorId}
+          onValueChange={(value) =>
+            setFormData((prev) => ({ ...prev, floorId: value }))
+          }
         >
-          <X size={20} />
-        </button>
+          <SelectTrigger className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all">
+            <SelectValue placeholder={isRtl ? 'اختر الدور' : 'Select floor'} />
+          </SelectTrigger>
+          <SelectContent>
+            {floors.map((floor) => (
+              <SelectItem key={floor.id} value={floor.id}>
+                {floor.name} {floor.code ? `(${floor.code})` : ''}
+                {floor.building ? ` - ${floor.building.name}` : ''}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="grid grid-cols-1 md:grid-cols-2 gap-5">
-        <div className="space-y-1">
-          <select
-            {...register('floorId')}
-            className={cn(
-              'h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4 appearance-none',
-              errors.floorId && 'border-rose-500 focus:ring-rose-500'
-            )}
-          >
-            <option value="">{isRTL ? 'الدور *' : 'Floor *'}</option>
-            {floors.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.building?.name ? `${f.building.name} - ` : ''}{f.name}
-              </option>
-            ))}
-          </select>
-          {errors.floorId && (
-            <p className="text-sm text-rose-500 mt-1">{errors.floorId.message}</p>
-          )}
-        </div>
+      {/* الاسم بالعربية */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الاسم بالعربية' : 'Arabic Name'} <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder={isRtl ? 'أدخل اسم الغرفة' : 'Enter room name'}
+          required
+          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+        />
+      </div>
 
-        <div className="space-y-1">
-          <input
-            type="text"
-            placeholder={isRTL ? 'الاسم بالعربية *' : 'Arabic Name *'}
-            {...register('name')}
-            className={cn(
-              'h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4',
-              errors.name && 'border-rose-500 focus:ring-rose-500'
-            )}
-          />
-          {errors.name && (
-            <p className="text-sm text-rose-500 mt-1">{errors.name.message}</p>
-          )}
-        </div>
+      {/* الاسم بالإنجليزية */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الاسم بالإنجليزية' : 'English Name'}
+        </Label>
+        <Input
+          name="nameEn"
+          value={formData.nameEn}
+          onChange={handleChange}
+          placeholder={isRtl ? 'الاسم بالإنجليزية' : 'Name in English'}
+          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+        />
+      </div>
 
-        <div className="space-y-1">
-          <input
-            type="text"
-            placeholder={isRTL ? 'الاسم بالإنجليزية' : 'English Name'}
-            {...register('nameEn')}
-            className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
-          />
-        </div>
+      {/* الكود */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الكود' : 'Code'} <span className="text-destructive">*</span>
+        </Label>
+        <Input
+          name="code"
+          value={formData.code}
+          onChange={handleChange}
+          placeholder={isRtl ? 'أدخل الكود' : 'Enter code'}
+          required
+          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all font-mono uppercase tracking-wider"
+        />
+      </div>
 
-        <div className="space-y-1">
-          <input
-            type="text"
-            placeholder={isRTL ? 'الكود *' : 'Code *'}
-            {...register('code')}
-            className={cn(
-              'h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4 font-mono uppercase tracking-wider',
-              errors.code && 'border-rose-500 focus:ring-rose-500'
-            )}
-          />
-          {errors.code && (
-            <p className="text-sm text-rose-500 mt-1">{errors.code.message}</p>
-          )}
-        </div>
+      {/* الترتيب */}
+      <div className="space-y-1.5">
+        <Label className="text-sm font-medium text-foreground">
+          {isRtl ? 'الترتيب' : 'Order'}
+        </Label>
+        <Input
+          name="order"
+          type="number"
+          value={formData.order}
+          onChange={handleChange}
+          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+        />
+      </div>
 
-        <div className="space-y-1">
-          <input
-            type="number"
-            placeholder={isRTL ? 'الترتيب' : 'Order'}
-            {...register('order', { valueAsNumber: true })}
-            className="h-12 w-full rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
-          />
-          {errors.order && (
-            <p className="text-sm text-rose-500 mt-1">{errors.order.message}</p>
-          )}
-        </div>
-
-        <input type="hidden" {...register('buildingId')} />
-
-        <div className="md:col-span-2 flex gap-3 mt-2">
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="flex-1 h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 disabled:opacity-50 flex items-center justify-center gap-2"
-          >
-            {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
-            {isSaving
-              ? isRTL ? 'جاري الحفظ...' : 'Saving...'
-              : isRTL ? 'حفظ' : 'Save'}
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 h-12 rounded-xl border border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 font-medium transition-all duration-200"
-          >
-            {isRTL ? 'إلغاء' : 'Cancel'}
-          </button>
-        </div>
-      </form>
-    </div>
+      {/* الأزرار */}
+      <div className="flex gap-3 pt-4 border-t border-border">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => onSuccess()}
+          className="flex-1 rounded-xl border-border h-11"
+        >
+          {isRtl ? 'إلغاء' : 'Cancel'}
+        </Button>
+        <Button
+          type="submit"
+          disabled={loading}
+          className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-11 shadow-lg shadow-indigo-500/20"
+        >
+          {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+          {editingRoom
+            ? isRtl
+              ? 'تحديث'
+              : 'Update'
+            : isRtl
+            ? 'حفظ'
+            : 'Save'}
+        </Button>
+      </div>
+    </form>
   );
 }

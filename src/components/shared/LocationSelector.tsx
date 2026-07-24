@@ -63,24 +63,29 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
+  // ✅ جلب المباني - مع حماية البيانات
   useEffect(() => {
-    fetch("/api/buildings")
+    fetch("/api/locations/buildings")
       .then(res => res.json())
-      .then(setBuildings)
-      .catch(console.error)
+      .then(data => {
+        setBuildings(Array.isArray(data) ? data : []);
+      })
+      .catch(() => setBuildings([]))
       .finally(() => setLoadingBuildings(false));
   }, []);
 
+  // ✅ جلب الأدوار - مع حماية البيانات
   useEffect(() => {
     if (!selectedBuildingId) {
       setFloors([]);
       return;
     }
     setLoadingFloors(true);
-    fetch(`/api/locations/floors?buildingId=${selectedBuildingId}`)
+    fetch(`/api/locations/buildings/${selectedBuildingId}/floors`)
       .then(res => res.ok ? res.json() : [])
       .then(data => {
-        const floorsWithBuilding = data.map((floor: any) => ({
+        const floorsData = Array.isArray(data) ? data : [];
+        const floorsWithBuilding = floorsData.map((floor: any) => ({
           ...floor,
           building: floor.building || null,
         }));
@@ -90,15 +95,18 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
       .finally(() => setLoadingFloors(false));
   }, [selectedBuildingId]);
 
+  // ✅ جلب الغرف - مع حماية البيانات
   useEffect(() => {
     if (!selectedFloorId) {
       setRooms([]);
       return;
     }
     setLoadingRooms(true);
-    fetch(`/api/floors/${selectedFloorId}/rooms`)
+    fetch(`/api/locations/floors/${selectedFloorId}/rooms`)
       .then(res => res.ok ? res.json() : [])
-      .then(setRooms)
+      .then(data => {
+        setRooms(Array.isArray(data) ? data : []);
+      })
       .catch(() => setRooms([]))
       .finally(() => setLoadingRooms(false));
   }, [selectedFloorId]);

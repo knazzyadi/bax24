@@ -28,9 +28,7 @@ export function WorkOrderStatusForm({
   const [formData, setFormData] = useState({
     name: "",
     nameEn: "",
-    code: "",
     color: "#6B7280",
-    order: 0,
     isDefault: false,
     isActive: true,
   });
@@ -40,9 +38,7 @@ export function WorkOrderStatusForm({
       setFormData({
         name: status.name || "",
         nameEn: status.nameEn || "",
-        code: status.code || "",
         color: status.color || "#6B7280",
-        order: status.order ?? 0,
         isDefault: status.isDefault || false,
         isActive: status.isActive !== undefined ? status.isActive : true,
       });
@@ -50,18 +46,14 @@ export function WorkOrderStatusForm({
       setFormData({
         name: "",
         nameEn: "",
-        code: "",
         color: "#6B7280",
-        order: 0,
         isDefault: false,
         isActive: true,
       });
     }
   }, [status]);
 
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
       ...prev,
@@ -83,11 +75,11 @@ export function WorkOrderStatusForm({
     setLoading(true);
     try {
       const payload = {
-        ...formData,
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
-        code: formData.code.trim() || null,
-        order: Number(formData.order),
+        color: formData.color,
+        isDefault: formData.isDefault,
+        isActive: formData.isActive,
       };
 
       const url = status
@@ -102,8 +94,8 @@ export function WorkOrderStatusForm({
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to save");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save");
       }
 
       toast.success(status ? t("updateSuccess") : t("createSuccess"));
@@ -117,10 +109,9 @@ export function WorkOrderStatusForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 py-4">
-      {/* الاسم */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">
+    <form onSubmit={handleSubmit} className="space-y-6 py-4">
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {t("name")} <span className="text-rose-500">*</span>
         </Label>
         <Input
@@ -129,100 +120,74 @@ export function WorkOrderStatusForm({
           onChange={handleChange}
           placeholder={isRtl ? "أدخل اسم الحالة" : "Enter status name"}
           required
-          className="h-11 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
+          className="h-12 rounded-2xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
         />
       </div>
 
-      {/* الاسم بالإنجليزية */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{t("nameEn")}</Label>
+      <div className="space-y-2">
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          {t("nameEn")}
+        </Label>
         <Input
           name="nameEn"
           value={formData.nameEn}
           onChange={handleChange}
           placeholder={isRtl ? "الاسم بالإنجليزية" : "Name in English"}
-          className="h-11 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
+          className="h-12 rounded-2xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
         />
       </div>
 
-      {/* الكود */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{t("code")}</Label>
-        <Input
-          name="code"
-          value={formData.code}
-          onChange={handleChange}
-          placeholder={isRtl ? "أدخل الكود" : "Enter code"}
-          className="h-11 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
-        />
+      <ColorPickerField
+        label={t("color")}
+        value={formData.color}
+        onChange={handleColorChange}
+      />
+
+      {/* ❌ تم حذف حقول "الكود" و "الترتيب" */}
+
+      <div className="space-y-4 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="isDefault"
+            checked={formData.isDefault}
+            onCheckedChange={(checked) =>
+              setFormData((prev) => ({ ...prev, isDefault: !!checked }))
+            }
+            className="h-5 w-5 rounded-lg border-slate-300 dark:border-slate-600 data-[state=checked]:bg-indigo-600"
+          />
+          <Label htmlFor="isDefault" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+            {t("setAsDefault")}
+          </Label>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Checkbox
+            id="isActive"
+            checked={formData.isActive}
+            onCheckedChange={(checked) =>
+              setFormData((prev) => ({ ...prev, isActive: !!checked }))
+            }
+            className="h-5 w-5 rounded-lg border-slate-300 dark:border-slate-600 data-[state=checked]:bg-emerald-600"
+          />
+          <Label htmlFor="isActive" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
+            {t("active")}
+          </Label>
+        </div>
       </div>
 
-      {/* اللون */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{t("color")}</Label>
-        <ColorPickerField
-          label={t("color")}
-          value={formData.color}
-          onChange={handleColorChange}
-        />
-      </div>
-
-      {/* الترتيب */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{t("order")}</Label>
-        <Input
-          name="order"
-          type="number"
-          value={formData.order}
-          onChange={handleChange}
-          className="h-11 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
-        />
-      </div>
-
-      {/* افتراضي */}
-      <div className="flex items-center gap-3 pt-2">
-        <Checkbox
-          id="isDefault"
-          name="isDefault"
-          checked={formData.isDefault}
-          onCheckedChange={(checked) =>
-            setFormData((prev) => ({ ...prev, isDefault: !!checked }))
-          }
-        />
-        <Label htmlFor="isDefault" className="text-sm font-medium cursor-pointer">
-          {t("setAsDefault")}
-        </Label>
-      </div>
-
-      {/* نشط */}
-      <div className="flex items-center gap-3">
-        <Checkbox
-          id="isActive"
-          name="isActive"
-          checked={formData.isActive}
-          onCheckedChange={(checked) =>
-            setFormData((prev) => ({ ...prev, isActive: !!checked }))
-          }
-        />
-        <Label htmlFor="isActive" className="text-sm font-medium cursor-pointer">
-          {t("active")}
-        </Label>
-      </div>
-
-      {/* الأزرار */}
-      <div className="flex gap-3 pt-4">
+      <div className="flex gap-3 pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
         <Button
           type="button"
           variant="outline"
           onClick={() => onSuccess()}
-          className="flex-1 rounded-xl border-slate-200 dark:border-slate-800 h-11"
+          className="flex-1 h-12 rounded-2xl border-slate-300/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium transition-all"
         >
           {isRtl ? "إلغاء" : "Cancel"}
         </Button>
         <Button
           type="submit"
           disabled={loading}
-          className="flex-1 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-medium h-11 shadow-lg shadow-violet-500/20"
+          className="flex-1 h-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
         >
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
           {status ? (isRtl ? "تحديث" : "Update") : (isRtl ? "حفظ" : "Save")}

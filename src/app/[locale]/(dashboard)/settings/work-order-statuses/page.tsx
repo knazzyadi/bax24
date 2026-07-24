@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { GitBranch, Plus, Loader2 } from "lucide-react";
+import { AlertCircle, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminGuard } from "@/lib/client-guard";
 import { cn } from "@/lib/utils";
@@ -31,6 +31,25 @@ export default function WorkOrderStatusesPage() {
   const [editingStatus, setEditingStatus] = useState<WorkOrderStatus | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id?: string }>({ open: false });
   const [deleting, setDeleting] = useState(false);
+
+  // ✅ دالة إعادة الترتيب (السحب والإفلات)
+  const handleReorder = async (newItems: WorkOrderStatus[]) => {
+    try {
+      const res = await fetch("/api/work-order-statuses/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: newItems.map((item) => item.id) }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "فشل تحديث الترتيب");
+      }
+      toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to update order"));
+    }
+  };
 
   const handleCreate = () => {
     setEditingStatus(null);
@@ -80,14 +99,13 @@ export default function WorkOrderStatusesPage() {
           isRtl ? "text-right" : "text-left"
         )}
       >
-        {/* خلفية متدرجة */}
-        <div className="absolute inset-0 bg-gradient-to-br from-violet-100/20 via-transparent to-purple-100/20 dark:from-violet-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
+        {/* خلفية متدرجة برتقالية/صفراء */}
+        <div className="absolute inset-0 bg-gradient-to-br from-amber-100/20 via-transparent to-orange-100/20 dark:from-amber-950/10 dark:via-transparent dark:to-orange-950/10 rounded-3xl -z-10" />
 
-        {/* رأس الصفحة الرئيسي (العنوان والوصف) */}
         <header className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-500/10 dark:from-violet-500/20 dark:to-purple-500/20 border border-violet-200/30 dark:border-violet-800/30 shadow-lg shadow-violet-500/5">
-              <GitBranch className="h-8 w-8 text-violet-600 dark:text-violet-400" />
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 dark:from-amber-500/20 dark:to-orange-500/20 border border-amber-200/30 dark:border-amber-800/30 shadow-lg shadow-amber-500/5">
+              <AlertCircle className="h-8 w-8 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
@@ -100,25 +118,25 @@ export default function WorkOrderStatusesPage() {
           </div>
           <Button
             onClick={handleCreate}
-            className="rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white font-medium h-11 px-5 shadow-lg shadow-violet-500/20 hover:shadow-violet-500/30 transition-all duration-200"
+            className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-11 px-5 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
           >
             <Plus className="h-4 w-4 ml-2" />
             {t("addNew")}
           </Button>
         </header>
 
-        {/* ✅ بطاقة المحتوى بدون عنوان مكرر */}
         <div className={glassCard}>
           <div className="p-6">
             {loading ? (
               <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-violet-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-amber-500" />
               </div>
             ) : (
               <WorkOrderStatusTable
                 data={statuses}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
+                onReorder={handleReorder}
                 isRtl={isRtl}
               />
             )}

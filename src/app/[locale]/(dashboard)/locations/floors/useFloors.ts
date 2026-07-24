@@ -1,9 +1,10 @@
 // src/app/[locale]/(dashboard)/locations/floors/hooks/useFloors.ts
+import * as React from 'react';
+const { useState, useEffect, useCallback, useMemo } = React;
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Floor, Building, FloorFormData, FloorFilters } from './types';
-import { FloorService } from './FloorService'; // ✅ تم التعديل
+import { FloorService } from '@/lib/services/locations/floors.service';
 
 export function useFloors(initialFloors: Floor[], initialBuildings: Building[]) {
   const [floors, setFloors] = useState<Floor[]>(initialFloors);
@@ -98,12 +99,15 @@ export function useFloors(initialFloors: Floor[], initialBuildings: Building[]) 
 
     const { sortBy, sortOrder } = filters;
     result.sort((a, b) => {
-      let aVal: any = a[sortBy as keyof Floor];
-      let bVal: any = b[sortBy as keyof Floor];
+      let aVal: any;
+      let bVal: any;
 
       if (sortBy === 'buildingId') {
-        aVal = a.building.name;
-        bVal = b.building.name;
+        aVal = a.building?.name || '';
+        bVal = b.building?.name || '';
+      } else {
+        aVal = a[sortBy as keyof Floor];
+        bVal = b[sortBy as keyof Floor];
       }
 
       if (aVal === null || aVal === undefined) aVal = '';

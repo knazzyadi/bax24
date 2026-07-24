@@ -2,12 +2,14 @@
 import { z } from 'zod';
 
 export const buildingSchema = z.object({
-  name: z.string().min(1, 'الاسم مطلوب'),
+  name: z.string().min(1, 'الاسم بالعربية مطلوب'),
   nameEn: z.string().optional(),
   code: z.string().min(1, 'الكود مطلوب'),
-  order: z.number().min(0).optional(), // ✅ إزالة .default(0)
+  order: z.coerce.number().default(0),
   branchId: z.string().optional(),
 });
 
-// يمكنك أيضاً تصدير النوع مباشرة باستخدام z.infer
-export type BuildingFormValues = z.infer<typeof buildingSchema>;
+// ✅ نوع الإدخال (الذي يستخدمه react-hook-form مع coerce)
+export type BuildingFormInput = z.input<typeof buildingSchema>;
+// ✅ نوع الإخراج (بعد التحقق، order إجباري)
+export type BuildingFormValues = z.output<typeof buildingSchema>;

@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/inspection-types/CategoryTable.tsx
 "use client";
 
-import { Edit, Trash2, Eye } from "lucide-react";
+import { Edit, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -27,7 +27,7 @@ export function CategoryTable({
   if (!data || data.length === 0) {
     return (
       <div className="text-center py-8 text-sm text-slate-400 dark:text-slate-500">
-        {isRtl ? "لا توجد عناوين مضافة بعد" : "No categories added yet"}
+        {isRtl ? "لا توجد فئات في هذا النموذج" : "No categories in this template"}
       </div>
     );
   }
@@ -37,11 +37,11 @@ export function CategoryTable({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b border-slate-200/60 dark:border-slate-800/60">
-            <th className="text-right py-3 px-2 font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
-              {isRtl ? "الاسم" : "Name"}
+            <th className={cn("py-3 px-2 font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider", isRtl ? "text-right" : "text-left")}>
+              {isRtl ? "اسم الفئة" : "Category Name"}
             </th>
-            <th className="text-right py-3 px-2 font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider hidden sm:table-cell">
-              {isRtl ? "الوصف" : "Description"}
+            <th className={cn("py-3 px-2 font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider hidden sm:table-cell", isRtl ? "text-right" : "text-left")}>
+              {isRtl ? "الكود" : "Code"}
             </th>
             <th className="text-center py-3 px-2 font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
               {isRtl ? "البنود" : "Items"}
@@ -68,12 +68,12 @@ export function CategoryTable({
               <td className="py-3 px-2 font-medium text-slate-700 dark:text-slate-200">
                 {isRtl ? category.nameAr || category.name : category.name}
               </td>
-              <td className="py-3 px-2 text-slate-500 dark:text-slate-400 truncate max-w-[120px] hidden sm:table-cell">
-                {category.description || "—"}
+              <td className="py-3 px-2 font-mono text-xs text-slate-500 dark:text-slate-400 hidden sm:table-cell">
+                {category.code}
               </td>
               <td className="py-3 px-2 text-center">
                 <Badge variant="secondary" className="rounded-full px-2.5 py-0.5 bg-slate-100 dark:bg-slate-800">
-                  {category.itemsCount || 0}
+                  {category._count?.items || 0}
                 </Badge>
               </td>
               <td className="py-3 px-2 text-center">
@@ -86,37 +86,15 @@ export function CategoryTable({
                       : "bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400"
                   )}
                 >
-                  {category.isActive
-                    ? isRtl
-                      ? "نشط"
-                      : "Active"
-                    : isRtl
-                    ? "غير نشط"
-                    : "Inactive"}
+                  {category.isActive ? (isRtl ? "نشط" : "Active") : (isRtl ? "غير نشط" : "Inactive")}
                 </Badge>
               </td>
               <td className="py-3 px-2 text-center">
                 <div className="flex items-center justify-center gap-1" dir="ltr">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onEdit(category);
-                    }}
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 rounded-lg" onClick={(e) => { e.stopPropagation(); onEdit(category); }}>
                     <Edit className="h-4 w-4" />
                   </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(category.id);
-                    }}
-                  >
+                  <Button variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 rounded-lg" onClick={(e) => { e.stopPropagation(); onDelete(category.id); }}>
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 </div>

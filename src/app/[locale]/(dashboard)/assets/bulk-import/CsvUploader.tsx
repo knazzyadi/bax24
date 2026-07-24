@@ -2,7 +2,8 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Upload, AlertCircle } from "lucide-react";
+import { Upload, AlertCircle, Loader2 } from "lucide-react";
+import { toast } from "sonner"; // ✅ إضافة استيراد toast
 import { cn } from "@/lib/utils";
 
 interface CsvUploaderProps {
@@ -18,18 +19,27 @@ export function CsvUploader({ onFileSelect, isLoading, error, isRtl }: CsvUpload
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(false);
     const file = e.dataTransfer.files[0];
-    if (file) onFileSelect(file);
+    if (file) {
+      if (file.type === "text/csv" || file.name.endsWith(".csv")) {
+        onFileSelect(file);
+      } else {
+        toast.error(isRtl ? "الرجاء اختيار ملف CSV فقط" : "Please select a CSV file");
+      }
+    }
   };
 
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(true);
   };
 
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
+    e.stopPropagation();
     setIsDragging(false);
   };
 
@@ -47,12 +57,13 @@ export function CsvUploader({ onFileSelect, isLoading, error, isRtl }: CsvUpload
         "border-2 border-dashed rounded-3xl p-8 text-center transition-all cursor-pointer",
         isDragging
           ? "border-indigo-400 bg-indigo-50/50 dark:bg-indigo-950/20"
-          : "border-slate-300 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700"
+          : "border-slate-300 dark:border-slate-700 hover:border-indigo-300 dark:hover:border-indigo-700",
+        isLoading && "opacity-60 cursor-not-allowed"
       )}
       onDrop={handleFileDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
-      onClick={() => fileInputRef.current?.click()}
+      onClick={() => !isLoading && fileInputRef.current?.click()}
     >
       <input
         ref={fileInputRef}
@@ -63,7 +74,11 @@ export function CsvUploader({ onFileSelect, isLoading, error, isRtl }: CsvUpload
         disabled={isLoading}
       />
       <div className="flex flex-col items-center gap-2">
-        <Upload className="h-10 w-10 text-slate-400 dark:text-slate-500" />
+        {isLoading ? (
+          <Loader2 className="h-10 w-10 animate-spin text-indigo-500" />
+        ) : (
+          <Upload className="h-10 w-10 text-slate-400 dark:text-slate-500" />
+        )}
         <p className="text-sm font-medium text-slate-600 dark:text-slate-300">
           {isRtl
             ? isLoading ? "جاري الاستيراد..." : "اسحب ملف CSV هنا أو انقر للاختيار"

@@ -1,5 +1,6 @@
 // src/app/[locale]/(dashboard)/assets/bulk-import/useBulkImport.ts
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation'; // ✅ إضافة useRouter
 import { useSession } from 'next-auth/react';
 import { useLocale } from 'next-intl';
 import { toast } from 'sonner';
@@ -29,9 +30,7 @@ const normalizeRoom = (r: Room): Room & { nameEn?: string } => ({
 
 function parseDate(value: string): string {
   if (!value || value.trim() === '') return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) {
-    return value.trim();
-  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return value.trim();
   const parts = value.trim().split(/[\/\-.]/);
   if (parts.length === 3) {
     const d = parseInt(parts[0], 10);
@@ -57,8 +56,10 @@ function parseDate(value: string): string {
 // =======================================================
 
 export function useBulkImport() {
+  const router = useRouter(); // ✅ استخدام useRouter
   const { data: session } = useSession();
   const locale = useLocale();
+  const isRtl = locale === 'ar';
 
   // ---------- الحالة: الموقع ----------
   const [rawBuildings, setRawBuildings] = useState<Building[]>([]);
@@ -130,7 +131,7 @@ export function useBulkImport() {
       setLoadingBuildings(true);
       setLocationError(null);
       try {
-        const res = await fetch(`/api/buildings?companyId=${session.user.companyId}`);
+        const res = await fetch(`/api/locations/buildings?companyId=${session.user.companyId}`);
         if (!res.ok) {
           const data = await res.json();
           throw new Error(data.error || 'فشل تحميل المباني');
@@ -159,7 +160,7 @@ export function useBulkImport() {
       return;
     }
     setLoadingFloors(true);
-    fetch(`/api/buildings/${selectedBuildingId}/floors`)
+    fetch(`/api/locations/buildings/${selectedBuildingId}/floors`)
       .then(res => {
         if (!res.ok) throw new Error('فشل تحميل الأدوار');
         return res.json();
@@ -186,7 +187,7 @@ export function useBulkImport() {
       return;
     }
     setLoadingRooms(true);
-    fetch(`/api/floors/${selectedFloorId}/rooms`)
+    fetch(`/api/locations/floors/${selectedFloorId}/rooms`)
       .then(res => {
         if (!res.ok) throw new Error('فشل تحميل الغرف');
         return res.json();
@@ -361,10 +362,14 @@ export function useBulkImport() {
           });
 
           if (validatedRows.length === 0) {
-            toast.error('No valid rows found in CSV');
-            setCsvError('No valid rows');
+            toast.error(isRtl ? 'لم يتم العثور على صفوف صالحة في ملف CSV' : 'No valid rows found in CSV');
+            setCsvError(isRtl ? 'لا توجد صفوف صالحة' : 'No valid rows');
           } else {
-            toast.success(`Imported ${validatedRows.length} rows (${errors.length} skipped)`);
+            toast.success(
+              isRtl
+                ? `تم استيراد ${validatedRows.length} صف (تم تخطي ${errors.length})`
+                : `Imported ${validatedRows.length} rows (${errors.length} skipped)`
+            );
             if (errors.length > 0) {
               console.warn('CSV validation errors:', errors);
             }
@@ -373,13 +378,13 @@ export function useBulkImport() {
           setCsvLoading(false);
         },
         error: (err: any) => {
-          toast.error('Failed to parse CSV');
+          toast.error(isRtl ? 'فشل تحليل ملف CSV' : 'Failed to parse CSV');
           setCsvError(err.message);
           setCsvLoading(false);
         },
       });
     } catch (err: any) {
-      toast.error('Failed to read file');
+      toast.error(isRtl ? 'فشل قراءة الملف' : 'Failed to read file');
       setCsvError(err.message);
       setCsvLoading(false);
     }
@@ -396,7 +401,7 @@ export function useBulkImport() {
         processCSVFile(file);
       } catch (err: any) {
         if (err.name !== 'AbortError') {
-          toast.error('File selection failed');
+          toast.error(isRtl ? 'فشل اختيار الملف' : 'File selection failed');
         }
       }
     } else {
@@ -412,18 +417,18 @@ export function useBulkImport() {
   };
 
   // =======================================================
-  // 7. دالة التقديم
+  // 7. دالة التقديم (المعدلة للتوجيه إلى قائمة الأصول)
   // =======================================================
 
   const submit = async () => {
     if (!selectedRoomId) {
-      toast.error('الرجاء اختيار غرفة أولاً');
+      toast.error(isRtl ? 'الرجاء اختيار غرفة أولاً' : 'Please select a room first');
       return;
     }
 
     const invalidRows = rows.filter((row) => !row.name.trim() || !row.typeId);
     if (invalidRows.length > 0) {
-      toast.error('جميع الصفوف يجب أن تحتوي على اسم ونوع');
+      toast.error(isRtl ? 'جميع الصفوف يجب أن تحتوي على اسم ونوع' : 'All rows must have name and type');
       return;
     }
 
@@ -465,25 +470,41 @@ export function useBulkImport() {
           failCount: data.failCount || 0,
           errors: data.errors || [],
         });
-        toast.success(`تم استيراد ${data.successCount} أصل بنجاح`);
+
+        toast.success(
+          isRtl
+            ? `تم استيراد ${data.successCount} أصل بنجاح`
+            : `${data.successCount} assets imported successfully`
+        );
+
         if (data.failCount > 0) {
-          toast.warning(`فشل استيراد ${data.failCount} أصل`);
+          toast.warning(
+            isRtl
+              ? `فشل استيراد ${data.failCount} أصل`
+              : `${data.failCount} assets failed to import`
+          );
         }
+
+        // ✅ التوجيه إلى صفحة قائمة الأصول بعد نجاح الاستيراد
+        setTimeout(() => {
+          router.push(`/${locale}/assets`);
+          router.refresh();
+        }, 1500);
       } else {
-        toast.error(data.error || 'حدث خطأ أثناء التقديم');
+        toast.error(data.error || (isRtl ? 'حدث خطأ أثناء التقديم' : 'Error during submission'));
         setSubmitResult({
           successCount: 0,
           failCount: rows.length,
-          errors: [{ message: data.error || 'خطأ غير معروف' }],
+          errors: [{ message: data.error || 'Unknown error' }],
         });
       }
     } catch (err) {
       console.error(err);
-      toast.error('خطأ في الاتصال بالخادم');
+      toast.error(isRtl ? 'خطأ في الاتصال بالخادم' : 'Server connection error');
       setSubmitResult({
         successCount: 0,
         failCount: rows.length,
-        errors: [{ message: 'فشل الاتصال' }],
+        errors: [{ message: 'Connection failed' }],
       });
     } finally {
       setSubmitting(false);
@@ -491,13 +512,12 @@ export function useBulkImport() {
   };
 
   // =======================================================
-  // 8. القيم المُرجعة (مع كائن location)
+  // 8. القيم المُرجعة
   // =======================================================
 
   const isLoading = loadingBuildings || loadingFloors || loadingRooms || loadingTypesStatuses;
 
   return {
-    // كائن الموقع لتمريره إلى LocationSelector
     location: {
       buildings,
       floors,
@@ -515,29 +535,19 @@ export function useBulkImport() {
       handleRoomChange,
     },
     locationError,
-
-    // الأنواع والحالات
     types,
     statuses,
-
-    // صفوف الأصول
     rows,
     addRow,
     removeRow,
     updateRow,
-
-    // CSV
     csvLoading,
     csvError,
     uploadFile,
     processCSVFile,
-
-    // التقديم
     submit,
     submitting,
     submitResult,
-
-    // عام
     isLoading,
   };
 }

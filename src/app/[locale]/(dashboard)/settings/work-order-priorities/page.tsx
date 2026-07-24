@@ -9,7 +9,6 @@ import { AdminGuard } from "@/lib/client-guard";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
-// ✅ استيرادات صحيحة
 import { WorkOrderPriorityTable } from "./WorkOrderPriorityTable";
 import { WorkOrderPriorityDialog } from "./WorkOrderPriorityDialog";
 import { useSettingsData } from "@/hooks/useSettingsData";
@@ -72,6 +71,24 @@ export default function WorkOrderPrioritiesPage() {
     if (refetchData) refetch();
   };
 
+  // ✅ دالة إعادة الترتيب
+  const handleReorder = async (newPriorities: WorkOrderPriority[]) => {
+    try {
+      const res = await fetch("/api/work-order-priorities/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ids: newPriorities.map((p) => p.id),
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to reorder");
+      toast.success(isRtl ? "تم تحديث الترتيب" : "Order updated");
+      refetch();
+    } catch (error) {
+      toast.error(isRtl ? "فشل تحديث الترتيب" : "Failed to update order");
+    }
+  };
+
   return (
     <AdminGuard>
       <div
@@ -117,6 +134,7 @@ export default function WorkOrderPrioritiesPage() {
                 data={priorities}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
+                onReorder={handleReorder}
                 isRtl={isRtl}
               />
             )}

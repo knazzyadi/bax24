@@ -1,10 +1,9 @@
 // src/app/api/assets/bulk/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { getErrorResponse } from '@/lib/assets/errors';
-import type { AuthSession } from '@/lib/auth/auth-helper';
+import { generateUniqueAssetCode } from '@/lib/selects/code-generator';
 
 // ============================================================
 // POST - إنشاء جماعي (مخصص لاستيراد Excel/CSV)
@@ -16,7 +15,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    // ✅ تأكيد وجود companyId
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json(
@@ -35,7 +33,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ التحقق من وجود الغرفة والحصول على branchId و buildingId
+    // التحقق من وجود الغرفة والحصول على branchId و buildingId
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       select: {
@@ -71,54 +69,94 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // استخدام المعاملة لإنشاء الأصول بشكل جماعي
+    // التحقق من وجود أنواع الأصول قبل البدء
+    const typeIds = [...new Set(assets.map(a => a.typeId).filter(Boolean))];
+    if (typeIds.length === 0) {
+      return NextResponse.json(
+        { error: 'يجب تحديد نوع الأصل لجميع الأصول' },
+        { status: 400 }
+      );
+    }
+
+    const existingTypes = await prisma.assetType.findMany({
+      where: {
+        id: { in: typeIds },
+        companyId,
+      },
+      select: { id: true, code: true },
+    });
+
+    const typeMap = new Map(existingTypes.map(t => [t.id, t.code]));
+    const missingTypes = typeIds.filter(id => !typeMap.has(id));
+
+    if (missingTypes.length > 0) {
+      return NextResponse.json(
+        {
+          error: `بعض أنواع الأصول غير موجودة: ${missingTypes.join(', ')}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    // ✅ استخدام المعاملة مع إحباط عند أول خطأ (ذرية كاملة)
     const result = await prisma.$transaction(async (tx) => {
       const createdAssets = [];
-      const errors: { index: number; error: string }[] = [];
 
       for (let i = 0; i < assets.length; i++) {
-        const asset = assets[i];
-        try {
-          const code = `AST-${Date.now()}-${i}`;
+        const assetData = assets[i];
 
-          const created = await tx.asset.create({
-            data: {
-              name: asset.name || 'أصل بدون اسم',
-              code,
-              typeId: asset.typeId || null,
-              statusId: asset.statusId || null,
-              roomId,
-              buildingId,
-              branchId,
-              companyId, // ✅ استخدم companyId (string)
-              serialNumber: asset.serialNumber || null,
-              manufacturer: asset.manufacturer || null,
-              model: asset.model || null,
-              supplierId: asset.supplierId || null,
-              notes: asset.notes || null,
-              purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate) : null,
-              operationDate: asset.operationDate ? new Date(asset.operationDate) : null,
-              warrantyEnd: asset.warrantyEnd ? new Date(asset.warrantyEnd) : null,
-              lastMaintenanceDate: asset.lastMaintenanceDate ? new Date(asset.lastMaintenanceDate) : null,
-            },
-          });
-          createdAssets.push(created);
-        } catch (err) {
-          const errorMessage = err instanceof Error ? err.message : 'خطأ غير معروف';
-          errors.push({ index: i, error: errorMessage });
+        // التحقق من وجود typeId
+        if (!assetData.typeId) {
+          throw new Error(`نوع الأصل مطلوب في الصف ${i + 1}`);
         }
+
+        // توليد الكود الفريد
+        const code = await generateUniqueAssetCode(
+          tx as any,
+          companyId,
+          branchId,
+          assetData.typeId
+        );
+
+        const created = await tx.asset.create({
+          data: {
+            name: assetData.name?.trim() || 'أصل بدون اسم',
+            nameEn: assetData.nameEn?.trim() || null,
+            description: assetData.description?.trim() || null,
+            code,
+            typeId: assetData.typeId,
+            statusId: assetData.statusId || null,
+            roomId,
+            buildingId,
+            branchId,
+            companyId,
+            serialNumber: assetData.serialNumber?.trim() || null,
+            manufacturer: assetData.manufacturer?.trim() || null,
+            model: assetData.model?.trim() || null,
+            supplierId: assetData.supplierId || null,
+            notes: assetData.notes?.trim() || null,
+            purchaseDate: assetData.purchaseDate ? new Date(assetData.purchaseDate) : null,
+            operationDate: assetData.operationDate ? new Date(assetData.operationDate) : null,
+            warrantyEnd: assetData.warrantyEnd ? new Date(assetData.warrantyEnd) : null,
+            lastMaintenanceDate: assetData.lastMaintenanceDate ? new Date(assetData.lastMaintenanceDate) : null,
+          },
+        });
+        createdAssets.push(created);
       }
 
-      return { createdAssets, errors };
+      return { createdAssets };
+    }, {
+      timeout: 60000, // 60 ثانية مهلة للمعاملة
     });
 
     return NextResponse.json({
       success: true,
       successCount: result.createdAssets.length,
-      failCount: result.errors.length,
-      errors: result.errors,
+      failCount: 0,
+      assets: result.createdAssets,
     });
   } catch (error) {
+    console.error('❌ خطأ في الاستيراد الجماعي:', error);
     const response = getErrorResponse(error);
     return NextResponse.json(response.body, { status: response.status });
   }
@@ -134,7 +172,6 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    // ✅ تأكيد وجود companyId (للأمان)
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json(
@@ -158,14 +195,13 @@ export async function DELETE(request: NextRequest) {
 
       for (const id of assetIds) {
         try {
-          // ✅ التحقق من وجود الأصل مع companyId
           const asset = await tx.asset.findUnique({
             where: { id },
             select: { id: true, deletedAt: true, companyId: true },
           });
 
           if (!asset || asset.deletedAt || asset.companyId !== companyId) {
-            continue; // ليس لهذا الشركة أو محذوف
+            continue;
           }
 
           if (hard) {
@@ -179,6 +215,7 @@ export async function DELETE(request: NextRequest) {
           deletedIds.push(id);
         } catch (err) {
           console.error(`فشل حذف الأصل ${id}:`, err);
+          // استمرار الحذف لباقي الأصول
         }
       }
 
@@ -206,7 +243,6 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    // ✅ تأكيد وجود companyId (للأمان)
     const companyId = session.companyId;
     if (!companyId) {
       return NextResponse.json(
@@ -237,7 +273,6 @@ export async function PUT(request: NextRequest) {
 
       for (const id of assetIds) {
         try {
-          // ✅ التحقق من وجود الأصل مع companyId
           const asset = await tx.asset.findUnique({
             where: { id },
             select: { id: true, deletedAt: true, companyId: true },
@@ -269,6 +304,7 @@ export async function PUT(request: NextRequest) {
           updatedCount++;
         } catch (err) {
           console.error(`فشل تحديث الأصل ${id}:`, err);
+          // استمرار التحديث لباقي الأصول
         }
       }
 

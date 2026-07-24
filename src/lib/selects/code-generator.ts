@@ -1,6 +1,5 @@
 // src/lib/selects/code-generator.ts
 import { Prisma } from '@prisma/client';
-import { prisma } from '@/lib/prisma'; // تأكد من استيراد prisma
 
 const CODE_DIGITS = 4;
 
@@ -10,16 +9,19 @@ export async function generateUniqueAssetCode(
   branchId: string,
   typeId: string
 ): Promise<string> {
+  // جلب كود الفرع
   const branch = await tx.branch.findUniqueOrThrow({
     where: { id: branchId },
     select: { code: true },
   });
 
+  // جلب كود نوع الأصل
   const assetType = await tx.assetType.findUniqueOrThrow({
     where: { id: typeId },
     select: { code: true },
   });
 
+  // جلب آخر أصل بنفس (الشركة, الفرع, النوع)
   const lastAsset = await tx.asset.findFirst({
     where: {
       companyId,

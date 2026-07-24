@@ -102,7 +102,7 @@ export default function NewInspectionPage() {
       toast.success(isRtl ? "تم إنشاء الفحص بنجاح" : "Inspection created successfully");
       
       // التوجيه لصفحة التفاصيل لبدء التشيك ليست
-      router.push(`/inspections/${data.id}`);
+      router.push(`/${locale}/inspections/${data.id}`);
     } catch (err: any) {
       toast.error(err.message);
     } finally {
@@ -125,7 +125,7 @@ export default function NewInspectionPage() {
 
       {/* رأس الصفحة */}
       <header className="relative flex items-center gap-4">
-        <Link href="/inspections">
+        <Link href={`/${locale}/inspections`}>
           <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -237,7 +237,7 @@ export default function NewInspectionPage() {
 
         {/* أزرار الحفظ */}
         <div className="flex justify-end gap-3 pt-4 border-t border-slate-200/50">
-          <Link href="/inspections">
+          <Link href={`/${locale}/inspections`}>
             <Button type="button" variant="outline" className="rounded-xl">
               {isRtl ? "إلغاء" : "Cancel"}
             </Button>

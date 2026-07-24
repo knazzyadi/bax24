@@ -1,11 +1,16 @@
 // src/app/[locale]/(dashboard)/inspections/[id]/InspectionHeader.tsx
 "use client";
 
-import Link from "next/link";
-import { ArrowLeft, Save, CheckCheck } from "lucide-react";
+import { useTranslations } from "next-intl";
+import {
+  ArrowLeft,
+  Printer,
+  Save,
+  CheckCircle,
+  AlertCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 
 interface InspectionHeaderProps {
   title: string;
@@ -19,13 +24,6 @@ interface InspectionHeaderProps {
   hasFailures: boolean;
 }
 
-const statusMap: Record<string, { label: { ar: string; en: string }; color: string }> = {
-  draft: { label: { ar: "مسودة", en: "Draft" }, color: "bg-slate-100 text-slate-600" },
-  in_progress: { label: { ar: "قيد التنفيذ", en: "In Progress" }, color: "bg-blue-100 text-blue-600" },
-  completed: { label: { ar: "مكتمل", en: "Completed" }, color: "bg-emerald-100 text-emerald-600" },
-  approved: { label: { ar: "معتمد", en: "Approved" }, color: "bg-purple-100 text-purple-600" },
-};
-
 export function InspectionHeader({
   title,
   locationName,
@@ -37,43 +35,126 @@ export function InspectionHeader({
   isSaving,
   hasFailures,
 }: InspectionHeaderProps) {
-  const statusInfo = statusMap[status] || statusMap.draft;
+  const t = useTranslations("Inspections");
+
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const getStatusBadge = () => {
+    switch (status) {
+      case "draft":
+        return (
+          <Badge variant="outline" className="border-slate-300 text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            {isRtl ? "مسودة" : "Draft"}
+          </Badge>
+        );
+      case "in_progress":
+        return (
+          <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border-none">
+            {isRtl ? "قيد التنفيذ" : "In Progress"}
+          </Badge>
+        );
+      case "completed":
+        return (
+          <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border-none">
+            {isRtl ? "مكتمل" : "Completed"}
+          </Badge>
+        );
+      default:
+        return null;
+    }
+  };
 
   return (
-    <div className="relative flex flex-wrap items-center justify-between gap-4">
+    <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div className="flex items-center gap-4">
-        <Link href="/inspections">
-          <Button variant="ghost" size="icon" className="rounded-full">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-        </Link>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => window.history.back()}
+          className="rounded-full h-10 w-10 p-0 text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{title}</h1>
-          <div className="flex flex-wrap items-center gap-3 text-sm text-slate-500">
-            <span>{locationName || (isRtl ? "موقع غير محدد" : "Unspecified location")}</span>
-            <Badge variant="outline" className="rounded-full">
-              {new Date(scheduledDate).toLocaleDateString(isRtl ? "ar-SA" : "en-US")}
-            </Badge>
-            <Badge className={cn("rounded-full", statusInfo.color)}>
-              {isRtl ? statusInfo.label.ar : statusInfo.label.en}
-            </Badge>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {title}
+            </h1>
+            {getStatusBadge()}
+          </div>
+          <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400 mt-1 flex-wrap">
+            {locationName && (
+              <span className="flex items-center gap-1">
+                <span>{isRtl ? "الموقع:" : "Location:"}</span>
+                <span className="font-medium text-slate-700 dark:text-slate-300">
+                  {locationName}
+                </span>
+              </span>
+            )}
+            <span className="flex items-center gap-1">
+              <span>{isRtl ? "التاريخ:" : "Date:"}</span>
+              <span className="font-medium text-slate-700 dark:text-slate-300">
+                {new Date(scheduledDate).toLocaleDateString(
+                  isRtl ? "ar-SA" : "en-US",
+                  {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                  }
+                )}
+              </span>
+            </span>
           </div>
         </div>
       </div>
-      <div className="flex gap-2">
-        <Button variant="outline" onClick={onSave} disabled={isSaving} className="rounded-xl">
-          <Save className="h-4 w-4 ml-2" />
-          {isRtl ? "حفظ" : "Save"}
-        </Button>
+
+      <div className="flex items-center gap-2 flex-wrap">
+        {/* زر الطباعة */}
         <Button
-          onClick={onComplete}
-          disabled={isSaving || hasFailures}
-          className="rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-lg"
+          variant="outline"
+          size="sm"
+          onClick={handlePrint}
+          className="rounded-xl border-slate-300 dark:border-slate-700 h-9 px-4 gap-2"
         >
-          <CheckCheck className="h-4 w-4 ml-2" />
-          {isRtl ? "إنهاء واعتماد" : "Complete & Approve"}
+          <Printer className="h-4 w-4" />
+          <span className="hidden sm:inline">{isRtl ? "طباعة" : "Print"}</span>
         </Button>
+
+        {/* زر الحفظ */}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onSave}
+          disabled={isSaving}
+          className="rounded-xl border-slate-300 dark:border-slate-700 h-9 px-4 gap-2"
+        >
+          <Save className="h-4 w-4" />
+          <span>{isRtl ? "حفظ" : "Save"}</span>
+        </Button>
+
+        {/* زر الإكمال (يظهر فقط إذا لم تكن الحالة مكتملة) */}
+        {status !== "completed" && (
+          <Button
+            size="sm"
+            onClick={onComplete}
+            disabled={isSaving || hasFailures}
+            className={cn(
+              "rounded-xl h-9 px-4 gap-2 bg-emerald-600 hover:bg-emerald-700 text-white",
+              hasFailures && "opacity-60 cursor-not-allowed"
+            )}
+          >
+            <CheckCircle className="h-4 w-4" />
+            <span>{isRtl ? "إكمال" : "Complete"}</span>
+          </Button>
+        )}
       </div>
     </div>
   );
+}
+
+function cn(...classes: (string | boolean | undefined)[]) {
+  return classes.filter(Boolean).join(" ");
 }

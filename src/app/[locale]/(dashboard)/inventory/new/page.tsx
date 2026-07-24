@@ -63,12 +63,14 @@ export default function NewInventoryPage() {
   const [selectedBuildingId, setSelectedBuildingId] = useState("");
   const [selectedFloorId, setSelectedFloorId] = useState("");
 
-  // ===== Load Buildings (Abort safe) =====
+  // ===== Load Buildings (مع المسار الجديد) =====
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const res = await fetch("/api/buildings", { signal: controller.signal });
+        const res = await fetch("/api/locations/buildings", {
+          signal: controller.signal,
+        });
         if (!res.ok) return;
         const data = await res.json();
         setBuildings(data);
@@ -81,7 +83,7 @@ export default function NewInventoryPage() {
     return () => controller.abort();
   }, []);
 
-  // ===== Load Floors =====
+  // ===== Load Floors (مع المسار الجديد) =====
   useEffect(() => {
     if (!selectedBuildingId) {
       setFloors([]);
@@ -90,9 +92,10 @@ export default function NewInventoryPage() {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const res = await fetch(`/api/buildings/${selectedBuildingId}/floors`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(
+          `/api/locations/buildings/${selectedBuildingId}/floors`,
+          { signal: controller.signal }
+        );
         if (!res.ok) return;
         const data = await res.json();
         setFloors(data);
@@ -105,7 +108,7 @@ export default function NewInventoryPage() {
     return () => controller.abort();
   }, [selectedBuildingId]);
 
-  // ===== Load Rooms =====
+  // ===== Load Rooms (مع المسار الجديد) =====
   useEffect(() => {
     if (!selectedFloorId) {
       setRooms([]);
@@ -114,9 +117,10 @@ export default function NewInventoryPage() {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const res = await fetch(`/api/floors/${selectedFloorId}/rooms`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(
+          `/api/locations/floors/${selectedFloorId}/rooms`,
+          { signal: controller.signal }
+        );
         if (!res.ok) return;
         const data = await res.json();
         setRooms(data);
@@ -129,7 +133,7 @@ export default function NewInventoryPage() {
     return () => controller.abort();
   }, [selectedFloorId]);
 
-  // ===== Room Details (with abort and fallback) =====
+  // ===== Room Details (مع المسار الجديد) =====
   useEffect(() => {
     if (!formData.roomId) {
       setSelectedRoomFullCode("");
@@ -140,7 +144,7 @@ export default function NewInventoryPage() {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const res = await fetch(`/api/rooms/${formData.roomId}`, {
+        const res = await fetch(`/api/locations/rooms/${formData.roomId}`, {
           signal: controller.signal,
         });
         let roomData: any = null;
@@ -175,7 +179,15 @@ export default function NewInventoryPage() {
 
     load();
     return () => controller.abort();
-  }, [formData.roomId, selectedBuildingId, selectedFloorId, buildings, floors, rooms, isRtl]);
+  }, [
+    formData.roomId,
+    selectedBuildingId,
+    selectedFloorId,
+    buildings,
+    floors,
+    rooms,
+    isRtl,
+  ]);
 
   // ===== Handlers =====
   const handleChange = useCallback((e: ChangeEvent) => {
@@ -449,7 +461,11 @@ export default function NewInventoryPage() {
                 disabled={loading}
                 className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
               >
-                {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5 ml-2" />}
+                {loading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Save className="h-5 w-5 ml-2" />
+                )}
                 {t("save")}
               </Button>
               <Button

@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params; // ✅ استخدم await
+    const { id } = await params;
 
     const item = await prisma.inspectionItem.findUnique({
       where: { id },
@@ -42,9 +42,18 @@ export async function PUT(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params; // ✅ استخدم await
+    const { id } = await params;
     const body = await req.json();
-    const { name, nameAr, cbahiCode, riskLevel, inputType, sortOrder, isActive } = body;
+    const {
+      name,
+      nameAr,
+      cbahiCode,
+      description, // ✅ إضافة الوصف
+      riskLevel,
+      inputType,
+      sortOrder,
+      isActive,
+    } = body;
 
     // التحقق من وجود السجل
     const existing = await prisma.inspectionItem.findUnique({
@@ -69,6 +78,7 @@ export async function PUT(
         name: name?.trim() || existing.name,
         nameAr: nameAr?.trim() !== undefined ? nameAr?.trim() || null : existing.nameAr,
         cbahiCode: cbahiCode?.trim() || null,
+        description: description?.trim() !== undefined ? description?.trim() || null : existing.description, // ✅ تحديث الوصف
         riskLevel: riskLevel || existing.riskLevel,
         inputType: inputType || existing.inputType,
         sortOrder: sortOrder ?? existing.sortOrder,
@@ -94,7 +104,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { id } = await params; // ✅ استخدم await
+    const { id } = await params;
 
     const existing = await prisma.inspectionItem.findUnique({
       where: { id },

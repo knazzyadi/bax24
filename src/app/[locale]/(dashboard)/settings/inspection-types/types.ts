@@ -1,25 +1,79 @@
 // src/app/[locale]/(dashboard)/settings/inspection-types/types.ts
 
+export interface InspectionSection {
+  id: string;
+  companyId: string;
+  code: string;
+  name: string;
+  nameAr?: string | null;
+  description?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  templates?: InspectionTemplate[];
+  _count?: {
+    templates: number;
+  };
+}
+
+export interface InspectionTemplate {
+  id: string;
+  companyId: string;
+  sectionId: string;
+  code: string;
+  name: string;
+  nameAr?: string | null;
+  description?: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  section?: InspectionSection;
+  categories?: InspectionCategory[];
+  _count?: {
+    categories: number;
+  };
+}
+
 export interface InspectionCategory {
   id: string;
+  companyId: string;
+  templateId: string;
+  code: string;
   name: string;
-  nameAr: string;
-  description?: string;
+  nameAr?: string | null;
+  description?: string | null;
+  sortOrder: number;
   isActive: boolean;
-  itemsCount?: number; // لعرض عدد البنود في الجدول
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  template?: InspectionTemplate;
+  items?: InspectionItem[];
+  _count?: {
+    items: number;
+  };
 }
 
 export interface InspectionItem {
   id: string;
   categoryId: string;
+  companyId: string;
+  code: string;
   name: string;
-  nameAr: string;
-  cbahiCode?: string; // مثال: FMS.06
+  nameAr?: string | null;
+  description?: string | null;
+  cbahiCode?: string | null;
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
   inputType: 'pass_fail' | 'numeric' | 'text';
-  isActive: boolean;
+  autoCreateWorkOrder: boolean;
   sortOrder: number;
-  createdAt?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+  category?: InspectionCategory;
 }

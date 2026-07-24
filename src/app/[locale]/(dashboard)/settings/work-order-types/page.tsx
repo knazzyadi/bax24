@@ -32,6 +32,25 @@ export default function WorkOrderTypesPage() {
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id?: string }>({ open: false });
   const [deleting, setDeleting] = useState(false);
 
+  // ✅ دالة إعادة الترتيب (السحب والإفلات)
+  const handleReorder = async (newItems: WorkOrderType[]) => {
+    try {
+      const res = await fetch("/api/work-order-types/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: newItems.map((item) => item.id) }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "فشل تحديث الترتيب");
+      }
+      toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
+      refetch(); // ✅ إعادة تحميل البيانات من الخادم
+    } catch (error: any) {
+      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to update order"));
+    }
+  };
+
   const handleCreate = () => {
     setEditingType(null);
     setDialogOpen(true);
@@ -80,7 +99,6 @@ export default function WorkOrderTypesPage() {
           isRtl ? "text-right" : "text-left"
         )}
       >
-        {/* ✅ توحيد الخلفية المتدرجة */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
         <header className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -97,7 +115,6 @@ export default function WorkOrderTypesPage() {
               </p>
             </div>
           </div>
-          {/* ✅ زر الإضافة بتدرج موحّد */}
           <Button
             onClick={handleCreate}
             className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-11 px-5 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
@@ -118,6 +135,7 @@ export default function WorkOrderTypesPage() {
                 data={types}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
+                onReorder={handleReorder} // ✅ تمرير الدالة
                 isRtl={isRtl}
               />
             )}

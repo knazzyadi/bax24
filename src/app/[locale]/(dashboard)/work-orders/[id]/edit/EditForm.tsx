@@ -90,10 +90,6 @@ export function EditForm({
             buildings={buildings}
             floors={floors}
             rooms={rooms}
-            locationLevel={formData.locationLevel || "building"}
-            setLocationLevel={(level: any) =>
-              setFormData({ ...formData, locationLevel: level })
-            }
             loadingFloors={loadingFloors}
             loadingRooms={loadingRooms}
             isRtl={isRtl}

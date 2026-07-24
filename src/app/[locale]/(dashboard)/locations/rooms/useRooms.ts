@@ -1,9 +1,8 @@
-// src/app/[locale]/(dashboard)/locations/rooms/hooks/useRooms.ts
-
+// src/app/[locale]/(dashboard)/locations/rooms/useRooms.ts
 import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
 import { Room, Floor, RoomFormData, RoomFilters } from './types';
-import { RoomService } from './RoomService';
+import { RoomService } from '@/lib/services/locations/rooms.service';
 
 export function useRooms(initialRooms: Room[], initialFloors: Floor[]) {
   const [rooms, setRooms] = useState<Room[]>(initialRooms);
@@ -84,6 +83,7 @@ export function useRooms(initialRooms: Room[], initialFloors: Floor[]) {
   const filteredRooms = useMemo(() => {
     let result = [...rooms];
 
+    // البحث
     if (filters.search.trim()) {
       const query = filters.search.toLowerCase();
       result = result.filter((r) =>
@@ -93,21 +93,24 @@ export function useRooms(initialRooms: Room[], initialFloors: Floor[]) {
       );
     }
 
+    // فلتر حسب الدور
     if (filters.floorId) {
       result = result.filter((r) => r.floorId === filters.floorId);
     }
 
+    // فلتر حسب المبنى
     if (filters.buildingId) {
-      result = result.filter((r) => r.floor.building.id === filters.buildingId);
+      result = result.filter((r) => r.floor?.building?.id === filters.buildingId);
     }
 
+    // الترتيب
     const { sortBy, sortOrder } = filters;
     result.sort((a, b) => {
       let aVal: any, bVal: any;
 
       if (sortBy === 'floorId') {
-        aVal = a.floor.name;
-        bVal = b.floor.name;
+        aVal = a.floor?.name || '';
+        bVal = b.floor?.name || '';
       } else {
         aVal = a[sortBy as keyof Room];
         bVal = b[sortBy as keyof Room];
@@ -127,12 +130,16 @@ export function useRooms(initialRooms: Room[], initialFloors: Floor[]) {
     return result;
   }, [rooms, filters]);
 
-  // الحصول على المباني من الأدوار لتظهر في الفلتر
+  // استخراج المباني من الأدوار لعرضها في الفلتر
   const buildings = useMemo(() => {
-    const buildingMap = new Map<string, { id: string; name: string }>();
+    const buildingMap = new Map<string, { id: string; name: string; nameEn?: string | null }>();
     floors.forEach((floor) => {
       if (floor.building && !buildingMap.has(floor.building.id)) {
-        buildingMap.set(floor.building.id, floor.building);
+        buildingMap.set(floor.building.id, {
+          id: floor.building.id,
+          name: floor.building.name,
+          nameEn: floor.building.nameEn,
+        });
       }
     });
     return Array.from(buildingMap.values());

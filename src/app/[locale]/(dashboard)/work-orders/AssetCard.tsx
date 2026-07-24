@@ -1,4 +1,4 @@
-// work-orders/shared/AssetCard.tsx
+// src/app/[locale]/(dashboard)/work-orders/AssetCard.tsx
 "use client";
 
 import { FileText, Plus, X, Check, Loader2 } from "lucide-react";
@@ -32,6 +32,12 @@ interface AssetCardProps {
   t: any;
 }
 
+// دالة مساعدة لعرض اسم الأصل مع الكود
+const getAssetDisplay = (asset: any, isRtl: boolean) => {
+  const name = isRtl ? asset.name : (asset.nameEn || asset.name);
+  return asset.code ? `${asset.code}. ${name}` : name;
+};
+
 export function AssetCard({
   formData,
   setFormData,
@@ -50,8 +56,15 @@ export function AssetCard({
   isRtl,
   t,
 }: AssetCardProps) {
+  // عرض خيارات الأصول مع التنسيق المحسن
+  const getAssetLabel = (asset: any) => {
+    const name = isRtl ? asset.name : (asset.nameEn || asset.name);
+    return asset.code ? `${asset.code}. ${name}` : name;
+  };
+
   return (
     <div className="space-y-5">
+      {/* نوع الأصل */}
       <AssetTypeField
         value={formData.assetTypeId}
         onChange={(val) =>
@@ -64,10 +77,13 @@ export function AssetCard({
             ? isRtl ? "اختر نوع الأصل" : "Select asset type"
             : isRtl ? "اختر الموقع أولاً" : "Select location first"
         }
+        isRtl={isRtl}
+        className="w-full"
       />
 
+      {/* اختيار الأصول */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {t("selectAssets")}
         </Label>
         <Button
@@ -79,19 +95,20 @@ export function AssetCard({
             !formData.assetTypeId ||
             assets.length === 0
           }
-          className="w-full justify-start gap-2 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 h-12"
+          className="w-full justify-start gap-3 rounded-xl border-slate-300 dark:border-slate-600 hover:border-indigo-400 dark:hover:border-indigo-500 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 text-slate-700 dark:text-slate-300 h-12 font-medium transition-all"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
           {selectedAssetIds.length > 0
-            ? `${selectedAssetIds.length} ${t("assetsSelected") || (isRtl ? "أصل محدد" : "assets selected")}`
+            ? `${selectedAssetIds.length} ${isRtl ? "أصل محدد" : "assets selected"}`
             : t("selectAssets")}
         </Button>
       </div>
 
+      {/* عرض الأصول المختارة */}
       {selectedAssetIds.length > 0 && (
         <div className="mt-4 space-y-2">
           <h4 className="text-sm font-medium text-slate-600 dark:text-slate-400">
-            {t("selectedAssetsList")}
+            {t("selectedAssetsList") || (isRtl ? "الأصول المختارة" : "Selected Assets")}
           </h4>
           <div className="space-y-2 max-h-60 overflow-y-auto">
             {selectedAssetIds.map((assetId) => {
@@ -100,13 +117,13 @@ export function AssetCard({
               return (
                 <div
                   key={assetId}
-                  className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/30 dark:border-indigo-800/30"
+                  className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/50 dark:border-indigo-800/40"
                 >
                   <div>
-                    <p className="font-medium text-slate-800 dark:text-slate-100">
-                      {isRtl ? asset.name : asset.nameEn || asset.name}
+                    <p className="font-semibold text-slate-800 dark:text-slate-100">
+                      {getAssetDisplay(asset, isRtl)}
                     </p>
-                    <p className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                    <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
                       {asset.code}
                     </p>
                   </div>
@@ -126,7 +143,7 @@ export function AssetCard({
 
       {/* حوار اختيار الأصول */}
       <Dialog open={assetDialogOpen} onOpenChange={onAssetDialogOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-slate-800 dark:text-slate-100 text-xl font-bold">
               {t("selectAssets")}
@@ -135,18 +152,18 @@ export function AssetCard({
           <div className="space-y-3 mt-4">
             {loadingAssets ? (
               <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-indigo-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-600 dark:text-indigo-400" />
               </div>
             ) : assets.length === 0 ? (
-              <div className="text-center py-8 text-slate-400 dark:text-slate-500">
-                {t("noAssets")}
+              <div className="text-center py-8 text-slate-500 dark:text-slate-400">
+                {t("noAssets") || (isRtl ? "لا توجد أصول متاحة" : "No assets available")}
               </div>
             ) : (
               <div className="space-y-2">
                 {assets.map((asset) => (
                   <div
                     key={asset.id}
-                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors"
+                    className="flex items-center gap-3 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/60 hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30 transition-colors"
                   >
                     <input
                       type="checkbox"
@@ -159,16 +176,16 @@ export function AssetCard({
                           onTempAssetChange(tempSelectedAssetIds.filter((id) => id !== asset.id));
                         }
                       }}
-                      className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 rounded border-slate-300 dark:border-slate-600"
+                      className="w-4 h-4 text-indigo-600 dark:text-indigo-400 focus:ring-indigo-500 rounded border-slate-300 dark:border-slate-600"
                     />
                     <Label
                       htmlFor={`asset-${asset.id}`}
                       className="flex-1 cursor-pointer"
                     >
-                      <div className="font-medium text-slate-800 dark:text-slate-100">
-                        {isRtl ? asset.name : asset.nameEn || asset.name}
+                      <div className="font-semibold text-slate-800 dark:text-slate-100">
+                        {getAssetLabel(asset)}
                       </div>
-                      <div className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                      <div className="text-xs font-mono text-slate-500 dark:text-slate-400">
                         {asset.code}
                       </div>
                     </Label>
@@ -177,21 +194,21 @@ export function AssetCard({
               </div>
             )}
           </div>
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
             <Button
               variant="outline"
               onClick={() => onAssetDialogOpenChange(false)}
-              className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
+              className="rounded-xl border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
             >
               {t("cancel")}
             </Button>
             <Button
               onClick={onConfirmAssetSelection}
               disabled={loadingAssets}
-              className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20"
+              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium shadow-md hover:shadow-lg transition-all"
             >
               <Check className="h-4 w-4 mr-2" />
-              {t("confirm") || "تأكيد"}
+              {t("confirm") || (isRtl ? "تأكيد" : "Confirm")}
             </Button>
           </div>
         </DialogContent>

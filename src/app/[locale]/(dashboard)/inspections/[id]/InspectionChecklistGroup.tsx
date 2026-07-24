@@ -10,28 +10,13 @@ import {
   MinusCircle,
   Camera,
   Wrench,
-  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { NonComplianceWorkOrderDialog } from "./NonComplianceWorkOrderDialog";
 
 interface InspectionChecklistGroupProps {
   inspection: any;
@@ -49,13 +34,6 @@ export function InspectionChecklistGroup({
 
   const [woDialogOpen, setWoDialogOpen] = useState(false);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-  const [woPriority, setWoPriority] = useState<'low' | 'medium' | 'high' | 'critical'>('high');
-
-  const handleCreateWorkOrder = () => {
-    // هنا سيتم إنشاء أمر العمل
-    toast.success(isRtl ? "تم إنشاء أمر العمل بنجاح" : "Work order created");
-    setWoDialogOpen(false);
-  };
 
   // تجميع النتائج في Map للوصول السريع
   const resultsMap = new Map();
@@ -74,6 +52,31 @@ export function InspectionChecklistGroup({
       items: itemsWithResults,
     };
   }) || [];
+
+  // فتح حوار إنشاء أمر العمل
+  const openWoDialog = (itemId: string) => {
+    setSelectedItemId(itemId);
+    setWoDialogOpen(true);
+  };
+
+  // الحصول على اسم البند المحدد
+  const getItemName = (itemId: string | null) => {
+    if (!itemId) return "";
+    for (const group of groupedData) {
+      const found = group.items.find((item: any) => item.id === itemId);
+      if (found) return found.name || "";
+    }
+    return "";
+  };
+
+  const getItemNameAr = (itemId: string | null) => {
+    if (!itemId) return "";
+    for (const group of groupedData) {
+      const found = group.items.find((item: any) => item.id === itemId);
+      if (found) return found.nameAr || "";
+    }
+    return "";
+  };
 
   return (
     <div className="space-y-6">
@@ -200,10 +203,7 @@ export function InspectionChecklistGroup({
                             hasWO ? "bg-amber-600 hover:bg-amber-700" : ""
                           )}
                           disabled={hasWO}
-                          onClick={() => {
-                            setSelectedItemId(item.id);
-                            setWoDialogOpen(true);
-                          }}
+                          onClick={() => openWoDialog(item.id)}
                         >
                           <Wrench className="h-4 w-4 ml-1" />
                           {hasWO
@@ -224,62 +224,24 @@ export function InspectionChecklistGroup({
         </Card>
       ))}
 
-      {/* حوار إنشاء أمر العمل */}
-      <Dialog open={woDialogOpen} onOpenChange={setWoDialogOpen}>
-        <DialogContent className="rounded-3xl bg-white/95 dark:bg-slate-900/95">
-          <DialogHeader>
-            <DialogTitle>
-              {isRtl ? "تحويل لأمر عمل" : "Convert to Work Order"}
-            </DialogTitle>
-            <DialogDescription>
-              {isRtl
-                ? "سيتم إنشاء أمر صيانة بناءً على البند غير المطابق"
-                : "A maintenance order will be created based on the failed item"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Select
-                value={woPriority}
-                onValueChange={(v: any) => setWoPriority(v)}
-              >
-                <SelectTrigger className="rounded-xl">
-                  <SelectValue placeholder={isRtl ? "الأولوية" : "Priority"} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="low">
-                    {isRtl ? "منخفضة" : "Low"}
-                  </SelectItem>
-                  <SelectItem value="medium">
-                    {isRtl ? "متوسطة" : "Medium"}
-                  </SelectItem>
-                  <SelectItem value="high">
-                    {isRtl ? "عالية" : "High"}
-                  </SelectItem>
-                  <SelectItem value="critical">
-                    {isRtl ? "حرجة" : "Critical"}
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setWoDialogOpen(false)}
-              className="rounded-xl"
-            >
-              {isRtl ? "إلغاء" : "Cancel"}
-            </Button>
-            <Button
-              onClick={handleCreateWorkOrder}
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white"
-            >
-              {isRtl ? "إنشاء الأمر" : "Create Order"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* ✅ حوار إنشاء أمر العمل - النسخة المحسنة */}
+      {selectedItemId && (
+        <NonComplianceWorkOrderDialog
+          open={woDialogOpen}
+          onOpenChange={setWoDialogOpen}
+          itemName={getItemName(selectedItemId)}
+          itemNameAr={getItemNameAr(selectedItemId)}
+          currentLocation={{
+            buildingId: undefined,
+            floorId: undefined,
+            roomId: undefined,
+          }}
+          locale={locale}
+          onSuccess={() => {
+            toast.success(isRtl ? "تم إنشاء أمر العمل بنجاح" : "Work order created successfully");
+          }}
+        />
+      )}
     </div>
   );
 }

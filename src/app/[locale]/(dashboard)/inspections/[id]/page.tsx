@@ -17,6 +17,7 @@ export default async function InspectionDetailPage({
   const companyId = session.companyId;
   if (!companyId) redirect("/login");
 
+  // ✅ جلب الفحص مع العلاقات الجديدة (بدون locationName و imageUrl المباشر)
   const inspection = await prisma.inspection.findUnique({
     where: { id },
     include: {
@@ -34,8 +35,15 @@ export default async function InspectionDetailPage({
         },
       },
       results: {
-        include: { item: true },
+        include: {
+          item: true,
+          images: true, // ✅ جلب الصور المرتبطة
+        },
       },
+      branch: true,
+      building: true,
+      floor: true,
+      room: true,
     },
   });
 
@@ -51,28 +59,50 @@ export default async function InspectionDetailPage({
   const categories = inspection.selectedCategories.map((sel) => ({
     categoryId: sel.categoryId,
     categoryName: sel.category.name,
-    categoryNameAr: sel.category.nameAr ?? undefined, // ✅ تحويل null إلى undefined
+    categoryNameAr: sel.category.nameAr ?? undefined,
     items: sel.category.items.map((item) => ({
       ...item,
       result: resultsMap.get(item.id) || null,
     })),
   }));
 
+  // ✅ بناء اسم الموقع من العلاقات الجديدة (بدلاً من locationName)
+  const locationParts = [];
+  if (inspection.branch) locationParts.push(inspection.branch.name);
+  if (inspection.building) locationParts.push(inspection.building.name);
+  if (inspection.floor) locationParts.push(inspection.floor.name);
+  if (inspection.room) locationParts.push(inspection.room.name);
+
+  const locationName = locationParts.length > 0 ? locationParts.join(" - ") : undefined;
+
+  // ✅ تحويل النتائج مع الصور (بدون imageUrl المباشر)
+  const results = inspection.results.map((r) => ({
+    id: r.id,
+    itemId: r.itemId,
+    result: r.result,
+    notes: r.notes,
+    workOrderId: r.workOrderId,
+    // ✅ الصور موجودة في علاقة images
+    images: r.images.map((img) => ({
+      id: img.id,
+      url: img.url,
+      caption: img.caption,
+    })),
+  }));
+
   const initialData = {
     id: inspection.id,
     title: inspection.title,
-    locationName: inspection.locationName ?? undefined, // ✅ تحويل null إلى undefined
+    locationName, // ✅ اسم الموقع المحسوب
     scheduledDate: inspection.scheduledDate.toISOString(),
     status: inspection.status,
     categories,
-    results: inspection.results.map((r) => ({
-      id: r.id,
-      itemId: r.itemId,
-      result: r.result,
-      notes: r.notes,
-      imageUrl: r.imageUrl,
-      workOrderId: r.workOrderId,
-    })),
+    results,
+    // ✅ إضافة معرفات الموقع للاستخدام في المكونات
+    branchId: inspection.branchId,
+    buildingId: inspection.buildingId,
+    floorId: inspection.floorId,
+    roomId: inspection.roomId,
     createdAt: inspection.createdAt.toISOString(),
     updatedAt: inspection.updatedAt.toISOString(),
   };

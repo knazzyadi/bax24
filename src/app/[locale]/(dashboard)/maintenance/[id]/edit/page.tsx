@@ -111,7 +111,6 @@ export default function EditMaintenanceSchedulePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // --- بيانات النموذج ---
   const [formData, setFormData] = useState({
     name: "",
     frequency: "MONTHLY",
@@ -123,14 +122,12 @@ export default function EditMaintenanceSchedulePage() {
     isActive: true,
   });
 
-  // --- بيانات الموقع ---
   const [branchId, setBranchId] = useState("");
   const [buildingId, setBuildingId] = useState("");
   const [floorId, setFloorId] = useState("");
   const [roomId, setRoomId] = useState("");
   const [locationLevel, setLocationLevel] = useState<LocationLevel>("building");
 
-  // --- القوائم ---
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -140,25 +137,23 @@ export default function EditMaintenanceSchedulePage() {
   const [tempSelectedAssetIds, setTempSelectedAssetIds] = useState<string[]>([]);
   const [assetDialogOpen, setAssetDialogOpen] = useState(false);
 
-  // --- حالات التحميل الجزئية ---
   const [loadingMaster, setLoadingMaster] = useState(true);
   const [loadingSchedule, setLoadingSchedule] = useState(true);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
-  // كرت الخلفية الزجاجي
   const glassCard =
     "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
-  // 1. تحميل البيانات الرئيسية (أنواع الأصول والمباني)
+  // 1. تحميل البيانات الرئيسية (أنواع الأصول والمباني - بالمسار الجديد)
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
       try {
         const [assetTypesRes, buildingsRes] = await Promise.all([
           fetch("/api/asset-types", { signal: controller.signal }),
-          fetch("/api/buildings", { signal: controller.signal }),
+          fetch("/api/locations/buildings", { signal: controller.signal }), // ✅ تحديث المسار
         ]);
         if (assetTypesRes.ok) setAssetTypes(await assetTypesRes.json());
         if (buildingsRes.ok) setBuildings(await buildingsRes.json());
@@ -172,7 +167,7 @@ export default function EditMaintenanceSchedulePage() {
     return () => controller.abort();
   }, []);
 
-  // 2. تحميل بيانات جدول الصيانة (بعد الانتهاء من البيانات الرئيسية تقريباً)
+  // 2. تحميل بيانات جدول الصيانة
   useEffect(() => {
     if (loadingMaster) return;
     if (!id) return;
@@ -187,7 +182,6 @@ export default function EditMaintenanceSchedulePage() {
         if (!res.ok) throw new Error();
         const data = await res.json();
 
-        // تعبئة النموذج الأساسي
         setFormData({
           name: data.name || "",
           frequency: data.frequency || "MONTHLY",
@@ -199,7 +193,6 @@ export default function EditMaintenanceSchedulePage() {
           isActive: data.isActive ?? true,
         });
 
-        // تعيين الفرع والموقع
         setBranchId(data.branchId || "");
 
         const bId = data.buildingId || "";
@@ -210,12 +203,10 @@ export default function EditMaintenanceSchedulePage() {
         setFloorId(fId);
         setRoomId(rId);
 
-        // تحديد مستوى الموقع
         if (rId) setLocationLevel("room");
         else if (fId) setLocationLevel("floor");
         else if (bId) setLocationLevel("building");
 
-        // تعيين الأصول المرتبطة
         const assetIds = data.scheduleAssets?.map((a: any) => a.assetId) || [];
         setSelectedAssetIds(assetIds);
         setTempSelectedAssetIds(assetIds);
@@ -233,7 +224,7 @@ export default function EditMaintenanceSchedulePage() {
     return () => controller.abort();
   }, [id, loadingMaster, locale, router, t]);
 
-  // 3. تحميل الأدوار عند تغيير buildingId
+  // 3. تحميل الأدوار عند تغيير buildingId (بالمسار الجديد)
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -243,7 +234,7 @@ export default function EditMaintenanceSchedulePage() {
     (async () => {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/buildings/${buildingId}/floors`, {
+        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`, { // ✅ تحديث المسار
           signal: controller.signal,
         });
         if (res.ok) {
@@ -260,7 +251,7 @@ export default function EditMaintenanceSchedulePage() {
     return () => controller.abort();
   }, [buildingId]);
 
-  // 4. تحميل الغرف عند تغيير floorId
+  // 4. تحميل الغرف عند تغيير floorId (بالمسار الجديد)
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -270,7 +261,7 @@ export default function EditMaintenanceSchedulePage() {
     (async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/floors/${floorId}/rooms`, {
+        const res = await fetch(`/api/locations/floors/${floorId}/rooms`, { // ✅ تحديث المسار
           signal: controller.signal,
         });
         if (res.ok) {
@@ -287,7 +278,7 @@ export default function EditMaintenanceSchedulePage() {
     return () => controller.abort();
   }, [floorId]);
 
-  // 5. تحميل الأصول بناءً على نوع الأصل والموقع المحدد
+  // 5. تحميل الأصول
   useEffect(() => {
     if (!formData.assetTypeId) {
       setAssets([]);
@@ -424,7 +415,6 @@ export default function EditMaintenanceSchedulePage() {
     }
   };
 
-  // --- حالة التحميل العامة ---
   if (loading || loadingMaster || loadingSchedule) {
     return (
       <div className="relative min-h-[60vh] flex items-center justify-center p-6">
@@ -436,10 +426,8 @@ export default function EditMaintenanceSchedulePage() {
 
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      {/* رأس الصفحة */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
@@ -465,7 +453,6 @@ export default function EditMaintenanceSchedulePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* العمود الرئيسي */}
         <div className="lg:col-span-2 space-y-8">
           {/* معلومات أساسية */}
           <div className={glassCard}>
@@ -814,9 +801,7 @@ export default function EditMaintenanceSchedulePage() {
           </div>
         </div>
 
-        {/* العمود الجانبي */}
         <div className="space-y-6">
-          {/* الملاحظات */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
@@ -836,7 +821,6 @@ export default function EditMaintenanceSchedulePage() {
             />
           </div>
 
-          {/* مساعدة سريعة */}
           <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
             <Shield className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
             <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -846,7 +830,6 @@ export default function EditMaintenanceSchedulePage() {
             </div>
           </div>
 
-          {/* الأزرار */}
           <div className="flex gap-3">
             <Button
               type="button"
@@ -873,7 +856,6 @@ export default function EditMaintenanceSchedulePage() {
         </div>
       </div>
 
-      {/* حوار اختيار الأصول */}
       <Dialog open={assetDialogOpen} onOpenChange={setAssetDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
           <DialogHeader>

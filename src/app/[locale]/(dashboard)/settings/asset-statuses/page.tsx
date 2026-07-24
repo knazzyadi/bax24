@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { Palette, Plus, Loader2 } from "lucide-react";
+import { Circle, Plus, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { AdminGuard } from "@/lib/client-guard";
 import { cn } from "@/lib/utils";
@@ -14,9 +14,6 @@ import { AssetStatusDialog } from "./AssetStatusDialog";
 import { useSettingsData } from "@/hooks/useSettingsData";
 import type { AssetStatus } from "@/types/assets";
 
-// =========================
-// تنسيق موحد (مطابق للـ Dashboard)
-// =========================
 const glassCard =
   "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300";
 
@@ -25,19 +22,34 @@ export default function AssetStatusesPage() {
   const locale = useLocale();
   const isRtl = locale === "ar";
 
-  // جلب البيانات
   const { data: statuses, loading, refetch } = useSettingsData<AssetStatus>({
     apiEndpoint: "/api/asset-statuses",
     locale,
   });
 
-  // حالات الحوارات
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingStatus, setEditingStatus] = useState<AssetStatus | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id?: string }>({ open: false });
   const [deleting, setDeleting] = useState(false);
 
-  // دوال معالجة الأحداث
+  const handleReorder = async (newItems: AssetStatus[]) => {
+    try {
+      const res = await fetch("/api/asset-statuses/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: newItems.map((item) => item.id) }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "فشل تحديث الترتيب");
+      }
+      toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to update order"));
+    }
+  };
+
   const handleCreate = () => {
     setEditingStatus(null);
     setDialogOpen(true);
@@ -86,14 +98,12 @@ export default function AssetStatusesPage() {
           isRtl ? "text-right" : "text-left"
         )}
       >
-        {/* خلفية متدرجة (مطابقة للـ Dashboard) */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-        {/* رأس الصفحة */}
         <header className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
-              <Palette className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
+              <Circle className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
@@ -113,7 +123,6 @@ export default function AssetStatusesPage() {
           </Button>
         </header>
 
-        {/* بطاقة المحتوى */}
         <div className={glassCard}>
           <div className="p-6">
             {loading ? (
@@ -125,13 +134,13 @@ export default function AssetStatusesPage() {
                 data={statuses}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
+                onReorder={handleReorder}
                 isRtl={isRtl}
               />
             )}
           </div>
         </div>
 
-        {/* حوار الإضافة/التعديل */}
         <AssetStatusDialog
           open={dialogOpen}
           onOpenChange={handleDialogClose}
@@ -139,7 +148,6 @@ export default function AssetStatusesPage() {
           isRtl={isRtl}
         />
 
-        {/* حوار تأكيد الحذف */}
         <ConfirmDialog
           open={confirmDialog.open}
           onOpenChange={(open) => setConfirmDialog({ open, id: confirmDialog.id })}

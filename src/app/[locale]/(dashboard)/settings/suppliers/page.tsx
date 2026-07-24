@@ -12,7 +12,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 import { SupplierTable } from "./SupplierTable";
 import { SupplierDialog } from "./SupplierDialog";
 import { useSettingsData } from "@/hooks/useSettingsData";
-import type { Supplier } from "@/types/assets";
+import type { Supplier } from "@/types/suppliers";
 
 const glassCard =
   "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl shadow-sm hover:shadow-xl transition-all duration-300";
@@ -31,6 +31,25 @@ export default function SuppliersPage() {
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id?: string }>({ open: false });
   const [deleting, setDeleting] = useState(false);
+
+  // ✅ دالة إعادة الترتيب (السحب والإفلات)
+  const handleReorder = async (newItems: Supplier[]) => {
+    try {
+      const res = await fetch("/api/suppliers/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: newItems.map((item) => item.id) }),
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || "فشل تحديث الترتيب");
+      }
+      toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
+      refetch();
+    } catch (error: any) {
+      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to update order"));
+    }
+  };
 
   const handleCreate = () => {
     setEditingSupplier(null);
@@ -80,13 +99,12 @@ export default function SuppliersPage() {
           isRtl ? "text-right" : "text-left"
         )}
       >
-        {/* ✅ خلفية متدرجة بالسماوي/النيلي */}
-        <div className="absolute inset-0 bg-gradient-to-br from-cyan-100/20 via-transparent to-sky-100/20 dark:from-cyan-950/10 dark:via-transparent dark:to-sky-950/10 rounded-3xl -z-10" />
+        <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
         <header className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-sky-500/10 dark:from-cyan-500/20 dark:to-sky-500/20 border border-cyan-200/30 dark:border-cyan-800/30 shadow-lg shadow-cyan-500/5">
-              <Truck className="h-8 w-8 text-cyan-600 dark:text-cyan-400" />
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+              <Truck className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
@@ -110,13 +128,14 @@ export default function SuppliersPage() {
           <div className="p-6">
             {loading ? (
               <div className="flex justify-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-cyan-500" />
+                <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
               </div>
             ) : (
               <SupplierTable
                 data={suppliers}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
+                onReorder={handleReorder}
                 isRtl={isRtl}
               />
             )}

@@ -39,7 +39,7 @@ import { LocationSelector, type LocationValue } from "@/components/shared/Locati
 import type { AssetStatus, AssetType, Building, Floor, Room } from "@/types/assets";
 
 // ============================================================
-// 1. Hook لجلب البيانات الوصفية
+// 1. Hook لجلب البيانات الوصفية (مع المسارات الجديدة)
 // ============================================================
 function useMetadata(locale: string) {
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
@@ -56,7 +56,7 @@ function useMetadata(locale: string) {
       const [statusesRes, typesRes, buildingsRes, suppliersRes] = await Promise.all([
         fetch(`/api/asset-statuses?locale=${locale}`),
         fetch(`/api/asset-types?locale=${locale}`),
-        fetch(`/api/buildings`),
+        fetch(`/api/locations/buildings`), // ✅ تم التحديث
         fetch(`/api/suppliers?locale=${locale}`),
       ]);
       if (statusesRes.ok) setStatuses(await statusesRes.json());
@@ -79,7 +79,7 @@ function useMetadata(locale: string) {
 }
 
 // ============================================================
-// 2. Hook لجلب بيانات الأصل وتعبئة النموذج (محسّن)
+// 2. Hook لجلب بيانات الأصل وتعبئة النموذج (مع المسارات الجديدة)
 // ============================================================
 function useAssetForm(assetId: string) {
   const [loading, setLoading] = useState(true);
@@ -101,7 +101,6 @@ function useAssetForm(assetId: string) {
     supplierId: "",
   });
 
-  // بيانات الموقع (منفصلة عن formData لتسهيل التعامل مع LocationSelector)
   const [locationData, setLocationData] = useState<LocationValue>({
     buildingId: "",
     floorId: "",
@@ -117,7 +116,6 @@ function useAssetForm(assetId: string) {
       if (!res.ok) throw new Error("Asset not found");
       const assetData = await res.json();
 
-      // ✅ تعبئة النموذج من الحقول المسطحة (AssetResponse)
       setFormData({
         name: assetData.name || "",
         nameEn: assetData.nameEn || "",
@@ -136,7 +134,6 @@ function useAssetForm(assetId: string) {
         supplierId: assetData.supplierId || "",
       });
 
-      // ✅ تعيين بيانات الموقع من الحقول الجديدة
       const roomId = assetData.roomId || "";
       const buildingId = assetData.buildingId || "";
       const floorId = assetData.floorId || "";
@@ -147,7 +144,6 @@ function useAssetForm(assetId: string) {
         roomId,
       });
 
-      // ✅ تعيين اسم الغرفة والكود للعرض
       if (roomId) {
         const roomName = assetData.roomName || "";
         const roomCode = assetData.roomCode || "";
@@ -172,14 +168,12 @@ function useAssetForm(assetId: string) {
     fetchAsset();
   }, [fetchAsset]);
 
-  // تحديث roomId في formData عند تغيير الموقع
   const handleLocationChange = (location: LocationValue) => {
     setLocationData(location);
     setFormData((prev) => ({ ...prev, roomId: location.roomId }));
 
-    // جلب تفاصيل الغرفة لعرض الاسم والكود
     if (location.roomId) {
-      fetch(`/api/rooms/${location.roomId}`)
+      fetch(`/api/locations/rooms/${location.roomId}`) // ✅ تم التحديث
         .then((res) => {
           if (res.ok) return res.json();
           return null;

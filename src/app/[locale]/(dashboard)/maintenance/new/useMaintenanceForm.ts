@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
 
-
 interface Building {
   id: string;
   name: string;
@@ -107,13 +106,13 @@ export function useMaintenanceForm() {
   // ===== AbortController =====
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // ===== جلب البيانات الأولية =====
+  // ===== جلب البيانات الأولية (مع المسارات الجديدة) =====
   useEffect(() => {
     async function fetchInitialData() {
       try {
         const [assetTypesRes, buildingsRes] = await Promise.all([
           fetch("/api/asset-types", { cache: "no-store" }),
-          fetch("/api/buildings", { cache: "no-store" }),
+          fetch("/api/locations/buildings", { cache: "no-store" }), // ✅ تم التحديث
         ]);
         if (assetTypesRes.ok) setAssetTypes(await assetTypesRes.json());
         if (buildingsRes.ok) setBuildings(await buildingsRes.json());
@@ -160,7 +159,7 @@ export function useMaintenanceForm() {
     return () => controller.abort();
   }, [floorId]);
 
-  // ===== جلب الأدوار =====
+  // ===== جلب الأدوار (مع المسار الجديد) =====
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -172,7 +171,7 @@ export function useMaintenanceForm() {
 
     async function fetchFloorsData() {
       try {
-        const res = await fetch(`/api/buildings/${buildingId}/floors`, {
+        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`, {
           signal: controller.signal,
           cache: "no-store",
         });
@@ -191,7 +190,7 @@ export function useMaintenanceForm() {
     return () => controller.abort();
   }, [buildingId]);
 
-  // ===== جلب الغرف =====
+  // ===== جلب الغرف (مع المسار الجديد) =====
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -203,7 +202,7 @@ export function useMaintenanceForm() {
 
     async function fetchRoomsData() {
       try {
-        const res = await fetch(`/api/floors/${floorId}/rooms`, {
+        const res = await fetch(`/api/locations/floors/${floorId}/rooms`, {
           signal: controller.signal,
           cache: "no-store",
         });
@@ -245,7 +244,7 @@ export function useMaintenanceForm() {
       return;
     }
 
-    // ✅ منع جلب جميع أصول الفرع (يتطلب وجود مبنى أو دور أو غرفة)
+    // منع جلب جميع أصول الفرع (يتطلب وجود مبنى أو دور أو غرفة)
     if (!buildingId && !floorId && !roomId) {
       setAssets([]);
       return;
@@ -265,20 +264,18 @@ export function useMaintenanceForm() {
     async function fetchAssetsData() {
       try {
         const res = await fetch(`/api/assets?${params.toString()}`, {
-        signal: controller.signal,
-        cache: "no-store",
-      });
+          signal: controller.signal,
+          cache: "no-store",
+        });
 
-      if (res.ok) {
-        const data = await res.json();
-
-        console.log("Assets Count:", data.assets.length);
-        console.table(data.assets);
-
-        setAssets(data.assets || []);
-      } else {
-        setAssets([]);
-      }
+        if (res.ok) {
+          const data = await res.json();
+          console.log("Assets Count:", data.assets.length);
+          console.table(data.assets);
+          setAssets(data.assets || []);
+        } else {
+          setAssets([]);
+        }
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
           console.error(err);
@@ -330,7 +327,6 @@ export function useMaintenanceForm() {
       ...prev,
       assetTypeId: val ?? "",
     }));
-    // ✅ إعادة تعيين الأصول عند تغيير النوع
     setSelectedAssetIds([]);
     setTempSelectedAssetIds([]);
     setAssets([]);

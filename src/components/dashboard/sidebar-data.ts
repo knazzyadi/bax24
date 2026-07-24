@@ -22,6 +22,7 @@ import {
   ListChecks,
   Home,
   ClipboardCheck,
+  Database, // ✅ أيقونة النسخ الاحتياطي
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -171,6 +172,12 @@ export const SUPER_ADMIN_ITEMS: NavItem[] = [
     href: "/super-admin/companies",
     labelKey: "nav.companies",
     icon: Building2,
+  },
+  // ✅ تم إضافة عنصر النسخ الاحتياطي هنا
+  {
+    href: "/super-admin/backups",
+    labelKey: "nav.backups",
+    icon: Database,
   },
   {
     href: "/super-admin/branches",

@@ -49,7 +49,7 @@ export function EditWorkOrderClient({
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  // جلب الأدوار
+  // جلب الأدوار - مع المسار الجديد
   useEffect(() => {
     if (!formData.buildingId) {
       setFloors([]);
@@ -58,7 +58,7 @@ export function EditWorkOrderClient({
     const fetchFloors = async () => {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/buildings/${formData.buildingId}/floors`);
+        const res = await fetch(`/api/locations/buildings/${formData.buildingId}/floors`); // ✅ تم التحديث
         if (res.ok) {
           const data = await res.json();
           setFloors(Array.isArray(data) ? data : []);
@@ -74,7 +74,7 @@ export function EditWorkOrderClient({
     fetchFloors();
   }, [formData.buildingId]);
 
-  // جلب الغرف - بدون إنشاء fullCode باستخدام المعرفات الطويلة
+  // جلب الغرف - مع المسار الجديد
   useEffect(() => {
     if (!formData.floorId) {
       setRooms([]);
@@ -83,7 +83,7 @@ export function EditWorkOrderClient({
     const fetchRooms = async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/floors/${formData.floorId}/rooms`);
+        const res = await fetch(`/api/locations/floors/${formData.floorId}/rooms`); // ✅ تم التحديث
         if (res.ok) {
           const data = await res.json();
           // ✅ نمرر الغرف كما هي، مع الحفاظ على room.code و room.name

@@ -48,7 +48,6 @@ export default async function InspectionsPage({
   if (q) {
     where.OR = [
       { title: { contains: q, mode: 'insensitive' } },
-      { locationName: { contains: q, mode: 'insensitive' } },
     ];
   }
   if (status && status !== 'all') {
@@ -71,13 +70,8 @@ export default async function InspectionsPage({
     prisma.inspection.count({ where })
   ]);
 
-  // ✅ تحويل null إلى undefined
   const transformedInspections: Inspection[] = inspections.map((ins) => ({
     ...ins,
-    locationName: ins.locationName ?? undefined,
-    inspectorName: ins.inspectorName ?? undefined,
-    inspectorSignature: ins.inspectorSignature ?? undefined,
-    supervisorSignature: ins.supervisorSignature ?? undefined,
     scheduledDate: ins.scheduledDate.toISOString(),
     createdAt: ins.createdAt.toISOString(),
     updatedAt: ins.updatedAt.toISOString(),
@@ -93,6 +87,7 @@ export default async function InspectionsPage({
     { id: 'in_progress', name: 'قيد التنفيذ', nameEn: 'In Progress' },
     { id: 'completed', name: 'مكتمل', nameEn: 'Completed' },
     { id: 'approved', name: 'معتمد', nameEn: 'Approved' },
+    { id: 'cancelled', name: 'ملغي', nameEn: 'Cancelled' }, // ✅ أضف هذا
   ];
 
   const baseUrl = `/${locale}/inspections`;

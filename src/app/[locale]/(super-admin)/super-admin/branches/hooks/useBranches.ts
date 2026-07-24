@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { toast } from 'sonner';
 import { Branch, Company, BranchFormData } from '../types';
+import { BranchService } from '@/lib/services/locations/branches.service'; // ✅ مسار جديد
 
 export function useBranches() {
   const [branches, setBranches] = useState<Branch[]>([]);
@@ -14,8 +15,8 @@ export function useBranches() {
     try {
       setIsLoading(true);
       const [branchesRes, companiesRes] = await Promise.all([
-        fetch('/api/branches'),
-        fetch('/api/companies'),
+        fetch('/api/locations/branches'), // ✅ تم التحديث
+        fetch('/api/companies'), // يبقى كما هو (ليس جزءاً من تغييرات المواقع)
       ]);
 
       if (!branchesRes.ok) throw new Error();
@@ -37,7 +38,7 @@ export function useBranches() {
   const createBranch = useCallback(async (data: BranchFormData) => {
     try {
       setIsSaving(true);
-      const res = await fetch('/api/branches', {
+      const res = await fetch('/api/locations/branches', { // ✅ تم التحديث
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -60,7 +61,7 @@ export function useBranches() {
   const updateBranch = useCallback(async (id: string, data: BranchFormData) => {
     try {
       setIsSaving(true);
-      const res = await fetch(`/api/branches/${id}`, {
+      const res = await fetch(`/api/locations/branches/${id}`, { // ✅ تم التحديث
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -83,7 +84,9 @@ export function useBranches() {
   const deleteBranch = useCallback(async (id: string) => {
     try {
       setIsDeleting(true);
-      const res = await fetch(`/api/branches/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/locations/branches/${id}`, { // ✅ تم التحديث
+        method: 'DELETE',
+      });
       if (!res.ok) {
         const err = await res.json();
         throw new Error(err.error || 'فشل الحذف');

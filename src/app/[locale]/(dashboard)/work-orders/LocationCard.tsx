@@ -1,8 +1,9 @@
 // src/app/[locale]/(dashboard)/work-orders/LocationCard.tsx
+
 "use client";
 
 import { useState, useMemo } from "react";
-import { Building, Layers, DoorOpen, Plus, X, Search, MapPin } from "lucide-react";
+import { Building, Layers, DoorOpen, Plus, X, MapPin } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
@@ -58,14 +59,11 @@ function getAssetCode(asset: any): string {
 // ============================================================
 
 interface LocationCardProps {
-  // للنماذج (الإنشاء/التعديل) – اختياري
   formData?: WorkOrderFormData;
   setFormData?: (data: WorkOrderFormData) => void;
   buildings?: any[];
   floors?: any[];
   rooms?: any[];
-  locationLevel?: "building" | "floor" | "room";
-  setLocationLevel?: (level: "building" | "floor" | "room") => void;
   loadingFloors?: boolean;
   loadingRooms?: boolean;
   isRtl: boolean;
@@ -82,7 +80,6 @@ interface LocationCardProps {
   onAssetDialogOpenChange?: (open: boolean) => void;
   isLocationSelected?: boolean;
   t: any;
-  // ✅ للعرض فقط (في صفحة التفاصيل) – وضع مضغوط
   room?: any;
   compact?: boolean;
 }
@@ -92,14 +89,11 @@ interface LocationCardProps {
 // ============================================================
 
 export function LocationCard({
-  // للنماذج (اختياري)
   formData,
   setFormData,
   buildings = [],
   floors = [],
   rooms = [],
-  locationLevel = "room",
-  setLocationLevel = () => {},
   loadingFloors = false,
   loadingRooms = false,
   isRtl,
@@ -114,19 +108,20 @@ export function LocationCard({
   onRemoveAsset = () => {},
   onTempAssetChange = () => {},
   onAssetDialogOpenChange = () => {},
-  isLocationSelected = false,
+  isLocationSelected: propIsLocationSelected = false,
   t,
-  // ✅ للعرض فقط (وضع مضغوط)
   room,
   compact = false,
 }: LocationCardProps) {
-  // ✅ استخدام Map لتسريع البحث عن الأصول (في وضع النموذج)
   const assetMap = useMemo(
     () => new Map(assets.map((a) => [a.id, a])),
     [assets]
   );
 
-  // ✅ دالة الحصول على ملخص الموقع للعرض (وضع مضغوط)
+  const isLocationSelected = formData
+    ? !!(formData.buildingId && formData.floorId)
+    : propIsLocationSelected;
+
   const getLocationSummary = () => {
     if (!room) return isRtl ? "لم يتم تحديد موقع" : "No location set";
     const floor = room.floor;
@@ -138,12 +133,12 @@ export function LocationCard({
     return parts.join(" - ");
   };
 
-  // ✅ إذا كان الوضع مضغوطاً (للعمود الجانبي)
+  // وضع مضغوط (للعرض الجانبي)
   if (compact && room) {
     return (
       <div className="space-y-1">
         <div className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
-          <MapPin className="h-4 w-4 text-indigo-400 shrink-0" />
+          <MapPin className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
           <span className="font-medium">{getLocationSummary()}</span>
         </div>
         {room?.floor?.building && (
@@ -155,28 +150,27 @@ export function LocationCard({
     );
   }
 
-  // ✅ الوضع الكامل (للنماذج – الإنشاء/التعديل)
+  // الوضع الكامل
   const getSelectedLocationSummary = () => {
-    if (locationLevel === "room" && formData?.roomId) {
+    if (formData?.roomId) {
       const roomItem = rooms.find((r) => r.id === formData.roomId);
       if (roomItem) {
-        // ✅ التغيير الأساسي: استخدام room.code و room.name بدلاً من fullCode
         return roomItem.code ? `${roomItem.code} - ${roomItem.name}` : roomItem.name;
       }
       return isRtl ? "غرفة" : "Room";
     }
-    if (locationLevel === "floor" && formData?.floorId) {
+    if (formData?.floorId) {
       const floorItem = floors.find((f) => f.id === formData.floorId);
       return floorItem ? floorItem.name : (isRtl ? "دور" : "Floor");
     }
-    if (locationLevel === "building" && formData?.buildingId) {
+    if (formData?.buildingId) {
       const buildingItem = buildings.find((b) => b.id === formData.buildingId);
       return buildingItem ? buildingItem.name : (isRtl ? "مبنى" : "Building");
     }
     return isRtl ? "غير محدد" : "Not selected";
   };
 
-  const isButtonDisabled = !isLocationSelected || !formData?.assetTypeId || assets.length === 0;
+  const isAssetSelectionEnabled = isLocationSelected && !!formData?.assetTypeId && assets.length > 0;
 
   const toggleAssetSelection = (assetId: string) => {
     if (tempSelectedAssetIds.includes(assetId)) {
@@ -191,13 +185,15 @@ export function LocationCard({
     return isRtl ? name : asset?.nameEn || name;
   };
 
+  // ========== التصميم المحسن ==========
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* الصف الأول: الفرع | المبنى */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-1.5">
-          <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-            <Building className="h-4 w-4 text-indigo-400" />
+          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <Building className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
             {isRtl ? "الفرع" : "Branch"}
           </Label>
           <BranchSelector
@@ -216,8 +212,8 @@ export function LocationCard({
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-            <Building className="h-4 w-4 text-indigo-400" />
+          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <Building className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
             {isRtl ? "المبنى" : "Building"}
           </Label>
           <div className="relative">
@@ -231,17 +227,17 @@ export function LocationCard({
               className="w-full"
             />
             {!formData?.branchId && (
-              <div className="absolute inset-0 bg-slate-100/50 dark:bg-slate-900/50 rounded-xl cursor-not-allowed z-10" />
+              <div className="absolute inset-0 bg-slate-100/60 dark:bg-slate-900/60 rounded-xl cursor-not-allowed z-10" />
             )}
           </div>
         </div>
       </div>
 
-      {/* الصف الثاني: الدور | الغرفة */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* الصف الثاني: الدور | الغرفة (الغرفة اختيارية) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-1.5">
-          <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-            <Layers className="h-4 w-4 text-indigo-400" />
+          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <Layers className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
             {isRtl ? "الدور" : "Floor"}
           </Label>
           <FloorSelector
@@ -253,13 +249,14 @@ export function LocationCard({
             buildingId={formData?.buildingId ?? ""}
             loading={loadingFloors}
             className="w-full"
+            isRtl={isRtl}
           />
         </div>
 
         <div className="space-y-1.5">
-          <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
-            <DoorOpen className="h-4 w-4 text-indigo-400" />
-            {isRtl ? "الغرفة" : "Room"}
+          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <DoorOpen className="h-4 w-4 text-indigo-500 dark:text-indigo-400" />
+            {isRtl ? "الغرفة (اختياري)" : "Room (optional)"}
           </Label>
           <RoomSelector
             value={formData?.roomId ?? ""}
@@ -270,28 +267,37 @@ export function LocationCard({
             floorId={formData?.floorId ?? ""}
             loading={loadingRooms}
             className="w-full"
+            placeholder={isRtl ? "اختر غرفة (اختياري)" : "Select room (optional)"}
+            isRtl={isRtl}
           />
+          {/* رسالة توضيحية عند ترك الغرفة فارغة */}
+          {formData?.floorId && !formData?.roomId && (
+            <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1.5 font-medium">
+              {isRtl ? "💡 سيتم تطبيق أمر العمل على الدور بالكامل" : "💡 Work order will apply to the entire floor"}
+            </p>
+          )}
         </div>
       </div>
 
       {/* ملخص الموقع المختار */}
       {isLocationSelected && (
-        <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/50 dark:border-indigo-800/30 flex items-center justify-between">
+        <div className="p-4 rounded-xl bg-indigo-50/70 dark:bg-indigo-950/30 border border-indigo-200/60 dark:border-indigo-800/40 flex items-center justify-between">
           <span className="text-sm font-medium text-slate-600 dark:text-slate-400">
             {isRtl ? "الموقع المختار:" : "Selected Location:"}
           </span>
-          <span className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">
+          <span className="text-sm font-bold text-indigo-700 dark:text-indigo-300">
             {getSelectedLocationSummary()}
+            {formData?.roomId ? "" : (isRtl ? " (الدور كامل)" : " (Entire floor)")}
           </span>
         </div>
       )}
 
       {/* الفاصل */}
-      <div className="border-t border-slate-200/50 dark:border-slate-800/50 my-4" />
+      <div className="border-t border-slate-200/60 dark:border-slate-700/60 my-4" />
 
       {/* الصف الثالث: نوع الأصل */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {isRtl ? "نوع الأصل" : "Asset Type"}
         </Label>
         <AssetTypeField
@@ -313,23 +319,25 @@ export function LocationCard({
               ? "اختر الموقع أولاً"
               : "Select location first"
           }
+          isRtl={isRtl}
+          className="w-full"
         />
       </div>
 
       {/* الصف الرابع: اختيار الأصل */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {isRtl ? "اختر الأصل" : "Select Asset"}
         </Label>
         <Button
           type="button"
           variant="outline"
           onClick={onOpenAssetDialog}
-          disabled={isButtonDisabled}
-          className="w-full justify-start gap-2 rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400 h-12"
+          disabled={!isAssetSelectionEnabled}
+          className="w-full justify-start gap-3 rounded-xl border-slate-300 dark:border-slate-600 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-slate-700 dark:text-slate-300 h-12 font-medium transition-all"
         >
-          <Plus className="h-4 w-4" />
-          {selectedAssetIds.length > 0
+          <Plus className="h-5 w-5 text-indigo-500 dark:text-indigo-400" />
+          {selectedAssetIds && selectedAssetIds.length > 0
             ? `${selectedAssetIds.length} ${
                 isRtl ? "أصل محدد" : "assets selected"
               }`
@@ -338,9 +346,9 @@ export function LocationCard({
             : "Select asset (optional)"}
         </Button>
 
-        {/* رسالة توضيحية عند التعطيل */}
-        {isButtonDisabled && (
-          <p className="text-xs text-amber-500 dark:text-amber-400">
+        {/* رسائل توضيحية عند التعطيل */}
+        {!isAssetSelectionEnabled && (
+          <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
             {!isLocationSelected && t("pleaseSelectLocationFirst")}
             {isLocationSelected && !formData?.assetTypeId && t("pleaseSelectAssetType")}
             {isLocationSelected && formData?.assetTypeId && assets.length === 0 && t("noAssetsAvailable")}
@@ -349,7 +357,7 @@ export function LocationCard({
       </div>
 
       {/* عرض الأصول المختارة */}
-      {selectedAssetIds.length > 0 && (
+      {selectedAssetIds && selectedAssetIds.length > 0 && (
         <div className="mt-4 space-y-2">
           {selectedAssetIds.map((assetId) => {
             const asset = assetMap.get(assetId);
@@ -357,13 +365,13 @@ export function LocationCard({
             return (
               <div
                 key={assetId}
-                className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/30 dark:border-indigo-800/30"
+                className="flex items-center justify-between p-3 rounded-xl bg-indigo-50/60 dark:bg-indigo-950/30 border border-indigo-200/50 dark:border-indigo-800/40"
               >
                 <div>
-                  <p className="font-medium text-slate-800 dark:text-slate-100">
+                  <p className="font-semibold text-slate-800 dark:text-slate-100">
                     {getLocalizedAssetName(asset)}
                   </p>
-                  <p className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                  <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
                     {getAssetCode(asset)}
                   </p>
                 </div>
@@ -382,7 +390,7 @@ export function LocationCard({
 
       {/* حوار اختيار الأصول (Dialog) */}
       <Dialog open={assetDialogOpen} onOpenChange={onAssetDialogOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-xl">
           <DialogHeader>
             <DialogTitle className="text-slate-800 dark:text-slate-100 text-xl font-bold">
               {isRtl ? "اختر الأصول" : "Select Assets"}
@@ -391,14 +399,14 @@ export function LocationCard({
 
           {loadingAssets ? (
             <div className="flex justify-center py-8">
-              <div className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+              <div className="h-8 w-8 animate-spin rounded-full border-4 border-indigo-600 border-t-transparent dark:border-indigo-400" />
             </div>
           ) : assets.length === 0 ? (
-            <div className="text-center py-8 text-slate-400 dark:text-slate-500">
+            <div className="text-center py-8 text-slate-500 dark:text-slate-400">
               {isRtl ? "لا توجد أصول متاحة" : "No assets available"}
             </div>
           ) : (
-            <Command className="rounded-lg border border-slate-200/50 dark:border-slate-700/50">
+            <Command className="rounded-lg border border-slate-200/60 dark:border-slate-700/60">
               <CommandInput
                 placeholder={isRtl ? "ابحث عن أصل..." : "Search for an asset..."}
                 className="h-12"
@@ -415,18 +423,18 @@ export function LocationCard({
                         key={asset.id}
                         value={asset.id}
                         onSelect={() => toggleAssetSelection(asset.id)}
-                        className="flex items-center gap-3 p-3 cursor-pointer"
+                        className="flex items-center gap-3 p-3 cursor-pointer hover:bg-indigo-50/50 dark:hover:bg-indigo-950/30"
                       >
                         <div className="flex h-4 w-4 items-center justify-center rounded border border-slate-300 dark:border-slate-600">
                           {isSelected && (
-                            <Check className="h-3 w-3 text-indigo-600" />
+                            <Check className="h-3 w-3 text-indigo-600 dark:text-indigo-400" />
                           )}
                         </div>
                         <div className="flex-1">
                           <p className="font-medium text-slate-800 dark:text-slate-100">
                             {getLocalizedAssetName(asset)}
                           </p>
-                          <p className="text-xs font-mono text-slate-400 dark:text-slate-500">
+                          <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
                             {getAssetCode(asset)}
                           </p>
                         </div>
@@ -438,18 +446,18 @@ export function LocationCard({
             </Command>
           )}
 
-          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
+          <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
             <Button
               variant="outline"
               onClick={() => onAssetDialogOpenChange(false)}
-              className="rounded-xl border-slate-200 dark:border-slate-800 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 text-slate-600 dark:text-slate-400"
+              className="rounded-xl border-slate-300 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
             >
               {t("cancel")}
             </Button>
             <Button
               onClick={onConfirmAssetSelection}
               disabled={loadingAssets}
-              className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20"
+              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 dark:bg-indigo-500 dark:hover:bg-indigo-600 text-white font-medium shadow-md hover:shadow-lg transition-all"
             >
               <Check className="h-4 w-4 mr-2" />
               {isRtl ? "تأكيد" : "Confirm"}

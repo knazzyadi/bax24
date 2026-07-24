@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Loader2, User, Phone, Mail } from "lucide-react";
-import type { Supplier } from "@/types/assets";
+import { Loader2, User } from "lucide-react";
+import type { Supplier } from "@/types/suppliers";
+import { cn } from "@/lib/utils";
 
 interface SupplierFormProps {
   supplier: Supplier | null;
@@ -27,10 +28,11 @@ export function SupplierForm({
   const [formData, setFormData] = useState({
     name: "",
     nameEn: "",
-    code: "",
     contactPerson: "",
     phone: "",
     email: "",
+    address: "",
+    taxNumber: "",
     isActive: true,
   });
 
@@ -39,20 +41,22 @@ export function SupplierForm({
       setFormData({
         name: supplier.name || "",
         nameEn: supplier.nameEn || "",
-        code: supplier.code || "",
         contactPerson: supplier.contactPerson || "",
         phone: supplier.phone || "",
         email: supplier.email || "",
+        address: supplier.address || "",
+        taxNumber: supplier.taxNumber || "",
         isActive: supplier.isActive !== undefined ? supplier.isActive : true,
       });
     } else {
       setFormData({
         name: "",
         nameEn: "",
-        code: "",
         contactPerson: "",
         phone: "",
         email: "",
+        address: "",
+        taxNumber: "",
         isActive: true,
       });
     }
@@ -76,13 +80,14 @@ export function SupplierForm({
     setLoading(true);
     try {
       const payload = {
-        ...formData,
         name: formData.name.trim(),
         nameEn: formData.nameEn.trim() || null,
-        code: formData.code.trim() || null,
         contactPerson: formData.contactPerson.trim() || null,
         phone: formData.phone.trim() || null,
         email: formData.email.trim() || null,
+        address: formData.address.trim() || null,
+        taxNumber: formData.taxNumber.trim() || null,
+        isActive: formData.isActive,
       };
 
       const url = supplier
@@ -97,8 +102,8 @@ export function SupplierForm({
       });
 
       if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "Failed to save");
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to save");
       }
 
       toast.success(supplier ? t("updateSuccess") : t("createSuccess"));
@@ -112,10 +117,11 @@ export function SupplierForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 py-4">
+    <form onSubmit={handleSubmit} className="space-y-4 py-2">
+      {/* الصف الأول: الاسم (إجباري) */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground">
-          {t("name")} <span className="text-destructive">*</span>
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          {t("name")} <span className="text-rose-500">*</span>
         </Label>
         <Input
           name="name"
@@ -123,106 +129,127 @@ export function SupplierForm({
           onChange={handleChange}
           placeholder={isRtl ? "أدخل اسم المورد" : "Enter supplier name"}
           required
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+          className="h-11 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
         />
       </div>
 
+      {/* الصف الثاني: الاسم بالإنجليزية + المندوب (عمودان) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            {t("nameEn")}
+          </Label>
+          <Input
+            name="nameEn"
+            value={formData.nameEn}
+            onChange={handleChange}
+            placeholder={isRtl ? "الاسم بالإنجليزية" : "Name in English"}
+            className="h-11 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
+            <User className="h-4 w-4 text-slate-400" />
+            {t("contactPerson")}
+          </Label>
+          <Input
+            name="contactPerson"
+            value={formData.contactPerson}
+            onChange={handleChange}
+            placeholder={isRtl ? "أدخل اسم المندوب" : "Enter contact person"}
+            className="h-11 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
+          />
+        </div>
+      </div>
+
+      {/* الصف الثالث: رقم الهاتف + البريد الإلكتروني (عمودان) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            {t("phone")}
+          </Label>
+          <Input
+            name="phone"
+            value={formData.phone}
+            onChange={handleChange}
+            placeholder={isRtl ? "أدخل رقم الهاتف" : "Enter phone number"}
+            className="h-11 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
+          />
+        </div>
+
+        <div className="space-y-1.5">
+          <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+            {t("email")}
+          </Label>
+          <Input
+            name="email"
+            type="email"
+            value={formData.email}
+            onChange={handleChange}
+            placeholder={isRtl ? "أدخل البريد الإلكتروني" : "Enter email address"}
+            className="h-11 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
+          />
+        </div>
+      </div>
+
+      {/* الصف الرابع: العنوان (صف كامل) */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground">
-          {t("nameEn")}
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          {t("address")}
         </Label>
         <Input
-          name="nameEn"
-          value={formData.nameEn}
+          name="address"
+          value={formData.address}
           onChange={handleChange}
-          placeholder={isRtl ? "الاسم بالإنجليزية" : "Name in English"}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+          placeholder={isRtl ? "أدخل العنوان" : "Enter address"}
+          className="h-11 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
         />
       </div>
 
+      {/* الصف الخامس: الرقم الضريبي */}
       <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground">
-          {t("code")}
+        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
+          {t("taxNumber")}
         </Label>
         <Input
-          name="code"
-          value={formData.code}
+          name="taxNumber"
+          value={formData.taxNumber}
           onChange={handleChange}
-          placeholder={isRtl ? "أدخل الكود" : "Enter code"}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+          placeholder={isRtl ? "أدخل الرقم الضريبي" : "Enter tax number"}
+          className="h-11 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
         />
       </div>
 
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground flex items-center gap-1.5">
-          <User className="h-4 w-4 text-muted-foreground" />
-          {t("contactPerson")}
-        </Label>
-        <Input
-          name="contactPerson"
-          value={formData.contactPerson}
-          onChange={handleChange}
-          placeholder={isRtl ? "أدخل اسم جهة الاتصال" : "Enter contact person name"}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground flex items-center gap-1.5">
-          <Phone className="h-4 w-4 text-muted-foreground" />
-          {t("phone")}
-        </Label>
-        <Input
-          name="phone"
-          value={formData.phone}
-          onChange={handleChange}
-          placeholder={isRtl ? "أدخل رقم الهاتف" : "Enter phone number"}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
-        />
-      </div>
-
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium text-foreground flex items-center gap-1.5">
-          <Mail className="h-4 w-4 text-muted-foreground" />
-          {t("email")}
-        </Label>
-        <Input
-          name="email"
-          type="email"
-          value={formData.email}
-          onChange={handleChange}
-          placeholder={isRtl ? "أدخل البريد الإلكتروني" : "Enter email address"}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
-        />
-      </div>
-
-      <div className="flex items-center gap-3 pt-2">
+      {/* الصف السادس: حالة التفعيل */}
+      <div className="flex items-center gap-3 pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
         <Checkbox
           id="isActive"
-          name="isActive"
           checked={formData.isActive}
           onCheckedChange={(checked) =>
             setFormData((prev) => ({ ...prev, isActive: !!checked }))
           }
+          className="h-5 w-5 rounded-lg border-slate-300 dark:border-slate-600 data-[state=checked]:bg-emerald-600"
         />
-        <Label htmlFor="isActive" className="text-sm font-medium text-foreground cursor-pointer">
+        <Label htmlFor="isActive" className="text-sm font-medium text-slate-700 dark:text-slate-300 cursor-pointer">
           {t("active")}
         </Label>
       </div>
 
-      <div className="flex gap-3 pt-4 border-t border-border">
+      {/* الأزرار */}
+      <div className="flex gap-3 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
         <Button
           type="button"
           variant="outline"
           onClick={() => onSuccess()}
-          className="flex-1 rounded-xl border-border h-11"
+          className="flex-1 h-11 rounded-xl border-slate-300/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium transition-all"
         >
           {isRtl ? "إلغاء" : "Cancel"}
         </Button>
         <Button
           type="submit"
           disabled={loading}
-          className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-11 shadow-lg shadow-indigo-500/20"
+          className="flex-1 h-11 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
         >
           {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
           {supplier ? (isRtl ? "تحديث" : "Update") : (isRtl ? "حفظ" : "Save")}

@@ -126,9 +126,8 @@ export default function InspectionsClient({
   const isRtl = locale === "ar";
   const t = useTranslations("Inspections");
 
-  // ✅ القائمة الافتراضية للحالات
+  // ✅ القائمة الافتراضية للحالات (بدون "all" لأننا سنضيفها يدوياً)
   const defaultStatuses = [
-    { id: 'all', name: 'الكل', nameEn: 'All' },
     { id: 'draft', name: 'مسودة', nameEn: 'Draft' },
     { id: 'in_progress', name: 'قيد التنفيذ', nameEn: 'In Progress' },
     { id: 'completed', name: 'مكتمل', nameEn: 'Completed' },
@@ -186,15 +185,18 @@ export default function InspectionsClient({
     }
   };
 
-  // ===== بناء الفلاتر مع ضمان وجود خيارات =====
+  // ===== بناء الفلاتر مع ضمان عدم تكرار "all" =====
   const filterSections: FilterSection[] = useMemo(() => {
     // التأكد من أن statusesList هي مصفوفة
     const safeStatuses = Array.isArray(statusesList) ? statusesList : [];
-    
-    // بناء خيارات الحالة
+
+    // استبعاد أي حالة تحمل id === "all" لتجنب التكرار مع الخيار اليدوي
+    const filteredStatuses = safeStatuses.filter(s => s.id !== "all");
+
+    // بناء خيارات الحالة: الخيار الأول هو "all" يدوياً، ثم باقي الحالات
     const statusOptions = [
       { value: "all", label: isRtl ? "جميع الحالات" : "All Statuses" },
-      ...safeStatuses.map((s) => ({
+      ...filteredStatuses.map((s) => ({
         value: s.id,
         label: isRtl ? s.name : s.nameEn,
       })),

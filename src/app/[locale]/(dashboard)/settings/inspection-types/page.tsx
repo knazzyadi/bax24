@@ -189,41 +189,62 @@ export default function InspectionTypesPage() {
   }, [sections, templatesMap, categoriesMap, itemsMap, getLocalizedName]);
 
   // ============================================================
-  // Effects (مع التحقق من المصادقة)
+  // Effects (مع التحقق من المصادقة + الجلب المتسلسل)
   // ============================================================
   useEffect(() => {
     if (status !== "authenticated") return;
     fetchSections();
   }, [status, fetchSections]);
 
-  // جلب النماذج لكل قسم
+  // جلب النماذج لكل قسم (بشكل متسلسل مع تأخير)
   useEffect(() => {
     if (status !== "authenticated" || sections.length === 0) return;
-    sections.forEach((section) => {
-      fetchTemplates(section.id);
-    });
-  }, [status, sections, fetchTemplates]);
 
-  // جلب الفئات لكل نموذج
+    const fetchTemplatesSequentially = async () => {
+      for (const section of sections) {
+        if (!templatesMap[section.id]) {
+          await fetchTemplates(section.id);
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
+      }
+    };
+    fetchTemplatesSequentially();
+  }, [status, sections, fetchTemplates, templatesMap]);
+
+  // جلب الفئات لكل نموذج (بشكل متسلسل مع تأخير)
   useEffect(() => {
     if (status !== "authenticated") return;
-    const allTemplateIds = Object.values(templatesMap).flat().map(t => t.id);
-    allTemplateIds.forEach((templateId) => {
-      if (!categoriesMap[templateId]) {
-        fetchCategories(templateId);
+
+    const allTemplateIds = Object.values(templatesMap).flat().map((t) => t.id);
+    if (allTemplateIds.length === 0) return;
+
+    const fetchCategoriesSequentially = async () => {
+      for (const templateId of allTemplateIds) {
+        if (!categoriesMap[templateId]) {
+          await fetchCategories(templateId);
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
       }
-    });
+    };
+    fetchCategoriesSequentially();
   }, [templatesMap, status, fetchCategories, categoriesMap]);
 
-  // جلب البنود لكل فئة
+  // جلب البنود لكل فئة (بشكل متسلسل مع تأخير)
   useEffect(() => {
     if (status !== "authenticated") return;
-    const allCategoryIds = Object.values(categoriesMap).flat().map(c => c.id);
-    allCategoryIds.forEach((categoryId) => {
-      if (!itemsMap[categoryId]) {
-        fetchItems(categoryId);
+
+    const allCategoryIds = Object.values(categoriesMap).flat().map((c) => c.id);
+    if (allCategoryIds.length === 0) return;
+
+    const fetchItemsSequentially = async () => {
+      for (const categoryId of allCategoryIds) {
+        if (!itemsMap[categoryId]) {
+          await fetchItems(categoryId);
+          await new Promise((resolve) => setTimeout(resolve, 150));
+        }
       }
-    });
+    };
+    fetchItemsSequentially();
   }, [categoriesMap, status, fetchItems, itemsMap]);
 
   // ============================================================
@@ -453,7 +474,6 @@ export default function InspectionTypesPage() {
       onItemDialogClose={handleItemDialogClose}
       onItemReorder={handleItemReorder}
 
-      // ✅ إضافة الخصائص المطلوبة للقوائم المنسدلة
       sections={sections}
       templatesMap={templatesMap}
       categoriesMap={categoriesMap}

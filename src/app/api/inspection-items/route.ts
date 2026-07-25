@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get("categoryId");
 
-    if (!categoryId) {
+    if (!categoryId || categoryId.trim() === "") {
       return NextResponse.json(
         { error: "categoryId is required" },
         { status: 400 }
@@ -100,13 +100,17 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // التحقق من صحة الإدخال
-    if (!categoryId) {
+    if (!categoryId || categoryId.trim() === "") {
       return NextResponse.json(
         { error: "categoryId is required" },
         { status: 400 }
       );
     }
-    if (!name?.trim() && !nameAr?.trim()) {
+
+    const trimmedName = name?.trim();
+    const trimmedNameAr = nameAr?.trim();
+
+    if (!trimmedName && !trimmedNameAr) {
       return NextResponse.json(
         { error: "Item name is required in at least one language" },
         { status: 400 }
@@ -129,24 +133,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ التحقق من عدم وجود بند بنفس الاسم في نفس الشركة
+    // ✅ التحقق من عدم وجود بند بنفس الاسم في نفس الفئة والشركة
     const existingName = await prisma.inspectionItem.findFirst({
       where: {
         companyId,
-        name: name?.trim(),
+        categoryId, // يجب أن يكون الاسم فريداً داخل نفس الفئة
+        OR: [
+          { name: trimmedName },
+          { nameAr: trimmedNameAr },
+        ].filter(condition => condition !== undefined && condition !== null),
         deletedAt: null,
       },
     });
 
     if (existingName) {
       return NextResponse.json(
-        { error: "Item with this name already exists in this company" },
+        { error: "Item with this name already exists in this category" },
         { status: 409 }
       );
     }
 
     // ✅ توليد كود فريد إذا لم يتم توفيره
-    const finalCode = providedCode?.trim() || generateItemCode(name || nameAr || "ITEM", categoryExists.code);
+    const finalCode = providedCode?.trim() || generateItemCode(trimmedName || trimmedNameAr || "ITEM", categoryExists.code);
 
     // ✅ التحقق من عدم وجود كود مكرر في نفس الشركة
     const existingCode = await prisma.inspectionItem.findFirst({
@@ -169,13 +177,13 @@ export async function POST(req: NextRequest) {
         companyId,
         categoryId,
         code: finalCode,
-        name: name?.trim() || nameAr?.trim() || "Unnamed Item",
-        nameAr: nameAr?.trim() || null,
+        name: trimmedName || trimmedNameAr || "Unnamed Item",
+        nameAr: trimmedNameAr || null,
         cbahiCode: cbahiCode?.trim() || null,
         description: description?.trim() || null,
         riskLevel: riskLevel || "medium",
         inputType: inputType || "pass_fail",
-        sortOrder: sortOrder || 0,
+        sortOrder: sortOrder ?? 0,
         isActive: isActive ?? true,
         autoCreateWorkOrder: autoCreateWorkOrder ?? false,
       },

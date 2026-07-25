@@ -77,3 +77,12 @@ export interface InspectionItem {
   deletedAt?: string | null;
   category?: InspectionCategory;
 }
+export interface TreeNode {
+  id: string;
+  name: string;
+  type: "section" | "template" | "category" | "item";
+  children: TreeNode[];
+  original: InspectionSection | InspectionTemplate | InspectionCategory | InspectionItem;
+  hasLoaded?: boolean; // ✅ جديد: هل تم تحميل الأبناء؟
+  isLoading?: boolean; // ✅ جديد: هل يجري تحميل الأبناء؟
+}

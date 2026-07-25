@@ -1,6 +1,7 @@
 // src/app/api/inspection-categories/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
+import { prisma } from "@/lib/prisma";
 import { InspectionCategoryRepository } from "@/lib/repositories/inspection-category.repository";
 import { CreateInspectionCategorySchema } from "@/lib/validations/inspection-category.schema";
 
@@ -18,9 +19,36 @@ export async function GET(req: NextRequest) {
     }
 
     const { searchParams } = new URL(req.url);
-    const templateId = searchParams.get("templateId") || undefined;
+    const templateId = searchParams.get("templateId");
 
-    const categories = await InspectionCategoryRepository.findAll(companyId, templateId);
+    // ✅ التحقق من صحة templateId إذا تم إرساله
+    if (templateId && templateId.trim() === "") {
+      return NextResponse.json(
+        { error: "templateId cannot be empty" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ إذا تم إرسال templateId، تأكد من أنه ينتمي للشركة
+    if (templateId) {
+      const template = await prisma.inspectionTemplate.findFirst({
+        where: {
+          id: templateId,
+          companyId,
+          deletedAt: null,
+        },
+        select: { id: true },
+      });
+
+      if (!template) {
+        return NextResponse.json(
+          { error: "Template not found or access denied" },
+          { status: 404 }
+        );
+      }
+    }
+
+    const categories = await InspectionCategoryRepository.findAll(companyId, templateId || undefined);
     return NextResponse.json(categories);
   } catch (error) {
     console.error("Error fetching inspection categories:", error);
@@ -46,10 +74,9 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
 
-    // ✅ التحقق من صحة البيانات باستخدام Schema الجديد
+    // ✅ التحقق من صحة البيانات باستخدام Schema
     const validation = CreateInspectionCategorySchema.safeParse(body);
     if (!validation.success) {
-      // ✅ استخدام issues بدلاً من errors (Zod v3+)
       const errorMessage = validation.error?.issues?.[0]?.message || "بيانات غير صالحة";
       return NextResponse.json(
         { error: errorMessage },
@@ -59,11 +86,48 @@ export async function POST(req: NextRequest) {
 
     const { templateId, code, name, nameAr, description, sortOrder, isActive } = validation.data;
 
+    // ✅ التحقق من وجود النموذج الأم وأنه ينتمي للشركة
+    const template = await prisma.inspectionTemplate.findFirst({
+      where: {
+        id: templateId,
+        companyId,
+        deletedAt: null,
+      },
+      select: { id: true },
+    });
+
+    if (!template) {
+      return NextResponse.json(
+        { error: "Parent template not found or access denied" },
+        { status: 404 }
+      );
+    }
+
     // ✅ التحقق من عدم وجود كود مكرر
     const existing = await InspectionCategoryRepository.findByCode(code, companyId);
     if (existing) {
       return NextResponse.json(
         { error: "Category code already exists" },
+        { status: 409 }
+      );
+    }
+
+    // ✅ التحقق من عدم وجود اسم مكرر داخل نفس النموذج
+    const existingName = await prisma.inspectionCategory.findFirst({
+      where: {
+        companyId,
+        templateId,
+        OR: [
+          { name: name.trim() },
+          { nameAr: nameAr?.trim() },
+        ].filter(condition => condition !== undefined && condition !== null),
+        deletedAt: null,
+      },
+    });
+
+    if (existingName) {
+      return NextResponse.json(
+        { error: "Category with this name already exists in this template" },
         { status: 409 }
       );
     }
@@ -75,7 +139,7 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       nameAr: nameAr?.trim() || null,
       description: description?.trim() || null,
-      sortOrder: sortOrder || 0,
+      sortOrder: sortOrder ?? 0,
       isActive: isActive ?? true,
     });
 

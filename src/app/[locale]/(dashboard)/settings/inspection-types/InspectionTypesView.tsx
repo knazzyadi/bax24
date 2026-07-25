@@ -1,26 +1,19 @@
+// src/app/[locale]/(dashboard)/settings/inspection-types/InspectionTypesView.tsx
 "use client";
 
-import { useState, useMemo } from "react";
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import {
   ClipboardList,
   Plus,
   Loader2,
-  ChevronDown,
-  ChevronRight,
-  Pencil,
-  Trash2,
-  Folder,
-  FolderOpen,
-  FileText,
-  Dot,
 } from "lucide-react";
 import { AdminGuard } from "@/lib/client-guard";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
 
+import { TreeNode } from "./TreeNode";
 import { SectionDialog } from "./SectionDialog";
 import { TemplateDialog } from "./TemplateDialog";
 import { CategoryDialog } from "./CategoryDialog";
@@ -31,22 +24,24 @@ import type {
   InspectionTemplate,
   InspectionCategory,
   InspectionItem,
+  TreeNode as TreeNodeType,
 } from "./types";
 
-interface TreeNode {
-  id: string;
-  name: string;
-  type: "section" | "template" | "category" | "item";
-  children: TreeNode[];
-  original: InspectionSection | InspectionTemplate | InspectionCategory | InspectionItem;
-}
-
 interface InspectionTypesViewProps {
-  treeData: TreeNode[];
+  treeData: TreeNodeType[];
   loadingSections: boolean;
   isRtl: boolean;
 
-  // Dialogs
+  // ✅ الخرائط الثلاث
+  expandedSections: Record<string, boolean>;
+  expandedTemplates: Record<string, boolean>;
+  expandedCategories: Record<string, boolean>;
+  
+  onToggleSection: (sectionId: string) => void;
+  onToggleTemplate: (templateId: string) => void;
+  onToggleCategory: (categoryId: string) => void;
+
+  // ... باقي البروبس (دون تغيير)
   sectionDialogOpen: boolean;
   editingSection: InspectionSection | null;
   templateDialogOpen: boolean;
@@ -65,7 +60,6 @@ interface InspectionTypesViewProps {
   }>>;
   deleting: boolean;
 
-  // Handlers
   onAddSection: () => void;
   onEditSection: (section: InspectionSection) => void;
   onAddTemplate: (sectionId: string) => void;
@@ -82,164 +76,22 @@ interface InspectionTypesViewProps {
   onItemDialogClose: (refetch?: boolean, categoryId?: string) => void;
   onItemReorder: (items: InspectionItem[], categoryId: string) => void;
 
-  // ✅ إضافة هذه البروبس للقوائم المنسدلة
   sections: InspectionSection[];
   templatesMap: Record<string, InspectionTemplate[]>;
   categoriesMap: Record<string, InspectionCategory[]>;
-}
-
-function getIcon(type: string, isExpanded: boolean) {
-  switch (type) {
-    case "section":
-      return isExpanded ? <FolderOpen className="h-4 w-4 text-indigo-600" /> : <Folder className="h-4 w-4 text-indigo-500" />;
-    case "template":
-      return <Folder className="h-4 w-4 text-blue-500" />;
-    case "category":
-      return <FileText className="h-4 w-4 text-emerald-500" />;
-    case "item":
-      return <Dot className="h-4 w-4 text-amber-500" />;
-    default:
-      return null;
-  }
-}
-
-function TreeNode({
-  node,
-  level,
-  onAdd,
-  onEdit,
-  onDelete,
-  isRtl,
-  isLast = true,
-}: {
-  node: TreeNode;
-  level: number;
-  onAdd: (node: TreeNode) => void;
-  onEdit: (node: TreeNode) => void;
-  onDelete: (node: TreeNode) => void;
-  isRtl: boolean;
-  isLast?: boolean;
-}) {
-  const [expanded, setExpanded] = useState(level < 1);
-  const hasChildren = node.children && node.children.length > 0;
-
-  const lineColor = [
-    "border-indigo-300 dark:border-indigo-700",
-    "border-blue-300 dark:border-blue-700",
-    "border-emerald-300 dark:border-emerald-700",
-    "border-amber-300 dark:border-amber-700",
-  ][level % 4];
-
-  return (
-    <div className="relative">
-      {level > 0 && (
-        <div
-          className={cn(
-            "absolute -left-4 top-0 bottom-0 w-px",
-            lineColor,
-            "opacity-60"
-          )}
-        />
-      )}
-
-      {level > 0 && !isLast && (
-        <div
-          className={cn(
-            "absolute -left-4 top-1/2 h-px w-4",
-            lineColor,
-            "opacity-60"
-          )}
-        />
-      )}
-
-      <div className="relative flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-all group">
-        <div style={{ width: level * 16 }} className="flex-shrink-0" />
-
-        {hasChildren && (
-          <button
-            onClick={() => setExpanded(!expanded)}
-            className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors flex-shrink-0"
-          >
-            {expanded ? (
-              <ChevronDown className="h-3.5 w-3.5 text-slate-500" />
-            ) : (
-              <ChevronRight className="h-3.5 w-3.5 text-slate-500" />
-            )}
-          </button>
-        )}
-        {!hasChildren && <div className="w-4 flex-shrink-0" />}
-
-        <span className="flex-shrink-0">{getIcon(node.type, expanded)}</span>
-
-        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-          {node.name}
-        </span>
-
-        {hasChildren && (
-          <Badge variant="secondary" className="text-xs font-normal px-1.5 h-4">
-            {node.children.length}
-          </Badge>
-        )}
-
-        <div className="flex items-center gap-0.5 ml-auto opacity-0 group-hover:opacity-100 transition-opacity">
-          {node.type !== "item" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-6 w-6 p-0 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:text-indigo-400 dark:hover:bg-indigo-950/30"
-              onClick={() => onAdd(node)}
-              title={node.type === "section" ? "إضافة نموذج" : node.type === "template" ? "إضافة فئة" : "إضافة بند"}
-            >
-              <Plus className="h-3.5 w-3.5" />
-            </Button>
-          )}
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/30"
-            onClick={() => onEdit(node)}
-            title="تعديل"
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </Button>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
-            onClick={() => onDelete(node)}
-            title="حذف"
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      </div>
-
-      {expanded && hasChildren && (
-        <div className="relative ml-4 space-y-0.5 mt-0.5">
-          {node.children.map((child, index) => (
-            <TreeNode
-              key={child.id}
-              node={child}
-              level={level + 1}
-              onAdd={onAdd}
-              onEdit={onEdit}
-              onDelete={onDelete}
-              isRtl={isRtl}
-              isLast={index === node.children.length - 1}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function InspectionTypesView({
   treeData,
   loadingSections,
   isRtl,
+  expandedSections,
+  expandedTemplates,
+  expandedCategories,
+  onToggleSection,
+  onToggleTemplate,
+  onToggleCategory,
+  // ... باقي البروبس
   sectionDialogOpen,
   editingSection,
   templateDialogOpen,
@@ -268,54 +120,44 @@ export default function InspectionTypesView({
   onCategoryDialogClose,
   onItemDialogClose,
   onItemReorder,
-  // ✅ استقبال البروبس الجديدة
   sections,
   templatesMap,
   categoriesMap,
 }: InspectionTypesViewProps) {
   const t = useTranslations("InspectionTypes");
 
-  // تجميع جميع النماذج في مصفوفة واحدة للقائمة المنسدلة
+  const handleAddChild = (node: TreeNodeType) => {
+    switch (node.type) {
+      case "section": onAddTemplate(node.id); break;
+      case "template": onAddCategory(node.id); break;
+      case "category": onAddItem(node.id); break;
+      default: break;
+    }
+  };
+
+  const handleEdit = (node: TreeNodeType) => {
+    switch (node.type) {
+      case "section": onEditSection(node.original as InspectionSection); break;
+      case "template": onEditTemplate(node.original as InspectionTemplate); break;
+      case "category": onEditCategory(node.original as InspectionCategory); break;
+      case "item": onEditItem(node.original as InspectionItem); break;
+    }
+  };
+
+  const handleDelete = (node: TreeNodeType) => {
+    onDeleteClick(node.id, node.type);
+  };
+
+  const handleToggle = (nodeId: string, type: string) => {
+    console.log("🔵 handleToggle called with:", nodeId, type);
+    if (type === "section") onToggleSection(nodeId);
+    else if (type === "template") onToggleTemplate(nodeId);
+    else if (type === "category") onToggleCategory(nodeId);
+  };
+
   const allTemplates = useMemo(() => {
     return Object.values(templatesMap).flat();
   }, [templatesMap]);
-
-  const handleAddChild = (node: TreeNode) => {
-    switch (node.type) {
-      case "section":
-        onAddTemplate(node.id);
-        break;
-      case "template":
-        onAddCategory(node.id);
-        break;
-      case "category":
-        onAddItem(node.id);
-        break;
-      default:
-        break;
-    }
-  };
-
-  const handleEdit = (node: TreeNode) => {
-    switch (node.type) {
-      case "section":
-        onEditSection(node.original as InspectionSection);
-        break;
-      case "template":
-        onEditTemplate(node.original as InspectionTemplate);
-        break;
-      case "category":
-        onEditCategory(node.original as InspectionCategory);
-        break;
-      case "item":
-        onEditItem(node.original as InspectionItem);
-        break;
-    }
-  };
-
-  const handleDelete = (node: TreeNode) => {
-    onDeleteClick(node.id, node.type);
-  };
 
   return (
     <AdminGuard>
@@ -381,11 +223,16 @@ export default function InspectionTypesView({
                     key={node.id}
                     node={node}
                     level={0}
+                    isLast={index === treeData.length - 1}
+                    isRtl={isRtl}
+                    expandedSections={expandedSections}
+                    expandedTemplates={expandedTemplates}
+                    expandedCategories={expandedCategories}
+                    onToggle={handleToggle}
                     onAdd={handleAddChild}
                     onEdit={handleEdit}
                     onDelete={handleDelete}
-                    isRtl={isRtl}
-                    isLast={index === treeData.length - 1}
+                    isLoading={node.isLoading}
                   />
                 ))}
               </div>
@@ -393,7 +240,7 @@ export default function InspectionTypesView({
           )}
         </div>
 
-        {/* ✅ الحوارات مع تمرير البيانات */}
+        {/* حوارات */}
         <SectionDialog
           open={sectionDialogOpen}
           onOpenChange={onSectionDialogClose}
@@ -408,7 +255,7 @@ export default function InspectionTypesView({
           }}
           template={editingTemplate}
           sectionId={editingTemplate?.sectionId || ""}
-          sections={sections} // ✅ تمرير الأقسام
+          sections={sections}
           isRtl={isRtl}
         />
 
@@ -419,7 +266,7 @@ export default function InspectionTypesView({
           }}
           category={editingCategory}
           templateId={categoryDialogTemplateId}
-          templates={allTemplates} // ✅ تمرير جميع النماذج
+          templates={allTemplates}
           isRtl={isRtl}
         />
 

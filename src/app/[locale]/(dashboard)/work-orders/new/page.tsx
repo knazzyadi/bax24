@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { NewWorkOrderClient } from "./ClientWrapper";
+import type { WorkOrderSource } from "../types"; // ✅ استيراد النوع الأساسي
 
 export default async function NewWorkOrderPage({
   params,
@@ -25,26 +26,27 @@ export default async function NewWorkOrderPage({
   const companyId = session.companyId;
   if (!companyId) redirect("/login");
 
-  // ✅ تحديد المصدر بناءً على المعطيات
-  let initialSource: "manual" | "ticket" | "pm" | "checklist" = "manual";
+  // ✅ تحديد المصدر بناءً على المعطيات (مع استخدام "ppm" بدلاً من "pm")
+  let initialSource: WorkOrderSource = "manual";
   let initialSourceId: string | null = null;
 
   if (ticketId) {
     initialSource = "ticket";
     initialSourceId = ticketId;
   } else if (pmPlanId) {
-    initialSource = "pm";
+    initialSource = "ppm"; // ✅ تم التعديل من "pm" إلى "ppm"
     initialSourceId = pmPlanId;
   } else if (checklistId) {
     initialSource = "checklist";
     initialSourceId = checklistId;
   } else if (source) {
-    if (["ticket", "pm", "checklist", "manual"].includes(source)) {
-      initialSource = source as any;
+    // ✅ التحقق من القيم المسموح بها (مع "ppm")
+    if (["ticket", "ppm", "checklist", "manual"].includes(source)) {
+      initialSource = source as WorkOrderSource;
     }
   }
 
-  // ✅ تحديد صلاحية التعديل (المدير فقط) – إصلاح session.user?.role
+  // ✅ تحديد صلاحية التعديل (المدير فقط)
   const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
 
   // ✅ جلب البيانات المطلوبة

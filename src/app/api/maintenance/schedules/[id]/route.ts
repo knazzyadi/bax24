@@ -1,9 +1,11 @@
 // src/app/api/maintenance/schedules/[id]/route.ts
-
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper'; // ✅
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
+// ============================================================
+// GET: جلب بيانات جدول الصيانة
+// ============================================================
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -13,7 +15,7 @@ export async function GET(
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission('maintenance.read'); // ✅
+    await requirePermission('maintenance.read');
 
     const { id } = await params;
     const companyId = session.companyId;
@@ -26,14 +28,13 @@ export async function GET(
     }
 
     const schedule = await prisma.maintenanceSchedule.findFirst({
-      where: { 
-        id, 
-        companyId,
-      },
+      where: { id, companyId },
       include: {
         assetType: true,
         branch: true,
         building: true,
+        floor: true,
+        room: true,
         scheduleAssets: {
           include: { asset: true },
         },
@@ -57,6 +58,9 @@ export async function GET(
   }
 }
 
+// ============================================================
+// PUT: تحديث بيانات جدول الصيانة (المعدل)
+// ============================================================
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -66,7 +70,7 @@ export async function PUT(
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission('maintenance.update'); // ✅
+    await requirePermission('maintenance.update');
 
     const { id } = await params;
     const companyId = session.companyId;
@@ -79,15 +83,21 @@ export async function PUT(
     }
 
     const body = await req.json();
+
     const {
       name,
-      nameEn,
       frequency,
+      frequencyDays,
       leadDays,
+      startDate,
+      notes,
+      isActive,
       assetTypeId,
       branchId,
       buildingId,
-      isActive,
+      floorId,
+      roomId,
+      assetIds,
     } = body;
 
     const existing = await prisma.maintenanceSchedule.findFirst({
@@ -101,16 +111,82 @@ export async function PUT(
       );
     }
 
+    // ===== التحقق من صحة الموقع =====
+    if (!branchId) {
+      return NextResponse.json(
+        { error: 'الفرع مطلوب' },
+        { status: 400 }
+      );
+    }
+
+    if (!buildingId && !floorId && !roomId) {
+      return NextResponse.json(
+        { error: 'يجب تحديد موقع الصيانة' },
+        { status: 400 }
+      );
+    }
+
+    // ===== التحقق من صحة الأصول (إن وجدت) =====
+    if (Array.isArray(assetIds) && assetIds.length > 0) {
+      const validAssetsCount = await prisma.asset.count({
+        where: {
+          id: { in: assetIds },
+          companyId,
+        },
+      });
+
+      if (validAssetsCount !== assetIds.length) {
+        return NextResponse.json(
+          { error: 'بعض الأصول غير صالحة أو لا تنتمي للشركة' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ===== تحديد المستوى الفعلي للموقع =====
+    let finalLocationLevel = "building";
+    if (roomId) {
+      finalLocationLevel = "room";
+    } else if (floorId) {
+      finalLocationLevel = "floor";
+    }
+
     const updated = await prisma.maintenanceSchedule.update({
       where: { id },
       data: {
         name,
         frequency,
-        leadDays,
-        assetTypeId,
-        branchId,
-        buildingId,
-        isActive,
+        frequencyDays: frequencyDays || 30,
+        leadDays: leadDays || 30,
+        startDate: startDate ? new Date(startDate) : null,
+        notes: notes || null,
+        isActive: isActive ?? true,
+        assetTypeId: assetTypeId || null,
+        branchId: branchId || null,
+        buildingId: buildingId || null,
+        floorId: floorId || null,
+        roomId: roomId || null,
+        locationLevel: finalLocationLevel,
+        scheduleAssets: {
+          deleteMany: {},
+          create: Array.isArray(assetIds)
+            ? assetIds
+                .filter(Boolean)
+                .map((assetId: string) => ({
+                  assetId,
+                }))
+            : [],
+        },
+      },
+      include: {
+        branch: true,
+        building: true,
+        floor: true,
+        room: true,
+        assetType: true,
+        scheduleAssets: {
+          include: { asset: true },
+        },
       },
     });
 
@@ -124,6 +200,9 @@ export async function PUT(
   }
 }
 
+// ============================================================
+// DELETE: حذف جدول الصيانة
+// ============================================================
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -133,7 +212,7 @@ export async function DELETE(
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission('maintenance.delete'); // ✅
+    await requirePermission('maintenance.delete');
 
     const { id } = await params;
     const companyId = session.companyId;

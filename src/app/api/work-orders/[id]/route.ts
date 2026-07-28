@@ -1,12 +1,10 @@
 // src/app/api/work-orders/[id]/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper'; // ✅ استبدال checkPermission بـ requirePermission
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { createWorkOrderAudit, buildWorkOrderDTO } from '@/lib/audit/work-order';
-import { AuditAction } from '@/lib/audit/types';
+import { $Enums } from '@prisma/client';
 
-// ========== GET: جلب أمر عمل واحد مع التفاصيل ==========
+// ========== GET: جلب بيانات أمر العمل للتعديل ==========
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -16,10 +14,10 @@ export async function GET(
     if (!session) {
       return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
     }
-    await requirePermission("work_orders.read"); // ✅
 
     const { id } = await params;
     const companyId = session.companyId;
+
     if (!companyId) {
       return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
     }
@@ -31,15 +29,11 @@ export async function GET(
         status: true,
         assetType: true,
         branch: true,
-        room: {
-          include: {
-            floor: {
-              include: { building: true },
-            },
-          },
-        },
+        building: true,
+        floor: true,
+        room: true,
         workOrderAssets: {
-          include: { asset: { include: { type: true, status: true } } },
+          include: { asset: true },
         },
       },
     });
@@ -48,33 +42,10 @@ export async function GET(
       return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
     }
 
-    const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
-    if (!isAdmin) {
-      const userBranchIds = session.branchIds || [];
-      if (!workOrder.branchId || !userBranchIds.includes(workOrder.branchId)) {
-        return NextResponse.json({ error: "غير مصرح بالوصول إلى هذا الأمر" }, { status: 403 });
-      }
-    }
-
-    let buildingId: string | null = null;
-    let floorId: string | null = null;
-    if (workOrder.room?.floor) {
-      floorId = workOrder.room.floor.id;
-      buildingId = workOrder.room.floor.buildingId;
-    }
-
-    const serialized = {
-      ...workOrder,
-      createdAt: workOrder.createdAt.toISOString(),
-      updatedAt: workOrder.updatedAt.toISOString(),
-      buildingId,
-      floorId,
-      branchId: workOrder.branchId,
-    };
-    return NextResponse.json(serialized);
+    return NextResponse.json(workOrder);
   } catch (error) {
     console.error("GET /api/work-orders/[id] error:", error);
-    return NextResponse.json({ error: "خطأ في جلب أمر العمل" }, { status: 500 });
+    return NextResponse.json({ error: "خطأ في جلب بيانات أمر العمل" }, { status: 500 });
   }
 }
 
@@ -85,205 +56,196 @@ export async function PUT(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-    await requirePermission("work_orders.update"); // ✅
+    if (!session) {
+      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+    }
 
     const { id } = await params;
+    const companyId = session.companyId;
+
+    if (!companyId) {
+      return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
+    }
+
     const body = await request.json();
+
     const {
       title,
       description,
-      workOrderTypeId,
+      type,
       priorityId,
       statusId,
       branchId,
       buildingId,
       floorId,
       roomId,
+      locationLevel,
       assetTypeId,
-      notes,
       assetIds,
+      notes,
+      source,
+      sourceId,
+      reason,
+      ticketId,
     } = body;
 
-    const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
+    // التحقق من وجود العنوان والفرع
+    if (!title?.trim()) {
+      return NextResponse.json({ error: "عنوان أمر العمل مطلوب" }, { status: 400 });
+    }
+    if (!branchId) {
+      return NextResponse.json({ error: "الفرع مطلوب" }, { status: 400 });
     }
 
-    // جلب النسخة القديمة
-    const oldWorkOrder = await prisma.workOrder.findFirst({
-      where: { id, companyId, deletedAt: null },
-      include: {
-        priority: true,
-        status: true,
-        assetType: true,
-        branch: true,
-        room: {
-          include: {
-            floor: {
-              include: { building: true },
-            },
-          },
-        },
-        workOrderAssets: {
-          include: { asset: true },
-        },
-        workOrderType: true,
-        assignedUser: true,
-        createdByUser: true,
-      },
-    });
+    // التحقق من صلاحيات المستخدم على الفرع
+    const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
+    if (!isAdmin) {
+      const userBranchIds = session.branchIds || [];
+      if (!userBranchIds.includes(branchId)) {
+        return NextResponse.json(
+          { error: "لا تملك صلاحية تعديل أمر العمل في هذا الفرع" },
+          { status: 403 }
+        );
+      }
+    }
 
-    if (!oldWorkOrder) {
+    // التأكد من وجود الأمر
+    const existing = await prisma.workOrder.findFirst({
+      where: { id, companyId, deletedAt: null },
+    });
+    if (!existing) {
       return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
     }
 
-    // التحقق من صحة الأولوية والحالة
-    let validPriorityId = null;
-    if (priorityId && priorityId !== "" && priorityId !== "null" && priorityId !== "undefined" && priorityId !== "all") {
-      const priorityExists = await prisma.workOrderPriority.findFirst({
-        where: { id: priorityId, companyId },
-        select: { id: true },
+    // تحديد الأولوية والحالة (نفس منطق POST)
+    let finalPriorityId: string | null = priorityId;
+    let finalStatusId: string | null = statusId;
+
+    if (!finalPriorityId || finalPriorityId === "all") {
+      const defaultPriority = await prisma.workOrderPriority.findFirst({
+        where: { companyId, isDefault: true },
       });
-      if (priorityExists) validPriorityId = priorityId;
-    }
-
-    let validStatusId = null;
-    if (statusId && statusId !== "" && statusId !== "null" && statusId !== "undefined" && statusId !== "all") {
-      const statusExists = await prisma.workOrderStatus.findFirst({
-        where: { id: statusId, companyId },
-        select: { id: true },
+      if (defaultPriority) finalPriorityId = defaultPriority.id;
+    } else {
+      const exists = await prisma.workOrderPriority.findFirst({
+        where: { id: finalPriorityId, companyId },
       });
-      if (statusExists) validStatusId = statusId;
+      if (!exists) finalPriorityId = null;
     }
 
-    const updateData: any = {};
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
-    if (workOrderTypeId !== undefined) updateData.workOrderTypeId = workOrderTypeId;
-    if (priorityId !== undefined) updateData.priorityId = validPriorityId;
-    if (statusId !== undefined) updateData.statusId = validStatusId;
-    if (branchId !== undefined) updateData.branchId = branchId;
-    if (assetTypeId !== undefined) updateData.assetTypeId = assetTypeId;
-    if (notes !== undefined) updateData.notes = notes;
-    if (roomId !== undefined) updateData.roomId = roomId;
-
-    let updateAssets = undefined;
-    if (assetIds !== undefined) {
-      updateAssets = {
-        deleteMany: {},
-        create: assetIds.map((assetId: string) => ({ assetId })),
-      };
+    if (!finalStatusId || finalStatusId === "all") {
+      const defaultStatus = await prisma.workOrderStatus.findFirst({
+        where: { companyId, isDefault: true },
+      });
+      if (defaultStatus) finalStatusId = defaultStatus.id;
+    } else {
+      const exists = await prisma.workOrderStatus.findFirst({
+        where: { id: finalStatusId, companyId },
+      });
+      if (!exists) finalStatusId = null;
     }
 
+    if (!finalPriorityId || !finalStatusId) {
+      return NextResponse.json(
+        { error: "لا توجد حالة أو أولوية افتراضية محددة" },
+        { status: 400 }
+      );
+    }
+
+    // تحديد نوع أمر العمل
+    let workOrderTypeEnum: $Enums.WorkOrderTypeEnum;
+    try {
+      workOrderTypeEnum = type as $Enums.WorkOrderTypeEnum;
+      const validTypes = ['MAINTENANCE', 'CORRECTIVE', 'EMERGENCY', 'BULK_PREVENTIVE'];
+      if (!validTypes.includes(workOrderTypeEnum)) {
+        throw new Error('Invalid work order type');
+      }
+    } catch {
+      workOrderTypeEnum = 'MAINTENANCE';
+    }
+
+    // تنظيف قيم الموقع حسب المستوى المختار
+    let finalBuildingId = buildingId || null;
+    let finalFloorId = floorId || null;
+    let finalRoomId = roomId || null;
+
+    if (locationLevel === "building") {
+      finalFloorId = null;
+      finalRoomId = null;
+    } else if (locationLevel === "floor") {
+      finalRoomId = null;
+    }
+
+    // ============================================================
+    // ✅ 1. تحديث أمر العمل
+    // ============================================================
     const updatedWorkOrder = await prisma.workOrder.update({
       where: { id },
       data: {
-        ...updateData,
-        workOrderAssets: updateAssets,
-      },
-      include: {
-        priority: true,
-        status: true,
-        assetType: true,
-        branch: true,
-        room: {
-          include: {
-            floor: {
-              include: { building: true },
-            },
-          },
-        },
-        workOrderAssets: {
-          include: { asset: { include: { type: true, status: true } } },
-        },
-        workOrderType: true,
-        assignedUser: true,
-        createdByUser: true,
+        title: title.trim(),
+        description: description || undefined,
+        type: workOrderTypeEnum,
+        priorityId: finalPriorityId,
+        statusId: finalStatusId,
+        branchId: branchId || undefined,
+        buildingId: finalBuildingId || undefined,
+        floorId: finalFloorId || undefined,
+        roomId: finalRoomId || undefined,
+        locationLevel: locationLevel || undefined,
+        assetTypeId: assetTypeId || undefined,
+        notes: notes || undefined,
+        sourceId: sourceId || undefined,
+        sourceType: source || 'manual',
+        ticketId: ticketId || undefined,
+        reason: reason || undefined,
+        updatedAt: new Date(),
       },
     });
 
-    // ✅ تسجيل التدقيق - استخدام session.email
-    await createWorkOrderAudit(
-      AuditAction.UPDATE,
-      id,
-      session.userId,
-      session.email,
-      oldWorkOrder,
-      updatedWorkOrder,
-      { updatedFields: Object.keys(body) }
-    );
+    // ============================================================
+    // ✅ 2. تحديث الأصول (حذف القديمة وإضافة الجديدة)
+    // ============================================================
+    // حذف الأصول القديمة
+    await prisma.workOrderAsset.deleteMany({
+      where: { workOrderId: id },
+    });
 
-    return NextResponse.json(updatedWorkOrder);
-  } catch (error) {
-    console.error("PUT /api/work-orders/[id] error:", error);
-    return NextResponse.json({ error: "فشل تحديث أمر العمل" }, { status: 500 });
-  }
-}
-
-// ========== DELETE: حذف أمر العمل ==========
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
-    await requirePermission("work_orders.delete"); // ✅
-
-    const { id } = await params;
-    const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
+    // إضافة الأصول الجديدة (إن وجدت)
+    if (assetIds && Array.isArray(assetIds) && assetIds.length > 0) {
+      await prisma.workOrderAsset.createMany({
+        data: assetIds.map((assetId: string) => ({
+          workOrderId: id,
+          assetId,
+        })),
+        skipDuplicates: true,
+      });
     }
 
-    // جلب النسخة قبل الحذف
-    const oldWorkOrder = await prisma.workOrder.findFirst({
-      where: { id, companyId, deletedAt: null },
+    // ============================================================
+    // ✅ 3. جلب البيانات المحدثة
+    // ============================================================
+    const result = await prisma.workOrder.findUnique({
+      where: { id },
       include: {
         priority: true,
         status: true,
         assetType: true,
         branch: true,
-        room: {
-          include: {
-            floor: {
-              include: { building: true },
-            },
-          },
-        },
+        building: true,
+        floor: true,
+        room: true,
         workOrderAssets: {
           include: { asset: true },
         },
-        workOrderType: true,
-        assignedUser: true,
-        createdByUser: true,
       },
     });
 
-    if (!oldWorkOrder) {
-      return NextResponse.json({ error: "أمر العمل غير موجود" }, { status: 404 });
-    }
-
-    await prisma.workOrder.update({
-      where: { id },
-      data: { deletedAt: new Date() },
-    });
-
-    // ✅ تسجيل التدقيق (حذف) - استخدام session.email
-    await createWorkOrderAudit(
-      AuditAction.DELETE,
-      id,
-      session.userId,
-      session.email,
-      oldWorkOrder,
-      null,
-      { softDelete: true }
+    return NextResponse.json(result);
+  } catch (error: any) {
+    console.error("PUT /api/work-orders/[id] error:", error);
+    return NextResponse.json(
+      { error: error.message || "فشل تحديث أمر العمل" },
+      { status: 500 }
     );
-
-    return NextResponse.json({ message: "تم حذف أمر العمل بنجاح" });
-  } catch (error) {
-    console.error("DELETE /api/work-orders/[id] error:", error);
-    return NextResponse.json({ error: "فشل حذف أمر العمل" }, { status: 500 });
   }
 }

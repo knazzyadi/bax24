@@ -17,7 +17,7 @@ export default async function EditWorkOrderPage({
   const companyId = session.companyId;
   if (!companyId) redirect("/login");
 
-  // جلب بيانات أمر العمل مع جميع العلاقات
+  // ✅ جلب بيانات أمر العمل مع العلاقات المباشرة للموقع
   const workOrder = await prisma.workOrder.findFirst({
     where: {
       id,
@@ -28,28 +28,9 @@ export default async function EditWorkOrderPage({
       priority: { select: { id: true, name: true, nameEn: true, color: true } },
       status: { select: { id: true, name: true, nameEn: true, color: true } },
       branch: { select: { id: true, name: true, nameEn: true } },
-      room: {
-        select: {
-          id: true,
-          name: true,
-          nameEn: true,
-          floor: {
-            select: {
-              id: true,
-              name: true,
-              nameEn: true,
-              building: {
-                select: {
-                  id: true,
-                  name: true,
-                  nameEn: true,
-                  branchId: true,
-                },
-              },
-            },
-          },
-        },
-      },
+      building: { select: { id: true, name: true, nameEn: true } }, // ✅ مباشر
+      floor: { select: { id: true, name: true, nameEn: true } }, // ✅ مباشر
+      room: { select: { id: true, name: true, nameEn: true } }, // ✅ مباشر
       assetType: { select: { id: true, name: true, nameEn: true } },
       workOrderType: {
         select: {
@@ -143,10 +124,13 @@ export default async function EditWorkOrderPage({
         ),
     ]);
 
-  const floorId = workOrder.room?.floor?.id ?? null;
-  const buildingId = workOrder.room?.floor?.building?.id ?? null;
+  // ✅ تحديد معرفات الموقع من العلاقات المباشرة
+  const buildingId = workOrder.building?.id ?? null;
+  const floorId = workOrder.floor?.id ?? null;
+  const roomId = workOrder.room?.id ?? null;
 
-  const locationLevel = workOrder.roomId
+  // ✅ تحديد مستوى الموقع بناءً على القيم الموجودة
+  const locationLevel = roomId
     ? "room"
     : floorId
     ? "floor"
@@ -154,11 +138,11 @@ export default async function EditWorkOrderPage({
     ? "building"
     : "building";
 
-  // ✅ المشكلة الأولى: استخدم sourceType من قاعدة البيانات بدلاً من الاعتماد على ticketId
+  // ✅ المصدر
   const source = workOrder.sourceType ?? "manual";
   const sourceId = workOrder.sourceId ?? null;
 
-  // ✅ المشكلة الثانية: الأصول المختارة مع بياناتها الكاملة
+  // ✅ الأصول المختارة مع بياناتها الكاملة
   const selectedAssets = workOrder.workOrderAssets.map((woa) => ({
     id: woa.asset.id,
     name: woa.asset.name,
@@ -173,17 +157,18 @@ export default async function EditWorkOrderPage({
     workOrderTypeId: workOrder.workOrderTypeId ?? "",
     priorityId: workOrder.priorityId,
     statusId: workOrder.statusId,
-    assetTypeId: workOrder.assetTypeId, // ✅ assetTypeId موجود
+    assetTypeId: workOrder.assetTypeId,
     notes: workOrder.notes,
-    branchId: workOrder.branchId,
-    buildingId,
-    floorId,
-    roomId: workOrder.room?.id ?? null,
+    // ✅ جميع حقول الموقع
+    branchId: workOrder.branchId ?? "",
+    buildingId: buildingId ?? "",
+    floorId: floorId ?? "",
+    roomId: roomId ?? "",
+    locationLevel: locationLevel,
     assetIds: workOrder.workOrderAssets.map((woa) => woa.assetId),
-    selectedAssets, // ✅ الأصول الكاملة
-    locationLevel,
-    source, // ✅ المصدر الصحيح
-    sourceId, // ✅ معرف المصدر الصحيح
+    selectedAssets,
+    source,
+    sourceId,
     ticket: workOrder.ticket || null,
     attachments: workOrder.attachments || [],
   };

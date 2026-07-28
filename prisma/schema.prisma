@@ -19,7 +19,6 @@ model Company {
   isActive               Boolean                 @default(true)
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
-  maintenanceSchedules   MaintenanceSchedule[]
   assetStatuses          AssetStatus[]
   assetTypes             AssetType[]
   assets                 Asset[]
@@ -33,6 +32,7 @@ model Company {
   inspectionTemplates    InspectionTemplate[]
   inspections            Inspection[]
   inventoryItems         InventoryItem[]
+  maintenanceSchedules   MaintenanceSchedule[]
   suppliers              Supplier[]
   tickets                Ticket[]
   users                  User[]
@@ -47,32 +47,34 @@ model Company {
 }
 
 model User {
-  id                        String               @id @default(cuid())
-  email                     String               @unique
+  id                        String                   @id @default(cuid())
+  email                     String                   @unique
   name                      String?
   password                  String?
-  status                    Boolean              @default(true)
+  status                    Boolean                  @default(true)
   companyId                 String?
   roleId                    String?
-  createdAt                 DateTime             @default(now())
-  updatedAt                 DateTime             @updatedAt
-  invitationToken           String?              @unique
+  createdAt                 DateTime                 @default(now())
+  updatedAt                 DateTime                 @updatedAt
+  invitationToken           String?                  @unique
   invitationExpires         DateTime?
-  resetToken                String?              @unique
+  resetToken                String?                  @unique
   resetExpires              DateTime?
-  firstLogin                Boolean              @default(true)
+  firstLogin                Boolean                  @default(true)
   deletedAt                 DateTime?
-  createdBackups            CompanyBackup[]      @relation("UserCreatedBackups")
+  maintenanceScheduleRuns   MaintenanceScheduleRun[]
+  createdBackups            CompanyBackup[]          @relation("UserCreatedBackups")
   inspectionActivities      InspectionActivity[]
-  inspectionResultsExecuted InspectionResult[]   @relation("InspectionExecutedBy")
-  inspectionsApproved       Inspection[]         @relation("InspectionApprover")
-  inspectionsToPerform      Inspection[]         @relation("InspectionInspector")
-  tickets                   Ticket[]             @relation("UserTickets")
+  inspectionResultsExecuted InspectionResult[]       @relation("InspectionExecutedBy")
+  inspectionsApproved       Inspection[]             @relation("InspectionApprover")
+  inspectionsToPerform      Inspection[]             @relation("InspectionInspector")
+  tickets                   Ticket[]                 @relation("UserTickets")
   userBranches              UserBranch[]
-  company                   Company?             @relation(fields: [companyId], references: [id])
-  role                      Role?                @relation(fields: [roleId], references: [id])
-  assignedWorkOrders        WorkOrder[]          @relation("AssignedWorkOrders")
-  createdWorkOrders         WorkOrder[]          @relation("CreatedWorkOrders")
+  company                   Company?                 @relation(fields: [companyId], references: [id])
+  role                      Role?                    @relation(fields: [roleId], references: [id])
+  assignedWorkOrders        WorkOrder[]              @relation("AssignedWorkOrders")
+  createdWorkOrders         WorkOrder[]              @relation("CreatedWorkOrders")
+  InspectionFinding         InspectionFinding[]
 
   @@map("users")
 }
@@ -111,12 +113,12 @@ model Branch {
   publicToken          String                @unique @default(cuid())
   slug                 String                @unique
   deletedAt            DateTime?
-  maintenanceSchedules MaintenanceSchedule[]
   assets               Asset[]
   company              Company               @relation(fields: [companyId], references: [id])
   buildings            Building[]
   contracts            Contract[]
   inspections          Inspection[]
+  maintenanceSchedules MaintenanceSchedule[]
   tickets              Ticket[]
   userBranches         UserBranch[]
   workOrders           WorkOrder[]
@@ -135,14 +137,15 @@ model Building {
   createdAt            DateTime              @default(now())
   updatedAt            DateTime              @updatedAt
   deletedAt            DateTime?
-  maintenanceSchedules MaintenanceSchedule[]
   assets               Asset[]
   branch               Branch?               @relation(fields: [branchId], references: [id])
   company              Company               @relation(fields: [companyId], references: [id])
   floors               Floor[]
   inspections          Inspection[]
+  maintenanceSchedules MaintenanceSchedule[]
   rooms                Room[]
   vehicles             Vehicle[]
+  WorkOrder            WorkOrder[]
 
   @@index([companyId, deletedAt])
   @@index([branchId])
@@ -151,17 +154,19 @@ model Building {
 }
 
 model Floor {
-  id          String       @id @default(cuid())
-  name        String
-  nameEn      String?
-  code        String
-  buildingId  String
-  order       Int          @default(0)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-  building    Building     @relation(fields: [buildingId], references: [id], onDelete: Cascade)
-  inspections Inspection[]
-  rooms       Room[]
+  id                   String                @id @default(cuid())
+  name                 String
+  nameEn               String?
+  code                 String
+  buildingId           String
+  order                Int                   @default(0)
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  building             Building              @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  inspections          Inspection[]
+  maintenanceSchedules MaintenanceSchedule[]
+  rooms                Room[]
+  WorkOrder            WorkOrder[]
 
   @@unique([buildingId, code])
   @@map("floors")
@@ -183,6 +188,7 @@ model Room {
   assets               Asset[]
   inspections          Inspection[]
   inventoryItems       InventoryItem[]
+  maintenanceSchedules MaintenanceSchedule[]
   building             Building               @relation(fields: [buildingId], references: [id], onDelete: Cascade)
   floor                Floor                  @relation(fields: [floorId], references: [id], onDelete: Cascade)
   tickets              Ticket[]
@@ -288,9 +294,9 @@ model AssetType {
   deletedAt            DateTime?
   icon                 String?               @db.VarChar(50)
   isActive             Boolean               @default(true)
-  maintenanceSchedules MaintenanceSchedule[]
   company              Company               @relation(fields: [companyId], references: [id], onDelete: Cascade)
   assets               Asset[]
+  maintenanceSchedules MaintenanceSchedule[]
   workOrders           WorkOrder[]
 
   @@unique([companyId, name])
@@ -379,7 +385,7 @@ model WorkOrderCancelReason {
 
 model Asset {
   id                  String                 @id @default(cuid())
-  code                String                 // ✅ أزلنا @unique
+  code                String
   name                String
   nameEn              String?
   typeId              String?
@@ -414,7 +420,7 @@ model Asset {
   type                AssetType?             @relation(fields: [typeId], references: [id])
   tickets             Ticket[]
 
-  @@unique([companyId, code]) // ✅ هذا يضمن فريدة الكود داخل كل شركة
+  @@unique([companyId, code])
   @@index([companyId])
   @@index([typeId])
   @@index([statusId])
@@ -581,52 +587,66 @@ model Contract {
 }
 
 model WorkOrder {
-  id                 String                @id @default(cuid())
-  code               String?               @unique
-  branchSeqNum       Int
-  title              String
-  description        String?
-  type               WorkOrderTypeEnum     @default(MAINTENANCE)
-  priorityId         String?
-  statusId           String?
-  roomId             String?
-  notes              String?
-  createdAt          DateTime              @default(now())
-  updatedAt          DateTime              @updatedAt
-  deletedAt          DateTime?
-  companyId          String
-  branchId           String?
-  createdBy          String?
-  assetTypeId        String?
-  workOrderTypeId    String?
-  ticketId           String?               @unique
-  assignedTo         String?
-  reason             String?
-  sourceId           String?
-  sourceType         String?
-  workOrderAssets    WorkOrderAsset[]
-  attachments        WorkOrderAttachment[]
-  inspectionResults  InspectionResult[]
-  workOrderInventory WorkOrderInventory[]
-  assetType          AssetType?            @relation(fields: [assetTypeId], references: [id])
-  assignedUser       User?                 @relation("AssignedWorkOrders", fields: [assignedTo], references: [id])
-  branch             Branch?               @relation(fields: [branchId], references: [id])
-  company            Company               @relation(fields: [companyId], references: [id])
-  createdByUser      User?                 @relation("CreatedWorkOrders", fields: [createdBy], references: [id])
-  priority           WorkOrderPriority?    @relation(fields: [priorityId], references: [id])
-  room               Room?                 @relation(fields: [roomId], references: [id])
-  status             WorkOrderStatus?      @relation(fields: [statusId], references: [id])
-  ticket             Ticket?               @relation(fields: [ticketId], references: [id])
-  workOrderType      WorkOrderType?        @relation(fields: [workOrderTypeId], references: [id])
+  id                    String                  @id @default(cuid())
+  code                  String?                 @unique
+  branchSeqNum          Int
+  title                 String
+  description           String?
+  type                  WorkOrderTypeEnum       @default(MAINTENANCE)
+  priorityId            String?
+  statusId              String?
+  roomId                String?
+  notes                 String?
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+  deletedAt             DateTime?
+  companyId             String
+  branchId              String?
+  createdBy             String?
+  assetTypeId           String?
+  workOrderTypeId       String?
+  ticketId              String?                 @unique
+  assignedTo            String?
+  reason                String?
+  sourceId              String?
+  sourceType            String?
+  maintenanceScheduleId String?
+  buildingId            String?
+  floorId               String?
+  locationLevel         LocationLevel?
+  source                WorkOrderSource         @default(manual)
+  scheduleRuns          MaintenanceScheduleRun?
+  workOrderAssets       WorkOrderAsset[]
+  attachments           WorkOrderAttachment[]
+  inspection_results    InspectionResult[]
+  workOrderInventory    WorkOrderInventory[]
+  assetType             AssetType?              @relation(fields: [assetTypeId], references: [id])
+  assignedUser          User?                   @relation("AssignedWorkOrders", fields: [assignedTo], references: [id])
+  branch                Branch?                 @relation(fields: [branchId], references: [id])
+  building              Building?               @relation(fields: [buildingId], references: [id])
+  company               Company                 @relation(fields: [companyId], references: [id])
+  createdByUser         User?                   @relation("CreatedWorkOrders", fields: [createdBy], references: [id])
+  floor                 Floor?                  @relation(fields: [floorId], references: [id])
+  maintenanceSchedule   MaintenanceSchedule?    @relation(fields: [maintenanceScheduleId], references: [id])
+  priority              WorkOrderPriority?      @relation(fields: [priorityId], references: [id])
+  room                  Room?                   @relation(fields: [roomId], references: [id])
+  status                WorkOrderStatus?        @relation(fields: [statusId], references: [id])
+  ticket                Ticket?                 @relation(fields: [ticketId], references: [id])
+  workOrderType         WorkOrderType?          @relation(fields: [workOrderTypeId], references: [id])
+  WorkOrderFinding      WorkOrderFinding[]
 
   @@unique([branchId, branchSeqNum])
-  @@index([companyId, deletedAt])
   @@index([companyId])
+  @@index([companyId, deletedAt])
   @@index([branchId])
+  @@index([buildingId])
+  @@index([floorId])
   @@index([roomId])
   @@index([statusId])
   @@index([priorityId])
+  @@index([assetTypeId])
   @@index([workOrderTypeId])
+  @@index([maintenanceScheduleId])
   @@index([createdAt])
   @@map("work_orders")
 }
@@ -660,26 +680,73 @@ model WorkOrderAttachment {
 }
 
 model MaintenanceSchedule {
-  id             String          @id @default(cuid())
+  id             String                   @id @default(cuid())
   name           String
   frequency      String
-  leadDays       Int             @default(30)
-  branchId       String?
-  buildingId     String?
-  assetTypeId    String?
-  companyId      String
-  isActive       Boolean         @default(true)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  frequencyDays  Int?                     @default(30)
+  leadDays       Int                      @default(30)
+  startDate      DateTime?
   lastRunAt      DateTime?
   notes          String?
-  startDate      DateTime?
-  frequencyDays  Int?
-  assetType      AssetType?      @relation(fields: [assetTypeId], references: [id])
-  branch         Branch?         @relation(fields: [branchId], references: [id])
-  building       Building?       @relation(fields: [buildingId], references: [id])
-  company        Company         @relation(fields: [companyId], references: [id])
+  isActive       Boolean                  @default(true)
+  companyId      String
+  branchId       String?
+  buildingId     String?
+  floorId        String?
+  roomId         String?
+  locationLevel  String?
+  assetTypeId    String?
+  createdAt      DateTime                 @default(now())
+  updatedAt      DateTime                 @updatedAt
+  runs           MaintenanceScheduleRun[]
   scheduleAssets ScheduleAsset[]
+  assetType      AssetType?               @relation(fields: [assetTypeId], references: [id])
+  branch         Branch?                  @relation(fields: [branchId], references: [id])
+  building       Building?                @relation(fields: [buildingId], references: [id])
+  company        Company                  @relation(fields: [companyId], references: [id])
+  floor          Floor?                   @relation(fields: [floorId], references: [id])
+  room           Room?                    @relation(fields: [roomId], references: [id])
+  workOrders     WorkOrder[]
+
+  @@index([companyId])
+  @@index([branchId])
+  @@index([buildingId])
+  @@index([floorId])
+  @@index([roomId])
+  @@map("maintenance_schedules")
+}
+
+model MaintenanceScheduleRun {
+  id              String              @id @default(cuid())
+  /// الجدول الذي تم تشغيله
+  scheduleId      String
+  /// أمر العمل الناتج (قد يكون null عند الفشل)
+  workOrderId     String?             @unique
+  /// حالة التنفيذ
+  status          ScheduleRunStatus   @default(RUNNING)
+  /// يدوي أو تلقائي
+  runType         ScheduleRunType     @default(MANUAL)
+  /// وقت البداية والنهاية
+  startedAt       DateTime            @default(now())
+  finishedAt      DateTime?
+  /// إحصائيات التنفيذ
+  totalAssets     Int                 @default(0)
+  succeededAssets Int                 @default(0)
+  failedAssets    Int                 @default(0)
+  /// من قام بالتشغيل
+  executedById    String?
+  /// ملاحظات التنفيذ
+  notes           String?
+  /// رسالة الخطأ عند الفشل
+  errorMessage    String?
+  createdAt       DateTime            @default(now())
+  user            User?               @relation(fields: [executedById], references: [id])
+  schedule        MaintenanceSchedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
+  workOrder       WorkOrder?          @relation(fields: [workOrderId], references: [id])
+
+  @@index([scheduleId, startedAt])
+  @@index([status])
+  @@index([workOrderId])
 }
 
 model ScheduleAsset {
@@ -856,6 +923,7 @@ model Inspection {
   deletedAt          DateTime?
   activities         InspectionActivity[]
   selectedCategories InspectionCategorySelection[]
+  formItems          InspectionFormItem[]
   results            InspectionResult[]
   approvedBy         User?                         @relation("InspectionApprover", fields: [approvedById], references: [id])
   branch             Branch?                       @relation(fields: [branchId], references: [id])
@@ -890,27 +958,28 @@ model InspectionCategorySelection {
 }
 
 model InspectionResult {
-  id           String                  @id @default(cuid())
-  inspectionId String
-  itemId       String
-  result       ResultStatus            @default(na)
-  notes        String?
-  score        Decimal?                @db.Decimal(10, 2)
-  maxScore     Decimal?                @db.Decimal(10, 2)
-  minScore     Decimal?
-  executedAt   DateTime?               @default(now())
-  updatedAt    DateTime                @updatedAt
-  executedById String?
-  workOrderId  String?
-  images       InspectionResultImage[]
-  executedBy   User?                   @relation("InspectionExecutedBy", fields: [executedById], references: [id])
-  inspection   Inspection              @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
-  item         InspectionItem          @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  workOrder    WorkOrder?              @relation(fields: [workOrderId], references: [id])
+  id                   String                  @id @default(cuid())
+  inspectionId         String
+  result               ResultStatus            @default(na)
+  notes                String?
+  score                Decimal?                @db.Decimal(10, 2)
+  maxScore             Decimal?                @db.Decimal(10, 2)
+  minScore             Decimal?
+  executedAt           DateTime?               @default(now())
+  updatedAt            DateTime                @updatedAt
+  executedById         String?
+  workOrderId          String?
+  inspectionFormItemId String
+  images               InspectionResultImage[]
+  executedBy           User?                   @relation("InspectionExecutedBy", fields: [executedById], references: [id])
+  inspectionFormItem   InspectionFormItem      @relation(fields: [inspectionFormItemId], references: [id], onDelete: Cascade)
+  inspection           Inspection              @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  work_orders          WorkOrder?              @relation(fields: [workOrderId], references: [id])
+  findings             InspectionFinding[]
 
-  @@unique([inspectionId, itemId])
+  @@unique([inspectionId, inspectionFormItemId])
   @@index([inspectionId])
-  @@index([itemId])
+  @@index([inspectionFormItemId])
   @@index([result])
   @@map("inspection_results")
 }
@@ -953,11 +1022,11 @@ model CompanyBackup {
   fileUrl      String?
   fileSize     Int?
   status       BackupStatus @default(COMPLETED)
-  type         BackupType   @default(FULL)
-  restoredAt   DateTime?
-  restoredById String?
   createdById  String
   createdAt    DateTime     @default(now())
+  restoredAt   DateTime?
+  restoredById String?
+  type         BackupType   @default(FULL)
   company      Company      @relation(fields: [companyId], references: [id], onDelete: Cascade)
   createdBy    User         @relation("UserCreatedBackups", fields: [createdById], references: [id])
 
@@ -1014,7 +1083,6 @@ model InspectionTemplate {
 model InspectionCategory {
   id          String                        @id @default(cuid())
   companyId   String
-  templateId  String
   code        String                        @db.VarChar(50)
   name        String                        @db.VarChar(255)
   nameAr      String?                       @db.VarChar(255)
@@ -1024,6 +1092,7 @@ model InspectionCategory {
   createdAt   DateTime                      @default(now())
   updatedAt   DateTime                      @updatedAt
   deletedAt   DateTime?
+  templateId  String
   company     Company                       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   template    InspectionTemplate            @relation(fields: [templateId], references: [id], onDelete: Cascade)
   selections  InspectionCategorySelection[]
@@ -1055,13 +1124,95 @@ model InspectionItem {
   deletedAt           DateTime?
   category            InspectionCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   company             Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  results             InspectionResult[]
 
   @@unique([companyId, code])
   @@index([companyId])
   @@index([categoryId])
   @@index([isActive])
   @@map("inspection_items")
+}
+
+model InspectionFormItem {
+  id                  String             @id @default(cuid())
+  inspectionId        String
+  categoryId          String
+  itemId              String?
+  categoryName        String
+  categoryNameAr      String?
+  itemCode            String?
+  itemName            String
+  itemNameAr          String?
+  description         String?
+  descriptionAr       String?
+  riskLevel           String?
+  inputType           String?
+  sortOrder           Int
+  autoCreateWorkOrder Boolean            @default(false)
+  isRequired          Boolean            @default(true)
+  inspection          Inspection         @relation(fields: [inspectionId], references: [id], onDelete: Cascade)
+  results             InspectionResult[]
+
+  @@unique([inspectionId, itemId])
+  @@index([inspectionId])
+  @@index([categoryId])
+  @@map("inspection_form_items")
+}
+
+model InspectionFinding {
+  id                 String        @id @default(cuid())
+  inspectionResultId String
+  title              String
+  description        String?
+  riskLevel          RiskLevel
+  correctiveAction   String?
+  dueDate            DateTime?
+  status             FindingStatus @default(Open)
+  createdById        String?
+
+  inspectionResult InspectionResult @relation(fields: [inspectionResultId], references: [id], onDelete: Cascade)
+  createdBy        User?            @relation(fields: [createdById], references: [id])
+
+  images     InspectionFindingImage[]
+  workOrders WorkOrderFinding[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model WorkOrderFinding {
+  id          String    @id @default(cuid())
+  workOrderId String
+  findingId   String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+
+  finding InspectionFinding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+
+  @@unique([workOrderId, findingId])
+}
+
+model InspectionFindingImage {
+  id        String   @id @default(cuid())
+  findingId String
+  url       String
+  fileName  String?
+  createdAt DateTime @default(now())
+
+  finding InspectionFinding @relation(fields: [findingId], references: [id], onDelete: Cascade)
+}
+
+enum FindingStatus {
+  Open
+  InProgress
+  Resolved
+  Verified
+  Closed
+  Cancelled
+}
+
+enum LocationLevel {
+  building
+  floor
+  room
 }
 
 enum InspectionStatus {
@@ -1126,4 +1277,25 @@ enum BackupType {
   FULL
   CONFIG
   CUSTOM
+}
+
+enum ScheduleRunStatus {
+  RUNNING
+  SUCCESS
+  PARTIAL
+  FAILED
+  CANCELLED
+}
+
+enum ScheduleRunType {
+  MANUAL
+  AUTOMATIC
+}
+
+enum WorkOrderSource {
+  manual
+  ticket
+  ppm
+  checklist
+  inspection_finding
 }

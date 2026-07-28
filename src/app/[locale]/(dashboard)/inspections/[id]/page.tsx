@@ -17,27 +17,14 @@ export default async function InspectionDetailPage({
   const companyId = session.companyId;
   if (!companyId) redirect("/login");
 
-  // ✅ جلب الفحص مع العلاقات الجديدة (بدون locationName و imageUrl المباشر)
+  // ✅ جلب الفحص مع formItems والنتائج (بدلاً من selectedCategories)
   const inspection = await prisma.inspection.findUnique({
     where: { id },
     include: {
-      selectedCategories: {
+      formItems: {
         orderBy: { sortOrder: "asc" },
         include: {
-          category: {
-            include: {
-              items: {
-                where: { isActive: true },
-                orderBy: { sortOrder: "asc" },
-              },
-            },
-          },
-        },
-      },
-      results: {
-        include: {
-          item: true,
-          images: true, // ✅ جلب الصور المرتبطة
+          results: true, // كل formItem له نتائج (عادة واحدة)
         },
       },
       branch: true,
@@ -51,54 +38,60 @@ export default async function InspectionDetailPage({
     redirect(`/${locale}/inspections`);
   }
 
-  // بناء هيكل البيانات المنظم
-  const resultsMap = new Map();
-  inspection.results.forEach((r) => resultsMap.set(r.itemId, r));
+  // ✅ تجميع formItems حسب categoryId
+  const categoriesMap = new Map();
+  inspection.formItems.forEach((item) => {
+    const catId = item.categoryId;
+    if (!categoriesMap.has(catId)) {
+      categoriesMap.set(catId, {
+        categoryId: catId,
+        categoryName: item.categoryName,
+        categoryNameAr: item.categoryNameAr ?? undefined,
+        items: [],
+      });
+    }
+    const result = item.results[0] || null;
+    categoriesMap.get(catId).items.push({
+      id: item.id, // inspectionFormItemId
+      itemId: item.itemId, // للتتبع
+      code: item.itemCode,
+      name: item.itemName,
+      nameAr: item.itemNameAr,
+      description: item.description,
+      descriptionAr: item.descriptionAr,
+      riskLevel: item.riskLevel,
+      inputType: item.inputType,
+      sortOrder: item.sortOrder,
+      isRequired: item.isRequired,
+      result: result
+        ? {
+            id: result.id,
+            result: result.result,
+            notes: result.notes,
+            workOrderId: result.workOrderId,
+            images: [], // ستضاف لاحقاً
+          }
+        : null,
+    });
+  });
 
-  // ✅ تحويل null إلى undefined للحقول الاختيارية
-  const categories = inspection.selectedCategories.map((sel) => ({
-    categoryId: sel.categoryId,
-    categoryName: sel.category.name,
-    categoryNameAr: sel.category.nameAr ?? undefined,
-    items: sel.category.items.map((item) => ({
-      ...item,
-      result: resultsMap.get(item.id) || null,
-    })),
-  }));
+  const categories = Array.from(categoriesMap.values());
 
-  // ✅ بناء اسم الموقع من العلاقات الجديدة (بدلاً من locationName)
+  // ✅ اسم الموقع
   const locationParts = [];
   if (inspection.branch) locationParts.push(inspection.branch.name);
   if (inspection.building) locationParts.push(inspection.building.name);
   if (inspection.floor) locationParts.push(inspection.floor.name);
   if (inspection.room) locationParts.push(inspection.room.name);
-
   const locationName = locationParts.length > 0 ? locationParts.join(" - ") : undefined;
-
-  // ✅ تحويل النتائج مع الصور (بدون imageUrl المباشر)
-  const results = inspection.results.map((r) => ({
-    id: r.id,
-    itemId: r.itemId,
-    result: r.result,
-    notes: r.notes,
-    workOrderId: r.workOrderId,
-    // ✅ الصور موجودة في علاقة images
-    images: r.images.map((img) => ({
-      id: img.id,
-      url: img.url,
-      caption: img.caption,
-    })),
-  }));
 
   const initialData = {
     id: inspection.id,
     title: inspection.title,
-    locationName, // ✅ اسم الموقع المحسوب
+    locationName,
     scheduledDate: inspection.scheduledDate.toISOString(),
     status: inspection.status,
-    categories,
-    results,
-    // ✅ إضافة معرفات الموقع للاستخدام في المكونات
+    categories, // ✅ الهيكل الجديد
     branchId: inspection.branchId,
     buildingId: inspection.buildingId,
     floorId: inspection.floorId,

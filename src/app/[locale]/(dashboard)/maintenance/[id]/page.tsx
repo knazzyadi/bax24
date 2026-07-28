@@ -35,6 +35,7 @@ interface ScheduleDetail {
   id: string;
   name: string;
   frequency: string;
+  frequencyDays: number;
   leadDays: number;
   startDate: string | null;
   isActive: boolean;
@@ -44,6 +45,9 @@ interface ScheduleDetail {
   lastRunAt: string | null;
   branch: { id: string; name: string; nameEn?: string } | null;
   building: { id: string; name: string; nameEn?: string } | null;
+  floor: { id: string; name: string; nameEn?: string } | null;  // ✅ إضافة
+  room: { id: string; name: string; nameEn?: string } | null;    // ✅ إضافة
+  locationLevel: string | null;                                   // ✅ إضافة
   assetType: { id: string; name: string; nameEn?: string } | null;
   scheduleAssets: { asset: { id: string; name: string; code: string; nameEn?: string } }[];
 }
@@ -170,7 +174,6 @@ export default function MaintenanceScheduleDetailPage() {
         color: config.color,
       };
     }
-    // Fallback للقيم القديمة
     if (schedule.frequency === "DAILY") {
       return {
         label: isRtl ? "يومي" : "Daily",
@@ -192,14 +195,56 @@ export default function MaintenanceScheduleDetailPage() {
     };
   };
 
-  const getLocationName = () => {
+  // ============================================================
+  // ✅ بناء اسم الموقع مع الدعم الكامل (مبنى + دور + غرفة)
+  // ============================================================
+  const getLocationName = (): string => {
     if (!schedule) return "";
-    if (schedule.building) {
-      return isRtl ? schedule.building.name : schedule.building.nameEn || schedule.building.name;
+
+    // بناء الاسم حسب المستوى المختار
+    const parts: string[] = [];
+
+    // المستوى: غرفة (الأكثر تحديداً)
+    if (schedule.locationLevel === "room" && schedule.room) {
+      parts.push(isRtl ? schedule.room.name : schedule.room.nameEn || schedule.room.name);
+      if (schedule.floor) {
+        parts.push(isRtl ? schedule.floor.name : schedule.floor.nameEn || schedule.floor.name);
+      }
+      if (schedule.building) {
+        parts.push(isRtl ? schedule.building.name : schedule.building.nameEn || schedule.building.name);
+      }
+      if (schedule.branch) {
+        parts.push(isRtl ? schedule.branch.name : schedule.branch.nameEn || schedule.branch.name);
+      }
+      return parts.join(" - ");
     }
+
+    // المستوى: دور
+    if (schedule.locationLevel === "floor" && schedule.floor) {
+      parts.push(isRtl ? schedule.floor.name : schedule.floor.nameEn || schedule.floor.name);
+      if (schedule.building) {
+        parts.push(isRtl ? schedule.building.name : schedule.building.nameEn || schedule.building.name);
+      }
+      if (schedule.branch) {
+        parts.push(isRtl ? schedule.branch.name : schedule.branch.nameEn || schedule.branch.name);
+      }
+      return parts.join(" - ");
+    }
+
+    // المستوى: مبنى
+    if (schedule.locationLevel === "building" && schedule.building) {
+      parts.push(isRtl ? schedule.building.name : schedule.building.nameEn || schedule.building.name);
+      if (schedule.branch) {
+        parts.push(isRtl ? schedule.branch.name : schedule.branch.nameEn || schedule.branch.name);
+      }
+      return parts.join(" - ");
+    }
+
+    // المستوى: فرع فقط
     if (schedule.branch) {
       return isRtl ? schedule.branch.name : schedule.branch.nameEn || schedule.branch.name;
     }
+
     return isRtl ? "جميع المواقع" : "All locations";
   };
 
@@ -304,15 +349,25 @@ export default function MaintenanceScheduleDetailPage() {
                 </p>
               </div>
 
+              {/* ✅ عرض الموقع الكامل (مبنى + دور + غرفة) */}
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   <MapPin className="h-3.5 w-3.5" />
                   {t("location")}
                 </div>
-                <p className="font-semibold text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+                <div className="flex flex-wrap items-center gap-1.5">
                   <Building size={14} className="text-indigo-400" />
-                  {getLocationName()}
-                </p>
+                  <span className="font-semibold text-slate-800 dark:text-slate-100">
+                    {getLocationName()}
+                  </span>
+                </div>
+                {/* عرض المستوى المختار */}
+                {schedule.locationLevel && (
+                  <p className="text-xs text-slate-400 dark:text-slate-500">
+                    {isRtl ? `المستوى: ${schedule.locationLevel === 'room' ? 'غرفة' : schedule.locationLevel === 'floor' ? 'دور' : 'مبنى'}` :
+                      `Level: ${schedule.locationLevel}`}
+                  </p>
+                )}
               </div>
 
               {schedule.startDate && (

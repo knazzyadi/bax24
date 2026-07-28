@@ -5,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 
 // Helper function to generate a unique code for item
 function generateItemCode(name: string, categoryCode: string): string {
-  // Take first 3 letters of name, uppercase, add category prefix and timestamp
   const prefix = name
     .replace(/[^a-zA-Z0-9]/g, "")
     .substring(0, 3)
@@ -14,7 +13,7 @@ function generateItemCode(name: string, categoryCode: string): string {
   return `${categoryCode}-${prefix}${suffix}`;
 }
 
-// GET: جلب البنود الخاصة بفئة معينة (categoryId)
+// GET: جلب البنود الخاصة بفئة معينة (categoryId) مع النتائج والـ Findings
 export async function GET(req: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
@@ -29,6 +28,7 @@ export async function GET(req: NextRequest) {
 
     const { searchParams } = new URL(req.url);
     const categoryId = searchParams.get("categoryId");
+    const inspectionId = searchParams.get("inspectionId");
 
     if (!categoryId || categoryId.trim() === "") {
       return NextResponse.json(
@@ -53,6 +53,7 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // 1. جلب البنود (items) الخاصة بالفئة
     const items = await prisma.inspectionItem.findMany({
       where: {
         categoryId,
@@ -61,7 +62,62 @@ export async function GET(req: NextRequest) {
       orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
     });
 
-    return NextResponse.json(items);
+    // 2. إذا كان هناك inspectionId، جلب النتائج والـ Findings المرتبطة
+    let formItemsMap: Record<string, any> = {};
+    if (inspectionId) {
+      // جلب inspectionFormItems المرتبطة بهذا الفحص وبهذه البنود
+      const formItems = await prisma.inspectionFormItem.findMany({
+        where: {
+          inspectionId: inspectionId,
+          itemId: { in: items.map((item) => item.id) },
+        },
+        include: {
+          results: {
+            include: {
+              findings: true,
+            },
+          },
+        },
+      });
+
+      // إنشاء خريطة itemId -> أول result مع findings
+      formItemsMap = formItems.reduce((acc, formItem) => {
+        const itemId = formItem.itemId;
+        if (!itemId) return acc;
+
+        const result = formItem.results?.[0] || null;
+        acc[itemId] = {
+          result: result
+            ? {
+                id: result.id,
+                // ✅ التصحيح: استخدم الحقل الصحيح "result" بدلاً من "status"
+                result: result.result,
+                notes: result.notes,
+                finding: result.findings?.[0]
+                  ? {
+                      id: result.findings[0].id,
+                      title: result.findings[0].title,
+                      riskLevel: result.findings[0].riskLevel,
+                      status: result.findings[0].status,
+                      description: result.findings[0].description,
+                      correctiveAction: result.findings[0].correctiveAction,
+                      dueDate: result.findings[0].dueDate,
+                    }
+                  : null,
+              }
+            : null,
+        };
+        return acc;
+      }, {} as Record<string, any>);
+    }
+
+    // 3. دمج النتائج مع البنود
+    const transformedItems = items.map((item) => ({
+      ...item,
+      result: formItemsMap[item.id]?.result || null,
+    }));
+
+    return NextResponse.json(transformedItems);
   } catch (error) {
     console.error("Error fetching inspection items:", error);
     return NextResponse.json(
@@ -99,7 +155,6 @@ export async function POST(req: NextRequest) {
       code: providedCode,
     } = body;
 
-    // التحقق من صحة الإدخال
     if (!categoryId || categoryId.trim() === "") {
       return NextResponse.json(
         { error: "categoryId is required" },
@@ -117,7 +172,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ التأكد من وجود الفئة الأم وأنها تنتمي للشركة
     const categoryExists = await prisma.inspectionCategory.findFirst({
       where: {
         id: categoryId,
@@ -133,11 +187,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ التحقق من عدم وجود بند بنفس الاسم في نفس الفئة والشركة
     const existingName = await prisma.inspectionItem.findFirst({
       where: {
         companyId,
-        categoryId, // يجب أن يكون الاسم فريداً داخل نفس الفئة
+        categoryId,
         OR: [
           { name: trimmedName },
           { nameAr: trimmedNameAr },
@@ -153,10 +206,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ✅ توليد كود فريد إذا لم يتم توفيره
     const finalCode = providedCode?.trim() || generateItemCode(trimmedName || trimmedNameAr || "ITEM", categoryExists.code);
 
-    // ✅ التحقق من عدم وجود كود مكرر في نفس الشركة
     const existingCode = await prisma.inspectionItem.findFirst({
       where: {
         companyId,

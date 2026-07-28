@@ -233,6 +233,7 @@ export default function InspectionTypesView({
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     isLoading={node.isLoading}
+                    // ✅ يتم تمرير description تلقائياً عبر node
                   />
                 ))}
               </div>

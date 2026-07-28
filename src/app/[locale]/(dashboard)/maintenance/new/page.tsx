@@ -3,19 +3,19 @@
 
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { Calendar, Save, X } from "lucide-react";
+import { Calendar, Save, X, Sparkles, Shield, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
 // ========== المكونات المنفصلة ==========
-import { BasicInfoSection } from "./BasicInfoSection";
-import { LocationSection } from "./LocationSection";
-import { AssetSection } from "./AssetSection";
-import { NotesSection } from "./NotesSection";
-import { AssetDialog } from "./AssetDialog";
+import { BasicInfoSection } from "../BasicInfoSection";
+import { LocationSection } from "../LocationSection";
+import { AssetSection } from "../AssetSection";
+import { NotesSection } from "../NotesSection";
+import { AssetDialog } from "../AssetDialog";
 
 // ========== الـ Hook ==========
-import { useMaintenanceForm } from "./useMaintenanceForm";
+import { useMaintenanceForm } from "../useMaintenanceForm";
 
 // ========== كرت الخلفية الزجاجي ==========
 const glassCard =
@@ -29,8 +29,9 @@ export default function NewMaintenanceSchedulePage() {
 
   // ========== استخدام الـ Hook ==========
   const {
+    // البيانات
     formData,
-    setFormData,
+    setFormData, // ✅ تمت الإضافة
     branchId,
     setBranchId,
     buildingId,
@@ -39,15 +40,12 @@ export default function NewMaintenanceSchedulePage() {
     setFloorId,
     roomId,
     setRoomId,
-    locationLevel,
-    setLocationLevel,
     buildings,
     floors,
     rooms,
     assetTypes,
     assets,
     selectedAssetIds,
-    setSelectedAssetIds,
     tempSelectedAssetIds,
     setTempSelectedAssetIds,
     loadingBuildings,
@@ -60,7 +58,11 @@ export default function NewMaintenanceSchedulePage() {
     handleSubmit,
     getSelectedLocationSummary,
     isLocationSelected,
-    // دوال التحكم في حوار الأصول
+    // ✅ تم حذف: handleNameChange, handleFrequencyChange, handleLeadDaysChange,
+    // handleFrequencyDaysChange, handleStartDateChange, handleIsActiveChange
+    handleNotesChange,
+    handleAssetTypeChange,
+    // دوال حوار الأصول
     openAssetDialog,
     closeAssetDialog,
     confirmAssetSelection,
@@ -108,7 +110,7 @@ export default function NewMaintenanceSchedulePage() {
           <div className={glassCard}>
             <BasicInfoSection
               formData={formData}
-              setFormData={setFormData}
+              setFormData={setFormData} // ✅ تم التحديث
               isRtl={isRtl}
               t={t}
             />
@@ -125,8 +127,6 @@ export default function NewMaintenanceSchedulePage() {
               setFloorId={setFloorId}
               roomId={roomId}
               setRoomId={setRoomId}
-              locationLevel={locationLevel}
-              setLocationLevel={setLocationLevel}
               buildings={buildings}
               floors={floors}
               rooms={rooms}
@@ -144,7 +144,7 @@ export default function NewMaintenanceSchedulePage() {
           <div className={glassCard}>
             <AssetSection
               formData={formData}
-              setFormData={setFormData}
+              handleAssetTypeChange={handleAssetTypeChange}
               assetTypes={assetTypes}
               assets={assets}
               selectedAssetIds={selectedAssetIds}
@@ -165,7 +165,7 @@ export default function NewMaintenanceSchedulePage() {
           <div className={glassCard}>
             <NotesSection
               formData={formData}
-              setFormData={setFormData}
+              handleNotesChange={handleNotesChange}
               isRtl={isRtl}
               t={t}
             />
@@ -188,8 +188,8 @@ export default function NewMaintenanceSchedulePage() {
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+              disabled={isSubmitting || !isLocationSelected()}
+              className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -238,8 +238,8 @@ function GuidelinesSection({ isRtl, t }: { isRtl: boolean; t: any }) {
           <Shield className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
           <span>
             {isRtl
-              ? "اختر مستوى الموقع (مبنى/دور/غرفة) لتحديد الأصول المتاحة."
-              : "Choose location level to filter available assets."}
+              ? "اختر الموقع بالتدرج من الفرع إلى المبنى ثم الدور والغرفة لتحديد الأصول المتاحة."
+              : "Select location hierarchically from branch to building, floor, and room to filter available assets."}
           </span>
         </li>
         <li className="flex items-start gap-2.5">
@@ -283,6 +283,3 @@ function QuickHelpSection({ isRtl, t }: { isRtl: boolean; t: any }) {
     </div>
   );
 }
-
-// استيرادات إضافية (للاستخدام في المكونات المساعدة)
-import { Sparkles, Shield, Info } from "lucide-react";

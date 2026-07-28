@@ -1,169 +1,217 @@
 // src/app/api/maintenance/schedules/route.ts
-
-import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper'; // ✅
+import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
-// دالة مساعدة لتحويل تردد نصي إلى عدد الأيام
-function frequencyStringToDays(freq: string): number {
-  switch (freq.toLowerCase()) {
-    case 'daily':
-      return 1;
-    case 'weekly':
-      return 7;
-    case 'monthly':
-      return 30;
-    case 'quarterly':
-      return 90;
-    case 'yearly':
-      return 365;
-    default:
-      return 30;
-  }
-}
-
-// GET: جلب قائمة جداول الصيانة الوقائية (مع دعم الفلترة والفروع)
-export async function GET(request: NextRequest) {
+// ============================================================
+// GET: جلب قائمة جداول الصيانة
+// ============================================================
+export async function GET(req: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
     if (!session) {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission("maintenance.read"); // ✅
-
-    const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
-    const skip = (page - 1) * limit;
-    const q = searchParams.get("q") || "";
-    const isActive = searchParams.get("isActive");
+    await requirePermission('maintenance.read');
 
     const companyId = session.companyId;
     if (!companyId) {
-      return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بالمستخدم' },
+        { status: 400 }
+      );
     }
 
-    const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
-    const branchIds = session.branchIds || [];
-
-    const where: any = { companyId };
-
-    if (!isAdmin) {
-      if (branchIds.length > 0) {
-        where.branchId = { in: branchIds };
-      } else {
-        return NextResponse.json({ items: [], total: 0, currentPage: page, totalPages: 0, limit });
-      }
-    }
-
-    if (q) {
-      where.name = { contains: q, mode: "insensitive" };
-    }
-    if (isActive === "true") where.isActive = true;
-    if (isActive === "false") where.isActive = false;
+    const searchParams = req.nextUrl.searchParams;
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const skip = (page - 1) * limit;
 
     const [schedules, total] = await Promise.all([
       prisma.maintenanceSchedule.findMany({
-        where,
+        where: { companyId },
         include: {
           assetType: true,
           branch: true,
           building: true,
-          scheduleAssets: { include: { asset: true } },
+          floor: true,
+          room: true,
+          scheduleAssets: {
+            include: {
+              asset: true,
+            },
+          },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
-      prisma.maintenanceSchedule.count({ where }),
+      prisma.maintenanceSchedule.count({
+        where: { companyId },
+      }),
     ]);
 
-    const serialized = schedules.map((s: any) => ({
-      ...s,
-      createdAt: s.createdAt.toISOString(),
-      updatedAt: s.updatedAt.toISOString(),
-      startDate: s.startDate?.toISOString() || null,
-      lastRunAt: s.lastRunAt?.toISOString() || null,
-      frequencyDays: s.frequencyDays ?? frequencyStringToDays(s.frequency)
-    }));
-
-    return NextResponse.json({ items: serialized, total, currentPage: page, totalPages: Math.ceil(total / limit), limit });
-  } catch (error) {
-    console.error("GET /api/maintenance/schedules error:", error);
-    return NextResponse.json({ error: "خطأ في جلب الجداول" }, { status: 500 });
+    return NextResponse.json({
+      data: schedules,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    });
+  } catch (error: any) {
+    console.error('GET /api/maintenance/schedules error:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في الخادم', details: error.message },
+      { status: 500 }
+    );
   }
 }
 
+// ============================================================
 // POST: إنشاء جدول صيانة جديد
-export async function POST(request: NextRequest) {
+// ============================================================
+export async function POST(req: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
     if (!session) {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission("maintenance.create"); // ✅
+    await requirePermission('maintenance.create');
 
-    const body = await request.json();
+    const companyId = session.companyId;
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة بالمستخدم' },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json();
+
     const {
       name,
       frequency,
       frequencyDays,
       leadDays,
       startDate,
+      notes,
+      isActive,
+      assetTypeId,
       branchId,
       buildingId,
-      assetTypeId,
+      floorId,
+      roomId,
       assetIds,
-      isActive,
-      notes,
     } = body;
 
-    const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: "لا توجد شركة مرتبطة" }, { status: 400 });
+    // ===== التحقق من البيانات المطلوبة =====
+    if (!name?.trim()) {
+      return NextResponse.json(
+        { error: 'اسم الجدول مطلوب' },
+        { status: 400 }
+      );
     }
 
-    if (branchId && buildingId) {
-      const building = await prisma.building.findFirst({ where: { id: buildingId, branchId } });
-      if (!building) {
-        return NextResponse.json({ error: "المبنى لا ينتمي إلى الفرع المحدد" }, { status: 400 });
+    if (!branchId) {
+      return NextResponse.json(
+        { error: 'الفرع مطلوب' },
+        { status: 400 }
+      );
+    }
+
+    if (!buildingId && !floorId && !roomId) {
+      return NextResponse.json(
+        { error: 'يجب تحديد موقع الصيانة' },
+        { status: 400 }
+      );
+    }
+
+    // ===== ✅ التحقق من صحة نوع الأصل (إن وجد) =====
+    if (assetTypeId) {
+      const assetTypeExists = await prisma.assetType.findFirst({
+        where: {
+          id: assetTypeId,
+          companyId,
+        },
+      });
+      if (!assetTypeExists) {
+        return NextResponse.json(
+          { error: 'نوع الأصل غير صالح أو لا ينتمي للشركة' },
+          { status: 400 }
+        );
       }
     }
 
-    let finalFrequencyDays: number | null = null;
-    if (frequencyDays !== undefined && typeof frequencyDays === 'number') {
-      finalFrequencyDays = frequencyDays;
-    } else if (frequency) {
-      finalFrequencyDays = frequencyStringToDays(frequency);
-    } else {
-      finalFrequencyDays = 30;
+    // ===== ✅ التحقق من صحة الأصول (إن وجدت) =====
+    if (Array.isArray(assetIds) && assetIds.length > 0) {
+      const validAssetsCount = await prisma.asset.count({
+        where: {
+          id: { in: assetIds },
+          companyId,
+        },
+      });
+
+      if (validAssetsCount !== assetIds.length) {
+        return NextResponse.json(
+          { error: 'بعض الأصول غير صالحة أو لا تنتمي للشركة' },
+          { status: 400 }
+        );
+      }
     }
 
-    const scheduleData: any = {
-      name,
-      frequency: frequency || "monthly",
-      frequencyDays: finalFrequencyDays,
-      leadDays: leadDays || 30,
-      startDate: startDate ? new Date(startDate) : null,
-      branchId: branchId || null,
-      buildingId: buildingId || null,
-      assetTypeId: assetTypeId || null,
-      companyId,
-      isActive: isActive !== undefined ? isActive : true,
-      notes: notes || null,
-    };
+    // ===== تحديد المستوى الفعلي للموقع =====
+    let finalLocationLevel = "building";
+    if (roomId) {
+      finalLocationLevel = "room";
+    } else if (floorId) {
+      finalLocationLevel = "floor";
+    }
 
-    const schedule = await prisma.maintenanceSchedule.create({
+    // ===== إنشاء الجدول =====
+    const newSchedule = await prisma.maintenanceSchedule.create({
       data: {
-        ...scheduleData,
-        scheduleAssets: assetIds && assetIds.length ? { create: assetIds.map((assetId: string) => ({ assetId })) } : undefined,
+        name: name.trim(),
+        frequency,
+        frequencyDays: frequencyDays || 30,
+        leadDays: leadDays || 30,
+        startDate: startDate ? new Date(startDate) : null,
+        notes: notes || null,
+        isActive: isActive ?? true,
+        assetTypeId: assetTypeId || null,
+        branchId: branchId || null,
+        buildingId: buildingId || null,
+        floorId: floorId || null,
+        roomId: roomId || null,
+        locationLevel: finalLocationLevel,
+        companyId,
+        scheduleAssets: {
+          create: Array.isArray(assetIds)
+            ? assetIds.map((assetId: string) => ({
+                assetId,
+              }))
+            : [],
+        },
       },
-      include: { scheduleAssets: { include: { asset: true } } },
+      include: {
+        branch: true,
+        building: true,
+        floor: true,
+        room: true,
+        assetType: true,
+        scheduleAssets: {
+          include: { asset: true },
+        },
+      },
     });
 
-    return NextResponse.json(schedule, { status: 201 });
-  } catch (error) {
-    console.error("POST /api/maintenance/schedules error:", error);
-    return NextResponse.json({ error: "فشل إنشاء الجدول" }, { status: 500 });
+    return NextResponse.json(newSchedule, { status: 201 });
+  } catch (error: any) {
+    console.error('POST /api/maintenance/schedules error:', error);
+    return NextResponse.json(
+      { error: 'حدث خطأ في الخادم', details: error.message },
+      { status: 500 }
+    );
   }
 }

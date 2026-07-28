@@ -22,9 +22,6 @@ export interface WorkOrderDTO {
   reason?: string;
 }
 
-/**
- * Build WorkOrderDTO from any work order object
- */
 export function buildWorkOrderDTO(wo: any): WorkOrderDTO {
   if (!wo) return null as any;
 
@@ -42,15 +39,13 @@ export function buildWorkOrderDTO(wo: any): WorkOrderDTO {
     roomName: wo.room?.name,
     roomNameEn: wo.room?.nameEn,
     assignedToName: wo.assignedUser?.name,
+    // ✅ استخدام createdByUser كما هو في الـ Schema
     createdByName: wo.createdByUser?.name,
     notes: wo.notes || undefined,
     reason: wo.reason || undefined,
   };
 }
 
-/**
- * Create audit log for work order
- */
 export async function createWorkOrderAudit(
   action: AuditAction,
   workOrderId: string,

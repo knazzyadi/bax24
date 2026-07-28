@@ -1,4 +1,4 @@
-//// src/app/[locale]/(dashboard)/work-orders/components/WorkOrdersTable.tsx
+// src/app/[locale]/(dashboard)/work-orders/components/WorkOrdersTable.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -54,14 +54,19 @@ export function WorkOrdersTable({
   return (
     <div className="space-y-4">
       {workOrders.map((workOrder) => {
-        const fullLocation = getFullLocation(workOrder.room, isRtl);
+        const fullLocation = getFullLocation(workOrder);
         const formattedDate = new Intl.DateTimeFormat(isRtl ? "ar-SA" : "en-US").format(
           new Date(workOrder.createdAt)
         );
 
+        // ✅ بناء نص الأصول من workOrderAssets
+        const assetNames = workOrder.workOrderAssets
+          .map((woa) => (isRtl ? woa.asset.name : woa.asset.nameEn || woa.asset.name))
+          .join(", ");
+
         return (
           <div
-            key={workOrder.id} // ✅ مفتاح فريد لكل عنصر
+            key={workOrder.id}
             onClick={() => router.push(`/${locale}/work-orders/${workOrder.id}`)}
             className="group relative flex flex-col md:flex-row items-start md:items-center gap-6 p-6 rounded-2xl transition-all duration-300 cursor-pointer bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 hover:bg-white/90 dark:hover:bg-slate-900/90 hover:scale-[1.01] hover:shadow-xl shadow-sm hover:shadow-indigo-500/5 dark:hover:shadow-indigo-400/5"
           >
@@ -106,10 +111,14 @@ export function WorkOrdersTable({
                   <Calendar size={14} className="text-indigo-400 dark:text-indigo-500" />
                   <span className="font-medium">{formattedDate}</span>
                 </div>
-                {workOrder.asset && (
+
+                {/* ✅ عرض الأصول المرتبطة من workOrderAssets */}
+                {workOrder.workOrderAssets.length > 0 && (
                   <div className="flex items-center gap-1.5">
                     <Wrench size={14} className="text-indigo-400 dark:text-indigo-500" />
-                    <span className="font-medium">{workOrder.asset.name}</span>
+                    <span className="font-medium truncate max-w-[200px]" title={assetNames}>
+                      {assetNames}
+                    </span>
                   </div>
                 )}
               </div>

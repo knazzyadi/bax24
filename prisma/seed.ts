@@ -42,7 +42,7 @@ async function main() {
     where: { name: 'شركة باكس 24' },
     update: {},
     create: {
-      name: 'شركة باكس 2424',
+      name: 'شركة باكس 24',
       isActive: true,
     },
   });

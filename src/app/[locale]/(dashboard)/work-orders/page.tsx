@@ -66,8 +66,9 @@ export default async function WorkOrdersPage({
     }))),
   ]);
 
-  const transformedWorkOrders = workOrdersRaw.map(mapWorkOrder);
-
+const transformedWorkOrders = workOrdersRaw.map((wo) =>
+  mapWorkOrder(wo, locale)
+);
   const totalPages = Math.ceil(total / limit);
 
   return (

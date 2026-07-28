@@ -1,373 +1,258 @@
 // src/app/[locale]/(dashboard)/inspections/[id]/InspectionItemsCard.tsx
 "use client";
 
-import { ClipboardCheck, CheckCircle2, XCircle, MinusCircle, Wrench, Eye } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { useState } from "react";
-import { toast } from "sonner";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { NonComplianceWorkOrderDialog } from "./NonComplianceWorkOrderDialog";
+import { CheckCircle, XCircle, MinusCircle, Eye } from "lucide-react";
+import { cn } from "@/lib/utils";
+import type { ResultState } from "../types";
 
-// ============================================================
-// الأنواع
-// ============================================================
-interface ResultState {
-  id: string;
-  itemId: string;
-  result: "pass" | "fail" | "na";
-  notes?: string;
-  imageUrl?: string;
-  workOrderId?: string;
-}
+const ResultIcon = ({
+  type,
+  isActive,
+  onClick,
+  label,
+}: {
+  type: "pass" | "fail" | "na";
+  isActive: boolean;
+  onClick: () => void;
+  label: string;
+}) => {
+  const colors = {
+    pass: {
+      active: "bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400 ring-2 ring-green-500/60",
+      hover: "hover:bg-green-50 dark:hover:bg-green-950/20 hover:text-green-600 dark:hover:text-green-400",
+      inactive: "text-slate-300 dark:text-slate-600",
+    },
+    fail: {
+      active: "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 ring-2 ring-red-500/60",
+      hover: "hover:bg-red-50 dark:hover:bg-red-950/20 hover:text-red-600 dark:hover:text-red-400",
+      inactive: "text-slate-300 dark:text-slate-600",
+    },
+    na: {
+      active: "bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 ring-2 ring-blue-500/60",
+      hover: "hover:bg-blue-50 dark:hover:bg-blue-950/20 hover:text-blue-600 dark:hover:text-blue-400",
+      inactive: "text-slate-300 dark:text-slate-600",
+    },
+  };
 
-interface CategoryItem {
-  id: string;
-  name: string;
-  nameAr?: string;
-  riskLevel: string;
-  description?: string;
-  result: ResultState | null;
-}
+  const Icon = type === "pass" ? CheckCircle : type === "fail" ? XCircle : MinusCircle;
 
-interface CategoryGroup {
-  categoryId: string;
-  categoryName: string;
-  categoryNameAr?: string;
-  items: CategoryItem[];
-}
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "group relative flex flex-col items-center gap-1 p-2 rounded-2xl transition-all duration-300 hover:scale-110 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-400",
+        isActive ? colors[type].active : colors[type].inactive,
+        !isActive && colors[type].hover
+      )}
+    >
+      <Icon
+        className={cn(
+          "h-6 w-6 transition-all duration-300",
+          isActive ? "drop-shadow-md" : "drop-shadow-none"
+        )}
+        strokeWidth={isActive ? 2.5 : 1.5}
+      />
+      <span className="text-[10px] font-medium opacity-70 group-hover:opacity-100 transition-opacity">
+        {label}
+      </span>
+    </button>
+  );
+};
 
-interface InspectionItemsCardProps {
-  categories: CategoryGroup[];
-  resultsState: Record<string, ResultState>;
-  onUpdateResult: (itemId: string, field: keyof ResultState, value: any) => void;
-  isRtl: boolean;
-  t: any;
-  locale: string;
-}
-
-// ============================================================
-// المكون الرئيسي
-// ============================================================
 export function InspectionItemsCard({
   categories,
   resultsState,
   onUpdateResult,
   isRtl,
-  t,
-  locale,
-}: InspectionItemsCardProps) {
-  const [woDialogOpen, setWoDialogOpen] = useState(false);
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
-
-  // حساب الإحصائيات الكلية
-  const totalItems = categories.reduce((acc, cat) => acc + cat.items.length, 0);
-  const completedItems = Object.values(resultsState).filter(r => r.result !== "na").length;
-  const pendingCount = totalItems - completedItems;
-
-  const hasItems = totalItems > 0;
-
-  // فتح حوار إنشاء أمر العمل
-  const openWoDialog = (itemId: string) => {
-    const result = resultsState[itemId];
-    if (result?.result !== "fail") {
-      toast.warning(isRtl ? "يمكن تحويل البنود غير المطابقة فقط" : "Only failed items can be converted");
-      return;
+}: {
+  categories: {
+    categoryId: string;
+    categoryName: string;
+    categoryNameAr?: string;
+    items: any[];
+  }[];
+  resultsState: Record<string, ResultState>;
+  onUpdateResult: (formItemId: string, field: keyof ResultState, value: any) => void;
+  isRtl: boolean;
+}) {
+  const setResult = (formItemId: string, value: "pass" | "fail" | "na") => {
+    onUpdateResult(formItemId, "result", value);
+    if (value !== "fail") {
+      onUpdateResult(formItemId, "workOrderId", undefined);
     }
-    setSelectedItemId(itemId);
-    setWoDialogOpen(true);
   };
 
-  // دالة عرض حالة البند
-  const getStatusBadge = (result: string | undefined) => {
-    if (result === "pass") {
-      return (
-        <Badge className="bg-emerald-100 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-400 border-none">
-          <CheckCircle2 className="h-3 w-3 mr-1" />
-          {isRtl ? "مطابق" : "Pass"}
-        </Badge>
-      );
-    }
-    if (result === "fail") {
-      return (
-        <Badge className="bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border-none">
-          <XCircle className="h-3 w-3 mr-1" />
-          {isRtl ? "غير مطابق" : "Fail"}
-        </Badge>
-      );
-    }
-    if (result === "na") {
-      return (
-        <Badge variant="outline" className="border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400">
-          <MinusCircle className="h-3 w-3 mr-1" />
-          N/A
-        </Badge>
-      );
-    }
-    return null;
+  const getCategoryStats = (items: any[]) => {
+    let pass = 0,
+      fail = 0,
+      na = 0;
+    items.forEach((item) => {
+      const result = resultsState[item.id]?.result;
+      if (result === "pass") pass++;
+      else if (result === "fail") fail++;
+      else if (result === "na") na++;
+    });
+    return { pass, fail, na, total: items.length };
+  };
+
+  const labels = {
+    pass: isRtl ? "مطابق" : "Pass",
+    fail: isRtl ? "غير مطابق" : "Fail",
+    na: isRtl ? "لا ينطبق" : "N/A",
   };
 
   return (
-    <>
-      <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300">
-        {/* رأس البطاقة الرئيسية */}
-        <div className="flex items-center gap-3 mb-6">
-          <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
-            <ClipboardCheck className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-          </div>
-          <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-            {t("inspectionItems")}
-          </h2>
-          <span className="text-xs text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2.5 py-0.5 rounded-full">
-            {totalItems}
-          </span>
-          {pendingCount > 0 && (
-            <span className="text-xs text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-0.5 rounded-full">
-              {t("pendingCount", { count: pendingCount })}
-            </span>
-          )}
-        </div>
+    <div className="space-y-6">
+      {categories.map((category) => {
+        const stats = getCategoryStats(category.items);
+        const totalItems = category.items.length;
+        const completed = stats.pass + stats.fail + stats.na;
 
-        {hasItems ? (
-          <div className="space-y-6">
-            {categories.map((category) => {
-              const categoryItems = category.items;
-              const categoryCompleted = categoryItems.filter(
-                (item) => resultsState[item.id]?.result !== "na"
-              ).length;
-              const categoryPending = categoryItems.length - categoryCompleted;
+        return (
+          <Card
+            key={category.categoryId}
+            className="rounded-xl border shadow-sm hover:shadow-md transition-all duration-200"
+          >
+            <CardHeader className="border-b bg-muted/30 px-5 py-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <CardTitle className="text-base font-semibold text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                  <span>{isRtl ? category.categoryNameAr || category.categoryName : category.categoryName}</span>
+                  <Badge variant="secondary" className="text-xs font-normal">
+                    {completed}/{totalItems}
+                  </Badge>
+                </CardTitle>
+                <div className="flex items-center gap-2 text-xs">
+                  <Badge className="bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400">
+                    ✔ {stats.pass}
+                  </Badge>
+                  <Badge className="bg-red-100 text-red-700 hover:bg-red-200 dark:bg-red-900/30 dark:text-red-400">
+                    ✖ {stats.fail}
+                  </Badge>
+                  <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400">
+                    ○ {stats.na}
+                  </Badge>
+                </div>
+              </div>
+            </CardHeader>
 
-              return (
-                <Card
-                  key={category.categoryId}
-                  className="border border-slate-200/50 dark:border-slate-800/50 shadow-sm overflow-hidden bg-white/70 dark:bg-slate-900/70"
-                >
-                  {/* ✅ عنوان الفئة - بدون خلفية، خط أكبر وبارز */}
-                  <CardHeader className="border-b border-slate-200/50 dark:border-slate-800/50 pb-3">
-                    <CardTitle className="text-xl font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
-                      <span>{isRtl ? category.categoryNameAr || category.categoryName : category.categoryName}</span>
-                      <span className="text-sm font-normal text-slate-400 dark:text-slate-500">
-                        ({categoryItems.length} {isRtl ? "بند" : "items"})
-                      </span>
-                      {categoryPending > 0 && (
-                        <span className="text-xs font-normal text-amber-500 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 px-2.5 py-0.5 rounded-full">
-                          {categoryPending} {isRtl ? "معلق" : "pending"}
-                        </span>
-                      )}
-                      {categoryCompleted > 0 && (
-                        <span className="text-xs font-normal text-emerald-500 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 px-2.5 py-0.5 rounded-full">
-                          {categoryCompleted} {isRtl ? "مكتمل" : "done"}
-                        </span>
-                      )}
-                    </CardTitle>
-                  </CardHeader>
+            <CardContent className="p-0 divide-y divide-slate-100 dark:divide-slate-800">
+              {category.items.map((item) => {
+                const currentResult = resultsState[item.id]?.result || "na";
+                const isPass = currentResult === "pass";
+                const isFail = currentResult === "fail";
+                const isNa = currentResult === "na";
+                const notes = resultsState[item.id]?.notes || "";
 
-                  <CardContent className="p-4 space-y-3">
-                    {categoryItems.map((item) => {
-                      const result = resultsState[item.id];
-                      const isFail = result?.result === "fail";
-                      const hasWO = !!result?.workOrderId;
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "flex flex-col gap-1 py-4 px-5 transition-colors",
+                      isPass && "bg-green-50/50 dark:bg-green-950/10",
+                      isFail && "bg-red-50/50 dark:bg-red-950/10",
+                      isNa && "bg-slate-50/50 dark:bg-slate-800/30"
+                    )}
+                  >
+                    {/* الصف الرئيسي */}
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-[120px]">
+                        <p className="text-sm font-medium text-slate-700 dark:text-slate-300 item-name">
+                          {isRtl ? item.nameAr || item.name : item.name}
+                        </p>
 
-                      return (
-                        <div
-                          key={item.id}
-                          className={cn(
-                            "p-3 rounded-2xl border transition-all duration-200 flex flex-wrap items-center gap-3",
-                            isFail
-                              ? "border-rose-200 bg-rose-50/30 dark:border-rose-800/50 dark:bg-rose-950/20"
-                              : result?.result === "pass"
-                              ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-800/50 dark:bg-emerald-950/20"
-                              : "border-slate-200/60 bg-white/50 dark:border-slate-800/50 dark:bg-slate-900/30"
-                          )}
-                        >
-                          {/* اسم البند مع أيقونة العين للوصف */}
-                          <div className="flex items-center gap-2 min-w-[120px] flex-1">
-                            <span className="font-medium text-sm text-slate-800 dark:text-slate-200 whitespace-nowrap">
-                              {isRtl ? item.nameAr || item.name : item.name}
-                            </span>
+                        {/* أيقونة العين */}
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button
+                              type="button"
+                              className={cn(
+                                "eye-icon p-1 rounded-full transition-colors",
+                                notes
+                                  ? "text-blue-600 hover:bg-blue-50 dark:text-blue-400 dark:hover:bg-blue-950/20"
+                                  : "text-slate-300 hover:text-slate-500 dark:text-slate-600 dark:hover:text-slate-400"
+                              )}
+                              aria-label="عرض التفاصيل"
+                            >
+                              <Eye className="h-4 w-4" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-80 p-4 text-sm bg-white dark:bg-slate-900 border shadow-lg rounded-xl">
                             {item.description && (
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-6 w-6 p-0 text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400"
-                                  >
-                                    <Eye className="h-3.5 w-3.5" />
-                                  </Button>
-                                </PopoverTrigger>
-                                <PopoverContent
-                                  className="w-72 max-w-sm rounded-xl bg-white/95 dark:bg-slate-900/95 border-slate-200/50 dark:border-slate-800/50 shadow-lg"
-                                  align={isRtl ? "end" : "start"}
-                                >
-                                  <div className="space-y-2">
-                                    <h4 className="font-medium text-slate-800 dark:text-slate-100">
-                                      {isRtl ? "الوصف" : "Description"}
-                                    </h4>
-                                    <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-                                      {item.description}
-                                    </p>
-                                  </div>
-                                </PopoverContent>
-                              </Popover>
+                              <>
+                                <h4 className="font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                                  {isRtl ? "الوصف" : "Description"}
+                                </h4>
+                                <p className="text-slate-600 dark:text-slate-400 mb-3">
+                                  {isRtl ? item.descriptionAr || item.description : item.description}
+                                </p>
+                              </>
                             )}
-                            {isFail && (
-                              <Badge className="bg-rose-100 text-rose-700 dark:bg-rose-950/50 dark:text-rose-400 border-none text-xs">
-                                {isRtl ? "غير مطابق" : "FAIL"}
-                              </Badge>
+                            {notes && (
+                              <>
+                                <h4 className="font-semibold mb-1 text-slate-700 dark:text-slate-300">
+                                  {isRtl ? "الملاحظات" : "Notes"}
+                                </h4>
+                                <p className="text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
+                                  {notes}
+                                </p>
+                              </>
                             )}
-                            {hasWO && (
-                              <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-950/50 dark:text-amber-400 border-none text-xs">
-                                <Wrench className="h-3 w-3 mr-1" />
-                                WO #{result?.workOrderId?.slice(0, 6)}
-                              </Badge>
-                            )}
-                          </div>
+                          </PopoverContent>
+                        </Popover>
+                      </div>
 
-                          {/* حقل الملاحظات الصغير */}
-                          <div className="flex-1 min-w-[100px] max-w-[200px]">
-                            <Input
-                              placeholder={isRtl ? "ملاحظة..." : "Note..."}
-                              value={result?.notes || ""}
-                              onChange={(e) =>
-                                onUpdateResult(item.id, "notes", e.target.value)
-                              }
-                              className="h-8 text-xs rounded-xl border-slate-200 dark:border-slate-700 bg-white/70 dark:bg-slate-800/50 px-2"
-                            />
-                          </div>
+                      {/* الأيقونات الثلاث */}
+                      <div className="flex items-center gap-1 result-icon-group" dir="ltr">
+                        <ResultIcon
+                          type="pass"
+                          isActive={isPass}
+                          onClick={() => setResult(item.id, "pass")}
+                          label={labels.pass}
+                        />
+                        <ResultIcon
+                          type="fail"
+                          isActive={isFail}
+                          onClick={() => setResult(item.id, "fail")}
+                          label={labels.fail}
+                        />
+                        <ResultIcon
+                          type="na"
+                          isActive={isNa}
+                          onClick={() => setResult(item.id, "na")}
+                          label={labels.na}
+                        />
+                      </div>
+                    </div>
 
-                          {/* أزرار التقييم */}
-                          <div className="flex items-center gap-1" dir="ltr">
-                            <Button
-                              size="sm"
-                              variant={result?.result === "pass" ? "default" : "outline"}
-                              className={cn(
-                                "rounded-xl px-2.5 h-7 text-xs",
-                                result?.result === "pass"
-                                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                                  : "border-slate-300"
-                              )}
-                              onClick={() => onUpdateResult(item.id, "result", "pass")}
-                            >
-                              <CheckCircle2 className="h-3 w-3 ml-1" />{" "}
-                              {isRtl ? "مطابق" : "Pass"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={result?.result === "fail" ? "default" : "outline"}
-                              className={cn(
-                                "rounded-xl px-2.5 h-7 text-xs",
-                                result?.result === "fail"
-                                  ? "bg-rose-600 hover:bg-rose-700 text-white"
-                                  : "border-slate-300"
-                              )}
-                              onClick={() => onUpdateResult(item.id, "result", "fail")}
-                            >
-                              <XCircle className="h-3 w-3 ml-1" />{" "}
-                              {isRtl ? "غير مطابق" : "Fail"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={result?.result === "na" ? "default" : "outline"}
-                              className={cn(
-                                "rounded-xl px-2.5 h-7 text-xs",
-                                result?.result === "na"
-                                  ? "bg-slate-600 hover:bg-slate-700 text-white"
-                                  : "border-slate-300"
-                              )}
-                              onClick={() => onUpdateResult(item.id, "result", "na")}
-                            >
-                              <MinusCircle className="h-3 w-3 ml-1" /> N/A
-                            </Button>
-                          </div>
-
-                          {/* زر تحويل لأمر عمل (للحالات غير المطابقة فقط) */}
-                          {isFail && (
-                            <Button
-                              variant={hasWO ? "default" : "destructive"}
-                              size="sm"
-                              className={cn(
-                                "rounded-xl h-7 text-xs px-3",
-                                hasWO ? "bg-amber-600 hover:bg-amber-700" : ""
-                              )}
-                              disabled={hasWO}
-                              onClick={() => openWoDialog(item.id)}
-                            >
-                              <Wrench className="h-3 w-3 ml-1" />
-                              {hasWO
-                                ? isRtl
-                                  ? "تم التحويل"
-                                  : "Converted"
-                                : isRtl
-                                ? "تحويل"
-                                : "To WO"}
-                            </Button>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-slate-400 dark:text-slate-500 text-center py-6">
-            {t("noItems")}
-          </p>
-        )}
-      </div>
-
-      {/* حوار إنشاء أمر العمل */}
-      {selectedItemId && (
-        <NonComplianceWorkOrderDialog
-          open={woDialogOpen}
-          onOpenChange={setWoDialogOpen}
-          itemName={(() => {
-            let name = "";
-            for (const cat of categories) {
-              const found = cat.items.find((i) => i.id === selectedItemId);
-              if (found) {
-                name = found.name || "";
-                break;
-              }
-            }
-            return name;
-          })()}
-          itemNameAr={(() => {
-            let nameAr = "";
-            for (const cat of categories) {
-              const found = cat.items.find((i) => i.id === selectedItemId);
-              if (found) {
-                nameAr = found.nameAr || "";
-                break;
-              }
-            }
-            return nameAr;
-          })()}
-          currentLocation={{
-            buildingId: undefined,
-            floorId: undefined,
-            roomId: undefined,
-          }}
-          locale={locale}
-          onSuccess={() => {
-            toast.success(isRtl ? "تم إنشاء أمر العمل بنجاح" : "Work order created successfully");
-          }}
-        />
-      )}
-    </>
+                    {/* تفاصيل للطباعة */}
+                    <div className="item-details hidden print:block text-xs text-slate-600 mt-1">
+                      {item.description && (
+                        <p>
+                          <strong>{isRtl ? "الوصف:" : "Description:"}</strong>{" "}
+                          {isRtl ? item.descriptionAr || item.description : item.description}
+                        </p>
+                      )}
+                      {notes && (
+                        <p>
+                          <strong>{isRtl ? "ملاحظة:" : "Note:"}</strong> {notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        );
+      })}
+    </div>
   );
 }

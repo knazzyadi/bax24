@@ -7,6 +7,7 @@ export interface InspectionSection {
   name: string;
   nameAr?: string | null;
   description?: string | null;
+  descriptionEn?: string | null; // ✅ إضافة
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -26,6 +27,7 @@ export interface InspectionTemplate {
   name: string;
   nameAr?: string | null;
   description?: string | null;
+  descriptionEn?: string | null; // ✅ إضافة
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -46,6 +48,7 @@ export interface InspectionCategory {
   name: string;
   nameAr?: string | null;
   description?: string | null;
+  descriptionEn?: string | null; // ✅ إضافة
   sortOrder: number;
   isActive: boolean;
   createdAt: string;
@@ -66,6 +69,7 @@ export interface InspectionItem {
   name: string;
   nameAr?: string | null;
   description?: string | null;
+  descriptionEn?: string | null; // ✅ إضافة
   cbahiCode?: string | null;
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
   inputType: 'pass_fail' | 'numeric' | 'text';
@@ -77,12 +81,16 @@ export interface InspectionItem {
   deletedAt?: string | null;
   category?: InspectionCategory;
 }
+
 export interface TreeNode {
   id: string;
   name: string;
+  nameEn?: string; // ✅ إضافة
+  description?: string | null; // ✅ إضافة
+  descriptionEn?: string | null; // ✅ إضافة
   type: "section" | "template" | "category" | "item";
   children: TreeNode[];
   original: InspectionSection | InspectionTemplate | InspectionCategory | InspectionItem;
-  hasLoaded?: boolean; // ✅ جديد: هل تم تحميل الأبناء؟
-  isLoading?: boolean; // ✅ جديد: هل يجري تحميل الأبناء؟
+  hasLoaded?: boolean;
+  isLoading?: boolean;
 }

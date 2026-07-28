@@ -1,135 +1,234 @@
 // src/app/[locale]/(dashboard)/work-orders/types.ts
 
-export type WorkOrderSource = "ticket" | "pm" | "checklist" | "manual";
-export type WorkOrderCategory = "ELECTRICAL" | "MECHANICAL" | "HVAC" | "MEDICAL" | "FIRE" | "IT" | "CIVIL" | "OTHER";
-export type LocationLevel = "building" | "floor" | "room";
+// ============================================================
+// الأنواع الأساسية - متوافقة مع Prisma
+// ============================================================
 
-export interface WorkOrderFormData {
-  id?: string;
-  title: string;
-  description?: string | null;
-  // ✅ استخدم workOrderTypeId بدلاً من type (للتمييز عن enum)
-  workOrderTypeId: string; // معرف نوع أمر العمل من جدول الإعدادات
-  // ❌ تم إزالة `type: string` القديم
-  source: WorkOrderSource;
-  priorityId?: string | null;
-  statusId?: string | null;
-  assetTypeId?: string | null;
-  category?: WorkOrderCategory | null;
-  reason?: string | null;
-  notes?: string | null;
-  branchId: string;
-  buildingId?: string | null;
-  floorId?: string | null;
-  roomId?: string | null;
-  assetIds?: string[];
-  assignedTo?: string[];
-  sourceId?: string | null;
-  locationLevel?: LocationLevel;
-}
+/**
+ * مصادر إنشاء أمر العمل (مطابق لـ Prisma enum WorkOrderSource)
+ */
+export type WorkOrderSource = "manual" | "ticket" | "ppm" | "checklist" | "inspection_finding";
 
-export interface Priority {
+/**
+ * أنواع أوامر العمل (مطابق لـ Prisma enum WorkOrderTypeEnum)
+ */
+export type WorkOrderTypeEnum = "MAINTENANCE" | "CORRECTIVE" | "EMERGENCY" | "BULK_PREVENTIVE";
+
+/**
+ * أكواد الأولويات - فقط للتوثيق (في Prisma هي field عادي)
+ */
+export type PriorityCode = string;
+
+/**
+ * أكواد الحالات - فقط للتوثيق (في Prisma هي field عادي)
+ */
+export type StatusCode = string;
+
+// ============================================================
+// تعريف الكيانات المرتبطة (مبسطة لتتناسب مع الـ select)
+// ============================================================
+
+export interface WorkOrderAttachment {
   id: string;
-  name: string;
-  nameEn?: string | null;
-  color?: string | null;
-}
-
-export interface Status {
-  id: string;
-  name: string;
-  nameEn?: string | null;
-  color?: string | null;
-}
-
-export interface AssetType {
-  id: string;
-  name: string;
-  nameEn?: string | null;
-  code?: string | null;
-}
-
-export interface Building {
-  id: string;
-  name: string;
-  nameEn?: string | null;
-  code?: string | null;
-}
-
-export interface Floor {
-  id: string;
-  name: string;
-  nameEn?: string | null;
-  code?: string | null;
-  buildingId: string;
-}
-
-export interface Room {
-  id: string;
-  name: string;
-  nameEn?: string | null;
-  code?: string | null;
-  floorId: string;
-  buildingId?: string;
-  fullCode?: string;
+  url: string;
+  fileName?: string | null;
+  originalName?: string | null;
+  mimeType?: string | null;
+  size?: number | null;
+  createdAt: string;
 }
 
 // ============================================================
-// الأنواع الأساسية (للمنطق الداخلي فقط)
+// النوع الرئيسي WorkOrder (معدّل)
 // ============================================================
-
-export type WorkOrderType = "MAINTENANCE" | "CORRECTIVE" | "EMERGENCY" | "BULK_PREVENTIVE";
-export type PriorityCode = "LOW" | "MEDIUM" | "HIGH" | "EMERGENCY";
-export type StatusCode = "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED" | "ON_HOLD";
 
 export interface WorkOrder {
   id: string;
-  code: string;
+  code: string; // ✅ أصبح non-nullable
   title: string;
   description: string | null;
-  type: WorkOrderType; // هذا هو enum الموجود في قاعدة البيانات
+  type: WorkOrderTypeEnum;
   priority: {
     id: string;
-    code?: PriorityCode;
+    code?: string; // ✅ بدون null
     name: string;
-    nameEn?: string;
-    color?: string;
+    nameEn?: string; // ✅ بدون null
+    color?: string; // ✅ بدون null
   } | null;
   status: {
     id: string;
-    code?: StatusCode;
+    code?: string; // ✅ بدون null
     name: string;
-    nameEn?: string;
-    color?: string;
+    nameEn?: string; // ✅ بدون null
+    color?: string; // ✅ بدون null
   } | null;
   branch: {
     id: string;
     name: string;
-    nameEn?: string;
+    nameEn?: string | null;
+  } | null;
+  building: {
+    id: string;
+    name: string;
+    nameEn?: string | null;
+  } | null;
+  floor: {
+    id: string;
+    name: string;
+    nameEn?: string | null;
   } | null;
   room: {
     id: string;
     name: string;
-    nameEn?: string;
-    floor?: {
-      name: string;
-      nameEn?: string;
-      building?: {
-        name: string;
-        nameEn?: string;
-      };
-    };
+    nameEn?: string | null;
   } | null;
-  assetType?: {
-    id: string;
-    name: string;
-    nameEn?: string;
-  } | null;
-  asset: {
-    id: string;
-    name: string;
-    code: string;
-  } | null;
+  locationString: string;
   createdAt: string;
   updatedAt: string;
+  notes: string | null;
+  workOrderAssets: {
+    assetId: string;
+    completedAt: string | null;
+    notes: string | null;
+    asset: {
+      id: string;
+      name: string;
+      nameEn?: string | null;
+      code: string;
+    };
+  }[];
+  assetCount: number;
+  assetType: {
+    id: string;
+    name: string;
+    nameEn?: string | null;
+  } | null;
+  workOrderType: {
+    id: string;
+    name: string;
+    nameEn?: string | null;
+  } | null;
+  ticket: {
+    id: string;
+    title: string;
+    description: string | null;
+    code: string;
+  } | null;
+  attachments: WorkOrderAttachment[];
+  source: WorkOrderSource;
+  sourceId?: string | null; // ✅ أصبح اختيارياً
+  sourceType?: string | null;
+  reason: string | null;
+  createdBy: { id: string; name: string; email: string } | null;
+  assignedTo: { id: string; name: string; email: string } | null;
 }
+
+// ============================================================
+// نموذج إنشاء/تحديث أمر العمل
+// ============================================================
+
+export interface WorkOrderFormData {
+  title: string;
+  description?: string | null;
+  type?: WorkOrderTypeEnum;
+  priorityId?: string | null;
+  statusId?: string | null;
+  branchId?: string | null;
+  buildingId?: string | null;
+  floorId?: string | null;
+  roomId?: string | null;
+  assetTypeId?: string | null;
+  workOrderTypeId?: string | null;
+  assignedTo?: string | null;
+  notes?: string | null;
+  assetIds?: string[];
+  scheduledDate?: string | null;
+  dueDate?: string | null;
+  source?: WorkOrderSource;
+  sourceId?: string | null;
+  sourceType?: string | null;
+  category?: string | null;
+  reason?: string | null;
+}
+
+// ============================================================
+// تفاصيل أمر العمل (يمتد من WorkOrder)
+// ============================================================
+
+export interface WorkOrderDetailData extends WorkOrder {}
+
+// ============================================================
+// أنواع الكيانات المرتبطة (حالة، أولوية) - معدلة
+// ============================================================
+
+export interface WorkOrderStatus {
+  id: string;
+  code?: string; // ✅ بدون null
+  name: string;
+  nameEn?: string; // ✅ بدون null
+  color?: string; // ✅ بدون null
+  isDefault?: boolean;
+  isFinal?: boolean;
+}
+
+export interface WorkOrderPriority {
+  id: string;
+  code?: string; // ✅ بدون null
+  name: string;
+  nameEn?: string; // ✅ بدون null
+  color?: string; // ✅ بدون null
+  isDefault?: boolean;
+  score?: number;
+}
+
+// ============================================================
+// الفلاتر والإحصائيات
+// ============================================================
+
+export interface WorkOrderFilter {
+  status?: string | string[];
+  priority?: string | string[];
+  type?: WorkOrderTypeEnum | WorkOrderTypeEnum[];
+  source?: WorkOrderSource | WorkOrderSource[];
+  branchId?: string;
+  buildingId?: string;
+  floorId?: string;
+  roomId?: string;
+  assignedTo?: string;
+  createdBy?: string;
+  fromDate?: string;
+  toDate?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}
+
+export interface WorkOrderStats {
+  total: number;
+  pending: number;
+  inProgress: number;
+  completed: number;
+  cancelled: number;
+  onHold: number;
+  overdue: number;
+  dueToday: number;
+}
+
+// ============================================================
+// تصدير الكل
+// ============================================================
+
+export type WorkOrderTypes = {
+  WorkOrder: WorkOrder;
+  WorkOrderFormData: WorkOrderFormData;
+  WorkOrderDetailData: WorkOrderDetailData;
+  WorkOrderTypeEnum: WorkOrderTypeEnum;
+  WorkOrderSource: WorkOrderSource;
+  WorkOrderStatus: WorkOrderStatus;
+  WorkOrderPriority: WorkOrderPriority;
+  WorkOrderFilter: WorkOrderFilter;
+  WorkOrderStats: WorkOrderStats;
+  WorkOrderAttachment: WorkOrderAttachment;
+};

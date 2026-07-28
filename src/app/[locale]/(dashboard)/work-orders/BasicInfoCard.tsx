@@ -1,4 +1,3 @@
-// src/app/[locale]/(dashboard)/work-orders/BasicInfoCard.tsx
 "use client";
 
 import { Label } from "@/components/ui/label";
@@ -43,7 +42,8 @@ export function BasicInfoCard({
     if (formData.source === "ticket") {
       return isRtl ? "تم تحويل هذا الأمر من بلاغ" : "Converted from a ticket";
     }
-    if (formData.source === "pm") {
+    if (formData.source === "ppm") {
+      // ✅ تم التعديل من "pm" إلى "ppm"
       return isRtl ? "ناتج عن خطة صيانة وقائية" : "Generated from PM plan";
     }
     if (formData.source === "checklist") {
@@ -52,13 +52,11 @@ export function BasicInfoCard({
     return "";
   };
 
-  // دالة مساعدة لعرض اسم النوع مع الكود (مثل باقي المكونات)
   const getTypeDisplay = (type: any) => {
     const name = isRtl ? type.name : (type.nameEn || type.name);
     return type.code ? `${type.code}. ${name}` : name;
   };
 
-  // دالة مساعدة لعرض الأولوية مع اللون
   const getPriorityDisplay = (priority: any) => {
     return isRtl ? priority.name : (priority.nameEn || priority.name);
   };
@@ -69,7 +67,7 @@ export function BasicInfoCard({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-1.5">
           <WorkOrderSourceSelector
-            value={formData.source}
+            value={formData.source ?? "manual"} // ✅ إضافة قيمة افتراضية
             onChange={(value) => setFormData({ ...formData, source: value })}
             isRtl={isRtl}
             disabled={!isSourceEditable}

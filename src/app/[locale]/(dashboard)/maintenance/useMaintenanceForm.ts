@@ -1,61 +1,20 @@
-// src/app/[locale]/(dashboard)/maintenance/new/hooks/useMaintenanceForm.ts
+// src/app/[locale]/(dashboard)/maintenance/useMaintenanceForm.ts
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { toast } from "sonner";
+import type {
+  Building,
+  Floor,
+  Room,
+  AssetType,
+  Asset,
+  MaintenanceFormData,
+  UseMaintenanceFormReturn,
+} from "./types";
+import { frequencyStringToDays } from "./utils";
 
-interface Building {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-}
-
-interface Floor {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-  buildingId: string;
-}
-
-interface Room {
-  id: string;
-  name: string;
-  nameEn?: string;
-  code?: string;
-  floorId: string;
-  buildingId?: string;
-  fullCode?: string;
-}
-
-interface AssetType {
-  id: string;
-  name: string;
-  nameEn?: string;
-}
-
-interface Asset {
-  id: string;
-  name: string;
-  code: string;
-  nameEn?: string;
-}
-
-type LocationLevel = "building" | "floor" | "room";
-
-// دالة تحويل التردد إلى أيام
-function frequencyStringToDays(freq: string): number {
-  switch (freq) {
-    case "MONTHLY": return 30;
-    case "QUARTERLY": return 90;
-    case "SEMI_ANNUAL": return 180;
-    case "YEARLY": return 365;
-    default: return 30;
-  }
-}
-
-export function useMaintenanceForm() {
+export function useMaintenanceForm(): UseMaintenanceFormReturn {
   const router = useRouter();
   const locale = useLocale();
   const isRtl = locale === "ar";
@@ -77,7 +36,6 @@ export function useMaintenanceForm() {
   const [buildingId, setBuildingId] = useState<string>("");
   const [floorId, setFloorId] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
-  const [locationLevel, setLocationLevel] = useState<LocationLevel>("building");
 
   // بيانات المباني والأدوار والغرف
   const [buildings, setBuildings] = useState<Building[]>([]);
@@ -92,7 +50,7 @@ export function useMaintenanceForm() {
   const [tempSelectedAssetIds, setTempSelectedAssetIds] = useState<string[]>([]);
 
   // بيانات النموذج
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<MaintenanceFormData>({
     name: "",
     frequency: "MONTHLY",
     frequencyDays: 30,
@@ -106,13 +64,13 @@ export function useMaintenanceForm() {
   // ===== AbortController =====
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // ===== جلب البيانات الأولية (مع المسارات الجديدة) =====
+  // ===== جلب البيانات الأولية =====
   useEffect(() => {
     async function fetchInitialData() {
       try {
         const [assetTypesRes, buildingsRes] = await Promise.all([
           fetch("/api/asset-types", { cache: "no-store" }),
-          fetch("/api/locations/buildings", { cache: "no-store" }), // ✅ تم التحديث
+          fetch("/api/locations/buildings", { cache: "no-store" }),
         ]);
         if (assetTypesRes.ok) setAssetTypes(await assetTypesRes.json());
         if (buildingsRes.ok) setBuildings(await buildingsRes.json());
@@ -127,16 +85,21 @@ export function useMaintenanceForm() {
     fetchInitialData();
   }, [t]);
 
-  // ===== جلب أنواع الأصول حسب الدور =====
+  // ===== جلب أنواع الأصول حسب الموقع (مبنى/دور/غرفة) =====
   useEffect(() => {
-    if (!floorId) return;
+    if (!buildingId && !floorId && !roomId) return;
 
     const controller = new AbortController();
     setLoadingAssetTypes(true);
 
     async function fetchFilteredTypes() {
       try {
-        const res = await fetch(`/api/asset-types?floorId=${floorId}`, {
+        const params = new URLSearchParams();
+        if (buildingId) params.append("buildingId", buildingId);
+        if (floorId) params.append("floorId", floorId);
+        if (roomId) params.append("roomId", roomId);
+
+        const res = await fetch(`/api/asset-types?${params.toString()}`, {
           signal: controller.signal,
           cache: "no-store",
         });
@@ -144,7 +107,7 @@ export function useMaintenanceForm() {
           const data = await res.json();
           setAssetTypes(data);
         } else {
-          console.error("فشل جلب الأنواع حسب الدور");
+          console.error("فشل جلب الأنواع حسب الموقع");
         }
       } catch (err) {
         if (err instanceof Error && err.name !== "AbortError") {
@@ -157,9 +120,9 @@ export function useMaintenanceForm() {
 
     fetchFilteredTypes();
     return () => controller.abort();
-  }, [floorId]);
+  }, [buildingId, floorId, roomId]);
 
-  // ===== جلب الأدوار (مع المسار الجديد) =====
+  // ===== جلب الأدوار =====
   useEffect(() => {
     if (!buildingId) {
       setFloors([]);
@@ -190,7 +153,7 @@ export function useMaintenanceForm() {
     return () => controller.abort();
   }, [buildingId]);
 
-  // ===== جلب الغرف (مع المسار الجديد) =====
+  // ===== جلب الغرف =====
   useEffect(() => {
     if (!floorId) {
       setRooms([]);
@@ -244,7 +207,6 @@ export function useMaintenanceForm() {
       return;
     }
 
-    // منع جلب جميع أصول الفرع (يتطلب وجود مبنى أو دور أو غرفة)
     if (!buildingId && !floorId && !roomId) {
       setAssets([]);
       return;
@@ -270,8 +232,6 @@ export function useMaintenanceForm() {
 
         if (res.ok) {
           const data = await res.json();
-          console.log("Assets Count:", data.assets.length);
-          console.table(data.assets);
           setAssets(data.assets || []);
         } else {
           setAssets([]);
@@ -294,7 +254,62 @@ export function useMaintenanceForm() {
     };
   }, [buildingId, floorId, roomId, formData.assetTypeId, branchId]);
 
-  // ===== دوال التحكم =====
+  // ============================================================
+  // ✅ دوال تعديل النموذج (المضافة حديثاً)
+  // ============================================================
+  const handleNameChange = useCallback((value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      name: value,
+    }));
+  }, []);
+
+  const handleFrequencyChange = useCallback((value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      frequency: value,
+      frequencyDays: frequencyStringToDays(value),
+    }));
+  }, []);
+
+  const handleFrequencyDaysChange = useCallback((value: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      frequencyDays: value,
+    }));
+  }, []);
+
+  const handleLeadDaysChange = useCallback((value: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      leadDays: value,
+    }));
+  }, []);
+
+  const handleStartDateChange = useCallback((value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      startDate: value,
+    }));
+  }, []);
+
+  const handleIsActiveChange = useCallback((value: boolean) => {
+    setFormData((prev) => ({
+      ...prev,
+      isActive: value,
+    }));
+  }, []);
+
+  const handleNotesChange = useCallback((value: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      notes: value,
+    }));
+  }, []);
+
+  // ============================================================
+  // دوال التحكم (الموجودة سابقاً)
+  // ============================================================
   const handleBuildingChange = useCallback((val: string) => {
     setBuildingId(val);
     setFloorId("");
@@ -332,7 +347,9 @@ export function useMaintenanceForm() {
     setAssets([]);
   }, []);
 
-  // ===== حوار الأصول =====
+  // ============================================================
+  // حوار الأصول
+  // ============================================================
   const openAssetDialog = useCallback(() => {
     setTempSelectedAssetIds([...selectedAssetIds]);
     setAssetDialogOpen(true);
@@ -351,28 +368,22 @@ export function useMaintenanceForm() {
     setSelectedAssetIds((prev) => prev.filter((id) => id !== assetId));
   }, []);
 
-  // ===== إرسال النموذج =====
+  // ============================================================
+  // handleSubmit (بدون إجبارية نوع الأصل أو الأصل)
+  // ============================================================
   const handleSubmit = useCallback(async () => {
     if (!formData.name.trim()) {
       toast.error(t("nameRequired"));
       return;
     }
 
-    let locationValid = false;
-    if (locationLevel === "room" && roomId) locationValid = true;
-    else if (locationLevel === "floor" && floorId) locationValid = true;
-    else if (locationLevel === "building" && buildingId) locationValid = true;
-
-    if (!locationValid) {
+    const hasLocation = !!buildingId || !!floorId || !!roomId;
+    if (!hasLocation) {
       toast.error(t("locationRequired"));
       return;
     }
     if (!branchId) {
       toast.error(t("branchRequired"));
-      return;
-    }
-    if (!formData.assetTypeId && selectedAssetIds.length === 0) {
-      toast.error(t("assetTypeOrAssetsRequired"));
       return;
     }
 
@@ -383,23 +394,21 @@ export function useMaintenanceForm() {
 
     setIsSubmitting(true);
     try {
-      const payload: any = {
+      const payload = {
         name: formData.name,
         frequency: formData.frequency,
         frequencyDays: finalFrequencyDays,
         leadDays: formData.leadDays,
         startDate: formData.startDate || null,
-        branchId,
-        assetTypeId: formData.assetTypeId || null,
-        assetIds: selectedAssetIds,
         notes: formData.notes,
         isActive: formData.isActive,
+        branchId: branchId || null,
+        buildingId: buildingId || null,
+        floorId: floorId || null,
+        roomId: roomId || null,
+        assetTypeId: formData.assetTypeId || null,
+        assetIds: selectedAssetIds,
       };
-
-      if (locationLevel === "room" && roomId) payload.roomId = roomId;
-      else if (locationLevel === "floor" && floorId) payload.floorId = floorId;
-      else if (locationLevel === "building" && buildingId)
-        payload.buildingId = buildingId;
 
       const res = await fetch("/api/maintenance/schedules", {
         method: "POST",
@@ -420,42 +429,41 @@ export function useMaintenanceForm() {
     } finally {
       setIsSubmitting(false);
     }
-  }, [formData, branchId, buildingId, floorId, roomId, locationLevel, selectedAssetIds, t, locale, router]);
+  }, [formData, branchId, buildingId, floorId, roomId, selectedAssetIds, t, locale, router]);
 
-  // ===== دوال مساعدة =====
+  // ============================================================
+  // دوال مساعدة
+  // ============================================================
   const getSelectedLocationSummary = useCallback(() => {
-    if (locationLevel === "room" && roomId) {
+    if (roomId) {
       const room = rooms.find((r) => r.id === roomId);
       return room ? `${room.name} (${room.fullCode})` : t("room");
     }
-    if (locationLevel === "floor" && floorId) {
+    if (floorId) {
       const floor = floors.find((f) => f.id === floorId);
       return floor ? floor.name : t("floor");
     }
-    if (locationLevel === "building" && buildingId) {
+    if (buildingId) {
       const building = buildings.find((b) => b.id === buildingId);
       return building ? building.name : t("building");
     }
     return t("notSelected");
-  }, [locationLevel, roomId, floorId, buildingId, rooms, floors, buildings, t]);
+  }, [roomId, floorId, buildingId, rooms, floors, buildings, t]);
 
   const isLocationSelected = useCallback(() => {
-    if (locationLevel === "room") return !!roomId;
-    if (locationLevel === "floor") return !!floorId;
-    if (locationLevel === "building") return !!buildingId;
-    return false;
-  }, [locationLevel, roomId, floorId, buildingId]);
+    return !!branchId && !!(buildingId || floorId || roomId);
+  }, [branchId, buildingId, floorId, roomId]);
 
-  // ===== الإرجاع =====
+  // ============================================================
+  // الإرجاع (مع جميع الدوال المطلوبة)
+  // ============================================================
   return {
-    // البيانات
     formData,
     setFormData,
     branchId,
     buildingId,
     floorId,
     roomId,
-    locationLevel,
     buildings,
     floors,
     rooms,
@@ -472,21 +480,33 @@ export function useMaintenanceForm() {
     isSubmitting,
     assetDialogOpen,
 
-    // الدوال
+    // ✅ دوال تعديل النموذج (المضافة)
+    handleNameChange,
+    handleFrequencyChange,
+    handleLeadDaysChange,
+    handleFrequencyDaysChange,
+    handleStartDateChange,
+    handleIsActiveChange,
+    handleNotesChange,
+    handleAssetTypeChange,
+
+    // دوال تحديث المعرفات
     setBranchId,
     setBuildingId: handleBuildingChange,
     setFloorId: handleFloorChange,
     setRoomId: handleRoomChange,
-    setLocationLevel,
+
+    // دوال الأصول
     setSelectedAssetIds,
     setTempSelectedAssetIds,
-    handleSubmit,
-    getSelectedLocationSummary,
-    isLocationSelected,
     openAssetDialog,
     closeAssetDialog,
     confirmAssetSelection,
     removeAsset,
-    handleAssetTypeChange,
+
+    // دوال مساعدة
+    handleSubmit,
+    getSelectedLocationSummary,
+    isLocationSelected,
   };
 }

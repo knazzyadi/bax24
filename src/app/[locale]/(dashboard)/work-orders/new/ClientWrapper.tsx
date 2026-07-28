@@ -1,5 +1,3 @@
-// src/app/[locale]/(dashboard)/work-orders/new/ClientWrapper.tsx
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -25,7 +23,7 @@ import { InfoBar } from "../InfoBar";
 import { NotesEditor } from "../NotesEditor";
 import { GuidelinesCard } from "../GuidelinesCard";
 import { AttachmentsCard } from "../AttachmentsCard";
-import type { WorkOrderFormData } from "../types";
+import type { WorkOrderFormData, WorkOrderSource } from "../types";
 
 // ============================================================
 // الأنواع
@@ -74,13 +72,13 @@ interface NewWorkOrderClientProps {
   initialAssetTypes: AssetType[];
   initialBuildings: Building[];
   initialWorkOrderTypes: WorkOrderType[];
-  initialSource: "manual" | "ticket" | "pm" | "checklist";
+  initialSource: WorkOrderSource; // ✅ تم التعديل
   initialSourceId: string | null;
   isSourceEditable: boolean;
 }
 
 // ============================================================
-// تعريف نمط البطاقة بشكل أكثر وضوحاً
+// تعريف نمط البطاقة
 // ============================================================
 
 const cardStyle =
@@ -124,7 +122,7 @@ export function NewWorkOrderClient({
     priorityId: defaultPriorityId,
     statusId: defaultStatusId,
     assetTypeId: "",
-    category: undefined,
+    category: "", // ✅ أضفنا category (إذا كان موجوداً في النوع)
     reason: "",
     notes: "",
     branchId: "",
@@ -132,7 +130,7 @@ export function NewWorkOrderClient({
     floorId: "",
     roomId: "",
     assetIds: [],
-    assignedTo: [],
+    assignedTo: "", // ✅ تم التعديل
     sourceId: initialSourceId,
   });
 
@@ -164,7 +162,7 @@ export function NewWorkOrderClient({
   );
 
   // ============================================================
-  // جلب الأدوار (Floors) - مع المسار الجديد
+  // جلب الأدوار (Floors)
   // ============================================================
 
   useEffect(() => {
@@ -176,7 +174,7 @@ export function NewWorkOrderClient({
       setLoadingFloors(true);
       try {
         const res = await fetch(
-          `/api/locations/buildings/${formData.buildingId}/floors` // ✅ تم التحديث
+          `/api/locations/buildings/${formData.buildingId}/floors`
         );
         if (res.ok) {
           const data = await res.json();
@@ -194,7 +192,7 @@ export function NewWorkOrderClient({
   }, [formData.buildingId]);
 
   // ============================================================
-  // جلب الغرف (Rooms) - مع المسار الجديد
+  // جلب الغرف (Rooms)
   // ============================================================
 
   useEffect(() => {
@@ -206,7 +204,7 @@ export function NewWorkOrderClient({
       setLoadingRooms(true);
       try {
         const res = await fetch(
-          `/api/locations/floors/${formData.floorId}/rooms` // ✅ تم التحديث
+          `/api/locations/floors/${formData.floorId}/rooms`
         );
         if (res.ok) {
           const data = await res.json();
@@ -241,7 +239,7 @@ export function NewWorkOrderClient({
   }, [formData.floorId, formData.buildingId, buildings, floors]);
 
   // ============================================================
-  // جلب الأصول (Assets) - لا يتغير (يبقى /api/assets)
+  // جلب الأصول (Assets)
   // ============================================================
 
   useEffect(() => {
@@ -361,15 +359,15 @@ export function NewWorkOrderClient({
       const formDataToSend = new FormData();
       formDataToSend.append("title", formData.title);
       formDataToSend.append("description", formData.description || "");
-      formDataToSend.append("workOrderTypeId", formData.workOrderTypeId);
+      formDataToSend.append("workOrderTypeId", formData.workOrderTypeId ?? ""); // ✅
       formDataToSend.append("priorityId", formData.priorityId);
       formDataToSend.append("statusId", formData.statusId || "");
       formDataToSend.append("branchId", formData.branchId);
       formDataToSend.append("assetTypeId", formData.assetTypeId || "");
       formDataToSend.append("notes", formData.notes || "");
-      formDataToSend.append("source", formData.source);
+      formDataToSend.append("source", formData.source ?? "manual"); // ✅
       formDataToSend.append("sourceId", formData.sourceId || "");
-      formDataToSend.append("category", formData.category || "");
+      formDataToSend.append("category", formData.category || ""); // ✅ إذا كان موجوداً
       formDataToSend.append("reason", formData.reason || "");
       formDataToSend.append("assetIds", JSON.stringify(selectedAssetIds));
 
@@ -377,6 +375,11 @@ export function NewWorkOrderClient({
       formDataToSend.append("floorId", formData.floorId);
       if (formData.roomId) {
         formDataToSend.append("roomId", formData.roomId);
+      }
+
+      // إضافة assignedTo إذا كان موجوداً
+      if (formData.assignedTo) {
+        formDataToSend.append("assignedTo", formData.assignedTo);
       }
 
       attachedFiles.forEach((file) => {

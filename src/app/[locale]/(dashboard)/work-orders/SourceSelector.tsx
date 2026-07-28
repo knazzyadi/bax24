@@ -10,21 +10,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-
-export type WorkOrderSource = "ticket" | "pm" | "checklist" | "manual";
+import type { WorkOrderSource } from "./types";
 
 const SOURCE_ICONS: Record<WorkOrderSource, React.ReactNode> = {
   ticket: <AlertCircle className="h-4 w-4 text-amber-500" />,
-  pm: <Wrench className="h-4 w-4 text-blue-500" />,
+  ppm: <Wrench className="h-4 w-4 text-blue-500" />,
   checklist: <ClipboardCheck className="h-4 w-4 text-emerald-500" />,
   manual: <Plus className="h-4 w-4 text-indigo-500" />,
+  inspection_finding: <ClipboardCheck className="h-4 w-4 text-red-500" />,
 };
 
 const SOURCE_LABELS: Record<WorkOrderSource, { ar: string; en: string }> = {
   ticket: { ar: "بلاغ", en: "Ticket" },
-  pm: { ar: "صيانة وقائية", en: "Preventive Maintenance" },
+  ppm: { ar: "صيانة وقائية", en: "Preventive Maintenance" },
   checklist: { ar: "قائمة فحص", en: "Checklist" },
   manual: { ar: "إنشاء مباشر", en: "Manual" },
+  inspection_finding: { ar: "نتيجة تفتيش", en: "Inspection Finding" },
 };
 
 interface SourceSelectorProps {

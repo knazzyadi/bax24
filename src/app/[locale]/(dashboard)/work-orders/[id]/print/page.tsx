@@ -1,5 +1,4 @@
 // src/app/[locale]/(dashboard)/work-orders/[id]/print/page.tsx
-
 import { redirect } from "next/navigation";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
@@ -17,68 +16,35 @@ export default async function WorkOrderPrintPage({
   const session = await getAuthenticatedSession();
   if (!session) redirect("/login");
 
-  const companyId = session.companyId!; // ✅ تأكيد non-null
+  const companyId = session.companyId!;
   if (!companyId) redirect("/login");
 
-  // 1. جلب بيانات أمر العمل
   const workOrder = await prisma.workOrder.findFirst({
     where: { id, companyId, deletedAt: null },
     include: {
-      priority: true,
-      status: true,
-      branch: true,
-      room: {
-        include: {
-          floor: {
-            include: {
-              building: true,
-            },
-          },
-        },
-      },
-      assetType: true,
-      workOrderAssets: {
-        include: {
-          asset: true,
-        },
-      },
-      ticket: true,
-      attachments: {
-        select: {
-          id: true,
-          url: true,
-          fileName: true,
-          originalName: true,
-          mimeType: true,
-          size: true,
-          createdAt: true,
-        },
-        orderBy: { createdAt: "desc" },
-      },
-      createdByUser: {
-        select: { id: true, name: true, email: true },
-      },
-      assignedUser: {
-        select: { id: true, name: true, email: true },
-      },
+      priority: { select: { id: true, name: true, nameEn: true, color: true, code: true } },
+      status: { select: { id: true, name: true, nameEn: true, color: true, code: true } },
+      branch: { select: { id: true, name: true, nameEn: true } },
+      building: { select: { id: true, name: true, nameEn: true } },
+      floor: { select: { id: true, name: true, nameEn: true } },
+      room: { select: { id: true, name: true, nameEn: true } },
+      assetType: { select: { id: true, name: true, nameEn: true } },
+      workOrderAssets: { include: { asset: { select: { id: true, name: true, nameEn: true, code: true } } } },
+      ticket: { select: { id: true, title: true, description: true, code: true } },
+      attachments: { select: { id: true, url: true, fileName: true, originalName: true, mimeType: true, size: true, createdAt: true } },
+      createdByUser: { select: { id: true, name: true, email: true } },
+      assignedUser: { select: { id: true, name: true, email: true } },
     },
   });
 
-  if (!workOrder) {
-    redirect(`/${locale}/work-orders`);
-  }
+  if (!workOrder) redirect(`/${locale}/work-orders`);
 
-  // 2. جلب سجل التدقيق باستخدام entityType و entityId
   const auditLogsRaw = await prisma.auditLog.findMany({
-    where: {
-      entityType: 'workOrder',
-      entityId: id,
-    },
+    where: { entityType: 'workOrder', entityId: id },
     orderBy: { createdAt: 'desc' },
     take: 50,
   });
 
-  // 3. جلب المستخدمين المرتبطين بسجلات التدقيق (للحصول على الأسماء)
   const userIds = auditLogsRaw.map(log => log.userId).filter((id): id is string => id !== null);
   let usersMap: Record<string, { id: string; name: string; email: string }> = {};
   if (userIds.length > 0) {
@@ -87,41 +53,25 @@ export default async function WorkOrderPrintPage({
       select: { id: true, name: true, email: true },
     });
     usersMap = users.reduce((acc, user) => {
-      acc[user.id] = {
-        id: user.id,
-        name: user.name ?? '', // ✅ تحويل null إلى string فارغة
-        email: user.email,
-      };
+      acc[user.id] = { id: user.id, name: user.name ?? '', email: user.email };
       return acc;
     }, {} as Record<string, { id: string; name: string; email: string }>);
   }
 
-  // 4. تنسيق سجل التدقيق مع إضافة اسم المستخدم
   const auditLogs = auditLogsRaw.map((log) => ({
     id: log.id,
     action: log.action,
     createdAt: log.createdAt.toISOString(),
-    user: log.userId
-      ? (usersMap[log.userId] || {
-          id: log.userId,
-          name: log.userEmail || log.userId,
-          email: log.userEmail || '',
-        })
-      : null,
+    user: log.userId ? (usersMap[log.userId] || { id: log.userId, name: log.userEmail || log.userId, email: log.userEmail || '' }) : null,
     details: log.changes || log.metadata || null,
   }));
 
-  // 5. جلب بيانات الشركة
   const company = await prisma.company.findUnique({
     where: { id: companyId },
     select: { name: true, nameEn: true },
   });
 
-  // تحديد المصدر
-  let source: "manual" | "ticket" | "pm" | "checklist" = "manual";
-  if (workOrder.ticketId) {
-    source = "ticket";
-  }
+  const source: "manual" | "ticket" | "pm" | "checklist" = workOrder.ticketId ? "ticket" : "manual";
 
   const initialData = {
     id: workOrder.id,
@@ -131,6 +81,8 @@ export default async function WorkOrderPrintPage({
     type: workOrder.type,
     priority: workOrder.priority,
     status: workOrder.status,
+    building: workOrder.building,
+    floor: workOrder.floor,
     room: workOrder.room,
     branch: workOrder.branch,
     assetType: workOrder.assetType,
@@ -154,11 +106,5 @@ export default async function WorkOrderPrintPage({
     auditLogs,
   };
 
-  return (
-    <WorkOrderPrint
-      data={initialData}
-      isRtl={locale === "ar"}
-      locale={locale}
-    />
-  );
+  return <WorkOrderPrint data={initialData} isRtl={locale === "ar"} locale={locale} />;
 }

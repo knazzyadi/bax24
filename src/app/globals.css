@@ -236,3 +236,177 @@
     page-break-inside: avoid;
   }
 }
+/* ============================================================
+   تنسيق الطباعة - تقرير رسمي للشركات
+   ============================================================ */
+@media print {
+  /* ✅ إجبار العناصر على الظهور بشكل كامل */
+  .container,
+  .relative,
+  .space-y-8,
+  .space-y-6,
+  .card,
+  .card-header,
+  .card-content,
+  [class*="card"],
+  .rounded-xl {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    overflow: visible !important;
+    height: auto !important;
+    max-height: none !important;
+  }
+
+  /* ✅ إلغاء أي flex أو grid */
+  .flex,
+  .grid,
+  .inline-flex,
+  .inline-grid {
+    display: block !important;
+  }
+
+  /* ✅ إجبار flex-col للصفوف */
+  .flex-col {
+    display: flex !important;
+    flex-direction: column !important;
+  }
+
+  /* ✅ عرض تفاصيل البند بشكل كامل */
+  .item-details {
+    display: block !important;
+    margin-top: 4px !important;
+    font-size: 11px !important;
+    color: #333 !important;
+  }
+
+  .item-details p {
+    margin: 2px 0 !important;
+  }
+
+  /* ✅ تنسيق النتائج كنصوص */
+  .result-icon-group {
+    display: flex !important;
+    gap: 15px !important;
+    justify-content: flex-end !important;
+  }
+
+  .result-icon-group button {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    gap: 4px !important;
+    padding: 2px 8px !important;
+    background: transparent !important;
+    border: 1px solid #ccc !important;
+    border-radius: 4px !important;
+  }
+
+  .result-icon-group button span {
+    font-size: 11px !important;
+    font-weight: 500 !important;
+    color: #333 !important;
+  }
+
+  .result-icon-group svg {
+    display: none !important;
+  }
+
+  /* ✅ إخفاء أيقونة العين */
+  .eye-icon {
+    display: none !important;
+  }
+
+  /* ✅ تذييل الطباعة */
+  .print-footer {
+    display: block !important;
+    text-align: center !important;
+    font-size: 10px !important;
+    color: #666 !important;
+    margin-top: 40px !important;
+    border-top: 1px solid #ddd !important;
+    padding-top: 10px !important;
+  }
+
+  /* ✅ منع انقسام الصفحات داخل البطاقات */
+  .card {
+    page-break-inside: avoid !important;
+  }
+
+  /* ✅ عنوان القسم */
+  .card-header .text-base {
+    font-size: 14px !important;
+    font-weight: 600 !important;
+  }
+
+  /* ✅ اسم البند */
+  .item-name {
+    font-size: 13px !important;
+    font-weight: 500 !important;
+  }
+}@media print {
+  /* إخفاء القائمة الجانبية والعناصر غير المرغوب فيها */
+  .sidebar,
+  [data-sidebar],
+  [class*="sidebar"],
+  [role="navigation"],
+  nav:not(.print-nav),
+  header:not(.print-header),
+  footer,
+  .no-print,
+  .shadow-lg,
+  .shadow-sm,
+  .bg-muted,
+  .bg-white\/90,
+  .backdrop-blur,
+  .sticky,
+  .fixed,
+  button:not(.print-show),
+  .print-hide {
+    display: none !important;
+  }
+
+  /* إلغاء كل الخلفيات والألوان */
+  * {
+    background: white !important;
+    color: black !important;
+    box-shadow: none !important;
+    backdrop-filter: none !important;
+    border-color: #ccc !important;
+  }
+
+  /* إجبار الصفحة على العرض الكامل بدون هوامش */
+  html, body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* إظهار المحتوى الرئيسي فقط */
+  .container,
+  main,
+  .main-content {
+    width: 100% !important;
+    max-width: 100% !important;
+    padding: 20px !important;
+    margin: 0 !important;
+  }
+
+  /* إعادة تعيين البطاقات */
+  .card,
+  .rounded-xl {
+    border: 1px solid #ddd !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    margin-bottom: 20px !important;
+    background: white !important;
+  }
+
+  /* خلفيات الصفوف */
+  .bg-green-50,
+  .bg-red-50,
+  .bg-slate-50 {
+    background: white !important;
+  }
+}

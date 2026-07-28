@@ -30,13 +30,14 @@ import { toast } from "sonner";
 import { DataList, type ItemActions } from "@/components/shared/DataList";
 
 // =========================
-// Types
+// Types - Updated to match new data structure
 // =========================
 
 type WorkOrderType = "MAINTENANCE" | "CORRECTIVE" | "EMERGENCY" | "BULK_PREVENTIVE";
 type StatusCode = "COMPLETED" | "IN_PROGRESS" | "CANCELLED" | "PENDING";
 type PriorityCode = "LOW" | "MEDIUM" | "HIGH" | "EMERGENCY";
 
+// ✅ Updated WorkOrder interface with direct location fields
 interface WorkOrder {
   id: string;
   code: string;
@@ -62,18 +63,21 @@ interface WorkOrder {
     name: string;
     nameEn?: string;
   } | null;
+  // ✅ Direct location fields (no nesting)
+  building: {
+    id: string;
+    name: string;
+    nameEn?: string;
+  } | null;
+  floor: {
+    id: string;
+    name: string;
+    nameEn?: string;
+  } | null;
   room: {
     id: string;
     name: string;
     nameEn?: string;
-    floor?: {
-      name: string;
-      nameEn?: string;
-      building?: {
-        name: string;
-        nameEn?: string;
-      };
-    };
   } | null;
   createdAt: string;
   asset: {
@@ -165,19 +169,20 @@ function getPriorityDisplay(priority: WorkOrder["priority"], isRtl: boolean) {
   };
 }
 
-function getFullLocation(room: WorkOrder["room"], isRtl: boolean): string {
-  if (!room) return "—";
-  const floor = room.floor;
-  const building = floor?.building;
+// ✅ Updated getFullLocation using direct fields
+function getFullLocation(workOrder: WorkOrder | null, isRtl: boolean): string {
+  if (!workOrder) return "—";
   const parts: string[] = [];
-  if (building) {
-    parts.push(isRtl ? building.name : building.nameEn || building.name);
+  if (workOrder.building) {
+    parts.push(isRtl ? workOrder.building.name : workOrder.building.nameEn || workOrder.building.name);
   }
-  if (floor) {
-    parts.push(isRtl ? floor.name : floor.nameEn || floor.name);
+  if (workOrder.floor) {
+    parts.push(isRtl ? workOrder.floor.name : workOrder.floor.nameEn || workOrder.floor.name);
   }
-  parts.push(isRtl ? room.name : room.nameEn || room.name);
-  return parts.filter(Boolean).join(" - ");
+  if (workOrder.room) {
+    parts.push(isRtl ? workOrder.room.name : workOrder.room.nameEn || workOrder.room.name);
+  }
+  return parts.filter(Boolean).join(" - ") || "—";
 }
 
 // =========================
@@ -315,7 +320,7 @@ export default function WorkOrdersClient({
     (workOrder: WorkOrder, actions: ItemActions) => {
       const statusInfo = getStatusDisplay(workOrder.status, isRtl);
       const priorityInfo = getPriorityDisplay(workOrder.priority, isRtl);
-      const fullLocation = getFullLocation(workOrder.room, isRtl);
+      const fullLocation = getFullLocation(workOrder, isRtl);
       const formattedDate = new Intl.DateTimeFormat(isRtl ? "ar-SA" : "en-US").format(
         new Date(workOrder.createdAt)
       );

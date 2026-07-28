@@ -1,10 +1,23 @@
-// NotesSection.tsx
+// src/app/[locale]/(dashboard)/maintenance/components/NotesSection.tsx
 "use client";
 
 import { Textarea } from "@/components/ui/textarea";
 import { FileText } from "lucide-react";
+import type { MaintenanceFormData } from "./types";
 
-export function NotesSection({ formData, setFormData, isRtl, t }: any) {
+interface NotesSectionProps {
+  formData: MaintenanceFormData;
+  handleNotesChange: (value: string) => void; // ✅ بدلاً من setFormData
+  isRtl: boolean;
+  t: (key: string) => string;
+}
+
+export function NotesSection({
+  formData,
+  handleNotesChange,
+  isRtl,
+  t,
+}: NotesSectionProps) {
   return (
     <>
       <div className="flex items-center gap-3 mb-5">
@@ -17,9 +30,7 @@ export function NotesSection({ formData, setFormData, isRtl, t }: any) {
       </div>
       <Textarea
         value={formData.notes}
-        onChange={(e) =>
-          setFormData({ ...formData, notes: e.target.value })
-        }
+        onChange={(e) => handleNotesChange(e.target.value)}
         placeholder={t("notesPlaceholder")}
         className="rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all min-h-[120px]"
       />

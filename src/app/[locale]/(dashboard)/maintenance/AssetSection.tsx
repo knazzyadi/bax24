@@ -1,29 +1,34 @@
-// AssetSection.tsx
+// src/app/[locale]/(dashboard)/maintenance/components/AssetSection.tsx
 "use client";
 
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { FileText, Plus, X } from "lucide-react";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
+import type {
+  MaintenanceFormData,
+  AssetType,
+  Asset,
+} from "./types";
 
 interface AssetSectionProps {
-  formData: any;
-  setFormData: (data: any) => void;
-  assetTypes: any[];
-  assets: any[];
+  formData: MaintenanceFormData;
+  handleAssetTypeChange: (value: string | null) => void;
+  assetTypes: AssetType[];
+  assets: Asset[];
   selectedAssetIds: string[];
   removeAsset: (id: string) => void;
   loadingAssetTypes: boolean;
   loadingAssets: boolean;
   isLocationSelected: () => boolean;
   isRtl: boolean;
-  t: any;
+  t: (key: string) => string;
   openAssetDialog: () => void;
 }
 
 export function AssetSection({
   formData,
-  setFormData,
+  handleAssetTypeChange,
   assetTypes,
   assets,
   selectedAssetIds,
@@ -42,26 +47,25 @@ export function AssetSection({
           <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
         </div>
         <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-          {isRtl ? "بيانات الأصل (اختياري)" : "Asset Details (Optional)"}
+          {isRtl ? "الأصول (اختياري)" : "Assets (Optional)"}
         </h2>
       </div>
+
+      {/* ✅ وصف توضيحي */}
+      <p className="text-sm text-slate-500 mb-4">
+        {isRtl
+          ? "يمكنك إنشاء جدول صيانة للموقع فقط، أو اختيار نوع أصل، أو تحديد أصول معينة."
+          : "You can create a schedule for the location only, filter by asset type, or select specific assets."}
+      </p>
 
       <div className="space-y-5">
         <div className="space-y-1.5">
           <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-            {t("assetType")}
+            {isRtl ? "تصفية حسب نوع الأصل (اختياري)" : "Filter by Asset Type (Optional)"}
           </Label>
           <AssetTypeField
             value={formData.assetTypeId}
-            onChange={(val) => {
-              // ✅ إعادة تعيين الأصول عند تغيير نوع الأصل
-              setFormData((prev: any) => ({
-                ...prev,
-                assetTypeId: val ?? "",
-              }));
-              // سيتم التعامل مع إعادة تعيين الأصول داخل الـ Hook
-              // من خلال useEffect الخاص بـ assetTypeId
-            }}
+            onChange={handleAssetTypeChange}
             assetTypes={assetTypes}
             disabled={!isLocationSelected() || loadingAssetTypes}
             placeholder={
@@ -94,6 +98,15 @@ export function AssetSection({
               ? `${selectedAssetIds.length} ${t("assetsSelected") || "أصل محدد"}`
               : t("selectAssets")}
           </Button>
+
+          {/* ✅ رسالة إرشادية عند عدم اختيار نوع الأصل */}
+          {!formData.assetTypeId && (
+            <p className="text-xs text-slate-500 mt-1">
+              {isRtl
+                ? "اختر نوع الأصل أولاً إذا أردت تحديد أصول معينة."
+                : "Select an asset type first if you want to choose specific assets."}
+            </p>
+          )}
         </div>
 
         {selectedAssetIds.length > 0 && (

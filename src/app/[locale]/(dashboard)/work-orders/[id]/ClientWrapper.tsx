@@ -22,9 +22,9 @@ import { LocationCard } from "../LocationCard";
 import { InfoBar } from "../InfoBar";
 import { WorkOrderActions } from "./WorkOrderActions";
 import { WorkOrderAuditLog } from "./WorkOrderAuditLog";
-import { glassCard } from "../constants"; // ✅ استيراد التنسيق الموحد
+import { glassCard } from "../constants";
 
-// تعريف الأنواع (مع إضافة workOrderType)
+// تعريف الأنواع (مع إضافة building, floor, room كعلاقات مباشرة)
 interface WorkOrderAsset {
   assetId: string;
   completedAt: string | null;
@@ -50,8 +50,11 @@ interface WorkOrderDetailData {
   } | null;
   priority: { id: string; name: string; nameEn?: string; color?: string } | null;
   status: { id: string; name: string; nameEn?: string; color?: string } | null;
-  room: any;
-  branch: any;
+  // ✅ إضافة العلاقات المباشرة للموقع
+  building: { id: string; name: string; nameEn?: string } | null;
+  floor: { id: string; name: string; nameEn?: string } | null;
+  room: { id: string; name: string; nameEn?: string } | null;
+  branch: { id: string; name: string; nameEn?: string } | null;
   assetType: any;
   notes: string | null;
   createdAt: string;
@@ -229,6 +232,23 @@ export function WorkOrderDetailClient({
     return icons[workOrder.source] || "📋";
   };
 
+  // ✅ بناء سلسلة الموقع الكاملة من العلاقات المباشرة
+  const locationParts = [];
+  if (workOrder.branch) {
+    locationParts.push(isRtl ? workOrder.branch.name : workOrder.branch.nameEn || workOrder.branch.name);
+  }
+  if (workOrder.building) {
+    locationParts.push(isRtl ? workOrder.building.name : workOrder.building.nameEn || workOrder.building.name);
+  }
+  if (workOrder.floor) {
+    locationParts.push(isRtl ? workOrder.floor.name : workOrder.floor.nameEn || workOrder.floor.name);
+  }
+  if (workOrder.room) {
+    locationParts.push(isRtl ? workOrder.room.name : workOrder.room.nameEn || workOrder.room.name);
+  }
+
+  const locationString = locationParts.length > 0 ? locationParts.join(" → ") : (isRtl ? "غير محدد" : "Not specified");
+
   return (
     <div className="relative space-y-8 p-6">
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
@@ -292,12 +312,10 @@ export function WorkOrderDetailClient({
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* ========== العمود الرئيسي ========== */}
         <div className="lg:col-span-2 space-y-8">
-          {/* ✅ DetailsCard باستخدام glassCard */}
           <div className={glassCard}>
             <DetailsCard workOrder={workOrder} isRtl={isRtl} t={t} />
           </div>
 
-          {/* ✅ AssetsCard باستخدام glassCard */}
           <div className={glassCard}>
             <AssetsCard
               workOrderAssets={workOrder.workOrderAssets}
@@ -312,12 +330,10 @@ export function WorkOrderDetailClient({
             />
           </div>
 
-          {/* ✅ SparePartsCard باستخدام glassCard */}
           <div className={glassCard}>
             <SparePartsCard workOrderId={workOrder.id} locale={locale} />
           </div>
 
-          {/* ✅ Notes باستخدام glassCard */}
           {workOrder.notes && (
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-4">
@@ -332,7 +348,6 @@ export function WorkOrderDetailClient({
             </div>
           )}
 
-          {/* ✅ AuditLog باستخدام glassCard */}
           <div className={glassCard}>
             <WorkOrderAuditLog workOrderId={workOrder.id} />
           </div>
@@ -340,7 +355,7 @@ export function WorkOrderDetailClient({
 
         {/* ========== العمود الجانبي ========== */}
         <div className="space-y-6">
-          {/* ✅ المرفقات باستخدام glassCard */}
+          {/* المرفقات */}
           {workOrder.attachments && workOrder.attachments.length > 0 && (
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-5">
@@ -370,7 +385,7 @@ export function WorkOrderDetailClient({
             </div>
           )}
 
-          {/* ✅ معلومات إضافية باستخدام glassCard */}
+          {/* معلومات إضافية */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
@@ -428,27 +443,39 @@ export function WorkOrderDetailClient({
             </div>
           </div>
 
-          {/* ✅ Location باستخدام glassCard */}
-          {workOrder.room && (
-            <div className={glassCard}>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
-                  <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                </div>
-                <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                  {isRtl ? "الموقع" : "Location"}
-                </h3>
+          {/* ✅ الموقع - عرض السلسلة الكاملة بدون LocationCard */}
+          <div className={glassCard}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
+                <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
-              <LocationCard
-                room={workOrder.room}
-                isRtl={isRtl}
-                t={t}
-                compact={true}
-              />
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+                {isRtl ? "الموقع" : "Location"}
+              </h3>
             </div>
-          )}
+            <div className="flex flex-col gap-1 text-sm">
+              {locationParts.length > 0 ? (
+                locationParts.map((part, index) => (
+                  <div key={index} className="flex items-center gap-2">
+                    {index > 0 && (
+                      <span className="text-muted-foreground text-xs">
+                        {isRtl ? "←" : "→"}
+                      </span>
+                    )}
+                    <span className="font-medium text-slate-700 dark:text-slate-300">
+                      {part}
+                    </span>
+                  </div>
+                ))
+              ) : (
+                <span className="text-muted-foreground">
+                  {isRtl ? "غير محدد" : "Not specified"}
+                </span>
+              )}
+            </div>
+          </div>
 
-          {/* ✅ زر الطباعة باستخدام glassCard */}
+          {/* زر الطباعة */}
           <div className={glassCard}>
             <Link
               href={`/${locale}/work-orders/${workOrder.id}/print`}

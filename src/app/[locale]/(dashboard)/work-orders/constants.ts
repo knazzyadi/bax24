@@ -11,7 +11,7 @@ import {
   XCircle,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import type { PriorityCode, StatusCode, WorkOrderType, WorkOrderSource, WorkOrderCategory } from "./types";
+import type { PriorityCode, StatusCode, WorkOrderTypeEnum, WorkOrderSource } from "./types";
 
 // ============================================================
 // الثابت الأساسي للبطاقات الزجاجية
@@ -21,10 +21,10 @@ export const glassCard =
   "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
 // ============================================================
-// أنواع أوامر العمل
+// أنواع أوامر العمل (مطابق لـ WorkOrderTypeEnum)
 // ============================================================
 
-export const WORK_ORDER_TYPES: Record<WorkOrderType, { labelAr: string; labelEn: string }> = {
+export const WORK_ORDER_TYPES: Record<WorkOrderTypeEnum, { labelAr: string; labelEn: string }> = {
   MAINTENANCE: { labelAr: "صيانة", labelEn: "Maintenance" },
   CORRECTIVE: { labelAr: "إصلاح", labelEn: "Corrective" },
   EMERGENCY: { labelAr: "طوارئ", labelEn: "Emergency" },
@@ -32,14 +32,15 @@ export const WORK_ORDER_TYPES: Record<WorkOrderType, { labelAr: string; labelEn:
 } as const;
 
 // ============================================================
-// مصادر أوامر العمل
+// مصادر أوامر العمل (مطابق لـ WorkOrderSource)
 // ============================================================
 
 export const WORK_ORDER_SOURCES: Record<WorkOrderSource, { labelAr: string; labelEn: string; icon: LucideIcon }> = {
-  ticket: { labelAr: "بلاغ", labelEn: "Ticket", icon: AlertCircle },
-  pm: { labelAr: "صيانة وقائية", labelEn: "Preventive Maintenance", icon: Wrench },
-  checklist: { labelAr: "قائمة فحص", labelEn: "Checklist", icon: ClipboardCheck },
   manual: { labelAr: "إنشاء مباشر", labelEn: "Manual", icon: Plus },
+  ticket: { labelAr: "بلاغ", labelEn: "Ticket", icon: AlertCircle },
+  ppm: { labelAr: "صيانة وقائية", labelEn: "Preventive Maintenance", icon: Wrench },
+  checklist: { labelAr: "قائمة فحص", labelEn: "Checklist", icon: ClipboardCheck },
+  inspection_finding: { labelAr: "نتيجة تفتيش", labelEn: "Inspection Finding", icon: ClipboardCheck },
 } as const;
 
 // ============================================================
@@ -51,21 +52,6 @@ export const WORK_ORDER_PRIORITIES: Record<PriorityCode, { labelAr: string; labe
   MEDIUM: { labelAr: "متوسطة", labelEn: "Medium", color: "#f59e0b" },
   HIGH: { labelAr: "عالية", labelEn: "High", color: "#f97316" },
   EMERGENCY: { labelAr: "طارئ", labelEn: "Emergency", color: "#ef4444" },
-} as const;
-
-// ============================================================
-// فئات أوامر العمل
-// ============================================================
-
-export const WORK_ORDER_CATEGORIES: Record<WorkOrderCategory, { labelAr: string; labelEn: string }> = {
-  ELECTRICAL: { labelAr: "كهرباء", labelEn: "Electrical" },
-  MECHANICAL: { labelAr: "ميكانيكا", labelEn: "Mechanical" },
-  HVAC: { labelAr: "تكييف وتهوية", labelEn: "HVAC" },
-  MEDICAL: { labelAr: "طبي", labelEn: "Medical" },
-  FIRE: { labelAr: "حريق", labelEn: "Fire" },
-  IT: { labelAr: "تقنية معلومات", labelEn: "IT" },
-  CIVIL: { labelAr: "مدني", labelEn: "Civil" },
-  OTHER: { labelAr: "أخرى", labelEn: "Other" },
 } as const;
 
 // ============================================================

@@ -2,8 +2,8 @@
 import { prisma } from "@/lib/prisma";
 import { Prisma, $Enums } from "@prisma/client";
 
-// ✅ استخدم الـ Enum الصحيح
 type WorkOrderTypeEnum = $Enums.WorkOrderTypeEnum;
+type LocationLevel = $Enums.LocationLevel;
 
 // ========== دالة توليد كود أمر العمل ==========
 export async function generateWorkOrderCode(
@@ -29,7 +29,7 @@ export async function generateWorkOrderCode(
   return result;
 }
 
-// ========== إنشاء أمر عمل مع إعادة المحاولة (مع دعم ربط الأصول) ==========
+// ========== إنشاء أمر عمل مع إعادة المحاولة (مع دعم جميع الحقول) ==========
 export async function createWorkOrderWithRetry(
   data: {
     title: string;
@@ -37,18 +37,24 @@ export async function createWorkOrderWithRetry(
     type: string;
     priorityId: string;
     statusId: string;
-    roomId?: string | null;
     branchId: string;
+    buildingId?: string | null;
+    floorId?: string | null;
+    roomId?: string | null;
+    locationLevel?: string | null;
     companyId: string;
     createdBy: string;
     ticketId?: string | null;
     assetTypeId?: string | null;
+    source?: $Enums.WorkOrderSource | null;
+    sourceId?: string | null;
+    sourceType?: string | null;
     notes?: string | null;
+    reason?: string | null;
     assetId?: string | null;
   },
   maxRetries = 3
 ) {
-  // ✅ قائمة القيم المسموح بها من الـ Enum
   const validTypes: WorkOrderTypeEnum[] = [
     'MAINTENANCE',
     'CORRECTIVE',
@@ -56,13 +62,20 @@ export async function createWorkOrderWithRetry(
     'BULK_PREVENTIVE'
   ];
 
+  // ✅ تحويل locationLevel إلى النوع الصحيح
+  const normalizeLocationLevel = (value: string | null | undefined): LocationLevel | undefined => {
+    if (value === 'building' || value === 'floor' || value === 'room') {
+      return value as LocationLevel;
+    }
+    return undefined;
+  };
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const { code, branchSeqNum } = await generateWorkOrderCode(data.branchId);
       
       const { assetId, ...workOrderData } = data;
 
-      // ✅ التحقق من صحة النوع
       if (!validTypes.includes(workOrderData.type as WorkOrderTypeEnum)) {
         throw new Error(
           `Invalid work order type: ${workOrderData.type}. ` +
@@ -71,17 +84,25 @@ export async function createWorkOrderWithRetry(
       }
 
       const workOrderType = workOrderData.type as WorkOrderTypeEnum;
+      const locationLevel = normalizeLocationLevel(workOrderData.locationLevel);
 
       const workOrder = await prisma.workOrder.create({
         data: {
           ...workOrderData,
           code,
           branchSeqNum,
-          type: workOrderType, // ✅ الآن النوع صحيح
+          type: workOrderType,
+          buildingId: workOrderData.buildingId ?? undefined,
+          floorId: workOrderData.floorId ?? undefined,
           roomId: workOrderData.roomId ?? undefined,
+          locationLevel: locationLevel,
           ticketId: workOrderData.ticketId ?? undefined,
           assetTypeId: workOrderData.assetTypeId ?? undefined,
+          source: workOrderData.source ?? undefined,
+          sourceId: workOrderData.sourceId ?? undefined,
+          sourceType: workOrderData.sourceType ?? undefined,
           notes: workOrderData.notes ?? undefined,
+          reason: workOrderData.reason ?? undefined,
           description: workOrderData.description ?? undefined,
         },
       });

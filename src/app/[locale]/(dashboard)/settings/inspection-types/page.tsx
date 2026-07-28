@@ -186,12 +186,15 @@ export default function InspectionTypesPage() {
   }, [itemsMap, fetchItems]);
 
   // ============================================================
-  // 🌳 بناء الشجرة
+  // 🌳 بناء الشجرة (مع إضافة description و descriptionEn)
   // ============================================================
   const treeData = useMemo<TreeNode[]>(() => {
     return sections.map((section) => ({
       id: section.id,
       name: getLocalizedName(section),
+      nameEn: section.name || undefined,
+      description: section.description || undefined,
+      descriptionEn: section.descriptionEn || undefined,
       type: "section",
       original: section,
       hasLoaded: !!templatesMap[section.id],
@@ -199,6 +202,9 @@ export default function InspectionTypesPage() {
       children: (templatesMap[section.id] || []).map((template) => ({
         id: template.id,
         name: getLocalizedName(template),
+        nameEn: template.name || undefined,
+        description: template.description || undefined,
+        descriptionEn: template.descriptionEn || undefined,
         type: "template",
         original: template,
         hasLoaded: !!categoriesMap[template.id],
@@ -206,6 +212,9 @@ export default function InspectionTypesPage() {
         children: (categoriesMap[template.id] || []).map((category) => ({
           id: category.id,
           name: getLocalizedName(category),
+          nameEn: category.name || undefined,
+          description: category.description || undefined,
+          descriptionEn: category.descriptionEn || undefined,
           type: "category",
           original: category,
           hasLoaded: !!itemsMap[category.id],
@@ -213,6 +222,9 @@ export default function InspectionTypesPage() {
           children: (itemsMap[category.id] || []).map((item) => ({
             id: item.id,
             name: getLocalizedName(item),
+            nameEn: item.name || undefined,
+            description: item.description || undefined,
+            descriptionEn: item.descriptionEn || undefined,
             type: "item",
             original: item,
             hasLoaded: true,

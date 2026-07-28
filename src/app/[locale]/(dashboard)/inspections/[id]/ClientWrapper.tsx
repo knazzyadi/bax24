@@ -1,4 +1,5 @@
 // src/app/[locale]/(dashboard)/inspections/[id]/ClientWrapper.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -10,36 +11,12 @@ import { Loader2 } from "lucide-react";
 import { InspectionHeader } from "./InspectionHeader";
 import { InspectionStats } from "./InspectionStats";
 import { InspectionItemsCard } from "./InspectionItemsCard";
-import type { Inspection } from "../types";
+import type { ResultState, InspectionData } from "../types";
 
 interface ClientWrapperProps {
-  initialData: {
-    id: string;
-    title: string;
-    locationName?: string;
-    scheduledDate: string;
-    status: string;
-    categories: {
-      categoryId: string;
-      categoryName: string;
-      categoryNameAr?: string;
-      items: any[];
-    }[];
-    results: any[];
-    createdAt: string;
-    updatedAt: string;
-  };
+  initialData: InspectionData;
   inspectionId: string;
   locale: string;
-}
-
-interface ResultState {
-  id: string;
-  itemId: string;
-  result: "pass" | "fail" | "na";
-  notes?: string;
-  imageUrl?: string;
-  workOrderId?: string;
 }
 
 export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapperProps) {
@@ -53,19 +30,26 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
   const [resultsState, setResultsState] = useState<Record<string, ResultState>>({});
   const [status, setStatus] = useState(initialData.status);
 
-  // تهيئة النتائج
   useEffect(() => {
     const initialResults: Record<string, ResultState> = {};
     initialData.categories.forEach((category) => {
       category.items.forEach((item) => {
-        if (item.result) {
-          initialResults[item.id] = item.result;
+        const existingResult = item.result || null;
+        if (existingResult) {
+          initialResults[item.id] = {
+            id: existingResult.id || item.id,
+            inspectionFormItemId: item.id,
+            result: existingResult.result || "na",
+            notes: existingResult.notes || "",
+            imageUrl: existingResult.imageUrl || "",
+          };
         } else {
           initialResults[item.id] = {
-            id: `temp_${item.id}`,
-            itemId: item.id,
+            id: item.id,
+            inspectionFormItemId: item.id,
             result: "na",
             notes: "",
+            imageUrl: "",
           };
         }
       });
@@ -73,54 +57,55 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
     setResultsState(initialResults);
   }, [initialData]);
 
-  // تحديث نتيجة بند
-  const updateResult = (itemId: string, field: keyof ResultState, value: any) => {
+  const updateResult = (inspectionFormItemId: string, field: keyof ResultState, value: any) => {
     setResultsState((prev) => ({
       ...prev,
-      [itemId]: {
-        ...prev[itemId],
+      [inspectionFormItemId]: {
+        ...prev[inspectionFormItemId],
         [field]: value,
       },
     }));
   };
 
-  // حفظ التغييرات
   const handleSave = async (closeAfterSave: boolean = false) => {
     const resultsArray = Object.values(resultsState).map((r) => ({
-      resultId: r.id.startsWith("temp_") ? undefined : r.id,
-      itemId: r.itemId,
+      inspectionFormItemId: r.inspectionFormItemId,
       result: r.result,
       notes: r.notes,
       imageUrl: r.imageUrl,
-      workOrderId: r.workOrderId,
     }));
 
     setSaving(true);
     try {
+      const newStatus = closeAfterSave ? "completed" : status;
+
       const res = await fetch(`/api/inspections/${inspectionId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           results: resultsArray,
-          status: closeAfterSave ? "completed" : status,
+          status: newStatus,
         }),
       });
 
       if (!res.ok) throw new Error("Save failed");
 
-      toast.success(isRtl ? "تم حفظ التغييرات" : "Changes saved");
+      toast.success(isRtl ? "✅ تم حفظ التغييرات" : "✅ Changes saved");
 
-      if (closeAfterSave) {
+      setTimeout(() => {
         router.push(`/${locale}/inspections`);
-      }
+      }, 1500);
     } catch (err) {
-      toast.error(isRtl ? "فشل الحفظ" : "Save failed");
+      toast.error(isRtl ? "❌ فشل الحفظ" : "❌ Save failed");
     } finally {
       setSaving(false);
     }
   };
 
-  // حساب الإحصائيات
+  const handleComplete = () => {
+    handleSave(true);
+  };
+
   const stats = {
     total: Object.values(resultsState).length,
     pass: Object.values(resultsState).filter((r) => r.result === "pass").length,
@@ -141,7 +126,6 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
       <div className="relative space-y-8 p-6">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-        {/* رأس الصفحة */}
         <InspectionHeader
           title={inspection.title}
           locationName={inspection.locationName}
@@ -149,24 +133,31 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
           status={status}
           isRtl={isRtl}
           onSave={() => handleSave(false)}
-          onComplete={() => handleSave(true)}
+          onComplete={handleComplete}
           isSaving={saving}
           hasFailures={stats.fail > 0}
+          inspectionId={inspectionId}
+          locale={locale}
         />
 
-        {/* الإحصائيات */}
         <InspectionStats stats={stats} isRtl={isRtl} />
 
-        {/* ✅ الحاوية الرئيسية للعناوين والبنود (مثل AssetsCard) */}
         <InspectionItemsCard
-        categories={inspection.categories}
-        resultsState={resultsState}
-        onUpdateResult={updateResult}
-        isRtl={isRtl}
-        t={t}
-        locale={locale}
+          categories={inspection.categories}
+          resultsState={resultsState}
+          onUpdateResult={updateResult}
+          isRtl={isRtl}
         />
 
+        <div className="print-footer hidden print:block text-center text-xs text-gray-600 mt-10 pt-4 border-t border-gray-300">
+          {isRtl ? "تم الإنشاء بواسطة نظام الفحص" : "Generated by Inspection System"}
+          <br />
+          {new Date().toLocaleDateString(isRtl ? "ar" : "en", {
+            year: "numeric",
+            month: "long",
+            day: "numeric",
+          })}
+        </div>
       </div>
     </AdminGuard>
   );

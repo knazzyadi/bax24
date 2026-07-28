@@ -185,7 +185,7 @@ export async function PUT(
               return NextResponse.json({ error: "Missing default work order config" }, { status: 400 });
             }
             const workOrderType = existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE";
-            // ✅ استخدام دالة الإنشاء مع إعادة المحاولة (تستخدم branchSeqNum) وتمرير assetId
+            // ✅ إنشاء أمر العمل مع إزالة الحقول غير المدعومة (source, sourceType, sourceId)
             await createWorkOrderWithRetry({
               title: existingTicket.title,
               description: existingTicket.description ?? undefined,
@@ -197,7 +197,8 @@ export async function PUT(
               companyId,
               createdBy: session.userId,
               ticketId: existingTicket.id,
-              assetId: existingTicket.assetId, // ✅ ربط الأصل تلقائياً
+              assetId: existingTicket.assetId,
+              // تم إزالة source و sourceType و sourceId
             });
           }
         }
@@ -266,7 +267,7 @@ export async function PUT(
               return NextResponse.json({ error: "Missing default work order config" }, { status: 400 });
             }
             const workOrderType = existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE";
-            // ✅ استخدام دالة الإنشاء مع إعادة المحاولة (تستخدم branchSeqNum) وتمرير assetId
+            // ✅ إنشاء أمر العمل مع إزالة الحقول غير المدعومة
             await createWorkOrderWithRetry({
               title: existingTicket.title,
               description: existingTicket.description ?? undefined,
@@ -278,7 +279,8 @@ export async function PUT(
               companyId,
               createdBy: session.userId,
               ticketId: existingTicket.id,
-              assetId: existingTicket.assetId, // ✅ ربط الأصل تلقائياً
+              assetId: existingTicket.assetId,
+              // تم إزالة source و sourceType و sourceId
             });
           }
         }

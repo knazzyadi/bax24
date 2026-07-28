@@ -1,9 +1,8 @@
-// BasicInfoSection.tsx
+// src/app/[locale]/(dashboard)/maintenance/BasicInfoSection.tsx
 "use client";
 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -11,33 +10,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AlertCircle } from "lucide-react";
+import type {
+  MaintenanceFormData,
+  SetMaintenanceFormData,
+} from "./types";
+import { getFrequencyLabel } from "./utils";
 
 interface BasicInfoSectionProps {
-  formData: any;
-  setFormData: (data: any) => void;
+  formData: MaintenanceFormData;
+  setFormData: SetMaintenanceFormData;
   isRtl: boolean;
-  t: any;
+  t: (key: string) => string;
 }
 
-export function BasicInfoSection({ formData, setFormData, isRtl, t }: BasicInfoSectionProps) {
-  const getFrequencyLabel = (freq: string, isRtl: boolean) => {
-    const map: Record<string, { ar: string; en: string }> = {
-      MONTHLY: { ar: "شهري", en: "Monthly" },
-      QUARTERLY: { ar: "ربع سنوي", en: "Quarterly" },
-      SEMI_ANNUAL: { ar: "نصف سنوي", en: "Semi-annual" },
-      YEARLY: { ar: "سنوي", en: "Yearly" },
-    };
-    return isRtl ? map[freq]?.ar || freq : map[freq]?.en || freq;
+export function BasicInfoSection({
+  formData,
+  setFormData,
+  isRtl,
+  t,
+}: BasicInfoSectionProps) {
+  // دوال مساعدة فقط للتاريخ والحالة (يمكن استبدالها أيضاً ولكننا نلتزم بالتعديلات المطلوبة)
+  const handleStartDateChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, startDate: value }));
   };
 
-  const frequencyStringToDays = (freq: string) => {
-    switch (freq) {
-      case "MONTHLY": return 30;
-      case "QUARTERLY": return 90;
-      case "SEMI_ANNUAL": return 180;
-      case "YEARLY": return 365;
-      default: return 30;
-    }
+  const handleIsActiveChange = (value: boolean) => {
+    setFormData((prev) => ({ ...prev, isActive: value }));
   };
 
   return (
@@ -58,7 +57,12 @@ export function BasicInfoSection({ formData, setFormData, isRtl, t }: BasicInfoS
           </Label>
           <Input
             value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            onChange={(e) =>
+              setFormData((prev) => ({
+                ...prev,
+                name: e.target.value,
+              }))
+            }
             placeholder={t("namePlaceholder")}
             className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all text-base px-4"
           />
@@ -71,14 +75,12 @@ export function BasicInfoSection({ formData, setFormData, isRtl, t }: BasicInfoS
             </Label>
             <Select
               value={formData.frequency}
-              onValueChange={(v) => {
-                const newDays = frequencyStringToDays(v);
-                setFormData({
-                  ...formData,
-                  frequency: v,
-                  frequencyDays: newDays,
-                });
-              }}
+              onValueChange={(value) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  frequency: value,
+                }))
+              }
             >
               <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                 <SelectValue placeholder={t("selectFrequency")}>
@@ -102,10 +104,10 @@ export function BasicInfoSection({ formData, setFormData, isRtl, t }: BasicInfoS
               type="number"
               value={formData.leadDays}
               onChange={(e) =>
-                setFormData({
-                  ...formData,
+                setFormData((prev) => ({
+                  ...prev,
                   leadDays: parseInt(e.target.value) || 0,
-                })
+                }))
               }
               className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
             />
@@ -122,10 +124,10 @@ export function BasicInfoSection({ formData, setFormData, isRtl, t }: BasicInfoS
               min={1}
               value={formData.frequencyDays}
               onChange={(e) =>
-                setFormData({
-                  ...formData,
+                setFormData((prev) => ({
+                  ...prev,
                   frequencyDays: parseInt(e.target.value) || 0,
-                })
+                }))
               }
               className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
               placeholder={isRtl ? "مثال: 30" : "e.g. 30"}
@@ -139,9 +141,7 @@ export function BasicInfoSection({ formData, setFormData, isRtl, t }: BasicInfoS
             <Input
               type="date"
               value={formData.startDate}
-              onChange={(e) =>
-                setFormData({ ...formData, startDate: e.target.value })
-              }
+              onChange={(e) => handleStartDateChange(e.target.value)}
               className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
             />
             <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
@@ -155,9 +155,7 @@ export function BasicInfoSection({ formData, setFormData, isRtl, t }: BasicInfoS
             type="checkbox"
             id="isActive"
             checked={formData.isActive}
-            onChange={(e) =>
-              setFormData({ ...formData, isActive: e.target.checked })
-            }
+            onChange={(e) => handleIsActiveChange(e.target.checked)}
             className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 rounded border-slate-300 dark:border-slate-600"
           />
           <Label
@@ -171,6 +169,3 @@ export function BasicInfoSection({ formData, setFormData, isRtl, t }: BasicInfoS
     </>
   );
 }
-
-// استيراد إضافي
-import { AlertCircle } from "lucide-react";

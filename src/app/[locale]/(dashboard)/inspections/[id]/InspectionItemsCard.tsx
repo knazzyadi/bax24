@@ -399,7 +399,22 @@ export function InspectionItemsCard({
                         <p className="text-sm font-medium text-slate-700 dark:text-slate-300 item-name">
                           {isRtl ? item.nameAr || item.name : item.name}
                         </p>
-
+                        <Badge
+                          variant="outline"
+                          className={cn(
+                            "text-[10px] font-medium",
+                            item.riskLevel === "critical" &&
+                              "border-red-500 bg-red-50 text-red-700 dark:bg-red-950/20 dark:text-red-400",
+                            item.riskLevel === "high" &&
+                              "border-orange-500 bg-orange-50 text-orange-700 dark:bg-orange-950/20 dark:text-orange-400",
+                            item.riskLevel === "medium" &&
+                              "border-yellow-500 bg-yellow-50 text-yellow-700 dark:bg-yellow-950/20 dark:text-yellow-400",
+                            item.riskLevel === "low" &&
+                              "border-green-500 bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400"
+                          )}
+                        >
+                          {riskLevelLabels[item.riskLevel as keyof typeof riskLevelLabels]}
+                        </Badge>
                         <Popover>
                           <PopoverTrigger asChild>
                             <button

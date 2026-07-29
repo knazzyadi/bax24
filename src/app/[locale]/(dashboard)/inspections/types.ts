@@ -66,7 +66,7 @@ export interface InspectionResult {
 export interface FindingDraft {
   title: string;
   description?: string;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
   correctiveAction?: string;
   dueDate?: string; // YYYY-MM-DD
 }
@@ -122,7 +122,7 @@ export interface Finding {
   id: string;
   title: string;
   description: string | null;
-  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  riskLevel: 'low' | 'medium' | 'high' | 'critical';
   status: 'Open' | 'InProgress' | 'Resolved' | 'Verified' | 'Closed' | 'Cancelled';
   correctiveAction: string | null;
   dueDate: string | null;

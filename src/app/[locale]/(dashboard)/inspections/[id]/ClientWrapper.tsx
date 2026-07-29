@@ -11,13 +11,27 @@ import { Loader2, Hammer } from "lucide-react";
 import { InspectionHeader } from "./InspectionHeader";
 import { InspectionStats } from "./InspectionStats";
 import { InspectionItemsCard } from "./InspectionItemsCard";
-import type { ResultState, InspectionData } from "../types";
+import type { ResultState, InspectionData, FindingDraft } from "../types";
 
 interface ClientWrapperProps {
   initialData: InspectionData;
   inspectionId: string;
   locale: string;
 }
+
+// ===== دالة مساعدة لتحويل Finding إلى FindingDraft مع الاحتفاظ بـ id و status =====
+const mapFindingToDraft = (finding: any): (FindingDraft & { id?: string; status?: string }) | null => {
+  if (!finding) return null;
+  return {
+    id: finding.id,
+    title: finding.title,
+    description: finding.description || "",
+    riskLevel: finding.riskLevel,
+    correctiveAction: finding.correctiveAction || "",
+    dueDate: finding.dueDate ? new Date(finding.dueDate).toISOString().split('T')[0] : "",
+    status: finding.status,
+  };
+};
 
 export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapperProps) {
   const router = useRouter();
@@ -38,7 +52,6 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
       category.items.forEach((item) => {
         const existingResult = item.result || null;
         if (existingResult) {
-          // ✅ نأخذ أول finding من المصفوفة (إن وجد)
           const firstFinding = existingResult.findings?.[0];
           initialResults[item.id] = {
             id: existingResult.id || item.id,
@@ -48,6 +61,8 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
             imageUrl: existingResult.imageUrl || "",
             findingId: firstFinding?.id || undefined,
             workOrderId: existingResult.workOrderId || undefined,
+            // ✅ تحويل الـ Finding إلى FindingDraft لتعبئة النموذج
+            finding: mapFindingToDraft(firstFinding),
           };
         } else {
           initialResults[item.id] = {
@@ -98,6 +113,8 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
             imageUrl: existingResult.imageUrl || "",
             findingId: firstFinding?.id || undefined,
             workOrderId: existingResult.workOrderId || undefined,
+            // ✅ تحويل الـ Finding إلى FindingDraft لتعبئة النموذج
+            finding: mapFindingToDraft(firstFinding),
           };
         } else {
           newResults[item.id] = {

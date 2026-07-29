@@ -28,7 +28,7 @@ export async function GET(
           include: {
             results: {
               include: {
-                findings: true, // تضمين الملاحظات
+                findings: true,
               },
             },
           },
@@ -55,8 +55,17 @@ export async function GET(
       // إضافة البند مع نتيجته (افترضنا أن لكل بند نتيجة واحدة) مع تضمين findings
       const result = item.results?.[0] || null;
       categoriesMap.get(catId).items.push({
-        ...item,
-        result, // النتيجة تحتوي على findings
+        id: item.id,
+        itemId: item.itemId,
+        code: item.itemCode,
+        name: item.itemName,
+        nameAr: item.itemNameAr,
+        description: item.description,
+        riskLevel: item.riskLevel,
+        inputType: item.inputType,
+        sortOrder: item.sortOrder,
+        autoCreateWorkOrder: item.autoCreateWorkOrder,
+        result,
       });
     });
 
@@ -104,7 +113,7 @@ export async function PUT(
       buildingId,
       floorId,
       roomId,
-      results, // مصفوفة من { inspectionFormItemId, result, notes, workOrderId, findings? }
+      results,
     } = body;
 
     // التحقق من وجود الفحص
@@ -140,7 +149,7 @@ export async function PUT(
           result,
           notes: resultNotes,
           workOrderId,
-          findings, // مصفوفة من الملاحظات (قد تكون جديدة أو محدثة)
+          findings,
         } = resultData;
 
         if (!inspectionFormItemId) continue;
@@ -171,7 +180,6 @@ export async function PUT(
             });
             // إضافة الملاحظات الجديدة (إن وجدت) مع التحقق من الحقول المطلوبة
             if (findings.length > 0) {
-              // تحويل findings إلى الشكل المطلوب مع الحقول الإلزامية
               const findingsData = findings.map((f: any) => ({
                 inspectionResultId: existingResult.id,
                 title: f.title || f.text || "ملاحظة تفتيش",
@@ -249,7 +257,16 @@ export async function PUT(
       }
       const result = item.results?.[0] || null;
       categoriesMap.get(catId).items.push({
-        ...item,
+        id: item.id,
+        itemId: item.itemId,
+        code: item.itemCode,
+        name: item.itemName,
+        nameAr: item.itemNameAr,
+        description: item.description,
+        riskLevel: item.riskLevel,
+        inputType: item.inputType,
+        sortOrder: item.sortOrder,
+        autoCreateWorkOrder: item.autoCreateWorkOrder,
         result,
       });
     });

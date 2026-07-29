@@ -107,7 +107,7 @@ export function InspectionItemsCard({
   const [draftFinding, setDraftFinding] = useState<FindingDraft>({
     title: "",
     description: "",
-    riskLevel: "MEDIUM",
+    riskLevel: "medium",
     correctiveAction: "",
     dueDate: "",
   });
@@ -121,7 +121,7 @@ export function InspectionItemsCard({
         existing || {
           title: "",
           description: "",
-          riskLevel: "MEDIUM",
+          riskLevel: "medium",
           correctiveAction: "",
           dueDate: "",
         }
@@ -171,11 +171,11 @@ export function InspectionItemsCard({
     na: isRtl ? "لا ينطبق" : "N/A",
   };
 
-  const riskLevelLabels = {
-    LOW: isRtl ? "منخفضة" : "Low",
-    MEDIUM: isRtl ? "متوسطة" : "Medium",
-    HIGH: isRtl ? "عالية" : "High",
-    CRITICAL: isRtl ? "حرجة" : "Critical",
+    const riskLevelLabels = {
+    low: isRtl ? "منخفضة" : "Low",
+    medium: isRtl ? "متوسطة" : "Medium",
+    high: isRtl ? "عالية" : "High",
+    critical: isRtl ? "حرجة" : "Critical",
   };
 
   // ===== التصيير =====
@@ -272,8 +272,7 @@ export function InspectionItemsCard({
                         {/* الوصف */}
                         <div>
                           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            {isRtl ? "الوصف" : "Description"}
-                          </label>
+                            {isRtl ? "تعليمات الفحص" : "Inspection Instructions"}                          </label>
                           <textarea
                             className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-red-400 outline-none"
                             rows={2}
@@ -299,7 +298,7 @@ export function InspectionItemsCard({
                           </label>
                           <div className="flex flex-wrap gap-3">
                             {(
-                              ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const
+                              ["low", "medium", "high", "critical"] as const
                             ).map((level) => (
                               <label
                                 key={level}
@@ -421,7 +420,7 @@ export function InspectionItemsCard({
                             {item.description && (
                               <>
                                 <h4 className="font-semibold text-slate-700 dark:text-slate-300">
-                                  {isRtl ? "الوصف" : "Description"}
+                                  {isRtl ? "تعليمات الفحص" : "Inspection Instructions"}
                                 </h4>
                                 <p className="text-slate-600 dark:text-slate-400 mb-1">
                                   {isRtl
@@ -480,10 +479,10 @@ export function InspectionItemsCard({
                                       variant="outline" 
                                       className={cn(
                                         "text-xs font-normal",
-                                        finding.riskLevel === "CRITICAL" && "border-red-500 text-red-700 dark:text-red-400",
-                                        finding.riskLevel === "HIGH" && "border-orange-500 text-orange-700 dark:text-orange-400",
-                                        finding.riskLevel === "MEDIUM" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
-                                        finding.riskLevel === "LOW" && "border-green-500 text-green-700 dark:text-green-400"
+                                        finding.riskLevel === "critical" && "border-red-500 text-red-700 dark:text-red-400",
+                                        finding.riskLevel === "high" && "border-orange-500 text-orange-700 dark:text-orange-400",
+                                        finding.riskLevel === "medium" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
+                                        finding.riskLevel === "low" && "border-green-500 text-green-700 dark:text-green-400"
                                       )}
                                     >
                                       {riskLevelLabels[finding.riskLevel]}
@@ -553,10 +552,10 @@ export function InspectionItemsCard({
                     <div className="item-details hidden print:block text-xs text-slate-600 mt-1">
                       {item.description && (
                         <p>
-                          <strong>{isRtl ? "الوصف:" : "Description:"}</strong>{" "}
-                          {isRtl
-                            ? item.descriptionAr || item.description
-                            : item.description}
+                          <strong>
+                            {isRtl ? "تعليمات الفحص:" : "Inspection Instructions:"}
+                          </strong>{" "}
+                          {item.description}
                         </p>
                       )}
                       {notes && (

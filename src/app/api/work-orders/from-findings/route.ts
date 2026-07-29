@@ -3,7 +3,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
-import { FindingStatus } from "@prisma/client";
+import { FindingStatus, WorkOrderSource } from "@prisma/client";
 
 // ============================================================
 // Helper: توليد كود أمر العمل
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
 
     if (findings.length === 0) {
       return NextResponse.json(
-        { error: "لا توجد ملاحظات صالحة (يجب أن تكون مفتوحة وتنتمي للشركة)" },
+        { error: "لا توجد ملاحظات متاحة لإنشاء أمر عمل. قد تكون تم إنشاء أوامر عمل لها مسبقاً أو لم تعد بحالة مفتوحة)" },
         { status: 400 }
       );
     }
@@ -123,8 +123,16 @@ export async function POST(req: NextRequest) {
         data: {
           code,
           branchSeqNum,
-          title: title || `أمر عمل لـ ${findings.length} ملاحظة`,
-          description: description || `تم إنشاء هذا الأمر تلقائياً من ${findings.length} ملاحظة فحص.`,
+          // ✅ استخدام عنوان الفحص إن وجد، وإلا استخدام العنوان الافتراضي
+          title:
+            title ||
+            inspection?.title ||
+            `أمر عمل لـ ${findings.length} ملاحظة`,
+          // ✅ وصف أكثر فائدة باستخدام عنوان الفحص
+          description:
+            description ||
+            `تم إنشاء أمر العمل تلقائياً من نتائج الفحص "${inspection?.title ?? ""}"` ||
+            `تم إنشاء هذا الأمر تلقائياً من ${findings.length} ملاحظة فحص.`,
           type: "CORRECTIVE",
           companyId,
           createdBy: userId,
@@ -135,8 +143,8 @@ export async function POST(req: NextRequest) {
           roomId,
           statusId: defaultStatus.id,
           priorityId: defaultPriority?.id || null,
-          // ✅ استخدام قيمة موجودة في Prisma enum حالياً
-          source: "checklist",
+          // ✅ استخدام القيمة المتاحة في الـ Enum (checklist) لأن inspection_finding غير موجودة حالياً
+          source: WorkOrderSource.checklist,
           sourceId: findings.map((f) => f.id).join(","),
           sourceType: "INSPECTION_FINDING",
         },

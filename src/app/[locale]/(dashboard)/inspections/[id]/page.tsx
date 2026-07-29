@@ -1,4 +1,5 @@
 // src/app/[locale]/(dashboard)/inspections/[id]/page.tsx
+
 import { redirect } from "next/navigation";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
@@ -17,14 +18,18 @@ export default async function InspectionDetailPage({
   const companyId = session.companyId;
   if (!companyId) redirect("/login");
 
-  // ✅ جلب الفحص مع formItems والنتائج (بدلاً من selectedCategories)
+  // ✅ التعديل الأول: جلب findings مع النتائج
   const inspection = await prisma.inspection.findUnique({
     where: { id },
     include: {
       formItems: {
         orderBy: { sortOrder: "asc" },
         include: {
-          results: true, // كل formItem له نتائج (عادة واحدة)
+          results: {
+            include: {
+              findings: true, // ✅ جلب الـ Findings المرتبطة بكل نتيجة
+            },
+          },
         },
       },
       branch: true,
@@ -63,13 +68,16 @@ export default async function InspectionDetailPage({
       inputType: item.inputType,
       sortOrder: item.sortOrder,
       isRequired: item.isRequired,
+      // ✅ التعديل الثاني: إضافة findings و findingId
       result: result
         ? {
             id: result.id,
             result: result.result,
             notes: result.notes,
             workOrderId: result.workOrderId,
-            images: [], // ستضاف لاحقاً
+            images: [],
+            findings: result.findings, // مصفوفة Findings كاملة
+            findingId: result.findings?.[0]?.id, // أول Finding (إن وجد)
           }
         : null,
     });
@@ -91,7 +99,7 @@ export default async function InspectionDetailPage({
     locationName,
     scheduledDate: inspection.scheduledDate.toISOString(),
     status: inspection.status,
-    categories, // ✅ الهيكل الجديد
+    categories,
     branchId: inspection.branchId,
     buildingId: inspection.buildingId,
     floorId: inspection.floorId,

@@ -10,7 +10,6 @@ export interface Inspection {
   locationName?: string;
   scheduledDate: string;
   inspectorName?: string;
-  // ✅ إضافة 'cancelled' لتتوافق مع Prisma enum
   status: 'draft' | 'in_progress' | 'completed' | 'approved' | 'cancelled';
   inspectorSignature?: string;
   supervisorSignature?: string;
@@ -56,11 +55,21 @@ export interface InspectionResult {
   workOrderId?: string;
   executedAt?: string;
   updatedAt: string;
+  findings?: Finding[]; // ربط الـ Findings بالنتيجة
 }
 
 // ============================================================
-// ✅ الأنواع المضافة لإصلاح الأخطاء في ClientWrapper
+// ✅ الأنواع الخاصة بـ Findings (مسودة ونهائية)
 // ============================================================
+
+// مسودة الملاحظة أثناء التحرير
+export interface FindingDraft {
+  title: string;
+  description?: string;
+  riskLevel: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  correctiveAction?: string;
+  dueDate?: string; // YYYY-MM-DD
+}
 
 // حالة النتيجة داخل صفحة تنفيذ الفحص
 export interface ResultState {
@@ -69,8 +78,10 @@ export interface ResultState {
   result: 'pass' | 'fail' | 'na';
   notes?: string;
   imageUrl?: string;
-  findingId?: string; // معرف الملاحظة المرتبطة (إن وجدت)
+  findingId?: string; // معرف الملاحظة بعد حفظها (إن وجدت)
   workOrderId?: string;
+  finding?: FindingDraft | null; // البيانات غير المحفوظة (لتعديلها)
+  findings?: Finding[]; // ✅ المصفوفة الكاملة للـ Findings المحفوظة (من قاعدة البيانات)
 }
 
 // بيانات الفحص الكاملة المستخدمة في ClientWrapper
@@ -85,7 +96,6 @@ export interface InspectionData {
   updatedAt: string;
 }
 
-// صنف الفئة مع العناصر المضمنة
 export interface InspectionCategoryWithItems {
   categoryId: string;
   categoryName: string;
@@ -93,7 +103,6 @@ export interface InspectionCategoryWithItems {
   items: InspectionItemWithResult[];
 }
 
-// صنف البند مع النتيجة المضمنة
 export interface InspectionItemWithResult {
   id: string;
   name: string;
@@ -102,11 +111,11 @@ export interface InspectionItemWithResult {
   riskLevel?: string;
   inputType?: string;
   sortOrder?: number;
-  result?: ResultState | null;
+  result?: ResultState | null; // النتيجة مع Findings
 }
 
 // ============================================================
-// ✅ الأنواع الخاصة بـ Findings (الملاحظات)
+// ✅ الأنواع الخاصة بـ Findings (النهائية بعد الحفظ)
 // ============================================================
 
 export interface Finding {
@@ -204,10 +213,6 @@ export interface PaginationInfo {
   currentPage: number;
   totalPages: number;
 }
-
-// ============================================================
-// ✅ الأنواع الخاصة بالإحصائيات
-// ============================================================
 
 export interface InspectionStats {
   total: number;

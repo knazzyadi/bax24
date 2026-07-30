@@ -25,13 +25,15 @@ export default async function InspectionPrintPage({
   const companyId = session.companyId!;
   if (!companyId) redirect("/login");
 
-  // جلب بيانات الفحص
+  // جلب بيانات الفحص مع الحقول الجديدة (بدون صور)
   const inspection = await prisma.inspection.findFirst({
     where: { id, companyId },
     include: {
       formItems: {
         orderBy: { sortOrder: "asc" },
-        include: { results: true },
+        include: {
+          results: true,          // النتائج (pass/fail/na)
+        },
       },
       branch: true,
       building: true,
@@ -40,6 +42,7 @@ export default async function InspectionPrintPage({
       inspector: {
         select: { id: true, name: true, email: true },
       },
+      // لا يتم جلب أي صور
     },
   });
 
@@ -75,6 +78,10 @@ export default async function InspectionPrintPage({
       });
     }
     const result = item.results[0] || null;
+    // استخراج الحقول الجديدة من item (مع قيم افتراضية)
+    const riskLevel = (item as any).riskLevel || "low";
+    const correctiveAction = (item as any).correctiveAction || "";
+
     categoriesMap.get(catId)!.items.push({
       id: item.id,
       itemName: item.itemName,
@@ -87,11 +94,15 @@ export default async function InspectionPrintPage({
             notes: result.notes,
           }
         : null,
+      // الحقول الجديدة
+      riskLevel,
+      correctiveAction,
     });
   });
 
   const categories = Array.from(categoriesMap.values());
 
+  // بناء موقع التقرير
   const locationParts = [];
   if (inspection.branch) locationParts.push(inspection.branch.name);
   if (inspection.building) locationParts.push(inspection.building.name);
@@ -99,6 +110,7 @@ export default async function InspectionPrintPage({
   if (inspection.room) locationParts.push(inspection.room.name);
   const locationName = locationParts.join(" - ") || undefined;
 
+  // تجهيز البيانات النهائية (بدون صور)
   const data = {
     id: inspection.id,
     title: inspection.title,
@@ -108,6 +120,11 @@ export default async function InspectionPrintPage({
     categories,
     inspector: inspection.inspector,
     company,
+    // الحقول الجديدة على مستوى التقرير
+    recommendation: (inspection as any).recommendation || "",
+    dueDate: (inspection as any).dueDate
+      ? new Date((inspection as any).dueDate).toISOString()
+      : null,
   };
 
   return <InspectionPrint data={data} isRtl={locale === "ar"} locale={locale} />;

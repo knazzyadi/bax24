@@ -2,7 +2,7 @@
 
 'use client';
 
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -40,16 +40,23 @@ export function UsersToolbar({
   total,
 }: UsersToolbarProps) {
   return (
-    <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="relative flex flex-col gap-4 rounded-3xl p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="absolute inset-0 -z-10 rounded-3xl bg-gradient-to-r from-indigo-100/30 via-transparent to-purple-100/30 dark:from-indigo-950/20 dark:via-transparent dark:to-purple-950/20" />
-      
+
       <div className="flex items-center gap-4">
         <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
           <Users className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
         </div>
+
         <div>
-          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">إدارة المستخدمين</h1>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">إدارة مستخدمي النظام والأدوار</p>
+          <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+            إدارة المستخدمين
+          </h1>
+
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            إدارة مستخدمي النظام والأدوار
+          </p>
+
           {typeof total === 'number' && (
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-500">
               {total} {total === 1 ? 'مستخدم' : 'مستخدمين'}
@@ -58,16 +65,62 @@ export function UsersToolbar({
         </div>
       </div>
 
-      <Button
-        onClick={onAdd}
-        className="h-12 rounded-xl px-6 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
-      >
-        <Plus className="h-5 w-5" />
-        إضافة مستخدم جديد
-      </Button>
+      <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:justify-end">
+        <div className="relative">
+          <Search className="absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+
+          <Input
+            value={search}
+            onChange={(e) => onSearchChange(e.target.value)}
+            placeholder="بحث عن مستخدم..."
+            className="w-full pr-10 sm:w-56"
+          />
+        </div>
+
+        <Select value={filterRole} onValueChange={onRoleChange}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="الدور" />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="all">
+              كل الأدوار
+            </SelectItem>
+
+            {roles.map((role) => (
+              <SelectItem key={role.id} value={role.name}>
+                {role.label || role.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filterCompany} onValueChange={onCompanyChange}>
+          <SelectTrigger className="w-full sm:w-40">
+            <SelectValue placeholder="الشركة" />
+          </SelectTrigger>
+
+          <SelectContent>
+            <SelectItem value="all">
+              كل الشركات
+            </SelectItem>
+
+            {companies.map((company) => (
+              <SelectItem key={company.id} value={company.id}>
+                {company.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          onClick={onAdd}
+          className="h-12 rounded-xl px-6 gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+        >
+          <Plus className="h-5 w-5" />
+          إضافة مستخدم جديد
+        </Button>
+      </div>
     </div>
   );
 }
-
-// أضف استيراد Users
-import { Users } from 'lucide-react';

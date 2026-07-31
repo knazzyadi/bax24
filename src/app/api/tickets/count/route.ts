@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    let status = searchParams.get("status") || "PENDING";
+    const status = searchParams.get("status") || "PENDING";
     
     if (!validStatuses.includes(status)) {
       return NextResponse.json({ error: "قيمة حالة غير صالحة" }, { status: 400 });

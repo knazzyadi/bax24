@@ -1,6 +1,8 @@
 // src/lib/audit/service.ts
+
+import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
-import { AuditAction, AuditChange, AuditEntityType, AuditLogData } from './types';
+import { AuditEntityType, AuditLogData } from './types';
 import { changesToDb } from './diff';
 
 /**
@@ -19,66 +21,74 @@ export async function createAuditLog({
   metadata,
 }: AuditLogData): Promise<void> {
   try {
-    let companyId: string | undefined = undefined;
-    // Try to get companyId from session if available
+    let companyId: string | undefined;
+
     try {
-      const { getAuthenticatedSession } = await import('@/lib/auth/auth-helper');
+      const { getAuthenticatedSession } = await import(
+        '@/lib/auth/auth-helper'
+      );
+
       const session = await getAuthenticatedSession();
-      // ✅ إذا كان companyId موجوداً (ليس null) نمرره، وإلا نتركه undefined
+
       if (session.companyId) {
         companyId = session.companyId;
       }
     } catch {
-      // If session not available, companyId remains undefined
+      // Ignore session errors
     }
 
-    // Prepare data for database
     let finalField = field;
     let finalOldValue = oldValue;
     let finalNewValue = newValue;
-    let finalChanges: any = undefined; // ✅ use undefined instead of null
-    let finalMetadata: any = undefined;
+
+    let finalChanges: Prisma.InputJsonValue | undefined;
+    let finalMetadata: Prisma.JsonValue | undefined;
 
     if (changes && changes.length > 0) {
       const result = changesToDb(changes);
+
       if (result) {
         finalField = result.field;
         finalOldValue = result.oldValue;
         finalNewValue = result.newValue;
-        finalChanges = result.changes; // JSON object
+        finalChanges = result.changes as unknown as Prisma.InputJsonValue;
       }
     }
 
     if (metadata) {
-      finalMetadata = metadata;
+      finalMetadata = metadata as Prisma.JsonValue;
     }
 
-    // ✅ Build data object without null values for fields that don't accept null
-    const data: any = {
+    const data: Prisma.AuditLogCreateInput = {
       entityType,
       entityId,
       userId,
       userEmail,
       action,
+      companyId: companyId ?? '',
     };
 
-    if (companyId !== undefined) {
+    if (companyId) {
       data.companyId = companyId;
     }
 
-    if (finalField !== undefined && finalField !== null) {
+    if (finalField != null) {
       data.field = finalField;
     }
-    if (finalOldValue !== undefined && finalOldValue !== null) {
+
+    if (finalOldValue != null) {
       data.oldValue = finalOldValue;
     }
-    if (finalNewValue !== undefined && finalNewValue !== null) {
+
+    if (finalNewValue != null) {
       data.newValue = finalNewValue;
     }
-    if (finalChanges !== undefined && finalChanges !== null) {
+
+    if (finalChanges != null) {
       data.changes = finalChanges;
     }
-    if (finalMetadata !== undefined && finalMetadata !== null) {
+
+    if (finalMetadata != null) {
       data.metadata = finalMetadata;
     }
 
@@ -87,12 +97,11 @@ export async function createAuditLog({
     console.log(`✅ Audit log: ${action} on ${entityType} ${entityId}`);
   } catch (error) {
     console.error('❌ Failed to create audit log:', error);
-    // Don't throw - audit failure should not break main operation
   }
 }
 
 /**
- * Create multiple audit log entries for multiple changes
+ * Create multiple audit log entries
  */
 export async function createAuditLogs(
   logs: AuditLogData[]
@@ -109,8 +118,8 @@ export async function getAuditLogs(
   entityType: AuditEntityType,
   entityId: string,
   companyId?: string | null
-): Promise<any[]> {
-  const where: any = {
+) {
+  const where: Prisma.AuditLogWhereInput = {
     entityType,
     entityId,
   };
@@ -121,11 +130,12 @@ export async function getAuditLogs(
 
   const logs = await prisma.auditLog.findMany({
     where,
-    orderBy: { createdAt: 'desc' },
+    orderBy: {
+      createdAt: 'desc',
+    },
   });
 
-  // Transform to unified format
-  return logs.map(log => ({
+  return logs.map((log) => ({
     id: log.id,
     action: log.action,
     field: log.field,

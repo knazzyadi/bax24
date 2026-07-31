@@ -6,7 +6,7 @@ import { createAssetAudit } from '@/lib/audit/asset';
 import { AuditAction } from '@/lib/audit/types';
 import { ensureCanEditAsset, ensureAssetAccess, type AuthSession } from './permissions';
 import { AssetValidationError, handlePrismaError } from './errors';
-import type { UpdateAssetInput } from './types';
+import type { Prisma } from '@prisma/client';
 
 export async function updateAsset(
   session: AuthSession,
@@ -43,48 +43,80 @@ export async function updateAsset(
       throw new AssetValidationError('الأصل غير موجود');
     }
 
-    // 2. تنظيف المدخلات والتحقق
+    // 2. تطبيع وتحقق البيانات
     const normalized = normalizeAssetInput(input as Record<string, unknown>);
     const validated = validateAssetData(normalized);
 
-    // 3. بناء بيانات التحديث
-    const updateData: Record<string, unknown> = {};
-    const fields: (keyof typeof validated)[] = [
-      'name',
-      'nameEn',
-      'description',
-      'serialNumber',
-      'manufacturer',
-      'model',
-      'supplierId',
-      'typeId',
-      'statusId',
-      'roomId',
-      'notes',
-    ];
-    for (const field of fields) {
-      if (validated[field] !== undefined) {
-        updateData[field] = validated[field];
+    // 3. التحقق من الرقم التسلسلي إذا تغير
+    if (validated.serialNumber && validated.serialNumber !== oldAsset.serialNumber) {
+      const existing = await prisma.asset.findFirst({
+        where: {
+          companyId: oldAsset.companyId,
+          serialNumber: validated.serialNumber,
+          deletedAt: null,
+          id: { not: assetId },
+        },
+      });
+      if (existing) {
+        throw new AssetValidationError('الرقم التسلسلي مستخدم بالفعل');
       }
     }
-    // معالجة التواريخ
-    if (validated.purchaseDate !== undefined) {
-      updateData.purchaseDate = validated.purchaseDate ? new Date(validated.purchaseDate) : null;
-    }
-    if (validated.operationDate !== undefined) {
-      updateData.operationDate = validated.operationDate ? new Date(validated.operationDate) : null;
-    }
-    if (validated.warrantyEnd !== undefined) {
-      updateData.warrantyEnd = validated.warrantyEnd ? new Date(validated.warrantyEnd) : null;
-    }
-    if (validated.lastMaintenanceDate !== undefined) {
-      updateData.lastMaintenanceDate = validated.lastMaintenanceDate ? new Date(validated.lastMaintenanceDate) : null;
-    }
 
-    // 4. إذا لم توجد تغييرات، نعيد الأصل دون تحديث
-    if (Object.keys(updateData).length === 0) {
-      return serializeAsset(oldAsset);
-    }
+    // 4. تجهيز بيانات التحديث
+    const updateData: Prisma.AssetUpdateInput = {
+      name: validated.name,
+      nameEn: validated.nameEn,
+      description: validated.description,
+      serialNumber: validated.serialNumber,
+      manufacturer: validated.manufacturer,
+      model: validated.model,
+
+      // معالجة علاقة المورد (Supplier)
+      ...(validated.supplierId !== undefined && {
+        supplier: validated.supplierId
+          ? { connect: { id: validated.supplierId } }
+          : { disconnect: true },
+      }),
+
+      notes: validated.notes,
+
+      // معالجة علاقة النوع (Type)
+      ...(validated.typeId !== undefined && {
+        type: validated.typeId
+          ? { connect: { id: validated.typeId } }
+          : { disconnect: true },
+      }),
+
+      // معالجة علاقة الحالة (Status)
+      ...(validated.statusId !== undefined && {
+        status: validated.statusId
+          ? { connect: { id: validated.statusId } }
+          : { disconnect: true },
+      }),
+
+      // معالجة علاقة الغرفة (Room) - التعديل النهائي
+      ...(validated.roomId !== undefined && validated.roomId && {
+        room: {
+          connect: { id: validated.roomId },
+        },
+      }),
+
+      purchaseDate: validated.purchaseDate
+        ? new Date(validated.purchaseDate)
+        : null,
+
+      operationDate: validated.operationDate
+        ? new Date(validated.operationDate)
+        : null,
+
+      warrantyEnd: validated.warrantyEnd
+        ? new Date(validated.warrantyEnd)
+        : null,
+
+      lastMaintenanceDate: validated.lastMaintenanceDate
+        ? new Date(validated.lastMaintenanceDate)
+        : null,
+    };
 
     // 5. تحديث الأصل
     const updatedAsset = await prisma.asset.update({
@@ -110,15 +142,15 @@ export async function updateAsset(
       },
     });
 
-    // 6. تسجيل التدقيق باستخدام النظام الجديد
+    // 6. تسجيل التدقيق
     await createAssetAudit(
       AuditAction.UPDATE,
-      assetId,
+      updatedAsset.id,
       session.userId,
       session.email,
       oldAsset,
       updatedAsset,
-      { updatedFields: Object.keys(updateData) }
+      { updatedFrom: input }
     );
 
     return serializeAsset(updatedAsset);

@@ -2,7 +2,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { generateAssetCode } from '@/lib/assets/helpers';
+// ✅ تغيير الاستيراد إلى دالة المعاينة
+import { generateAssetPreviewCode } from '@/lib/selects/code-preview';
 import { AssetBusinessError } from '@/lib/assets/errors';
 
 export async function GET(request: NextRequest) {
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // ✅ جلب تفاصيل الغرفة لاستخراج branchId
+    // جلب تفاصيل الغرفة لاستخراج branchId
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       include: {
@@ -54,16 +55,15 @@ export async function GET(request: NextRequest) {
 
     const branchId = room.floor.building.branchId;
 
-    // ✅ توليد الكود باستخدام الدالة الجديدة
-    const code = await generateAssetCode(
-      typeId,
+    // ✅ استخدام دالة المعاينة (لا تحدث العداد)
+    const code = await generateAssetPreviewCode(
       branchId,
-      session.companyId!
+      typeId
     );
 
     return NextResponse.json({ code });
   } catch (error) {
-    console.error('❌ Error generating asset code:', error);
+    console.error('❌ Error generating asset preview code:', error);
     if (error instanceof AssetBusinessError) {
       return NextResponse.json(
         { error: error.message },

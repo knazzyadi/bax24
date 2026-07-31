@@ -34,20 +34,43 @@ export async function POST(
       success: true,
       message: 'تم إرسال الدعوة مجدداً',
     });
-  } catch (error: any) {
-    console.error('RESEND_INVITE_ERROR:', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+} catch (error: unknown) {
+  console.error('RESEND_INVITE_ERROR:', error);
+
+  const message =
+      error instanceof Error ? error.message : 'UNKNOWN_ERROR';
+
+    if (message === 'UNAUTHORIZED') {
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+
+    if (message === 'FORBIDDEN') {
+      return NextResponse.json(
+        { error: 'لا تملك الصلاحية' },
+        { status: 403 }
+      );
     }
-    if (error.message === 'المستخدم غير موجود') {
-      return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
+
+    if (message === 'المستخدم غير موجود') {
+      return NextResponse.json(
+        { error: 'المستخدم غير موجود' },
+        { status: 404 }
+      );
     }
-    if (error.message === 'لا يمكن إعادة إرسال دعوة للسوبر أدمن') {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+
+    if (message === 'لا يمكن إعادة إرسال دعوة للسوبر أدمن') {
+      return NextResponse.json(
+        { error: message },
+        { status: 400 }
+      );
     }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+
+    return NextResponse.json(
+      { error: 'حدث خطأ في الخادم' },
+      { status: 500 }
+    );
   }
 }

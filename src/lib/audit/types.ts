@@ -21,8 +21,8 @@ export enum AuditAction {
 
 export interface AuditChange {
   field: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
 }
 
 export interface AuditLogData {
@@ -35,5 +35,5 @@ export interface AuditLogData {
   oldValue?: string | null;
   newValue?: string | null;
   changes?: AuditChange[];
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }

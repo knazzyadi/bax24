@@ -35,25 +35,41 @@ export async function GET(request: NextRequest) {
       companyId: session.role === 'SUPER_ADMIN' ? undefined : (companyId ?? undefined),
     });
     return NextResponse.json(users);
-  } catch (error: any) {
-    console.error('GET /api/users', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
-  }
-}
+  } catch (error: unknown) {
+  console.error('GET /api/users', error);
 
+  const message =
+    error instanceof Error ? error.message : 'UNKNOWN_ERROR';
+
+  if (message === 'UNAUTHORIZED') {
+    return NextResponse.json(
+      { error: 'غير مصرح' },
+      { status: 401 }
+    );
+  }
+
+  if (message === 'FORBIDDEN') {
+    return NextResponse.json(
+      { error: 'لا تملك الصلاحية' },
+      { status: 403 }
+    );
+  }
+
+  return NextResponse.json(
+    { error: 'حدث خطأ في الخادم' },
+    { status: 500 }
+  );
+}
+}
 // ============================================================
 // POST: إنشاء مستخدم جديد (للسوبر أدمن فقط)
 // ============================================================
+
 export async function POST(request: NextRequest) {
   try {
     // ✅ 1. جلب الجلسة
     const session = await getAuthenticatedSession();
+
     if (!session) {
       return NextResponse.json(
         { error: 'غير مصرح: يرجى تسجيل الدخول' },
@@ -63,29 +79,60 @@ export async function POST(request: NextRequest) {
 
     // ✅ 2. التحقق من الصلاحية
     const permissionError = requirePermission(session, 'users.create');
-    if (permissionError) return permissionError;
+
+    if (permissionError) {
+      return permissionError;
+    }
 
     // ✅ 3. قراءة الجسم
     const body = await request.json();
 
     // ✅ 4. تنفيذ المنطق
     const user = await UserService.create(body);
+
     return NextResponse.json(user, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('POST /api/users', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+
+    const message =
+      error instanceof Error ? error.message : 'UNKNOWN_ERROR';
+
+    if (message === 'UNAUTHORIZED') {
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+
+    if (message === 'FORBIDDEN') {
+      return NextResponse.json(
+        { error: 'لا تملك الصلاحية' },
+        { status: 403 }
+      );
     }
-    if (error.message === 'الاسم مطلوب' || error.message === 'البريد الإلكتروني مطلوب' ||
-        error.message === 'الدور مطلوب' || error.message === 'الشركة مطلوبة') {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+
+    if (
+      message === 'الاسم مطلوب' ||
+      message === 'البريد الإلكتروني مطلوب' ||
+      message === 'الدور مطلوب' ||
+      message === 'الشركة مطلوبة'
+    ) {
+      return NextResponse.json(
+        { error: message },
+        { status: 400 }
+      );
     }
-    if (error.message === 'البريد الإلكتروني مستخدم بالفعل') {
-      return NextResponse.json({ error: error.message }, { status: 409 });
+
+    if (message === 'البريد الإلكتروني مستخدم بالفعل') {
+      return NextResponse.json(
+        { error: message },
+        { status: 409 }
+      );
     }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+
+    return NextResponse.json(
+      { error: 'حدث خطأ في الخادم' },
+      { status: 500 }
+    );
   }
 }

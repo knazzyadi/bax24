@@ -98,7 +98,7 @@ export async function PUT(
     }
 
     const contentType = request.headers.get("content-type") || "";
-    let dataToUpdate: any = { updatedAt: new Date() };
+    const dataToUpdate: any = { updatedAt: new Date() };
 
     // ========== multipart/form-data ==========
     if (contentType.includes("multipart/form-data")) {
@@ -106,13 +106,13 @@ export async function PUT(
 
       const title = formData.get("title")?.toString();
       const description = formData.get("description")?.toString();
-      let type = formData.get("type")?.toString();
+      const type = formData.get("type")?.toString();
       const roomId = formData.get("roomId")?.toString();
       const assetId = formData.get("assetId")?.toString();
       const reporterName = formData.get("reporterName")?.toString();
       const reporterEmail = formData.get("reporterEmail")?.toString();
       const phone = formData.get("phone")?.toString();
-      let status = formData.get("status")?.toString();
+      const status = formData.get("status")?.toString();
       const action = formData.get("action")?.toString();
       const rejectionReason = formData.get("rejectionReason")?.toString() || formData.get("reason")?.toString();
 

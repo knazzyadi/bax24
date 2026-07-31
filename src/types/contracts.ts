@@ -1,3 +1,11 @@
+export interface ContractAttachment {
+  id: string;
+  name: string;
+  url: string;
+  size?: number;
+  type?: string;
+}
+
 export interface Contract {
   id: string;
   code: string | null;
@@ -10,7 +18,10 @@ export interface Contract {
   status: 'PENDING_REVIEW' | 'ACTIVE' | 'EXPIRED' | 'CANCELLED';
   cancellationReason: string | null;
   notes: string | null;
-  attachments: any;
+
+  // إذا كنت تعرف شكل المرفقات فاستخدم ContractAttachment[]
+  attachments: ContractAttachment[];
+
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;

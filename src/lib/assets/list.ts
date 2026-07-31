@@ -1,7 +1,7 @@
 // src/lib/assets/list.ts
-
 import { prisma } from '@/lib/prisma';
-import { serializeAssetList, type AssetResponse } from './helpers';
+import { serializeAssetList } from './helpers';
+import type { Prisma } from '@prisma/client'; // ✅ إضافة استيراد النوع
 import {
   ensureHasAnyBranchAccess,
   getAllowedBranchIds,
@@ -114,12 +114,18 @@ export async function listAssets(
       sortOrder = 'desc',
     } = options;
 
-    const safeSortBy: AllowedSortField = ALLOWED_SORT_FIELDS.includes(sortBy as any)
-      ? (sortBy as AllowedSortField)
-      : 'createdAt';
+    // ✅ تحسين النوع بدون استخدام any
+    const safeSortBy: AllowedSortField =
+      ALLOWED_SORT_FIELDS.includes(sortBy as AllowedSortField)
+        ? (sortBy as AllowedSortField)
+        : 'createdAt';
 
     const skip = (page - 1) * limit;
-    const where: any = { deletedAt: null };
+
+    // ✅ استبدال any بنوع Prisma الصحيح
+    const where: Prisma.AssetWhereInput = {
+      deletedAt: null,
+    };
 
     const allowedBranchIds = getAllowedBranchIds(session);
     if (allowedBranchIds !== null) {

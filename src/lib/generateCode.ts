@@ -1,6 +1,6 @@
 // src/lib/generateCode.ts
 import { prisma } from "@/lib/prisma";
-import { Prisma, $Enums } from "@prisma/client";
+import { $Enums } from "@prisma/client";
 
 type WorkOrderTypeEnum = $Enums.WorkOrderTypeEnum;
 type LocationLevel = $Enums.LocationLevel;
@@ -118,8 +118,17 @@ export async function createWorkOrderWithRetry(
 
       return workOrder;
     } catch (error: unknown) {
-      const isPrismaError = typeof error === 'object' && error !== null && 'code' in error;
-      if (isPrismaError && (error as any).code === "P2002" && attempt < maxRetries) {
+      const isPrismaError =
+  typeof error === 'object' &&
+  error !== null &&
+  'code' in error;
+
+if (
+  isPrismaError &&
+  (error as { code: string }).code === 'P2002' &&
+  attempt < maxRetries
+)
+   {
         console.log(`⚠️ Duplicate work order code, retrying (attempt ${attempt + 1})...`);
         continue;
       }

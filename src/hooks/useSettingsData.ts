@@ -1,4 +1,5 @@
 // src/hooks/useSettingsData.ts
+
 import { useState, useEffect, useCallback, useRef } from "react";
 import { toast } from "sonner";
 
@@ -16,6 +17,7 @@ export function useSettingsData<T extends { id: string }>({
   const [data, setData] = useState<T[]>(initialData);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
   const abortControllerRef = useRef<AbortController | null>(null);
 
   const fetchData = useCallback(async () => {
@@ -35,16 +37,39 @@ export function useSettingsData<T extends { id: string }>({
       });
 
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `فشل تحميل البيانات (${res.status})`);
+        const errorData: { error?: string } = await res
+          .json()
+          .catch(() => ({}));
+
+        throw new Error(
+          errorData.error ?? `فشل تحميل البيانات (${res.status})`,
+        );
       }
 
-      const result = await res.json();
-      setData(Array.isArray(result) ? result : result.data || []);
-    } catch (err: any) {
-      if (err.name === "AbortError") return;
-      setError(err.message);
-      toast.error(err.message);
+      const result: unknown = await res.json();
+
+      if (
+        typeof result === "object" &&
+        result !== null &&
+        "data" in result &&
+        Array.isArray((result as { data: T[] }).data)
+      ) {
+        setData((result as { data: T[] }).data);
+      } else if (Array.isArray(result)) {
+        setData(result as T[]);
+      } else {
+        setData([]);
+      }
+    } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === "AbortError") {
+        return;
+      }
+
+      const message =
+        err instanceof Error ? err.message : "حدث خطأ غير متوقع";
+
+      setError(message);
+      toast.error(message);
     } finally {
       if (!controller.signal.aborted) {
         setLoading(false);
@@ -53,15 +78,24 @@ export function useSettingsData<T extends { id: string }>({
   }, [apiEndpoint, locale]);
 
   useEffect(() => {
-    fetchData();
+    queueMicrotask(() => {
+      void fetchData();
+    });
+
     return () => {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
+      abortControllerRef.current?.abort();
     };
   }, [fetchData]);
 
-  const refetch = useCallback(() => fetchData(), [fetchData]);
+  const refetch = useCallback(async () => {
+    await fetchData();
+  }, [fetchData]);
 
-  return { data, loading, error, refetch, setData };
+  return {
+    data,
+    loading,
+    error,
+    refetch,
+    setData,
+  };
 }

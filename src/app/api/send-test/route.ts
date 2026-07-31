@@ -56,11 +56,17 @@ export async function POST(req: Request) {
     }
 
     return NextResponse.json({ success: true, data });
-  } catch (error: any) {
-    console.error('SEND_TEST_ERROR:', error);
-    return NextResponse.json(
-      { error: error?.message || 'خطأ غير معروف' },
-      { status: 500 }
-    );
+
+    } catch (error: unknown) {
+      console.error('SEND_TEST_ERROR:', error);
+
+      return NextResponse.json(
+        {
+          error: error instanceof Error
+            ? error.message
+            : 'خطأ غير معروف',
+        },
+        { status: 500 }
+      );
+    }
   }
-}

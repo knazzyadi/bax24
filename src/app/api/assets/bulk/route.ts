@@ -112,8 +112,7 @@ export async function POST(request: NextRequest) {
 
         // توليد الكود الفريد
         const code = await generateUniqueAssetCode(
-          tx as any,
-          companyId,
+          tx,
           branchId,
           assetData.typeId
         );

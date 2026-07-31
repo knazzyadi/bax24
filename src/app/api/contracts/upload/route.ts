@@ -57,8 +57,12 @@ export async function POST(request: NextRequest) {
       url: attachment.url,
       name: attachment.originalName,
     });
-  } catch (error: any) {
-    console.error('Upload error:', error);
-    return NextResponse.json({ error: 'حدث خطأ في رفع الملف' }, { status: 500 });
-  }
-}
+    } catch (error: unknown) {
+      console.error('Upload error:', error);
+
+      return NextResponse.json(
+        { error: 'حدث خطأ في رفع الملف' },
+        { status: 500 }
+      );
+    }
+    }

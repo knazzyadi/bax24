@@ -1,7 +1,8 @@
 // src/lib/assets/create.ts
 import { prisma } from '@/lib/prisma';
 import { validateAssetData, normalizeAssetInput } from './validation';
-import { generateAssetCode, serializeAsset, type AssetResponse } from './helpers';
+import { serializeAsset, type AssetResponse } from './helpers';
+import { generateUniqueAssetCode } from '@/lib/selects/code-generator';
 import { createAssetAudit } from '@/lib/audit/asset';
 import { AuditAction } from '@/lib/audit/types';
 import {
@@ -10,11 +11,10 @@ import {
   ensureCompanyAccess,
   type AuthSession,
 } from './permissions';
-import { AssetValidationError, AssetBusinessError, handlePrismaError } from './errors';
-import type { CreateAssetInput } from './types';
+import { AssetValidationError, handlePrismaError } from './errors';
 
 // ============================================================
-// إنشاء أصل جديد
+// إنشاء أصل جديد (باستخدام معاملة ذرية)
 // ============================================================
 
 export async function createAsset(
@@ -27,7 +27,7 @@ export async function createAsset(
     const normalized = normalizeAssetInput(input as Record<string, unknown>);
     const validated = validateAssetData(normalized);
 
-    // جلب تفاصيل الغرفة
+    // 1. جلب تفاصيل الغرفة (قراءة فقط، خارج المعاملة)
     const room = await prisma.room.findUnique({
       where: { id: validated.roomId },
       include: {
@@ -55,14 +55,7 @@ export async function createAsset(
     ensureBranchAccess(session, branchId);
     ensureCompanyAccess(session, session.companyId!);
 
-    // توليد الكود
-    const code = await generateAssetCode(
-      validated.typeId,
-      branchId,
-      session.companyId!
-    );
-
-    // التحقق من الرقم التسلسلي (إن وجد)
+    // 2. التحقق من الرقم التسلسلي (قراءة فقط، خارج المعاملة)
     if (validated.serialNumber) {
       const existing = await prisma.asset.findFirst({
         where: {
@@ -76,50 +69,72 @@ export async function createAsset(
       }
     }
 
-    // إنشاء الأصل
-    const asset = await prisma.asset.create({
-      data: {
-        name: validated.name,
-        nameEn: validated.nameEn,
-        description: validated.description,
-        code,
-        serialNumber: validated.serialNumber,
-        manufacturer: validated.manufacturer,
-        model: validated.model,
-        supplierId: validated.supplierId,
-        notes: validated.notes,
-        typeId: validated.typeId,
-        statusId: validated.statusId,
-        roomId: validated.roomId,
-        buildingId: room.buildingId,
-        branchId: branchId,
-        companyId: session.companyId!,
-        purchaseDate: validated.purchaseDate ? new Date(validated.purchaseDate) : null,
-        operationDate: validated.operationDate ? new Date(validated.operationDate) : null,
-        warrantyEnd: validated.warrantyEnd ? new Date(validated.warrantyEnd) : null,
-        lastMaintenanceDate: validated.lastMaintenanceDate ? new Date(validated.lastMaintenanceDate) : null,
-      },
-      include: {
-        type: true,
-        status: true,
-        supplier: true,
-        room: {
+    // 3. المعاملة الذرية: توليد الكود + إنشاء الأصل
+    const asset = await prisma.$transaction(
+      async (tx) => {
+        const code = await generateUniqueAssetCode(
+          tx,
+          branchId,
+          validated.typeId
+        );
+
+        return tx.asset.create({
+          data: {
+            name: validated.name,
+            nameEn: validated.nameEn,
+            description: validated.description,
+            code,
+            serialNumber: validated.serialNumber,
+            manufacturer: validated.manufacturer,
+            model: validated.model,
+            supplierId: validated.supplierId,
+            notes: validated.notes,
+            typeId: validated.typeId,
+            statusId: validated.statusId,
+            roomId: validated.roomId,
+            buildingId: room.buildingId,
+            branchId: branchId,
+            companyId: session.companyId!,
+            purchaseDate: validated.purchaseDate
+              ? new Date(validated.purchaseDate)
+              : null,
+            operationDate: validated.operationDate
+              ? new Date(validated.operationDate)
+              : null,
+            warrantyEnd: validated.warrantyEnd
+              ? new Date(validated.warrantyEnd)
+              : null,
+            lastMaintenanceDate: validated.lastMaintenanceDate
+              ? new Date(validated.lastMaintenanceDate)
+              : null,
+          },
           include: {
-            floor: {
+            type: true,
+            status: true,
+            supplier: true,
+            room: {
               include: {
-                building: {
+                floor: {
                   include: {
-                    branch: true,
+                    building: {
+                      include: {
+                        branch: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
-        },
+        });
       },
-    });
+      {
+        timeout: 15000,
+        maxWait: 5000,
+      }
+    );
 
-    // ✅ تسجيل التدقيق
+    // 4. تسجيل التدقيق (خارج المعاملة - قراءة فقط)
     await createAssetAudit(
       AuditAction.CREATE,
       asset.id,

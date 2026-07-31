@@ -9,7 +9,7 @@ import { AssetBusinessError } from './errors';
 const CODE_DIGITS = 4;
 
 // ============================================================
-// توليد الكود التسلسلي (النظام الجديد: الفرع + النوع + رقم تسلسلي)
+// توليد الكود التسلسلي (النظام القديم: الفرع + النوع + رقم تسلسلي)
 // ============================================================
 
 export async function generateAssetCode(
@@ -35,16 +35,14 @@ export async function generateAssetCode(
     throw new AssetBusinessError('الفرع غير موجود أو لا يحتوي على رمز');
   }
 
-  // 3. البحث عن آخر أصل لنفس (الشركة + الفرع + النوع)
+  // 3. البحث عن آخر أصل لنفس (الشركة + الفرع + النوع) - بدون فلتر deletedAt
   const lastAsset = await prisma.asset.findFirst({
     where: {
       companyId,
       branchId,
       typeId,
-      deletedAt: null,
     },
     orderBy: {
-      // ترتيب تنازلي حسب الكود (الأبجدي يعمل مع الأصفار الرائدة)
       code: 'desc',
     },
     select: { code: true },
@@ -52,7 +50,6 @@ export async function generateAssetCode(
 
   let nextNumber = 1;
   if (lastAsset?.code) {
-    // استخراج الرقم التسلسلي من آخر كود (الجزء الأخير بعد آخر شرطة)
     const parts = lastAsset.code.split('-');
     const lastSeq = parseInt(parts[parts.length - 1], 10);
     if (!isNaN(lastSeq)) {
@@ -66,8 +63,72 @@ export async function generateAssetCode(
 }
 
 // ============================================================
-// تحويل البيانات للعرض
+// أنواع تحويل البيانات للعرض
 // ============================================================
+
+export interface AssetSerializeInput {
+  id: string;
+  code: string;
+  name: string;
+  nameEn?: string | null;
+  description?: string | null;
+  serialNumber?: string | null;
+  manufacturer?: string | null;
+  model?: string | null;
+  supplierId?: string | null;
+  typeId?: string | null;
+  statusId?: string | null;
+  roomId?: string | null;
+
+  purchaseDate?: Date | null;
+  operationDate?: Date | null;
+  warrantyEnd?: Date | null;
+  lastMaintenanceDate?: Date | null;
+
+  notes?: string | null;
+  createdAt?: Date | null;
+  updatedAt?: Date | null;
+
+  supplier?: {
+    name?: string | null;
+    nameEn?: string | null;
+  } | null;
+
+  type?: {
+    name?: string | null;
+    nameEn?: string | null;
+  } | null;
+
+  status?: {
+    name?: string | null;
+    nameEn?: string | null;
+    color?: string | null;
+  } | null;
+
+  room?: {
+    id?: string;
+    name?: string | null;
+    nameEn?: string | null;
+    code?: string | null;
+    floor?: {
+      id?: string;
+      name?: string | null;
+      nameEn?: string | null;
+      code?: string | null;
+      building?: {
+        id?: string;
+        name?: string | null;
+        nameEn?: string | null;
+        code?: string | null;
+        branch?: {
+          id?: string;
+          name?: string | null;
+          nameEn?: string | null;
+        } | null;
+      } | null;
+    } | null;
+  } | null;
+}
 
 export interface AssetResponse {
   id: string;
@@ -113,7 +174,11 @@ export interface AssetResponse {
   updatedAt: string;
 }
 
-export function serializeAsset(asset: any): AssetResponse {
+// ============================================================
+// دوال التحويل (مع أنواع محددة)
+// ============================================================
+
+export function serializeAsset(asset: AssetSerializeInput): AssetResponse {
   const room = asset.room;
   const floor = room?.floor;
   const building = floor?.building;
@@ -163,12 +228,13 @@ export function serializeAsset(asset: any): AssetResponse {
     warrantyEnd: asset.warrantyEnd?.toISOString?.()?.split('T')[0] || null,
     lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString?.()?.split('T')[0] || null,
     notes: asset.notes || null,
-    createdAt: asset.createdAt?.toISOString?.(),
-    updatedAt: asset.updatedAt?.toISOString?.(),
+    createdAt: asset.createdAt?.toISOString?.() || '',
+    updatedAt: asset.updatedAt?.toISOString?.() || '',
   };
 }
 
-// ✅ دالة تحويل قائمة الأصول
-export function serializeAssetList(assets: any[]): any[] {
+export function serializeAssetList(
+  assets: AssetSerializeInput[]
+): AssetResponse[] {
   return assets.map(serializeAsset);
 }

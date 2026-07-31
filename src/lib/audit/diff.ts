@@ -5,18 +5,18 @@ import { AuditChange } from './types';
  * Compare two objects and return list of changes
  * Only compares specified fields (or all if none specified)
  */
-export function diffObjects<T extends Record<string, any>>(
+export function diffObjects<T extends object>(
   oldObj: T | null | undefined,
-  newObj: T | Record<string, any>,
+  newObj: T,
   fieldsToCompare?: (keyof T)[]
 ): AuditChange[] {
   const changes: AuditChange[] = [];
 
   if (!oldObj) {
     // If no old object, all fields are considered new
-    for (const key of Object.keys(newObj)) {
+    for (const key of Object.keys(newObj) as (keyof T)[]) {
       changes.push({
-        field: key,
+        field: key as string,
         oldValue: undefined,
         newValue: newObj[key],
       });
@@ -24,10 +24,10 @@ export function diffObjects<T extends Record<string, any>>(
     return changes;
   }
 
-  const keys = fieldsToCompare || Object.keys(newObj);
+  const keys = (fieldsToCompare || Object.keys(newObj)) as (keyof T)[];
   for (const key of keys) {
-    const oldVal = oldObj[key as keyof T];
-    const newVal = newObj[key as string];
+    const oldVal = oldObj[key];
+    const newVal = newObj[key];
 
     // Normalize null/undefined
     const normalizedOld = oldVal === null || oldVal === undefined ? undefined : oldVal;

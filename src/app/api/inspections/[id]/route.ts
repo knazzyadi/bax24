@@ -155,7 +155,7 @@ export async function PUT(
         if (!inspectionFormItemId) continue;
 
         // البحث عن النتيجة الحالية لهذا البند في هذا الفحص
-        let existingResult = await prisma.inspectionResult.findFirst({
+        const existingResult = await prisma.inspectionResult.findFirst({
           where: {
             inspectionId: id,
             inspectionFormItemId: inspectionFormItemId,

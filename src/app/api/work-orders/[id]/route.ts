@@ -165,7 +165,7 @@ export async function PUT(
     }
 
     // تنظيف قيم الموقع حسب المستوى المختار
-    let finalBuildingId = buildingId || null;
+    const finalBuildingId = buildingId || null;
     let finalFloorId = floorId || null;
     let finalRoomId = roomId || null;
 

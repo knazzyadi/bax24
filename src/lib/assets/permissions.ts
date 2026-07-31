@@ -1,6 +1,6 @@
 // src/lib/assets/permissions.ts
 import { prisma } from '@/lib/prisma';
-import { AssetNotFoundError, AssetBusinessError, AssetPermissionError } from './errors';
+import { AssetNotFoundError, AssetPermissionError } from './errors';
 
 // ✅ استخدم نفس تعريف AuthSession من auth-helper
 export interface AuthSession {

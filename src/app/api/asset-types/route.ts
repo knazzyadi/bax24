@@ -1,4 +1,5 @@
 // src/app/api/asset-types/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
@@ -6,20 +7,27 @@ import { prisma } from '@/lib/prisma';
 // ============================================================
 // GET - جلب قائمة الأنواع
 // ============================================================
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
 
     const companyId = session.companyId;
+
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
     }
 
-    const searchParams = request.nextUrl.searchParams;
-    const locale = searchParams.get('locale') || 'ar';
+    // يمكن إضافة دعم الترجمة لاحقاً عند الحاجة
 
     const types = await prisma.assetType.findMany({
       where: {
@@ -45,8 +53,10 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(types);
+
   } catch (error) {
     console.error('Error in GET /api/asset-types:', error);
+
     return NextResponse.json(
       { error: 'حدث خطأ في جلب الأنواع' },
       { status: 500 }
@@ -60,20 +70,40 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
 
     const companyId = session.companyId;
+
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
-    const { name, nameEn, code, description, order, isDefault, isActive } = body;
+
+    const {
+      name,
+      nameEn,
+      code,
+      description,
+      order,
+      isDefault,
+      isActive,
+    } = body;
 
     if (!name?.trim()) {
-      return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'الاسم مطلوب' },
+        { status: 400 }
+      );
     }
 
     const existing = await prisma.assetType.findFirst({
@@ -83,14 +113,23 @@ export async function POST(request: NextRequest) {
         deletedAt: null,
       },
     });
+
     if (existing) {
-      return NextResponse.json({ error: 'هناك نوع بنفس الاسم بالفعل' }, { status: 409 });
+      return NextResponse.json(
+        { error: 'هناك نوع بنفس الاسم بالفعل' },
+        { status: 409 }
+      );
     }
 
     if (isDefault) {
       await prisma.assetType.updateMany({
-        where: { companyId, deletedAt: null },
-        data: { isDefault: false },
+        where: {
+          companyId,
+          deletedAt: null,
+        },
+        data: {
+          isDefault: false,
+        },
       });
     }
 
@@ -120,8 +159,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(newType, { status: 201 });
+
   } catch (error) {
     console.error('Error in POST /api/asset-types:', error);
+
     return NextResponse.json(
       { error: 'حدث خطأ في إنشاء النوع' },
       { status: 500 }

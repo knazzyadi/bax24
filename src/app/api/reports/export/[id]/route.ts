@@ -5,14 +5,12 @@ import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import * as XLSX from 'xlsx';
 
 // ========== دالة لتنسيق التاريخ ==========
-function formatDate(dateStr?: string | null): string {
-  if (!dateStr) return '';
-  try {
-    return new Date(dateStr).toLocaleDateString('ar-SA');
-  } catch {
-    return dateStr;
-  }
+function formatDate(date?: Date | string | null): string {
+  if (!date) return '';
+  return new Date(date).toLocaleDateString('ar-SA');
 }
+
+type ExportRow = Record<string, string | number>;
 
 export async function POST(
   request: Request,
@@ -20,6 +18,7 @@ export async function POST(
 ) {
   try {
     let session;
+
     try {
       session = await getAuthenticatedSession();
     } catch {
@@ -54,8 +53,7 @@ export async function POST(
       return NextResponse.json({ error: 'التقرير غير موجود' }, { status: 404 });
     }
 
-    let data: any[] = [];
-
+    let data: ExportRow[] = [];
     switch (modelType) {
       case 'assets': {
         const assetFields: Record<string, boolean> = {};
@@ -67,54 +65,53 @@ export async function POST(
           } else assetFields[col] = true;
         });
 
-        const select: any = {};
-        if (assetFields.code) select.code = true;
-        if (assetFields.name) { select.name = true; select.nameEn = true; }
-        if (assetFields.description) { select.description = true; select.descriptionEn = true; }
-        if (assetFields.type) select.type = { select: { name: true, nameEn: true } };
-        if (assetFields.status) select.status = { select: { name: true, nameEn: true } };
-        if (assetFields.purchaseDate) select.purchaseDate = true;
-        if (assetFields.warrantyEnd) select.warrantyEnd = true;
-        if (assetFields.lastMaintenanceDate) select.lastMaintenanceDate = true;
-
-        if (assetFields.room) {
-          select.room = {
-            select: {
-              name: true,
-              nameEn: true,
-              floor: {
-                select: {
-                  name: true,
-                  nameEn: true,
-                  building: {
-                    select: {
-                      name: true,
-                      nameEn: true,
+        const assets = await prisma.asset.findMany({
+          where: {
+            companyId,
+            deletedAt: null,
+          },
+          select: {
+            code: true,
+            name: true,
+            nameEn: true,
+            description: true,
+            purchaseDate: true,
+            warrantyEnd: true,
+            lastMaintenanceDate: true,
+            type: {
+              select: {
+                name: true,
+                nameEn: true,
+              },
+            },
+            status: {
+              select: {
+                name: true,
+                nameEn: true,
+              },
+            },
+            room: {
+              select: {
+                name: true,
+                nameEn: true,
+                floor: {
+                  select: {
+                    name: true,
+                    nameEn: true,
+                    building: {
+                      select: {
+                        name: true,
+                        nameEn: true,
+                      },
                     },
                   },
                 },
               },
             },
-          };
-        }
-
-        if (Object.keys(select).length === 0) {
-          select.code = true;
-          select.name = true;
-          select.nameEn = true;
-        }
-
-        // ✅ إضافة شرط deletedAt: null
-        const assets = await prisma.asset.findMany({
-          where: { 
-            companyId: companyId,
-            deletedAt: null,
           },
-          select,
         });
 
-        data = assets.map((asset: any) => {
-          // بناء الموقع باللغتين
+        data = assets.map((asset) => {
           let locationAr = '';
           let locationEn = '';
           if (asset.room) {
@@ -128,24 +125,23 @@ export async function POST(
             locationEn = [buildingEn, floorEn, roomEn].filter(Boolean).join(' - ');
           }
 
-          const row: any = {};
-          
-          if (assetFields.code) row['الكود'] = asset.code || '';
+          const row: ExportRow = {};
+
+          if (assetFields.code) row['الكود'] = asset.code ?? '';
           if (assetFields.name) {
-            row['الاسم (عربي)'] = asset.name || '';
-            row['الاسم (إنجليزي)'] = asset.nameEn || '';
+            row['الاسم (عربي)'] = asset.name ?? '';
+            row['الاسم (إنجليزي)'] = asset.nameEn ?? '';
           }
           if (assetFields.description) {
-            row['الوصف (عربي)'] = asset.description || '';
-            row['الوصف (إنجليزي)'] = asset.descriptionEn || '';
+            row['الوصف (عربي)'] = asset.description ?? '';
           }
           if (assetFields.type) {
-            row['النوع (عربي)'] = asset.type?.name || '';
-            row['النوع (إنجليزي)'] = asset.type?.nameEn || '';
+            row['النوع (عربي)'] = asset.type?.name ?? '';
+            row['النوع (إنجليزي)'] = asset.type?.nameEn ?? '';
           }
           if (assetFields.status) {
-            row['الحالة (عربي)'] = asset.status?.name || '';
-            row['الحالة (إنجليزي)'] = asset.status?.nameEn || '';
+            row['الحالة (عربي)'] = asset.status?.name ?? '';
+            row['الحالة (إنجليزي)'] = asset.status?.nameEn ?? '';
           }
           if (assetFields.room) {
             row['الموقع (عربي)'] = locationAr || 'لا يوجد موقع';
@@ -168,43 +164,51 @@ export async function POST(
           else woFields[col] = true;
         });
 
-        const select: any = {};
-        if (woFields.code) select.code = true;
-        if (woFields.title) select.title = true;
-        if (woFields.createdAt) select.createdAt = true;
-        if (woFields.priority) select.priority = { select: { name: true, nameEn: true } };
-        if (woFields.status) select.status = { select: { name: true, nameEn: true } };
-        if (woFields.assetType) select.assetType = { select: { name: true, nameEn: true } };
-
-        if (Object.keys(select).length === 0) {
-          select.code = true;
-          select.title = true;
-        }
-
-        // ✅ إضافة شرط deletedAt: null
         const workOrders = await prisma.workOrder.findMany({
-          where: { 
-            companyId: companyId,
+          where: {
+            companyId,
             deletedAt: null,
           },
-          select,
+          select: {
+            code: true,
+            title: true,
+            createdAt: true,
+            priority: {
+              select: {
+                name: true,
+                nameEn: true,
+              },
+            },
+            status: {
+              select: {
+                name: true,
+                nameEn: true,
+              },
+            },
+            assetType: {
+              select: {
+                name: true,
+                nameEn: true,
+              },
+            },
+          },
         });
 
-        data = workOrders.map((wo: any) => {
-          const row: any = {};
-          if (woFields.code) row['الكود'] = wo.code || '';
-          if (woFields.title) row['العنوان'] = wo.title || '';
+        data = workOrders.map((wo) => {
+          const row: ExportRow = {};
+          if (woFields.code) row['الكود'] = wo.code ?? '';
+          if (woFields.title) row['العنوان'] = wo.title ?? '';
           if (woFields.priority) {
-            row['الأولوية (عربي)'] = wo.priority?.name || '';
-            row['الأولوية (إنجليزي)'] = wo.priority?.nameEn || '';
+            row['الأولوية (عربي)'] = wo.priority?.name ?? '';
+            row['الأولوية (إنجليزي)'] = wo.priority?.nameEn ?? '';
           }
           if (woFields.status) {
-            row['الحالة (عربي)'] = wo.status?.name || '';
-            row['الحالة (إنجليزي)'] = wo.status?.nameEn || '';
+            row['الحالة (عربي)'] = wo.status?.name ?? '';
+            row['الحالة (إنجليزي)'] = wo.status?.nameEn ?? '';
           }
           if (woFields.assetType) {
-            row['نوع الأصل (عربي)'] = wo.assetType?.name || '';
-            row['نوع الأصل (إنجليزي)'] = wo.assetType?.nameEn || '';
+            row['نوع الأصل (عربي)'] = wo.assetType?.name ?? '';
+            row['نوع الأصل (إنجليزي)'] = wo.assetType?.nameEn ?? '';
           }
           if (woFields.createdAt) row['تاريخ الإنشاء'] = formatDate(wo.createdAt);
           return row;
@@ -219,39 +223,32 @@ export async function POST(
           else ticketFields[col] = true;
         });
 
-        const select: any = {};
-        if (ticketFields.code) select.code = true;
-        if (ticketFields.title) select.title = true;
-        if (ticketFields.type) select.type = true;
-        if (ticketFields.reporterName) select.reporterName = true;
-        if (ticketFields.createdAt) select.createdAt = true;
-        if (ticketFields.status) select.status = { select: { name: true, nameEn: true } };
-
-        if (Object.keys(select).length === 0) {
-          select.code = true;
-          select.title = true;
-        }
-
-        // ✅ إضافة شرط deletedAt: null
+        // التصحيح: إزالة الكتلة الزائدة واستخدام status كـ enum مباشرة
         const tickets = await prisma.ticket.findMany({
-          where: { 
-            companyId: companyId,
+          where: {
+            companyId,
             deletedAt: null,
           },
-          select,
+          select: {
+            code: true,
+            title: true,
+            type: true,
+            reporterName: true,
+            createdAt: true,
+            status: true, // status هو enum وليس علاقة
+          },
         });
 
-        data = tickets.map((ticket: any) => {
-          const row: any = {};
-          if (ticketFields.code) row['الكود'] = ticket.code || '';
-          if (ticketFields.title) row['العنوان'] = ticket.title || '';
-          if (ticketFields.status) {
-            row['الحالة (عربي)'] = ticket.status?.name || '';
-            row['الحالة (إنجليزي)'] = ticket.status?.nameEn || '';
-          }
-          if (ticketFields.type) row['النوع'] = ticket.type || '';
-          if (ticketFields.reporterName) row['اسم المبلغ'] = ticket.reporterName || '';
+        data = tickets.map((ticket) => {
+          const row: ExportRow = {};
+
+          if (ticketFields.code) row['الكود'] = ticket.code ?? '';
+          if (ticketFields.title) row['العنوان'] = ticket.title ?? '';
+          if (ticketFields.status) row['الحالة'] = ticket.status ?? ''; // قيمة النص من الـ enum
+          if (ticketFields.type) row['النوع'] = ticket.type ?? '';
+          if (ticketFields.reporterName) row['اسم المبلغ'] = ticket.reporterName ?? '';
           if (ticketFields.createdAt) row['تاريخ الإنشاء'] = formatDate(ticket.createdAt);
+
           return row;
         });
         break;
@@ -263,40 +260,38 @@ export async function POST(
           invFields[col] = true;
         });
 
-        const select: any = {};
-        if (invFields.sku) select.sku = true;
-        if (invFields.name) { select.name = true; select.nameEn = true; }
-        if (invFields.quantity) select.quantity = true;
-        if (invFields.unit) select.unit = true;
-        if (invFields.location) select.room = { select: { name: true, nameEn: true } };
-
-        if (Object.keys(select).length === 0) {
-          select.sku = true;
-          select.name = true;
-          select.nameEn = true;
-        }
-
-        // ✅ إضافة شرط deletedAt: null
         const inventoryItems = await prisma.inventoryItem.findMany({
-          where: { 
-            companyId: companyId,
+          where: {
+            companyId,
             deletedAt: null,
           },
-          select,
+          select: {
+            sku: true,
+            name: true,
+            nameEn: true,
+            quantity: true,
+            unit: true,
+            room: {
+              select: {
+                name: true,
+                nameEn: true,
+              },
+            },
+          },
         });
 
-        data = inventoryItems.map((item: any) => {
-          const row: any = {};
-          if (invFields.sku) row['SKU'] = item.sku || '';
+        data = inventoryItems.map((item) => {
+          const row: ExportRow = {};
+          if (invFields.sku) row['SKU'] = item.sku ?? '';
           if (invFields.name) {
-            row['الاسم (عربي)'] = item.name || '';
-            row['الاسم (إنجليزي)'] = item.nameEn || '';
+            row['الاسم (عربي)'] = item.name ?? '';
+            row['الاسم (إنجليزي)'] = item.nameEn ?? '';
           }
-          if (invFields.quantity) row['الكمية'] = item.quantity || 0;
-          if (invFields.unit) row['الوحدة'] = item.unit || '';
+          if (invFields.quantity) row['الكمية'] = item.quantity ?? 0;
+          if (invFields.unit) row['الوحدة'] = item.unit ?? '';
           if (invFields.location) {
-            row['الموقع (عربي)'] = item.room?.name || 'لا يوجد موقع';
-            row['الموقع (إنجليزي)'] = item.room?.nameEn || 'No location';
+            row['الموقع (عربي)'] = item.room?.name ?? 'لا يوجد موقع';
+            row['الموقع (إنجليزي)'] = item.room?.nameEn ?? 'No location';
           }
           return row;
         });
@@ -318,7 +313,6 @@ export async function POST(
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'تقرير');
 
-    // تنسيق الأعمدة
     const cols = Object.keys(data[0] || {});
     worksheet['!cols'] = cols.map(() => ({ wch: 25 }));
 
@@ -331,10 +325,14 @@ export async function POST(
         'Content-Disposition': `attachment; filename="${encodeURIComponent(savedReport.name)}.xlsx"`,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('POST /api/reports/export/[id] error:', error);
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'حدث خطأ أثناء تصدير التقرير';
     return NextResponse.json(
-      { error: error?.message || 'حدث خطأ أثناء تصدير التقرير' },
+      { error: message },
       { status: 500 }
     );
   }

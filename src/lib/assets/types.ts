@@ -1,6 +1,7 @@
 // src/lib/assets/types.ts
 
 import { z } from 'zod';
+import type { AssetResponse } from './helpers';
 
 // ============================================================
 // أنواع المدخلات
@@ -69,7 +70,7 @@ export interface ListAssetsOptions {
 }
 
 export interface ListAssetsResult {
-  data: any[];
+  data: AssetResponse[];
   total: number;
   page: number;
   limit: number;

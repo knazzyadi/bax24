@@ -229,7 +229,7 @@ export async function POST(request: NextRequest) {
     // ============================================================
     // ✅ تنظيف قيم الموقع حسب المستوى المختار
     // ============================================================
-    let finalBuildingId = buildingId || null;
+    const finalBuildingId = buildingId || null;
     let finalFloorId = floorId || null;
     let finalRoomId = roomId || null;
 

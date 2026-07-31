@@ -1,23 +1,62 @@
 // src/lib/prisma-to-client.ts
+
+type AssetDto = {
+  id: string;
+  name: string;
+  nameEn?: string | null;
+  code: string;
+
+  type?: {
+    name: string;
+    nameEn?: string | null;
+  } | null;
+
+  status?: {
+    name: string;
+    nameEn?: string | null;
+    color?: string | null;
+  } | null;
+
+  room?: {
+    name: string;
+    nameEn?: string | null;
+    floor?: {
+      name: string;
+      nameEn?: string | null;
+      building?: {
+        name: string;
+        nameEn?: string | null;
+      } | null;
+    } | null;
+  } | null;
+
+  purchaseDate?: Date | string | null;
+  warrantyEnd?: Date | string | null;
+  createdAt?: Date | string | null;
+  updatedAt?: Date | string | null;
+};
+
 /**
- * تحويل كائن الأصل من صيغة Prisma إلى صيغة مناسبة للعميل (Client)
- * - يحول التواريخ إلى سلاسل نصية (ISO string)
- * - يبسط الحقول المتداخلة (مثل room.floor.building)
+ * تحويل كائن الأصل من صيغة Prisma إلى صيغة مناسبة للعميل
  */
-export function transformAsset(asset: any) {
-  if (!asset) return null;
+export function transformAsset(asset: AssetDto | null) {
+  if (!asset) {
+    return null;
+  }
 
   return {
     id: asset.id,
     name: asset.name,
     nameEn: asset.nameEn,
     code: asset.code,
+
     type: asset.type
       ? {
           name: asset.type.name,
           nameEn: asset.type.nameEn,
         }
       : null,
+
     status: asset.status
       ? {
           name: asset.status.name,
@@ -25,6 +64,7 @@ export function transformAsset(asset: any) {
           color: asset.status.color,
         }
       : null,
+
     room: asset.room
       ? {
           name: asset.room.name,
@@ -43,16 +83,28 @@ export function transformAsset(asset: any) {
             : null,
         }
       : null,
-    purchaseDate: asset.purchaseDate ? new Date(asset.purchaseDate).toISOString() : null,
-    warrantyEnd: asset.warrantyEnd ? new Date(asset.warrantyEnd).toISOString() : null,
-    createdAt: asset.createdAt ? new Date(asset.createdAt).toISOString() : null,
-    updatedAt: asset.updatedAt ? new Date(asset.updatedAt).toISOString() : null,
+
+    purchaseDate: asset.purchaseDate
+      ? new Date(asset.purchaseDate).toISOString()
+      : null,
+
+    warrantyEnd: asset.warrantyEnd
+      ? new Date(asset.warrantyEnd).toISOString()
+      : null,
+
+    createdAt: asset.createdAt
+      ? new Date(asset.createdAt).toISOString()
+      : null,
+
+    updatedAt: asset.updatedAt
+      ? new Date(asset.updatedAt).toISOString()
+      : null,
   };
 }
 
 /**
- * تحويل قائمة الأصول (تُستخدم في صفحة القائمة)
+ * تحويل قائمة الأصول
  */
-export function transformAssets(assets: any[]) {
+export function transformAssets(assets: AssetDto[]) {
   return assets.map(transformAsset);
 }

@@ -1,9 +1,6 @@
 // app/api/reports/route.ts
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { NextRequest, NextResponse } from "next/server";
-
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
-import { getServerSession } from "next-auth"; // استيراد مباشر من next-auth
-
 
 // نموذج بيانات وهمية (سنستبدلها بقاعدة البيانات لاحقاً)
 const mockReports = [

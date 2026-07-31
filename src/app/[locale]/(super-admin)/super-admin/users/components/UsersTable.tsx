@@ -27,7 +27,9 @@ export function UsersTable({
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-card py-16">
         <div className="mb-4 text-6xl">👤</div>
         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">لا يوجد مستخدمون</h3>
-        <p className="mt-2 text-sm text-muted-foreground">انقر على 'إضافة مستخدم جديد' لإنشاء أول مستخدم</p>
+        <p className="mt-2 text-sm text-muted-foreground">
+          انقر على &apos;إضافة مستخدم جديد&apos; لإنشاء أول مستخدم
+        </p>
       </div>
     );
   }

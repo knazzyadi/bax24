@@ -35,7 +35,11 @@ export function DeleteUserDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
           <AlertDialogDescription>
-            هل أنت متأكد من حذف المستخدم <strong className="text-rose-500">"{userName}"</strong>؟
+             هل أنت متأكد من حذف المستخدم{' '}
+            <strong className="text-rose-500">
+              &quot;{userName}&quot;
+            </strong>
+            ؟
             <br />
             هذا الإجراء لا يمكن التراجع عنه.
           </AlertDialogDescription>

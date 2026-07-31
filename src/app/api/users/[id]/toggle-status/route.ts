@@ -32,17 +32,36 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     // ✅ 4. تنفيذ المنطق
     const updated = await UserService.toggleStatus(id);
     return NextResponse.json(updated);
-  } catch (error: any) {
-    console.error('PATCH /api/users/[id]/toggle-status', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+  } catch (error: unknown) {
+  console.error('PATCH /api/users/[id]/toggle-status', error);
+
+  const message =
+    error instanceof Error ? error.message : 'UNKNOWN_ERROR';
+
+    if (message === 'UNAUTHORIZED') {
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
+
+    if (message === 'FORBIDDEN') {
+      return NextResponse.json(
+        { error: 'لا تملك الصلاحية' },
+        { status: 403 }
+      );
     }
-    if (error.message === 'المستخدم غير موجود') {
-      return NextResponse.json({ error: 'المستخدم غير موجود' }, { status: 404 });
+
+    if (message === 'المستخدم غير موجود') {
+      return NextResponse.json(
+        { error: 'المستخدم غير موجود' },
+        { status: 404 }
+      );
     }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+
+    return NextResponse.json(
+      { error: 'حدث خطأ في الخادم' },
+      { status: 500 }
+    );
   }
-}
+  }

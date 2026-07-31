@@ -142,8 +142,8 @@ export class UserRepository {
     // استخدام معرف فريد لتجنب مشكلة طول البريد
     const timestamp = Date.now();
     const randomId = crypto.randomUUID().slice(0, 8);
-    const deletedEmail = `deleted+${randomId}@deleted.local`;
 
+    const deletedEmail = `deleted+${timestamp}-${randomId}@deleted.local`;
     return prisma.user.update({
       where: { id, companyId },
       data: {

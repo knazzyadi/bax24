@@ -1,27 +1,29 @@
+// src/app/api/assets/route.ts
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { getAuthenticatedSession, type AuthSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import {
   createAsset,
-  getErrorResponse,
   getErrorResponseStatus,
 } from '@/lib/assets';
 
+// ========== الثوابت ==========
+// إزالة 'status' لأنها علاقة وليست عموداً مباشراً
 const ALLOWED_SORT_FIELDS = [
   'createdAt',
   'updatedAt',
   'name',
   'code',
-  'status',
   'purchaseDate',
 ] as const;
 
 const DEFAULT_LIMIT = 10;
 const MAX_LIMIT = 100;
 
-function toAssetsSession(session: AuthSession): any {
+// ========== تحويل الجلسة ==========
+function toAssetsSession(session: AuthSession) {
   return {
-    ...session,
     userId: session.userId,
     email: session.email,
     name: session.name,
@@ -36,6 +38,7 @@ function toAssetsSession(session: AuthSession): any {
   };
 }
 
+// ========== GET ==========
 export async function GET(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
@@ -45,19 +48,21 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams;
 
+    // الصفحة والحد
     const page = Math.max(Number(searchParams.get('page')) || 1, 1);
     const requestedLimit = Number(searchParams.get('limit')) || DEFAULT_LIMIT;
     const limit = Math.min(Math.max(requestedLimit, 1), MAX_LIMIT);
 
+    // الترتيب
     const requestedSort = searchParams.get('sortBy') || 'createdAt';
-    const sortBy = ALLOWED_SORT_FIELDS.includes(requestedSort as any)
+    const sortBy = ALLOWED_SORT_FIELDS.includes(
+      requestedSort as typeof ALLOWED_SORT_FIELDS[number]
+    )
       ? (requestedSort as typeof ALLOWED_SORT_FIELDS[number])
       : 'createdAt';
+    const sortOrder = searchParams.get('sortOrder') === 'asc' ? 'asc' : 'desc';
 
-    const sortOrderParam = searchParams.get('sortOrder');
-    const sortOrder = sortOrderParam === 'asc' ? 'asc' : 'desc';
-
-    // قراءة المعاملات
+    // الفلاتر الأساسية
     const branchId = searchParams.get('branchId') || undefined;
     const roomId = searchParams.get('roomId') || undefined;
     const floorId = searchParams.get('floorId') || undefined;
@@ -66,9 +71,20 @@ export async function GET(request: NextRequest) {
     const typeId = searchParams.get('typeId') || undefined;
     const search = searchParams.get('q') || undefined;
 
-    // بناء شرط where
-    const where: any = {};
+    // ===== بناء شرط WHERE =====
+    const where: Prisma.AssetWhereInput = {
+      deletedAt: null,
+    };
 
+    // 1. الأمان: تحديد نطاق الشركة (إلزامي)
+    if (session.companyId) {
+      where.companyId = session.companyId;
+    } else {
+      // إذا لم توجد companyId في الجلسة، نمنع الوصول (أمان إضافي)
+      return NextResponse.json({ error: 'لا يمكن تحديد الشركة' }, { status: 400 });
+    }
+
+    // 2. البحث النصي
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -78,20 +94,37 @@ export async function GET(request: NextRequest) {
       ];
     }
 
+    // 3. الفلاتر البسيطة
     if (status) where.statusId = status;
     if (typeId) where.typeId = typeId;
-    if (branchId) where.branchId = branchId;
 
-    // معالجة الموقع: إذا كان roomId موجوداً استخدمه، وإلا إذا كان floorId موجوداً جلب كل الغرف في ذلك الدور، وإذا كان buildingId موجوداً جلب كل الغرف في كل أدوار المبنى.
+    // 4. فلترة الفرع مع التحقق من نطاق الشركة
+    if (branchId) {
+      // التأكد من أن الفرع يتبع نفس الشركة (يمكن إضافة شرط relation)
+      where.branchId = branchId;
+      // نضمن أن companyId موجود بالفعل (من السابق)
+    }
+
+    // 5. فلترة الموقع
     let roomIds: string[] | undefined;
+
     if (roomId) {
+      // غرفة محددة
       roomIds = [roomId];
     } else if (floorId) {
+      // جلب الغرف في الطابق المطلوب مع التأكد من أنها ضمن نطاق الشركة
       const rooms = await prisma.room.findMany({
-        where: { floorId },
+        where: {
+          floorId,
+          floor: {
+            building: {
+              companyId: session.companyId,
+            },
+          },
+        },
         select: { id: true },
       });
-      roomIds = rooms.map(r => r.id);
+      roomIds = rooms.map((r) => r.id);
       if (roomIds.length === 0) {
         return NextResponse.json({
           assets: [],
@@ -102,40 +135,21 @@ export async function GET(request: NextRequest) {
         });
       }
     } else if (buildingId) {
-      const floors = await prisma.floor.findMany({
-        where: { buildingId },
-        select: { id: true },
-      });
-      const floorIds = floors.map(f => f.id);
-      if (floorIds.length === 0) {
-        return NextResponse.json({
-          assets: [],
-          total: 0,
-          page,
-          limit,
-          totalPages: 0,
-        });
-      }
-      const rooms = await prisma.room.findMany({
-        where: { floorId: { in: floorIds } },
-        select: { id: true },
-      });
-      roomIds = rooms.map(r => r.id);
-      if (roomIds.length === 0) {
-        return NextResponse.json({
-          assets: [],
-          total: 0,
-          page,
-          limit,
-          totalPages: 0,
-        });
-      }
+      // استخدام buildingId مباشرة من Asset (أسرع)
+      where.buildingId = buildingId;
+      // ملاحظة: يمكن إضافة شرط relation للتحقق من companyId إذا لزم الأمر
+      // لكن companyId موجود مسبقاً في where
     }
 
+    // تطبيق فلتر roomIds إن وجد
     if (roomIds && roomIds.length > 0) {
       where.roomId = { in: roomIds };
     }
 
+    // 6. بناء orderBy (مع دعم خاص للحالة إذا أردنا)
+    const orderBy = { [sortBy]: sortOrder };
+
+    // ===== تنفيذ الاستعلام =====
     const skip = (page - 1) * limit;
 
     const [assets, total] = await Promise.all([
@@ -155,7 +169,7 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        orderBy: { [sortBy]: sortOrder },
+        orderBy,
         skip,
         take: limit,
       }),
@@ -180,6 +194,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// ========== POST ==========
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
@@ -191,13 +206,26 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch {
-      return NextResponse.json({ error: 'بيانات الطلب غير صالحة (JSON غير صحيح)' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'بيانات الطلب غير صالحة (JSON غير صحيح)' },
+        { status: 400 }
+      );
     }
 
     if (!body || typeof body !== 'object') {
-      return NextResponse.json({ error: 'بيانات الطلب غير صحيحة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'بيانات الطلب غير صحيحة' },
+        { status: 400 }
+      );
     }
 
+    // ملاحظة: من المفترض أن دالة createAsset تقوم بالتحقق من:
+    // - أن roomId موجود (إذا تم توفيره)
+    // - أن roomId يتبع buildingId المقدم
+    // - أن buildingId يتبع branchId المقدم (إن وجد)
+    // - وأن branchId يتبع companyId من الجلسة
+    // - وأن جميع العلاقات متسقة.
+    // هذا يمنع إنشاء أصول ببيانات غير متسقة.
     const asset = await createAsset(toAssetsSession(session), body);
 
     return NextResponse.json(asset, {

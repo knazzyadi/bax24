@@ -3,7 +3,7 @@
 
 import { useSession } from "next-auth/react";
 import { useRouter, usePathname } from "next/navigation";
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect } from "react";
 import { Ban, Loader2 } from "lucide-react";
 // ✅ تغيير المسار من detail إلى layout حسب دليل المكونات
 import { PageContainer } from "@/components/shared/layout/PageContainer";

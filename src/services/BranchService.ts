@@ -21,7 +21,7 @@ export class BranchService {
    * جلب جميع الفروع مع صلاحيات المستخدم
    */
   static async getAll(session: any, companyIdParam?: string) {
-    let where: any = {};
+    const where: any = {};
 
     if (session.role !== 'SUPER_ADMIN') {
       where.companyId = session.companyId;
@@ -74,7 +74,7 @@ export class BranchService {
     }
 
     // إنشاء slug فريد
-    let baseSlug = generateSlug(nameEn?.trim() || name.trim()) || 'branch';
+    const baseSlug = generateSlug(nameEn?.trim() || name.trim()) || 'branch';
     let slug = baseSlug;
     let counter = 1;
     while (await prisma.branch.findFirst({ where: { slug } })) {

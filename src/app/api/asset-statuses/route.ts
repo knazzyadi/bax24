@@ -1,4 +1,5 @@
 // src/app/api/asset-statuses/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
@@ -6,20 +7,27 @@ import { prisma } from '@/lib/prisma';
 // ============================================================
 // GET - جلب قائمة الحالات (مع دعم الترجمة)
 // ============================================================
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
 
     const companyId = session.companyId;
+
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
     }
 
-    const searchParams = request.nextUrl.searchParams;
-    const locale = searchParams.get('locale') || 'ar';
+    // يمكن إضافة دعم الترجمة لاحقاً عند الحاجة
 
     const statuses = await prisma.assetStatus.findMany({
       where: {
@@ -45,8 +53,10 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(statuses);
+
   } catch (error) {
     console.error('Error in GET /api/asset-statuses:', error);
+
     return NextResponse.json(
       { error: 'حدث خطأ في جلب الحالات' },
       { status: 500 }
@@ -60,21 +70,41 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
 
     const companyId = session.companyId;
+
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
-    const { name, nameEn, code, color, order, isDefault, isActive } = body;
+
+    const {
+      name,
+      nameEn,
+      code,
+      color,
+      order,
+      isDefault,
+      isActive,
+    } = body;
 
     // التحقق من الاسم
     if (!name?.trim()) {
-      return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'الاسم مطلوب' },
+        { status: 400 }
+      );
     }
 
     // التحقق من عدم وجود اسم مكرر
@@ -85,15 +115,24 @@ export async function POST(request: NextRequest) {
         deletedAt: null,
       },
     });
+
     if (existing) {
-      return NextResponse.json({ error: 'هناك حالة بنفس الاسم بالفعل' }, { status: 409 });
+      return NextResponse.json(
+        { error: 'هناك حالة بنفس الاسم بالفعل' },
+        { status: 409 }
+      );
     }
 
     // إذا كان isDefault = true، نعيد تعيين باقي الحالات إلى false
     if (isDefault) {
       await prisma.assetStatus.updateMany({
-        where: { companyId, deletedAt: null },
-        data: { isDefault: false },
+        where: {
+          companyId,
+          deletedAt: null,
+        },
+        data: {
+          isDefault: false,
+        },
       });
     }
 
@@ -123,8 +162,10 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(newStatus, { status: 201 });
+
   } catch (error) {
     console.error('Error in POST /api/asset-statuses:', error);
+
     return NextResponse.json(
       { error: 'حدث خطأ في إنشاء الحالة' },
       { status: 500 }

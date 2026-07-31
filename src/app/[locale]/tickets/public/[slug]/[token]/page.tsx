@@ -75,13 +75,12 @@ export default function PublicTicketPage() {
     isRtl,
   });
 
-  const assetData = useAssetData({
-    slug,
-    token,
-    roomId: location.roomId,
-    assetTypeId: form.assetTypeId,
-    isRtl,
-  });
+    const assetData = useAssetData({
+      slug,
+      token,
+      roomId: location.roomId,
+      assetTypeId: form.assetTypeId,
+    });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);

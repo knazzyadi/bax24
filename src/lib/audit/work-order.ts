@@ -1,12 +1,50 @@
 // src/lib/audit/work-order.ts
-import { AuditAction, AuditLogData } from './types';
+
+import { AuditAction } from './types';
 import { createAuditLog } from './service';
 import { diffObjects } from './diff';
 
+type WorkOrderEntity = {
+  id: string;
+  code?: string;
+  title?: string;
+  description?: string;
+  notes?: string;
+  reason?: string;
+
+  workOrderType?: {
+    name?: string;
+    nameEn?: string;
+  } | null;
+
+  priority?: {
+    name?: string;
+    nameEn?: string;
+  } | null;
+
+  status?: {
+    name?: string;
+    nameEn?: string;
+  } | null;
+
+  room?: {
+    name?: string;
+    nameEn?: string;
+  } | null;
+
+  assignedUser?: {
+    name?: string;
+  } | null;
+
+  createdByUser?: {
+    name?: string;
+  } | null;
+};
+
 export interface WorkOrderDTO {
   id: string;
-  code: string;
-  title: string;
+  code?: string;
+  title?: string;
   description?: string;
   typeName?: string;
   typeNameEn?: string;
@@ -22,10 +60,16 @@ export interface WorkOrderDTO {
   reason?: string;
 }
 
-export function buildWorkOrderDTO(wo: any): WorkOrderDTO {
-  if (!wo) return null as any;
+export function buildWorkOrderDTO(
+  wo: WorkOrderEntity | null
+  ): WorkOrderDTO {
+    if (!wo) {
+      return {
+        id: '',
+      };
+    }
 
-  return {
+    return {
     id: wo.id,
     code: wo.code,
     title: wo.title,
@@ -39,7 +83,6 @@ export function buildWorkOrderDTO(wo: any): WorkOrderDTO {
     roomName: wo.room?.name,
     roomNameEn: wo.room?.nameEn,
     assignedToName: wo.assignedUser?.name,
-    // ✅ استخدام createdByUser كما هو في الـ Schema
     createdByName: wo.createdByUser?.name,
     notes: wo.notes || undefined,
     reason: wo.reason || undefined,
@@ -51,19 +94,33 @@ export async function createWorkOrderAudit(
   workOrderId: string,
   userId: string,
   userEmail: string,
-  oldWorkOrder?: any,
-  newWorkOrder?: any,
-  metadata?: Record<string, any>
+  oldWorkOrder?: WorkOrderEntity | null,
+  newWorkOrder?: WorkOrderEntity | null,
+  metadata?: Record<string, unknown>
 ): Promise<void> {
-  const oldDTO = oldWorkOrder ? buildWorkOrderDTO(oldWorkOrder) : null;
-  const newDTO = buildWorkOrderDTO(newWorkOrder || { id: workOrderId });
+  const oldDTO = oldWorkOrder
+    ? buildWorkOrderDTO(oldWorkOrder)
+    : { id: workOrderId };
 
-  const finalAction = oldDTO ? action : AuditAction.CREATE;
+  const newDTO = buildWorkOrderDTO(
+    newWorkOrder ?? { id: workOrderId }
+  );
+
+  const finalAction = oldDTO
+    ? action
+    : AuditAction.CREATE;
 
   const changes = diffObjects(oldDTO, newDTO);
 
-  if (changes.length === 0 && finalAction !== AuditAction.CREATE && finalAction !== AuditAction.DELETE) {
-    console.log('📝 No changes detected, skipping work order audit log');
+  if (
+    changes.length === 0 &&
+    finalAction !== AuditAction.CREATE &&
+    finalAction !== AuditAction.DELETE
+  ) {
+    console.log(
+      '📝 No changes detected, skipping work order audit log'
+    );
+
     return;
   }
 
@@ -74,6 +131,9 @@ export async function createWorkOrderAudit(
     userId,
     userEmail,
     changes,
-    metadata: metadata || { old: oldDTO, new: newDTO },
+    metadata: metadata ?? {
+      old: oldDTO,
+      new: newDTO,
+    },
   });
 }

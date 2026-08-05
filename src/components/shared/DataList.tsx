@@ -1,8 +1,7 @@
 // src/components/shared/DataList.tsx
 "use client";
 
-import React, { useState, useEffect, useMemo, ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useMemo, ReactNode } from "react";
 import Link from "next/link";
 import { Search, Plus, ChevronLeft, ChevronRight, Filter, X } from "lucide-react";
 
@@ -24,7 +23,9 @@ export interface ItemActions {
   deletingId: string | null;
 }
 
-export interface DataListProps<T = any> {
+type DataItem = Record<string, unknown>;
+
+export interface DataListProps<T = DataItem> {
   items: T[];
   total: number;
   currentPage: number;
@@ -40,7 +41,6 @@ export interface DataListProps<T = any> {
   searchPlaceholder?: string;
   searchValue?: string;
   onSearchChange?: (value: string) => void;
-  searchDebounce?: number;
   filterSections?: FilterSection[];
   filterValues?: Record<string, string>;
   onFilterChange?: (sectionId: string, value: string) => void;
@@ -68,7 +68,6 @@ export function DataList<T extends { id: string; name?: string }>({
   searchPlaceholder = "بحث...",
   searchValue = "",
   onSearchChange,
-  searchDebounce = 300,
   filterSections = [],
   filterValues = {},
   onFilterChange,
@@ -78,8 +77,7 @@ export function DataList<T extends { id: string; name?: string }>({
   emptyMessage = "لا توجد بيانات",
   showPagination = true,
   className = "",
-}: DataListProps) {
-  const router = useRouter();
+}: DataListProps<T>) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -117,7 +115,6 @@ export function DataList<T extends { id: string; name?: string }>({
   const startIndex = total > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0;
   const endIndex = Math.min(currentPage * itemsPerPage, total);
 
-  // ✅ تحويل filterSections إلى مصفوفة آمنة مع خيارات صالحة
   const safeFilterSections = useMemo(() => {
     return filterSections.map(section => ({
       ...section,
@@ -127,7 +124,6 @@ export function DataList<T extends { id: string; name?: string }>({
     }));
   }, [filterSections]);
 
-  // ✅ دالة للحصول على الخيارات الآمنة مع قيمة افتراضية في حالة الفراغ
   const getSafeOptions = (section: FilterSection): FilterOption[] => {
     if (section.options.length === 0) {
       return [{ value: "all", label: section.label || "الكل" }];

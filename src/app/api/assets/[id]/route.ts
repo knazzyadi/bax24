@@ -8,13 +8,26 @@ import {
   deleteAsset,
   getErrorResponseStatus,
 } from '@/lib/assets';
-import { createAssetAudit, buildAssetDTO } from '@/lib/audit/asset';
+import { createAssetAudit } from '@/lib/audit/asset';
 import { AuditAction } from '@/lib/audit/types';
 
 // ============================================================
-// تحويل الجلسة إلى النوع المطلوب من lib/assets
+// النوع المطلوب في lib/assets
 // ============================================================
-function toAssetsSession(session: AuthSession): any {
+
+type AssetsSession = AuthSession & {
+  companyId: string | null;
+  companyName: string | null;
+  companyNameEn: string | null;
+  branchId: string | null;
+  branchIds: string[];
+};
+
+// ============================================================
+// تحويل الجلسة
+// ============================================================
+
+function toAssetsSession(session: AuthSession): AssetsSession {
   return {
     ...session,
     userId: session.userId,
@@ -41,16 +54,22 @@ export async function GET(
 ) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const { id } = await params;
+
     const asset = await getAsset(toAssetsSession(session), id);
+
     return NextResponse.json(asset);
   } catch (error) {
     const response = getErrorResponseStatus(error);
-    return NextResponse.json(response.body, { status: response.status });
+
+    return NextResponse.json(response.body, {
+      status: response.status,
+    });
   }
 }
 
@@ -64,16 +83,19 @@ export async function PUT(
 ) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const { id } = await params;
+
     const prepared = toAssetsSession(session);
 
     const oldAsset = await getAsset(prepared, id);
 
     const body = await request.json();
+
     const updatedAsset = await updateAsset(prepared, id, body);
 
     await createAssetAudit(
@@ -83,13 +105,18 @@ export async function PUT(
       session.email,
       oldAsset,
       updatedAsset,
-      { updatedFields: Object.keys(body) }
+      {
+        updatedFields: Object.keys(body),
+      }
     );
 
     return NextResponse.json(updatedAsset);
   } catch (error) {
     const response = getErrorResponseStatus(error);
-    return NextResponse.json(response.body, { status: response.status });
+
+    return NextResponse.json(response.body, {
+      status: response.status,
+    });
   }
 }
 
@@ -103,13 +130,16 @@ export async function DELETE(
 ) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const { id } = await params;
+
     const searchParams = request.nextUrl.searchParams;
     const hard = searchParams.get('hard') === 'true';
+
     const prepared = toAssetsSession(session);
 
     const oldAsset = await getAsset(prepared, id);
@@ -129,6 +159,9 @@ export async function DELETE(
     return NextResponse.json(result);
   } catch (error) {
     const response = getErrorResponseStatus(error);
-    return NextResponse.json(response.body, { status: response.status });
+
+    return NextResponse.json(response.body, {
+      status: response.status,
+    });
   }
 }

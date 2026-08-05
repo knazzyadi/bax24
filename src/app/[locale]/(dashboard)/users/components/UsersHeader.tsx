@@ -1,6 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
 import { Users, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -10,8 +9,6 @@ interface UsersHeaderProps {
 }
 
 export function UsersHeader({ onAdd, isRtl }: UsersHeaderProps) {
-  const t = useTranslations('UsersPage');
-
   return (
     <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
       <div className="flex items-center gap-4">

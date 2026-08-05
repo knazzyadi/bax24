@@ -12,7 +12,11 @@ import {
 } from "@/components/ui/popover";
 import { CheckCircle, XCircle, MinusCircle, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { ResultState, FindingDraft } from "../types";
+import type {
+  ResultState,
+  FindingDraft,
+  InspectionItemWithResult, // ✅ 1. استيراد النوع الجديد
+} from "../types";
 
 // ============================================================
 // أيقونة النتيجة (Pass / Fail / N/A)
@@ -92,13 +96,13 @@ export function InspectionItemsCard({
     categoryId: string;
     categoryName: string;
     categoryNameAr?: string;
-    items: any[];
+    items: InspectionItemWithResult[]; // ✅ 2. استبدال any
   }[];
   resultsState: Record<string, ResultState>;
   onUpdateResult: (
     formItemId: string,
     field: keyof ResultState,
-    value: any
+    value: ResultState[keyof ResultState] // ✅ 3. استبدال any
   ) => void;
   isRtl: boolean;
 }) {
@@ -151,7 +155,8 @@ export function InspectionItemsCard({
   };
 
   // ===== إحصائيات الفئة =====
-  const getCategoryStats = (items: any[]) => {
+  const getCategoryStats = (items: InspectionItemWithResult[]) => {
+    // ✅ 4. استبدال any
     let pass = 0,
       fail = 0,
       na = 0;
@@ -171,7 +176,7 @@ export function InspectionItemsCard({
     na: isRtl ? "لا ينطبق" : "N/A",
   };
 
-    const riskLevelLabels = {
+  const riskLevelLabels = {
     low: isRtl ? "منخفضة" : "Low",
     medium: isRtl ? "متوسطة" : "Medium",
     high: isRtl ? "عالية" : "High",
@@ -272,7 +277,8 @@ export function InspectionItemsCard({
                         {/* الوصف */}
                         <div>
                           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
-                            {isRtl ? "تعليمات الفحص" : "Inspection Instructions"}                          </label>
+                            {isRtl ? "تعليمات الفحص" : "Inspection Instructions"}
+                          </label>
                           <textarea
                             className="w-full border border-slate-300 dark:border-slate-600 rounded-lg p-2 bg-white dark:bg-slate-800 text-sm focus:ring-2 focus:ring-red-400 outline-none"
                             rows={2}
@@ -464,7 +470,7 @@ export function InspectionItemsCard({
                                   <span className="inline-block w-2 h-2 bg-red-500 rounded-full"></span>
                                   {isRtl ? "تفاصيل الملاحظة" : "Finding Details"}
                                 </h4>
-                                
+
                                 <div>
                                   <span className="font-medium text-slate-500 dark:text-slate-400 text-xs uppercase tracking-wider">
                                     {isRtl ? "العنوان" : "Title"}
@@ -490,14 +496,18 @@ export function InspectionItemsCard({
                                     {isRtl ? "مستوى الخطورة" : "Risk Level"}
                                   </span>
                                   <p className="text-slate-800 dark:text-slate-200">
-                                    <Badge 
-                                      variant="outline" 
+                                    <Badge
+                                      variant="outline"
                                       className={cn(
                                         "text-xs font-normal",
-                                        finding.riskLevel === "critical" && "border-red-500 text-red-700 dark:text-red-400",
-                                        finding.riskLevel === "high" && "border-orange-500 text-orange-700 dark:text-orange-400",
-                                        finding.riskLevel === "medium" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
-                                        finding.riskLevel === "low" && "border-green-500 text-green-700 dark:text-green-400"
+                                        finding.riskLevel === "critical" &&
+                                          "border-red-500 text-red-700 dark:text-red-400",
+                                        finding.riskLevel === "high" &&
+                                          "border-orange-500 text-orange-700 dark:text-orange-400",
+                                        finding.riskLevel === "medium" &&
+                                          "border-yellow-500 text-yellow-700 dark:text-yellow-400",
+                                        finding.riskLevel === "low" &&
+                                          "border-green-500 text-green-700 dark:text-green-400"
                                       )}
                                     >
                                       {riskLevelLabels[finding.riskLevel]}

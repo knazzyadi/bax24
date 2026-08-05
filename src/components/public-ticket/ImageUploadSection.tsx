@@ -2,6 +2,7 @@
 "use client";
 
 import { useRef } from "react";
+import Image from "next/image";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Upload, X } from "lucide-react";
@@ -67,11 +68,14 @@ export function ImageUploadSection({
       {previews.length > 0 && (
         <div className="grid grid-cols-3 gap-3 mt-3">
           {previews.map((src, idx) => (
-            <div key={idx} className="relative group">
-              <img
+            <div key={idx} className="relative group aspect-square">
+              <Image
                 src={src}
-                alt="preview"
-                className="w-full h-24 object-cover rounded-lg border"
+                alt={`Preview ${idx + 1}`}
+                width={300}
+                height={300}
+                className="w-full h-full object-cover rounded-lg border"
+                unoptimized // لأن src هي blob URL
               />
               <button
                 type="button"

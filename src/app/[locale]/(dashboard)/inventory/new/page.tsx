@@ -28,6 +28,19 @@ import {
 } from "@/components/shared/LocationSelector";
 import type { Building, Floor, Room } from "@/types/assets";
 
+// ===== النوع المطلوب لبيانات الغرفة من API =====
+type RoomDetailsResponse = {
+  name?: string;
+  nameEn?: string | null;
+  code?: string | null;
+  floor?: {
+    code?: string | null;
+    building?: {
+      code?: string | null;
+    } | null;
+  } | null;
+};
+
 type ChangeEvent = React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>;
 
 // =========================
@@ -85,60 +98,68 @@ export default function NewInventoryPage() {
 
   // ===== Load Floors (مع المسار الجديد) =====
   useEffect(() => {
-    if (!selectedBuildingId) {
-      setFloors([]);
-      return;
-    }
     const controller = new AbortController();
+
+    if (!selectedBuildingId) {
+      return; // لا نعدل حالة floors، تبقى فارغة
+    }
+
     const load = async () => {
       try {
         const res = await fetch(
           `/api/locations/buildings/${selectedBuildingId}/floors`,
           { signal: controller.signal }
         );
+
         if (!res.ok) return;
-        const data = await res.json();
+
+        const data: Floor[] = await res.json();
         setFloors(data);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
         console.error(e);
       }
     };
+
     load();
+
     return () => controller.abort();
   }, [selectedBuildingId]);
 
   // ===== Load Rooms (مع المسار الجديد) =====
   useEffect(() => {
-    if (!selectedFloorId) {
-      setRooms([]);
-      return;
-    }
     const controller = new AbortController();
+
+    if (!selectedFloorId) {
+      return; // لا نعدل حالة rooms، تبقى فارغة
+    }
+
     const load = async () => {
       try {
         const res = await fetch(
           `/api/locations/floors/${selectedFloorId}/rooms`,
           { signal: controller.signal }
         );
+
         if (!res.ok) return;
-        const data = await res.json();
+
+        const data: Room[] = await res.json();
         setRooms(data);
       } catch (e) {
         if (e instanceof DOMException && e.name === "AbortError") return;
         console.error(e);
       }
     };
+
     load();
+
     return () => controller.abort();
   }, [selectedFloorId]);
 
   // ===== Room Details (مع المسار الجديد) =====
   useEffect(() => {
     if (!formData.roomId) {
-      setSelectedRoomFullCode("");
-      setSelectedRoomName("");
-      return;
+      return; // لا نعدل الحالة، تترك فارغة
     }
 
     const controller = new AbortController();
@@ -147,7 +168,7 @@ export default function NewInventoryPage() {
         const res = await fetch(`/api/locations/rooms/${formData.roomId}`, {
           signal: controller.signal,
         });
-        let roomData: any = null;
+        let roomData: RoomDetailsResponse | null = null;
         if (res.ok) {
           roomData = await res.json();
         }

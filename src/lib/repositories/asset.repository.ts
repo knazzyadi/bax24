@@ -7,7 +7,7 @@ import { BaseRepository } from './base.repository';
 
 // ============================================================
 // 1. تعريف select ثابت باستخدام Prisma.validator
-//    مطابق تماماً لنموذج Asset في schema.prisma
+//    مطابق تماماً لنموذج Asset في schema.prisma مع جميع العلاقات
 // ============================================================
 const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
   // الحقول الأساسية
@@ -44,6 +44,15 @@ const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
       id: true,
       name: true,
       nameEn: true,
+      code: true,
+      description: true,
+      order: true,
+      isDefault: true,
+      isActive: true,
+      companyId: true,
+      createdAt: true,
+      updatedAt: true,
+      deletedAt: true,
     },
   },
   status: {
@@ -53,6 +62,14 @@ const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
       nameEn: true,
       code: true,
       color: true,
+      description: true,
+      order: true,
+      isDefault: true,
+      isActive: true,
+      companyId: true,
+      createdAt: true,
+      updatedAt: true,
+      deletedAt: true,
     },
   },
   room: {
@@ -60,21 +77,42 @@ const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
       id: true,
       name: true,
       nameEn: true,
+      code: true,
+      order: true,
+      floorId: true,
+      buildingId: true,
+      createdAt: true,
+      updatedAt: true,
+      deletedAt: true,
       floor: {
         select: {
           id: true,
           name: true,
           nameEn: true,
+          code: true,
+          order: true,
+          buildingId: true,
           building: {
             select: {
               id: true,
               name: true,
               nameEn: true,
+              code: true,
+              order: true,
+              branchId: true,
+              companyId: true,
+              createdAt: true,
+              updatedAt: true,
+              deletedAt: true,
               branch: {
                 select: {
                   id: true,
                   name: true,
                   nameEn: true,
+                  companyId: true,
+                  createdAt: true,
+                  updatedAt: true,
+                  deletedAt: true,
                 },
               },
             },
@@ -83,11 +121,21 @@ const assetSelect = Prisma.validator<Prisma.AssetSelect>()({
       },
     },
   },
+  // ✅ تم التعديل: إضافة جميع حقول supplier
   supplier: {
     select: {
       id: true,
       name: true,
       nameEn: true,
+      code: true,
+      contactPerson: true,
+      phone: true,
+      email: true,
+      isActive: true,
+      companyId: true,
+      createdAt: true,
+      updatedAt: true,
+      deletedAt: true,
     },
   },
   branch: {
@@ -139,7 +187,6 @@ export class AssetRepository extends BaseRepository {
       skip?: number;
       limit?: number;
     }) => {
-      // ✅ استخدم الخصائص المسطحة مباشرة (بدون user)
       const { companyId } = await this.company();
 
       const assets = await prisma.asset.findMany({

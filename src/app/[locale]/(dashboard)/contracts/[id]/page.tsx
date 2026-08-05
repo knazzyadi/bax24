@@ -3,7 +3,7 @@
 
 import { useEffect, useState, use } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -38,17 +38,12 @@ import {
   RefreshCw,
   Info,
   Paperclip,
-  Eye,
-  File,
-  Image,
   ArrowLeft,
   User,
   Phone,
   Mail,
-  Sparkles,
   Shield,
   Clock,
-  TrendingUp,
   CalendarDays,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -56,6 +51,7 @@ import { ar } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 import { AttachmentsManager } from "@/components/contracts/AttachmentsManager";
+import type { LucideIcon } from "lucide-react";
 
 interface Attachment {
   id: string;
@@ -71,8 +67,23 @@ const formatDate = (date: string | Date) => {
   return format(new Date(date), "d MMMM yyyy", { locale: ar });
 };
 
-// مكون لعرض عنصر تفصيلي
-function DetailItem({ label, value, icon: Icon, type = "text", isPrice = false, className }: any) {
+type DetailItemProps = {
+  label: string;
+  value: string | number | null | undefined; // ✅ تم إزالة Date
+  icon: LucideIcon;
+  type?: "text" | "date";
+  isPrice?: boolean;
+  className?: string;
+};
+
+function DetailItem({
+  label,
+  value,
+  icon: Icon,
+  type = "text",
+  isPrice = false,
+  className,
+}: DetailItemProps) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
@@ -80,58 +91,120 @@ function DetailItem({ label, value, icon: Icon, type = "text", isPrice = false, 
         {label}
       </div>
       <div className="flex items-baseline gap-1">
-        <span className={cn(
-          "text-base font-semibold tracking-tight",
-          isPrice ? "text-emerald-600 dark:text-emerald-400" : "text-slate-800 dark:text-slate-100",
-          className
-        )}>
+        <span
+          className={cn(
+            "text-base font-semibold tracking-tight",
+            isPrice
+              ? "text-emerald-600 dark:text-emerald-400"
+              : "text-slate-800 dark:text-slate-100",
+            className
+          )}
+        >
           {isPrice
-            ? Number(value || 0).toLocaleString()
+            ? Number(value ?? 0).toLocaleString()
             : type === "date" && value
-            ? formatDate(value)
-            : value || "—"}
+            ? formatDate(String(value))
+            : String(value ?? "—")}
         </span>
-        {isPrice && <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mr-1">ر.س</span>}
+        {isPrice && (
+          <span className="text-xs font-medium text-slate-400 dark:text-slate-500 mr-1">
+            ر.س
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-// مكون حالة العقد مع أيقونة
 function StatusBadge({ status }: { status: string }) {
-  const statusMap: Record<string, { label: string; color: string; bg: string; icon: any }> = {
-    ACTIVE: { label: "نشط", color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-950/30", icon: CheckCircle2 },
-    EXPIRED: { label: "منتهي", color: "text-rose-600 dark:text-rose-400", bg: "bg-rose-50 dark:bg-rose-950/30", icon: AlertCircle },
-    PENDING_REVIEW: { label: "قيد المراجعة", color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-950/30", icon: Clock },
-    CANCELLED: { label: "ملغي", color: "text-slate-600 dark:text-slate-400", bg: "bg-slate-50 dark:bg-slate-800/30", icon: X },
+  const statusMap: Record<
+    string,
+    {
+      label: string;
+      color: string;
+      bg: string;
+      icon: LucideIcon;
+    }
+  > = {
+    ACTIVE: {
+      label: "نشط",
+      color: "text-emerald-600 dark:text-emerald-400",
+      bg: "bg-emerald-50 dark:bg-emerald-950/30",
+      icon: CheckCircle2,
+    },
+    EXPIRED: {
+      label: "منتهي",
+      color: "text-rose-600 dark:text-rose-400",
+      bg: "bg-rose-50 dark:bg-rose-950/30",
+      icon: AlertCircle,
+    },
+    PENDING_REVIEW: {
+      label: "قيد المراجعة",
+      color: "text-amber-600 dark:text-amber-400",
+      bg: "bg-amber-50 dark:bg-amber-950/30",
+      icon: Clock,
+    },
+    CANCELLED: {
+      label: "ملغي",
+      color: "text-slate-600 dark:text-slate-400",
+      bg: "bg-slate-50 dark:bg-slate-800/30",
+      icon: X,
+    },
   };
   const config = statusMap[status] || statusMap.PENDING_REVIEW;
   const Icon = config.icon;
 
   return (
-    <span className={cn(
-      "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all",
-      config.bg,
-      config.color,
-      "border-slate-200/30 dark:border-slate-700/30"
-    )}>
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold border transition-all",
+        config.bg,
+        config.color,
+        "border-slate-200/30 dark:border-slate-700/30"
+      )}
+    >
       <Icon className="h-4 w-4" />
       {config.label}
     </span>
   );
 }
 
-export default function ContractDetailPage({ params }: { params: Promise<{ id: string }> }) {
+type ContractData = {
+  id: string;
+  title: string;
+  code: string | null;
+  supplier: string;
+  value: number;
+  startDate: string;
+  endDate: string;
+  description: string | null;
+  notes: string | null;
+  status: string;
+  cancellationReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  agentName: string | null;
+  agentPhone: string | null;
+  agentEmail: string | null;
+  branch?: {
+    name: string;
+  };
+  attachments: Attachment[];
+};
+
+export default function ContractDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
   const router = useRouter();
-  const locale = useLocale();
   const t = useTranslations("Contracts");
   const resolvedParams = use(params);
-  const isRtl = locale === "ar";
 
   const [loading, setLoading] = useState(true);
   const [cancelling, setCancelling] = useState(false);
   const [reactivating, setReactivating] = useState(false);
-  const [contract, setContract] = useState<any>(null);
+  const [contract, setContract] = useState<ContractData | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
 
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -207,8 +280,9 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
       toast.success(t("cancelSuccess"));
       setCancelDialogOpen(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message || t("cancelError"));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t("cancelError");
+      toast.error(message);
     } finally {
       setCancelling(false);
     }
@@ -245,8 +319,9 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
       toast.success(t("reactivateSuccess"));
       setReactivateDialogOpen(false);
       router.refresh();
-    } catch (err: any) {
-      toast.error(err.message || t("reactivateError"));
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : t("reactivateError");
+      toast.error(message);
     } finally {
       setReactivating(false);
     }
@@ -266,15 +341,13 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
   const canCancel = contract.status === "ACTIVE" || contract.status === "PENDING_REVIEW";
   const canReactivate = contract.status === "CANCELLED";
 
-  // كرت الخلفية الزجاجي
-  const glassCard = "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
+  const glassCard =
+    "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      {/* رأس الصفحة */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
@@ -303,9 +376,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* العمود الرئيسي (2/3) */}
         <div className="lg:col-span-2 space-y-8">
-          {/* بطاقة المعلومات الأساسية */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
@@ -317,15 +388,32 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             </div>
 
             <div className="space-y-8">
-              {/* المعلومات الأساسية */}
               <div className="grid sm:grid-cols-2 gap-6">
-                <DetailItem label={t("supplier")} value={contract.supplier} icon={Building} />
-                <DetailItem label={t("value")} value={contract.value} icon={DollarSign} isPrice />
-                <DetailItem label={t("startDate")} value={contract.startDate} icon={CalendarDays} type="date" />
-                <DetailItem label={t("endDate")} value={contract.endDate} icon={CalendarDays} type="date" />
+                <DetailItem
+                  label={t("supplier")}
+                  value={contract.supplier}
+                  icon={Building}
+                />
+                <DetailItem
+                  label={t("value")}
+                  value={contract.value}
+                  icon={DollarSign}
+                  isPrice
+                />
+                <DetailItem
+                  label={t("startDate")}
+                  value={contract.startDate}
+                  icon={CalendarDays}
+                  type="date"
+                />
+                <DetailItem
+                  label={t("endDate")}
+                  value={contract.endDate}
+                  icon={CalendarDays}
+                  type="date"
+                />
               </div>
 
-              {/* معلومات المندوب */}
               <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
                 <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">
                   <User className="h-3.5 w-3.5" />
@@ -362,12 +450,15 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                     </div>
                   )}
                 </div>
-                {!contract.agentName && !contract.agentPhone && !contract.agentEmail && (
-                  <p className="text-sm text-slate-400 dark:text-slate-500 italic">{t("noAgentInfo")}</p>
-                )}
+                {!contract.agentName &&
+                  !contract.agentPhone &&
+                  !contract.agentEmail && (
+                    <p className="text-sm text-slate-400 dark:text-slate-500 italic">
+                      {t("noAgentInfo")}
+                    </p>
+                  )}
               </div>
 
-              {/* الوصف والملاحظات */}
               <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
                 <div>
                   <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2.5">
@@ -389,7 +480,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 </div>
               </div>
 
-              {/* سبب الإلغاء (إذا كان ملغي) */}
               {contract.status === "CANCELLED" && contract.cancellationReason && (
                 <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
                   <div className="flex items-center gap-2 text-[11px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2.5">
@@ -404,7 +494,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
-          {/* المرفقات */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
@@ -426,9 +515,7 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
           </div>
         </div>
 
-        {/* العمود الجانبي (1/3) */}
         <div className="space-y-6">
-          {/* معلومات إضافية */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40">
@@ -469,7 +556,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
-          {/* مساعدة سريعة */}
           <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
             <Shield className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
             <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -477,7 +563,6 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
 
-          {/* أزرار الإجراءات */}
           <div className="flex flex-col gap-3">
             {canCancel && (
               <Button
@@ -486,7 +571,11 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 variant="outline"
                 className="w-full rounded-xl border-rose-200 dark:border-rose-800/50 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 h-12 font-medium transition-all duration-200"
               >
-                {cancelling ? <Loader2 className="h-5 w-5 animate-spin" /> : <X className="h-5 w-5" />}
+                {cancelling ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <X className="h-5 w-5" />
+                )}
                 {t("terminate")}
               </Button>
             )}
@@ -496,13 +585,16 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
                 disabled={reactivating}
                 className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
               >
-                {reactivating ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
+                {reactivating ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-5 w-5" />
+                )}
                 {t("reactivate")}
               </Button>
             )}
           </div>
 
-          {/* زر العودة */}
           <Button
             variant="outline"
             onClick={() => router.back()}
@@ -514,11 +606,12 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
-      {/* حوار إلغاء العقد */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
         <DialogContent className="sm:max-w-[425px] rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-slate-800 dark:text-slate-100">{t("terminateDialogTitle")}</DialogTitle>
+            <DialogTitle className="text-slate-800 dark:text-slate-100">
+              {t("terminateDialogTitle")}
+            </DialogTitle>
             <DialogDescription className="text-slate-500 dark:text-slate-400">
               {t("terminateDialogDesc")}
             </DialogDescription>
@@ -546,28 +639,44 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             )}
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setCancelDialogOpen(false)} className="rounded-xl">
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+              className="rounded-xl"
+            >
               {t("cancel")}
             </Button>
-            <Button variant="destructive" onClick={confirmCancel} disabled={cancelling} className="rounded-xl">
-              {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : t("confirmTerminate")}
+            <Button
+              variant="destructive"
+              onClick={confirmCancel}
+              disabled={cancelling}
+              className="rounded-xl"
+            >
+              {cancelling ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                t("confirmTerminate")
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* حوار إعادة التفعيل */}
       <Dialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
         <DialogContent className="sm:max-w-[425px] rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
           <DialogHeader>
-            <DialogTitle className="text-slate-800 dark:text-slate-100">{t("reactivateTitle")}</DialogTitle>
+            <DialogTitle className="text-slate-800 dark:text-slate-100">
+              {t("reactivateTitle")}
+            </DialogTitle>
             <DialogDescription className="text-slate-500 dark:text-slate-400">
               {t("reactivateDesc")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label className="text-slate-700 dark:text-slate-300">{t("newStartDate")}</Label>
+              <Label className="text-slate-700 dark:text-slate-300">
+                {t("newStartDate")}
+              </Label>
               <Input
                 type="date"
                 value={newStartDate}
@@ -576,7 +685,9 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
               />
             </div>
             <div className="space-y-2">
-              <Label className="text-slate-700 dark:text-slate-300">{t("newEndDate")}</Label>
+              <Label className="text-slate-700 dark:text-slate-300">
+                {t("newEndDate")}
+              </Label>
               <Input
                 type="date"
                 value={newEndDate}
@@ -586,11 +697,23 @@ export default function ContractDetailPage({ params }: { params: Promise<{ id: s
             </div>
           </div>
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setReactivateDialogOpen(false)} className="rounded-xl">
+            <Button
+              variant="outline"
+              onClick={() => setReactivateDialogOpen(false)}
+              className="rounded-xl"
+            >
               {t("cancel")}
             </Button>
-            <Button onClick={confirmReactivate} disabled={reactivating} className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/20">
-              {reactivating ? <Loader2 className="h-4 w-4 animate-spin" /> : t("confirmReactivate")}
+            <Button
+              onClick={confirmReactivate}
+              disabled={reactivating}
+              className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white shadow-lg shadow-indigo-500/20"
+            >
+              {reactivating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                t("confirmReactivate")
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

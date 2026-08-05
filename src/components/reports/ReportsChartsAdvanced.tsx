@@ -1,6 +1,7 @@
 // src/components/reports/ReportsChartsAdvanced.tsx
 "use client";
 
+// ✅ تم حذف LineChart و Line من الاستيراد
 import {
   BarChart,
   Bar,
@@ -13,8 +14,6 @@ import {
   PieChart,
   Pie,
   Cell,
-  LineChart,
-  Line,
   Area,
   AreaChart,
 } from "recharts";

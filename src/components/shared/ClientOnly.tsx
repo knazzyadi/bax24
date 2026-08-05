@@ -1,14 +1,10 @@
 // src/components/shared/ClientOnly.tsx
 "use client";
 
-import { useEffect, useState, ReactNode } from "react";
+import { ReactNode, useState } from "react";
 
 export function ClientOnly({ children }: { children: ReactNode }) {
-  const [hasMounted, setHasMounted] = useState(false);
-
-  useEffect(() => {
-    setHasMounted(true);
-  }, []);
+  const [hasMounted] = useState(() => typeof window !== "undefined");
 
   if (!hasMounted) {
     return null;

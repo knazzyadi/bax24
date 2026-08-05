@@ -38,7 +38,7 @@ export function WorkOrdersList({
   const router = useRouter();
   const pathname = usePathname();
   const isRtl = locale === "ar";
-  const [isPending, startTransition] = useTransition();
+  const [, startTransition] = useTransition();
 
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [selectedStatusId, setSelectedStatusId] = useState(initialStatusId || "all");

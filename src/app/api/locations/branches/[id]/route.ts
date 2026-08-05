@@ -8,6 +8,16 @@ interface RouteContext {
   params: Promise<{ id: string }>;
 }
 
+// واجهة بيانات تحديث فرع
+interface UpdateBranchBody {
+  name?: string;
+  code?: string;
+  address?: string;
+  phone?: string;
+  isActive?: boolean;
+  // يمكن إضافة حقول أخرى حسب الحاجة
+}
+
 // PUT: تحديث فرع
 export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
@@ -23,16 +33,21 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
 
     // 3. تنفيذ المنطق
     const { id } = await params;
-    const body = await request.json();
+    const body = (await request.json()) as UpdateBranchBody;
     const updated = await BranchService.update(id, body, session);
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('PUT /api/branches/[id]', error);
-    if (error.message === 'الفرع غير موجود') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'الفرع غير موجود') {
       return NextResponse.json({ error: 'الفرع غير موجود' }, { status: 404 });
     }
-    if (error.message === 'يوجد فرع بنفس الكود' || error.message === 'اسم الفرع مطلوب' || error.message === 'كود الفرع مطلوب') {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (
+      message === 'يوجد فرع بنفس الكود' ||
+      message === 'اسم الفرع مطلوب' ||
+      message === 'كود الفرع مطلوب'
+    ) {
+      return NextResponse.json({ error: message }, { status: 400 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
@@ -55,13 +70,14 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     await BranchService.delete(id, session);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('DELETE /api/branches/[id]', error);
-    if (error.message === 'الفرع غير موجود') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'الفرع غير موجود') {
       return NextResponse.json({ error: 'الفرع غير موجود' }, { status: 404 });
     }
-    if (error.message === 'لا يمكن حذف الفرع لوجود بيانات مرتبطة') {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+    if (message === 'لا يمكن حذف الفرع لوجود بيانات مرتبطة') {
+      return NextResponse.json({ error: message }, { status: 400 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }

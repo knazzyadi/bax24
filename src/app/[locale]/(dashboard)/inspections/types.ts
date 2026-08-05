@@ -103,15 +103,29 @@ export interface InspectionCategoryWithItems {
   items: InspectionItemWithResult[];
 }
 
+// ============================================================
+// ✅ تعريف InspectionItemWithResult محدث ليشمل الخصائص المطلوبة
+// ============================================================
 export interface InspectionItemWithResult {
   id: string;
+
+  // الأسماء (دعم لغتين)
   name: string;
+  nameAr?: string;
   nameEn?: string;
-  code?: string;
-  riskLevel?: string;
-  inputType?: string;
+
+  // الوصف (دعم لغتين)
+  description?: string;
+  descriptionAr?: string;
+
+  // بيانات العنصر
+  code?: string; // يستخدم كـ cbahiCode أحياناً
+  riskLevel?: 'low' | 'medium' | 'high' | 'critical';
+  inputType?: 'pass_fail' | 'numeric' | 'text';
   sortOrder?: number;
-  result?: ResultState | null; // النتيجة مع Findings
+
+  // النتيجة (محسوبة/مؤقتة أثناء التنفيذ)
+  result?: ResultState | null;
 }
 
 // ============================================================

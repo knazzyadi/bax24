@@ -17,17 +17,23 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
+
     try {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
+
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'حدث خطأ');
+
+      if (!res.ok) {
+        throw new Error(data.error || 'حدث خطأ');
+      }
+
       setSubmitted(true);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : 'حدث خطأ غير معروف');
     } finally {
       setLoading(false);
     }
@@ -42,6 +48,7 @@ export default function ForgotPasswordPage() {
           <p className="text-muted-foreground mb-6">
             إذا كان البريد الإلكتروني مسجلاً لدينا، فستتلقى رابطاً لإعادة تعيين كلمة المرور.
           </p>
+
           <Link
             href={`/${locale}/login`}
             className="inline-flex items-center gap-2 text-indigo-600 hover:underline"
@@ -57,16 +64,23 @@ export default function ForgotPasswordPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl p-8">
-        <h1 className="text-2xl font-bold text-center mb-2">نسيت كلمة المرور؟</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">
+          نسيت كلمة المرور؟
+        </h1>
+
         <p className="text-muted-foreground text-center mb-6">
           أدخل بريدك الإلكتروني وسنرسل لك رابطاً لإعادة تعيين كلمة المرور.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium mb-1">البريد الإلكتروني</label>
+            <label className="block text-sm font-medium mb-1">
+              البريد الإلكتروني
+            </label>
+
             <div className="relative">
               <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
+
               <input
                 type="email"
                 value={email}
@@ -93,7 +107,10 @@ export default function ForgotPasswordPage() {
           </button>
 
           <div className="text-center text-sm">
-            <Link href={`/${locale}/login`} className="text-indigo-600 hover:underline">
+            <Link
+              href={`/${locale}/login`}
+              className="text-indigo-600 hover:underline"
+            >
               العودة إلى تسجيل الدخول
             </Link>
           </div>

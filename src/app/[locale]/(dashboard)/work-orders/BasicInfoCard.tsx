@@ -1,3 +1,4 @@
+// src/app/[locale]/(dashboard)/work-orders/BasicInfoCard.tsx
 "use client";
 
 import { Label } from "@/components/ui/label";
@@ -14,16 +15,36 @@ import { WorkOrderSourceSelector } from "./SourceSelector";
 import type { WorkOrderFormData } from "./types";
 import { Info } from "lucide-react";
 
+// ============================================================
+// الأنواع
+// ============================================================
+
+interface Option {
+  id: string;
+  name: string;
+  nameEn?: string | null;
+  code?: string | null;
+  color?: string | null;
+}
+
+// ============================================================
+// Props
+// ============================================================
+
 interface BasicInfoCardProps {
   formData: WorkOrderFormData;
   setFormData: (data: WorkOrderFormData) => void;
-  priorities: any[];
-  statuses?: any[];
-  workOrderTypes: any[];
+  priorities: Option[]; // ✅ استبدال any[]
+  statuses?: Option[]; // ✅ استبدال any[]
+  workOrderTypes: Option[]; // ✅ استبدال any[]
   isRtl: boolean;
-  t: any;
+  t: (key: string) => string; // ✅ استبدال any
   isSourceEditable?: boolean;
 }
+
+// ============================================================
+// المكون
+// ============================================================
 
 export function BasicInfoCard({
   formData,
@@ -43,7 +64,6 @@ export function BasicInfoCard({
       return isRtl ? "تم تحويل هذا الأمر من بلاغ" : "Converted from a ticket";
     }
     if (formData.source === "ppm") {
-      // ✅ تم التعديل من "pm" إلى "ppm"
       return isRtl ? "ناتج عن خطة صيانة وقائية" : "Generated from PM plan";
     }
     if (formData.source === "checklist") {
@@ -52,12 +72,14 @@ export function BasicInfoCard({
     return "";
   };
 
-  const getTypeDisplay = (type: any) => {
+  // ✅ تم تغيير type من any إلى Option
+  const getTypeDisplay = (type: Option) => {
     const name = isRtl ? type.name : (type.nameEn || type.name);
     return type.code ? `${type.code}. ${name}` : name;
   };
 
-  const getPriorityDisplay = (priority: any) => {
+  // ✅ تم تغيير type من any إلى Option
+  const getPriorityDisplay = (priority: Option) => {
     return isRtl ? priority.name : (priority.nameEn || priority.name);
   };
 
@@ -67,7 +89,7 @@ export function BasicInfoCard({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-1.5">
           <WorkOrderSourceSelector
-            value={formData.source ?? "manual"} // ✅ إضافة قيمة افتراضية
+            value={formData.source ?? "manual"}
             onChange={(value) => setFormData({ ...formData, source: value })}
             isRtl={isRtl}
             disabled={!isSourceEditable}

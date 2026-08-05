@@ -25,12 +25,12 @@ export interface DataTableProps<T> {
   data: T[];
   loading?: boolean;
   emptyMessage?: string;
-  rowKey?: keyof T | ((row: T) => React.Key);
+  rowKey?: keyof T | string | ((row: T) => React.Key);
   onRowClick?: (row: T) => void;
   className?: string;
 }
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T>({
   columns,
   data,
   loading = false,
@@ -40,9 +40,16 @@ export function DataTable<T extends Record<string, any>>({
   className,
 }: DataTableProps<T>) {
   const getKey = (row: T, index: number): React.Key => {
-    if (typeof rowKey === "function") return rowKey(row);
-    const value = row[rowKey];
-    if (typeof value === "string" || typeof value === "number") return value;
+    if (typeof rowKey === "function") {
+      return rowKey(row);
+    }
+
+    const value = row[rowKey as keyof T];
+
+    if (typeof value === "string" || typeof value === "number") {
+      return value;
+    }
+
     return index;
   };
 

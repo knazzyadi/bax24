@@ -1,4 +1,4 @@
-// src/app/[locale]/(dashboard)/work-orders/shared/InfoBar.tsx
+// src/app/[locale]/(dashboard)/work-orders/InfoBar.tsx
 "use client";
 
 import { Hash, Calendar, User, Pencil } from "lucide-react";
@@ -18,8 +18,10 @@ interface InfoBarProps {
   onQuickUpdate?: () => void;
 }
 
-const isValidDate = (date: any): boolean => {
+// ✅ تم تغيير النوع من any إلى string | Date | null | undefined
+const isValidDate = (date: string | Date | null | undefined): boolean => {
   if (!date) return false;
+
   const d = new Date(date);
   return d instanceof Date && !isNaN(d.getTime());
 };

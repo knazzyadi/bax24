@@ -12,12 +12,10 @@ import {
   Loader2,
   Calendar,
   Hash,
-  Banknote,
   FileText,
   ArrowLeft,
   Info,
   Package,
-  Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -107,7 +105,7 @@ export default function InventoryItemDetailPage() {
   if (!item) return null;
 
   const isLowStock = item.quantity <= item.minQuantity;
-  const unitPriceValue = (item as any).unitPrice;
+  // ✅ التعديل المطلوب: استخدام الخاصية مباشرةً من النوع
 
   return (
     <div className="relative space-y-8 p-6">
@@ -178,19 +176,6 @@ export default function InventoryItemDetailPage() {
                 <p className="font-semibold text-md text-slate-800 dark:text-slate-100 flex items-center gap-2">
                   <MapPin className="h-4 w-4 text-emerald-500" />
                   {formatRoomLocation(item.room, isRtl)}
-                </p>
-              </div>
-              <div>
-                <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-                  {t("unitPrice")}
-                </div>
-                <p className="font-semibold text-lg text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
-                  <Banknote className="h-4 w-4 text-emerald-500" />
-                  {unitPriceValue != null
-                    ? unitPriceValue.toLocaleString()
-                    : isRtl
-                    ? "غير محدد"
-                    : "Not set"}
                 </p>
               </div>
             </div>

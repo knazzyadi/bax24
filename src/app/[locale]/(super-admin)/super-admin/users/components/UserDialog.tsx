@@ -3,7 +3,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
@@ -59,7 +59,7 @@ export function UserDialog({
     handleSubmit,
     reset,
     setValue,
-    watch,
+    control,
     formState: { errors },
   } = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -71,7 +71,11 @@ export function UserDialog({
     },
   });
 
-  const selectedRole = watch('roleId');
+  // ✅ استخدام useWatch بدلاً من watch
+  const selectedRole = useWatch({
+    control,
+    name: 'roleId',
+  });
 
   useEffect(() => {
     if (open) {

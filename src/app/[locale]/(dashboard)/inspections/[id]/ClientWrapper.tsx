@@ -2,16 +2,30 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import { AdminGuard } from "@/lib/client-guard";
 import { Loader2, Hammer } from "lucide-react";
 import { InspectionHeader } from "./InspectionHeader";
 import { InspectionStats } from "./InspectionStats";
 import { InspectionItemsCard } from "./InspectionItemsCard";
-import type { ResultState, InspectionData, FindingDraft } from "../types";
+import type {
+  ResultState,
+  InspectionData,
+  FindingDraft,
+} from "../types";
+
+// ===== أنواع مساعدة =====
+interface FindingResponse {
+  id: string;
+  title: string;
+  description?: string | null;
+  riskLevel: "low" | "medium" | "high" | "critical";
+  correctiveAction?: string | null;
+  dueDate?: string | null;
+  status?: string;
+}
 
 interface ClientWrapperProps {
   initialData: InspectionData;
@@ -19,8 +33,10 @@ interface ClientWrapperProps {
   locale: string;
 }
 
-// ===== دالة مساعدة لتحويل Finding إلى FindingDraft مع الاحتفاظ بـ id و status =====
-const mapFindingToDraft = (finding: any): (FindingDraft & { id?: string; status?: string }) | null => {
+// ===== دالة تحويل Finding إلى FindingDraft =====
+const mapFindingToDraft = (
+  finding?: FindingResponse | null
+): (FindingDraft & { id?: string; status?: string }) | null => {
   if (!finding) return null;
   return {
     id: finding.id,
@@ -28,58 +44,65 @@ const mapFindingToDraft = (finding: any): (FindingDraft & { id?: string; status?
     description: finding.description || "",
     riskLevel: finding.riskLevel,
     correctiveAction: finding.correctiveAction || "",
-    dueDate: finding.dueDate ? new Date(finding.dueDate).toISOString().split('T')[0] : "",
+    dueDate: finding.dueDate ? new Date(finding.dueDate).toISOString().split("T")[0] : "",
     status: finding.status,
   };
+};
+
+// ===== دالة بناء الحالة الأولية =====
+const buildInitialResults = (data: InspectionData): Record<string, ResultState> => {
+  const initial: Record<string, ResultState> = {};
+  data.categories.forEach((category) => {
+    category.items.forEach((item) => {
+      const existingResult = item.result || null;
+      if (existingResult) {
+        const firstFinding = existingResult.findings?.[0];
+        initial[item.id] = {
+          id: existingResult.id || item.id,
+          inspectionFormItemId: item.id,
+          result: existingResult.result || "na",
+          notes: existingResult.notes || "",
+          imageUrl: existingResult.imageUrl || "",
+          findingId: firstFinding?.id || undefined,
+          workOrderId: existingResult.workOrderId || undefined,
+          finding: mapFindingToDraft(firstFinding),
+        };
+      } else {
+        initial[item.id] = {
+          id: item.id,
+          inspectionFormItemId: item.id,
+          result: "na",
+          notes: "",
+          imageUrl: "",
+        };
+      }
+    });
+  });
+  return initial;
 };
 
 export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapperProps) {
   const router = useRouter();
   const isRtl = locale === "ar";
-  const t = useTranslations("Inspections");
 
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [creatingOrders, setCreatingOrders] = useState(false);
   const [inspection, setInspection] = useState(initialData);
-  const [resultsState, setResultsState] = useState<Record<string, ResultState>>({});
-  const [status, setStatus] = useState(initialData.status);
 
-  // ===== تهيئة الحالة من البيانات الأولية =====
-  useEffect(() => {
-    const initialResults: Record<string, ResultState> = {};
-    initialData.categories.forEach((category) => {
-      category.items.forEach((item) => {
-        const existingResult = item.result || null;
-        if (existingResult) {
-          const firstFinding = existingResult.findings?.[0];
-          initialResults[item.id] = {
-            id: existingResult.id || item.id,
-            inspectionFormItemId: item.id,
-            result: existingResult.result || "na",
-            notes: existingResult.notes || "",
-            imageUrl: existingResult.imageUrl || "",
-            findingId: firstFinding?.id || undefined,
-            workOrderId: existingResult.workOrderId || undefined,
-            // ✅ تحويل الـ Finding إلى FindingDraft لتعبئة النموذج
-            finding: mapFindingToDraft(firstFinding),
-          };
-        } else {
-          initialResults[item.id] = {
-            id: item.id,
-            inspectionFormItemId: item.id,
-            result: "na",
-            notes: "",
-            imageUrl: "",
-          };
-        }
-      });
-    });
-    setResultsState(initialResults);
-  }, [initialData]);
+  // استخدام lazy initialization لتجنب تحذير useEffect
+  const [resultsState, setResultsState] = useState<Record<string, ResultState>>(() =>
+    buildInitialResults(initialData)
+  );
+
+  // ===== حساب status من inspection (المصدر الوحيد) =====
+  const status = inspection.status;
 
   // ===== تحديث نتيجة عنصر =====
-  const updateResult = (inspectionFormItemId: string, field: keyof ResultState, value: any) => {
+  const updateResult = (
+    inspectionFormItemId: string,
+    field: keyof ResultState,
+    value: ResultState[keyof ResultState]
+  ) => {
     setResultsState((prev) => ({
       ...prev,
       [inspectionFormItemId]: {
@@ -90,54 +113,39 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
   };
 
   // ===== جلب بيانات الفحص المحدثة =====
-  const fetchUpdatedInspection = async () => {
+  const fetchUpdatedInspection = async (): Promise<InspectionData> => {
     const res = await fetch(`/api/inspections/${inspectionId}`);
     if (!res.ok) throw new Error("Failed to fetch updated inspection");
-    const data = await res.json();
-    return data;
+    return res.json();
   };
 
   // ===== تحديث resultsState من بيانات الفحص الجديدة =====
   const refreshResultsState = (inspectionData: InspectionData) => {
-    const newResults: Record<string, ResultState> = {};
-    inspectionData.categories.forEach((category) => {
-      category.items.forEach((item) => {
-        const existingResult = item.result || null;
-        if (existingResult) {
-          const firstFinding = existingResult.findings?.[0];
-          newResults[item.id] = {
-            id: existingResult.id || item.id,
-            inspectionFormItemId: item.id,
-            result: existingResult.result || "na",
-            notes: existingResult.notes || "",
-            imageUrl: existingResult.imageUrl || "",
-            findingId: firstFinding?.id || undefined,
-            workOrderId: existingResult.workOrderId || undefined,
-            // ✅ تحويل الـ Finding إلى FindingDraft لتعبئة النموذج
-            finding: mapFindingToDraft(firstFinding),
-          };
-        } else {
-          newResults[item.id] = {
-            id: item.id,
-            inspectionFormItemId: item.id,
-            result: "na",
-            notes: "",
-            imageUrl: "",
-          };
-        }
-      });
-    });
+    const newResults = buildInitialResults(inspectionData);
     setResultsState(newResults);
   };
 
-  // ===== حفظ الفحص (مع Findings) =====
+  // ===== حفظ الفحص =====
   const handleSave = async (closeAfterSave: boolean = false) => {
     const resultsArray = Object.values(resultsState).map((r) => {
-      const resultPayload: any = {
+      const resultPayload: {
+        inspectionFormItemId: string;
+        result: ResultState["result"];
+        notes: string;
+        imageUrl: string;
+        findings: Array<{
+          title: string;
+          description: string;
+          riskLevel: FindingDraft["riskLevel"];
+          correctiveAction: string;
+          dueDate: string | null;
+        }>;
+      } = {
         inspectionFormItemId: r.inspectionFormItemId,
         result: r.result,
         notes: r.notes || "",
         imageUrl: r.imageUrl || "",
+        findings: [],
       };
 
       if (r.finding) {
@@ -150,8 +158,6 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
             dueDate: r.finding.dueDate || null,
           },
         ];
-      } else {
-        resultPayload.findings = [];
       }
 
       return resultPayload;
@@ -174,7 +180,6 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
 
       toast.success(isRtl ? "✅ تم حفظ التغييرات" : "✅ Changes saved");
 
-      // ✅ جلب البيانات المحدثة وتحديث الحالة
       const updatedData = await fetchUpdatedInspection();
       setInspection(updatedData);
       refreshResultsState(updatedData);
@@ -185,7 +190,8 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
         }, 1500);
       }
     } catch (err) {
-      toast.error(isRtl ? "❌ فشل الحفظ" : "❌ Save failed");
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
+      toast.error(isRtl ? `❌ فشل الحفظ: ${errorMessage}` : `❌ Save failed: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
@@ -196,12 +202,15 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
     handleSave(true);
   };
 
-  // ===== إنشاء أوامر العمل من Findings =====
+  // ===== إنشاء أوامر العمل =====
   const handleCreateWorkOrders = async () => {
-    // نجمع كل findingId من النتائج التي تحمل fail ولها findingId
+    // ✅ استخدام type guard بدلاً من as string
     const findingIds = Object.values(resultsState)
-      .filter((r) => r.result === "fail" && r.findingId)
-      .map((r) => r.findingId as string);
+      .filter(
+        (r): r is ResultState & { findingId: string } =>
+          r.result === "fail" && Boolean(r.findingId)
+      )
+      .map((r) => r.findingId);
 
     if (findingIds.length === 0) {
       toast.error(
@@ -229,26 +238,21 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
           : `✅ Created ${data.count || 0} work order(s) successfully`
       );
 
-      // تحديث البيانات بعد الإنشاء
       const updatedData = await fetchUpdatedInspection();
       setInspection(updatedData);
       refreshResultsState(updatedData);
       router.refresh();
-    } catch (err: any) {
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Unknown error";
       toast.error(
         isRtl
-          ? `❌ فشل إنشاء أوامر العمل: ${err.message}`
-          : `❌ Failed to create work orders: ${err.message}`
+          ? `❌ فشل إنشاء أوامر العمل: ${errorMessage}`
+          : `❌ Failed to create work orders: ${errorMessage}`
       );
     } finally {
       setCreatingOrders(false);
     }
   };
-
-  // ===== حساب عدد Findings (مع IDs صالحة) =====
-  const findingsCount = Object.values(resultsState).filter(
-    (r) => r.result === "fail" && r.findingId
-  ).length;
 
   // ===== إحصائيات =====
   const stats = {
@@ -258,13 +262,9 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
     na: Object.values(resultsState).filter((r) => r.result === "na").length,
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-indigo-500" />
-      </div>
-    );
-  }
+  const findingsCount = Object.values(resultsState).filter(
+    (r) => r.result === "fail" && Boolean(r.findingId)
+  ).length;
 
   return (
     <AdminGuard>

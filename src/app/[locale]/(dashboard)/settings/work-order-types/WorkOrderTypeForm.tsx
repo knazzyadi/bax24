@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/work-order-types/WorkOrderTypeForm.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ حذف useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,30 +24,19 @@ export function WorkOrderTypeForm({
 }: WorkOrderTypeFormProps) {
   const t = useTranslations("WorkOrderTypes");
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    nameEn: "",
-    isDefault: false,
-    isActive: true,
+
+  // ✅ دالة القيم الافتراضية
+  const getInitialFormData = () => ({
+    name: type?.name ?? "",
+    nameEn: type?.nameEn ?? "",
+    isDefault: type?.isDefault ?? false,
+    isActive: type?.isActive ?? true,
   });
 
-  useEffect(() => {
-    if (type) {
-      setFormData({
-        name: type.name || "",
-        nameEn: type.nameEn || "",
-        isDefault: type.isDefault || false,
-        isActive: type.isActive !== undefined ? type.isActive : true,
-      });
-    } else {
-      setFormData({
-        name: "",
-        nameEn: "",
-        isDefault: false,
-        isActive: true,
-      });
-    }
-  }, [type]);
+  // ✅ تعريف state باستخدام الدالة
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  // ✅ تم حذف useEffect بالكامل
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type: inputType, checked } = e.target;
@@ -91,8 +80,13 @@ export function WorkOrderTypeForm({
 
       toast.success(type ? t("updateSuccess") : t("createSuccess"));
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || t("saveError"));
+        } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : t("saveError");
+
+      toast.error(message);
       console.error(error);
     } finally {
       setLoading(false);

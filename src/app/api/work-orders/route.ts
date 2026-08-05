@@ -3,7 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { createWorkOrderWithRetry } from "@/lib/generateCode";
-import { $Enums } from '@prisma/client';
+import { Prisma, $Enums } from "@prisma/client";
+
 
 // ========== GET: جلب أوامر العمل مع دعم الفلترة والفروع ==========
 export async function GET(request: NextRequest) {
@@ -36,7 +37,7 @@ export async function GET(request: NextRequest) {
     const isAdmin = session.role === "ADMIN" || session.role === "SUPER_ADMIN";
     const branchIds = session.branchIds || [];
 
-    const where: any = {
+    const where: Prisma.WorkOrderWhereInput = {
       companyId,
       deletedAt: null,
     };
@@ -83,7 +84,7 @@ export async function GET(request: NextRequest) {
       prisma.workOrder.count({ where }),
     ]);
 
-    const serialized = workOrders.map((wo: any) => ({
+    const serialized = workOrders.map((wo) => ({
       ...wo,
       createdAt: wo.createdAt.toISOString(),
       updatedAt: wo.updatedAt.toISOString(),
@@ -317,11 +318,17 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(result, { status: 201 });
-  } catch (error: any) {
+    } catch (error: unknown) {
     console.error("POST /api/work-orders error:", error);
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : "فشل إنشاء أمر العمل";
+
     return NextResponse.json(
-      { error: error.message || "فشل إنشاء أمر العمل" },
+      { error: message },
       { status: 500 }
     );
   }
-}
+  }

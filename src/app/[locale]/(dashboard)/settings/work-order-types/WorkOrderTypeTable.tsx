@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/work-order-types/WorkOrderTypeTable.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ إزالة useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import {
   Edit,
@@ -162,11 +162,10 @@ export function WorkOrderTypeTable({
   isRtl,
 }: WorkOrderTypeTableProps) {
   const t = useTranslations("WorkOrderTypes");
+  // ✅ حذف useEffect - فقط نترك state مع القيمة الأولية
   const [items, setItems] = useState<WorkOrderType[]>(data);
 
-  useEffect(() => {
-    setItems(data);
-  }, [data]);
+  // ✅ تم حذف useEffect بالكامل
 
   const sensors = useSensors(
     useSensor(PointerSensor),

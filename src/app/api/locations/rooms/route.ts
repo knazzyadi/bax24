@@ -4,6 +4,16 @@ import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-help
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// واجهة بيانات إنشاء غرفة
+interface CreateRoomBody {
+  name: string;
+  nameEn?: string;
+  code: string;
+  order?: number;
+  floorId: string;
+  buildingId: string;
+}
+
 // ============================================================
 // GET: جلب جميع الغرف الخاصة بمباني الشركة
 // ============================================================
@@ -22,30 +32,31 @@ export async function GET() {
     }
 
     const rooms = await prisma.room.findMany({
-    where: {
-      building: { companyId },
-    },
-    include: {
-      floor: {
-        include: {
-          building: {
-            select: {
-              id: true,
-              name: true,
-              nameEn: true,
-              code: true,
+      where: {
+        building: { companyId },
+      },
+      include: {
+        floor: {
+          include: {
+            building: {
+              select: {
+                id: true,
+                name: true,
+                nameEn: true,
+                code: true,
+              },
             },
           },
         },
       },
-    },
-    orderBy: { order: 'asc' },
-  });
+      orderBy: { order: 'asc' },
+    });
 
     return NextResponse.json(rooms);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GET /api/locations/rooms error:', error);
-    if (error.message === 'FORBIDDEN') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'FORBIDDEN') {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
@@ -69,7 +80,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
 
-    const { name, nameEn, code, order, floorId, buildingId } = await request.json();
+    // استلام البيانات مع تحديد النوع
+    const body = (await request.json()) as CreateRoomBody;
+    const { name, nameEn, code, order, floorId, buildingId } = body;
 
     if (!name || !code || !floorId || !buildingId) {
       return NextResponse.json(
@@ -127,9 +140,10 @@ export async function POST(request: Request) {
 
     revalidatePath('/ar/locations/rooms');
     return NextResponse.json(room, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('POST /api/locations/rooms error:', error);
-    if (error.message === 'FORBIDDEN') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'FORBIDDEN') {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });

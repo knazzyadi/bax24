@@ -3,11 +3,9 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
 import {
   Calendar,
   Clock,
-  FileText,
   Building,
   Tag,
   Edit,
@@ -18,11 +16,12 @@ import {
   Sparkles,
   Wrench,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { DataList, type FilterSection, type ItemActions } from "@/components/shared/DataList";
 import { cn } from "@/lib/utils";
 
-// ✅ توسيع واجهة Schedule لتشمل الحقول المطلوبة لحساب nextDueDate
+// ✅ توسيع واجهة Schedule
 interface Schedule {
   id: string;
   name: string;
@@ -38,7 +37,15 @@ interface Schedule {
   building: { id: string; name: string; nameEn?: string } | null;
 }
 
-const FREQUENCY_LABELS: Record<string, { ar: string; en: string; icon: any; color: string }> = {
+const FREQUENCY_LABELS: Record<
+  string,
+  {
+    ar: string;
+    en: string;
+    icon: LucideIcon;
+    color: string;
+  }
+> = {
   MONTHLY: {
     ar: "شهري",
     en: "Monthly",
@@ -65,7 +72,6 @@ const FREQUENCY_LABELS: Record<string, { ar: string; en: string; icon: any; colo
   },
 };
 
-// دالة لحساب عدد الأيام من التردد (في حال عدم وجود frequencyDays)
 const getDaysFromFrequency = (freq: string): number => {
   switch (freq) {
     case "MONTHLY":
@@ -81,7 +87,6 @@ const getDaysFromFrequency = (freq: string): number => {
   }
 };
 
-// دالة حساب تاريخ الاستحقاق القادم
 const getNextDueDate = (schedule: Schedule): Date | null => {
   const lastRun = schedule.lastRunAt ? new Date(schedule.lastRunAt) : null;
   const start = schedule.startDate ? new Date(schedule.startDate) : null;
@@ -93,7 +98,6 @@ const getNextDueDate = (schedule: Schedule): Date | null => {
   return next;
 };
 
-// دالة للتحقق مما إذا كان التاريخ يقع ضمن نطاق زمني معين
 const isWithinPeriod = (date: Date, period: "today" | "week" | "month"): boolean => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -117,14 +121,15 @@ const isWithinPeriod = (date: Date, period: "today" | "week" | "month"): boolean
   }
 };
 
-// دالة لتنسيق التردد مع لون مميز
+// ✅ دالة getFrequencyDisplay مع تحسين النوع
 function getFrequencyDisplay(frequency: string, isRtl: boolean) {
-  const config = FREQUENCY_LABELS[frequency] || {
-    ar: frequency,
-    en: frequency,
-    icon: Calendar,
-    color: "text-slate-500 bg-slate-50 dark:bg-slate-800/30",
-  };
+  const config =
+    FREQUENCY_LABELS[frequency] || {
+      ar: frequency,
+      en: frequency,
+      icon: Calendar as LucideIcon,
+      color: "text-slate-500 bg-slate-50 dark:bg-slate-800/30",
+    };
   return {
     label: isRtl ? config.ar : config.en,
     icon: config.icon,
@@ -132,25 +137,20 @@ function getFrequencyDisplay(frequency: string, isRtl: boolean) {
   };
 }
 
+// ========== الواجهة المعدلة ==========
 interface MaintenanceClientProps {
   initialSchedules: Schedule[];
-  total: number;
   currentPage: number;
-  totalPages: number;
   limit: number;
   q: string;
-  isActive: string;
   locale: string;
 }
 
 export default function MaintenanceClient({
   initialSchedules,
-  total,
   currentPage: initialPage,
-  totalPages: initialTotalPages,
   limit,
   q: initialSearch,
-  isActive: initialStatus,
   locale,
 }: MaintenanceClientProps) {
   const router = useRouter();
@@ -160,7 +160,6 @@ export default function MaintenanceClient({
   const [selectedPeriod, setSelectedPeriod] = useState<string>("all");
   const [currentPage, setCurrentPage] = useState(initialPage);
 
-  // فلترة الجداول بناءً على فترة الاستحقاق
   const filteredSchedules = useMemo(() => {
     let result = [...initialSchedules];
     if (searchTerm) {
@@ -188,7 +187,7 @@ export default function MaintenanceClient({
     router.push(`/${locale}/maintenance/${id}/edit`);
   };
 
-  const handleDelete = async (id: string, name: string) => {
+  const handleDelete = async (id: string) => {
     const res = await fetch(`/api/maintenance/schedules/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const error = await res.json();
@@ -198,7 +197,6 @@ export default function MaintenanceClient({
     router.refresh();
   };
 
-  // ✅ فلتر زمني جديد
   const filterSections: FilterSection[] = [
     {
       id: "period",
@@ -220,7 +218,6 @@ export default function MaintenanceClient({
     }
   };
 
-  // حساب إحصائيات الحالات
   const statusCounts = useMemo(() => {
     const counts = { active: 0, inactive: 0, upcoming: 0 };
     initialSchedules.forEach((s) => {
@@ -255,10 +252,8 @@ export default function MaintenanceClient({
         onClick={() => router.push(`/${locale}/maintenance/${schedule.id}`)}
         className="group relative flex flex-col md:flex-row items-start md:items-center gap-6 p-6 rounded-2xl transition-all duration-300 cursor-pointer bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 hover:bg-white/90 dark:hover:bg-slate-900/90 hover:scale-[1.01] hover:shadow-xl shadow-sm hover:shadow-indigo-500/5 dark:hover:shadow-indigo-400/5"
       >
-        {/* خلفية متدرجة خفيفة */}
         <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-50/30 to-purple-50/30 dark:from-indigo-950/20 dark:to-purple-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-        {/* الأيقونة الرئيسية */}
         <div
           className={cn(
             "relative z-10 h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3",
@@ -268,7 +263,6 @@ export default function MaintenanceClient({
           <FreqIcon size={28} className={freqDisplay.color.split(" ")[0]} />
         </div>
 
-        {/* البيانات الأساسية */}
         <div className="relative z-10 flex-1 min-w-0 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200 truncate leading-none">
@@ -313,7 +307,6 @@ export default function MaintenanceClient({
           </div>
         </div>
 
-        {/* الإجراءات */}
         <div className="relative z-10 flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
           <span
             className="rounded-full text-xs font-semibold px-3 py-1.5 inline-flex items-center gap-1.5 border border-slate-200/30 dark:border-slate-700/30 shadow-sm"
@@ -360,10 +353,8 @@ export default function MaintenanceClient({
 
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      {/* رأس الصفحة المخصص (مطابق لباقي الصفحات) */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
@@ -388,7 +379,6 @@ export default function MaintenanceClient({
         </button>
       </div>
 
-      {/* DataList بدون عنوان وزر إضافة (لتجنب التكرار) */}
       <DataList
         searchPlaceholder={isRtl ? "بحث باسم الجدول..." : "Search by schedule name..."}
         searchValue={searchTerm}
@@ -410,7 +400,6 @@ export default function MaintenanceClient({
         className="relative z-10"
       />
 
-      {/* ملخص الحالات */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm border border-slate-200/30 dark:border-slate-800/30 text-sm text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-3">
           <Sparkles size={16} className="text-indigo-400 dark:text-indigo-500" />

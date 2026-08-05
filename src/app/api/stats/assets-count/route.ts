@@ -1,49 +1,82 @@
+// src/app/api/stats/low-inventory-count/route.ts
+
 import { NextResponse } from 'next/server';
 
-import { getAuthenticatedSession, checkPermission } from '@/lib/auth/auth-helper';
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-
-
+import { Prisma } from '@prisma/client';
 
 export async function GET() {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
 
     const companyId = session.companyId;
+
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
     }
 
-    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const isAdmin =
+      session.role === 'ADMIN' ||
+      session.role === 'SUPER_ADMIN';
+
     const branchIds = session.branchIds || [];
 
-    const where: any = {
+    const baseWhere: Prisma.InventoryItemWhereInput = {
       companyId,
       deletedAt: null,
     };
 
     if (!isAdmin) {
       if (branchIds.length === 0) {
-        // لا فروع متاحة للمستخدم ⇒ لا يرى أي أصول
         return NextResponse.json({ count: 0 });
       }
-      // فلترة الأصول حسب الفرع عبر العلاقة asset -> room -> floor -> building -> branchId
-      where.room = {
+
+      baseWhere.room = {
         floor: {
           building: {
-            branchId: { in: branchIds }
-          }
-        }
+            branchId: {
+              in: branchIds,
+            },
+          },
+        },
       };
     }
 
-    const count = await prisma.asset.count({ where });
-    return NextResponse.json({ count });
-  } catch (error) {
-    console.error('GET /api/stats/assets-count error:', error);
-    return NextResponse.json({ error: 'خطأ في الخادم' }, { status: 500 });
+    const items = await prisma.inventoryItem.findMany({
+      where: baseWhere,
+      select: {
+        quantity: true,
+        minQuantity: true,
+      },
+    });
+
+    const lowItemsCount = items.filter(
+      (item) => item.quantity < item.minQuantity
+    ).length;
+
+    return NextResponse.json({
+      count: lowItemsCount,
+    });
+  } catch (error: unknown) {
+    console.error(
+      'GET /api/stats/low-inventory-count error:',
+      error
+    );
+
+    return NextResponse.json(
+      { error: 'خطأ في الخادم' },
+      { status: 500 }
+    );
   }
 }

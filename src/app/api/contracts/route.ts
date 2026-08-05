@@ -2,12 +2,38 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
+import { Prisma, ContractStatus } from '@prisma/client';
 
+// ========== تعريف الأنواع ==========
+interface Session {
+  userId: string;
+  companyId?: string;
+  role: string;
+  branchIds?: string[];
+}
+
+interface ContractCreateBody {
+  code?: string;
+  title: string;
+  supplier: string;
+  value?: number;
+  startDate: string; // سيتم تحويله إلى Date
+  endDate: string;
+  description?: string;
+  branchId: string;
+  attachmentIds?: string[];
+  notes?: string;
+  agentName?: string;
+  agentPhone?: string;
+  agentEmail?: string;
+}
+
+// ========== GET ==========
 export async function GET(request: NextRequest) {
   try {
-    let session;
+    let session: Session | null = null;
     try {
-      session = await getAuthenticatedSession();
+      session = (await getAuthenticatedSession()) as Session;
     } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -34,11 +60,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const where: any = { companyId, deletedAt: null };
+    const where: Prisma.ContractWhereInput = {
+      companyId,
+      deletedAt: null,
+    };
 
     if (!isAdmin) {
-      if (branchIds.length > 0) where.branchId = { in: branchIds };
-      else return NextResponse.json({ contracts: [], total: 0, currentPage: page, totalPages: 0, limit });
+      if (branchIds.length > 0) {
+        where.branchId = { in: branchIds };
+      } else {
+        return NextResponse.json({
+          contracts: [],
+          total: 0,
+          currentPage: page,
+          totalPages: 0,
+          limit,
+        });
+      }
     }
 
     if (q) {
@@ -48,16 +86,24 @@ export async function GET(request: NextRequest) {
         { supplier: { contains: q, mode: 'insensitive' } },
       ];
     }
-    if (status && status !== 'all') where.status = status;
 
-    const contracts = await prisma.contract.findMany({
-      where,
-      include: { branch: true, attachments: true },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    });
-    const total = await prisma.contract.count({ where });
+    if (status && status !== 'all') {
+      const validStatuses = Object.values(ContractStatus);
+      if (validStatuses.includes(status as ContractStatus)) {
+        where.status = status as ContractStatus;
+      }
+    }
+
+    const [contracts, total] = await Promise.all([
+      prisma.contract.findMany({
+        where,
+        include: { branch: true, attachments: true },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.contract.count({ where }),
+    ]);
 
     return NextResponse.json({
       contracts,
@@ -66,17 +112,19 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
       limit,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GET /api/contracts error:', error);
-    return NextResponse.json({ error: 'خطأ في جلب العقود' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'خطأ في جلب العقود';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
+// ========== POST ==========
 export async function POST(request: NextRequest) {
   try {
-    let session;
+    let session: Session | null = null;
     try {
-      session = await getAuthenticatedSession();
+      session = (await getAuthenticatedSession()) as Session;
     } catch {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
@@ -85,13 +133,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    const body = await request.json();
+    const body = (await request.json()) as ContractCreateBody;
+
     const {
-      code, title, supplier, value, startDate, endDate, description, branchId,
-      attachmentIds, notes,
-      agentName, agentPhone, agentEmail
+      code,
+      title,
+      supplier,
+      value,
+      startDate,
+      endDate,
+      description,
+      branchId,
+      attachmentIds,
+      notes,
+      agentName,
+      agentPhone,
+      agentEmail,
     } = body;
 
+    // التحقق من الحقول المطلوبة
     if (!title || !supplier || !startDate || !endDate) {
       return NextResponse.json(
         { error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة' },
@@ -140,7 +200,7 @@ export async function POST(request: NextRequest) {
         agentEmail: agentEmail || null,
         companyId,
         branchId,
-        createdBy: session.userId, // ✅ استخدام userId بدلاً من id
+        createdBy: session.userId,
       },
     });
 
@@ -159,8 +219,9 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(contractWithAttachments, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('POST /api/contracts error:', error);
-    return NextResponse.json({ error: 'خطأ في إنشاء العقد' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'خطأ في إنشاء العقد';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

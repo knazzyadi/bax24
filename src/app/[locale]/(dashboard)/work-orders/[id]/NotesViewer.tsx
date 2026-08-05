@@ -3,11 +3,9 @@
 
 interface NotesViewerProps {
   notes: string | null;
-  isRtl: boolean;
-  t: any;
 }
 
-export function NotesViewer({ notes, isRtl, t }: NotesViewerProps) {
+export function NotesViewer({ notes }: NotesViewerProps) {
   if (!notes) return null;
 
   return (

@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/work-order-cancel-reasons/WorkOrderCancelReasonTable.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ إزالة useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import {
   Edit,
@@ -100,10 +100,6 @@ function DraggableRow({
         {isRtl ? reason.name : reason.nameEn || reason.name}
       </td>
 
-      {/* ❌ تم حذف عمود "الكود" */}
-      {/* ❌ تم حذف عمود "الوصف" */}
-      {/* ❌ تم حذف عمود "الترتيب" */}
-
       {/* الافتراضي */}
       <td className="py-3 px-4 text-center">
         {reason.isDefault ? (
@@ -160,11 +156,10 @@ export function WorkOrderCancelReasonTable({
   isRtl,
 }: WorkOrderCancelReasonTableProps) {
   const t = useTranslations("WorkOrderCancelReasons");
+  // ✅ حذف useEffect - فقط نترك state مع القيمة الأولية
   const [items, setItems] = useState<WorkOrderCancelReason[]>(data);
 
-  useEffect(() => {
-    setItems(data);
-  }, [data]);
+  // ✅ تم حذف useEffect بالكامل
 
   const sensors = useSensors(
     useSensor(PointerSensor),

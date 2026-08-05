@@ -41,12 +41,13 @@ export async function POST(
     // ✅ 5. تنفيذ المنطق
     const result = await UserService.resendInvite(id, companyId);
     return NextResponse.json(result);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('POST /api/company/users/invite/[id]', error);
-    if (error.message === 'UNAUTHORIZED') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    if (error.message === 'FORBIDDEN') {
+    if (message === 'FORBIDDEN') {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });

@@ -1,13 +1,12 @@
 // src/app/[locale]/(dashboard)/locations/floors/FloorsTable.tsx
 'use client';
 
-import { useTranslations } from 'next-intl';
 import { Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/shared/layout/DataTable';
 import type { Floor, Building } from './types';
 
-interface FloorsTableProps {
+ interface FloorsTableProps {
   data: Floor[];
   buildings: Building[];
   onEdit: (floor: Floor) => void;
@@ -17,12 +16,10 @@ interface FloorsTableProps {
 
 export function FloorsTable({
   data,
-  buildings,
   onEdit,
   onDelete,
   isRtl,
 }: FloorsTableProps) {
-  const t = useTranslations('Locations');
 
   const columns = [
     {

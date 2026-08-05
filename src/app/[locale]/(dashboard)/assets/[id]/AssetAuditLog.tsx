@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Clock, User, ArrowRight, Loader2 } from "lucide-react";
+import { Clock, ArrowRight, Loader2 } from "lucide-react";
 
 interface AuditLogEntry {
   id: string;
@@ -31,20 +31,35 @@ export function AssetAuditLog({ assetId }: AssetAuditLogProps) {
 
   useEffect(() => {
     const fetchLogs = async () => {
-      if (!assetId) return;
+      if (!assetId) {
+        return;
+      }
+
       setLoading(true);
       setError(null);
+
       try {
         const res = await fetch(`/api/assets/${assetId}/audit-log`);
+
         if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
+          const errorData: { error?: string } = await res
+            .json()
+            .catch(() => ({}));
+
           throw new Error(errorData.error || t("fetchAuditError"));
         }
-        const data = await res.json();
+
+        const data: AuditLogEntry[] = await res.json();
+
         setLogs(Array.isArray(data) ? data : []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error(err);
-        setError(err.message || t("fetchAuditError"));
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("fetchAuditError")
+        );
       } finally {
         setLoading(false);
       }

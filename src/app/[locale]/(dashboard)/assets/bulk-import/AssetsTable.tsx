@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Plus, Upload, Loader2 } from "lucide-react";
 import { AssetRow } from "./AssetRow";
 import { TABLE_COLUMNS } from "./tableColumns";
-import { formatDateInput } from "./dateHelpers";
 import type { AssetType, AssetStatus } from "@/types/assets";
 import type { BulkAssetRow } from "./bulkImport.types";
 

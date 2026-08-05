@@ -3,13 +3,64 @@
 
 import { useEffect } from "react";
 
+// ============================================================
+// الأنواع المحددة للتقرير
+// ============================================================
+interface InspectionResult {
+  result?: "pass" | "fail" | "na" | null;
+  notes?: string | null;
+}
+
+interface InspectionItem {
+  id: string;
+  itemName: string;
+  itemNameAr?: string | null;
+  description?: string | null;
+  descriptionAr?: string | null;
+  riskLevel?: string | null;
+  correctiveAction?: string | null;
+  result?: InspectionResult | null;
+}
+
+interface InspectionCategory {
+  categoryId: string;
+  categoryName: string;
+  categoryNameAr?: string | null;
+  items: InspectionItem[];
+}
+
+interface InspectionInspector {
+  name?: string | null;
+}
+
+interface InspectionCompany {
+  name?: string | null;
+}
+
+interface InspectionPrintData {
+  id: string;
+  locationName?: string | null;
+  status?: string | null;
+  recommendation?: string | null;
+  dueDate?: string | null;
+  inspector?: InspectionInspector | null;
+  company?: InspectionCompany | null;
+  categories: InspectionCategory[];
+}
+
 interface InspectionPrintProps {
-  data: any;
+  data: InspectionPrintData;
   isRtl: boolean;
   locale: string;
 }
 
-export default function InspectionPrint({ data, isRtl }: InspectionPrintProps) {
+// ============================================================
+// المكون الرئيسي
+// ============================================================
+export default function InspectionPrint({
+  data,
+  isRtl,
+}: InspectionPrintProps) {
   useEffect(() => {
     const timer = setTimeout(() => window.print(), 300);
     const afterPrint = () => window.close();
@@ -26,26 +77,26 @@ export default function InspectionPrint({ data, isRtl }: InspectionPrintProps) {
     day: "numeric",
   });
 
-  // حساب الإحصائيات (تعديل المنطق)
+  // حساب الإحصائيات
   let totalPass = 0,
     totalFail = 0,
     totalNa = 0,
     totalNotEvaluated = 0;
   let totalItems = 0;
 
-  data.categories.forEach((cat: any) => {
-    cat.items.forEach((item: any) => {
+  data.categories.forEach((cat) => {
+    cat.items.forEach((item) => {
       totalItems++;
-      const result = item.result?.result; // قد يكون undefined
+      const result = item.result?.result;
       if (result === "pass") totalPass++;
       else if (result === "fail") totalFail++;
       else if (result === "na") totalNa++;
-      else totalNotEvaluated++; // ليس له نتيجة محددة
+      else totalNotEvaluated++;
     });
   });
 
   // دالة لعرض مستوى الخطورة كنص
-  const getRiskLabel = (risk: string) => {
+  const getRiskLabel = (risk?: string | null) => {
     if (!risk) return "-";
     const labels: Record<string, string> = {
       low: isRtl ? "منخفض" : "Low",
@@ -129,7 +180,7 @@ export default function InspectionPrint({ data, isRtl }: InspectionPrintProps) {
       </div>
 
       {/* ===== جداول البنود ===== */}
-      {data.categories.map((category: any) => (
+      {data.categories.map((category) => (
         <div key={category.categoryId} className="mb-8">
           <h2 className="text-lg font-semibold bg-gray-100 px-4 py-2 border-b-2 border-gray-300">
             {isRtl ? category.categoryNameAr || category.categoryName : category.categoryName}
@@ -163,8 +214,8 @@ export default function InspectionPrint({ data, isRtl }: InspectionPrintProps) {
               </tr>
             </thead>
             <tbody>
-              {category.items.map((item: any, index: number) => {
-                const result = item.result?.result; // قد يكون undefined
+              {category.items.map((item, index) => {
+                const result = item.result?.result;
                 return (
                   <tr key={item.id}>
                     <td className="border border-black p-2 text-center">{index + 1}</td>

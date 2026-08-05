@@ -2,18 +2,17 @@
 
 "use client";
 
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useTranslations } from "next-intl";
 import { useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Activity,
   ClipboardList,
   Package,
   AlertTriangle,
   ArrowUpRight,
-  TrendingUp,
   Wrench,
   ShieldCheck,
   Zap,
@@ -24,9 +23,18 @@ import {
   Server,
   Users,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+
+// =========================
+// واجهة بيانات جلسة المستخدم
+// =========================
+interface SessionUser {
+  companyName?: string;
+  companyNameEn?: string;
+}
 
 interface DashboardData {
   assets: number;
@@ -53,7 +61,7 @@ export default function DashboardPage() {
   const isRTL = locale === "ar";
   const t = useTranslations("Dashboard");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const [, setError] = useState(false); // ✅ error غير مستخدم، نستخدم _ بدلاً من ذلك
   const [data, setData] = useState<DashboardData>({
     assets: 0,
     workOrders: 0,
@@ -64,16 +72,18 @@ export default function DashboardPage() {
 
   const isSessionLoading = status === "loading";
 
-  // ✅ استخدام session.user.* بدلاً من session.* مباشرة
+  // ✅ استخدام session.user بشكل آمن
   let companyDisplayName = isRTL ? "شركتك" : "Your Company";
   if (!isSessionLoading && session?.user) {
+    const user = session.user as SessionUser;
     if (isRTL) {
-      companyDisplayName = (session.user as any).companyName || "شركتك";
+      companyDisplayName = user.companyName || "شركتك";
     } else {
-      companyDisplayName = (session.user as any).companyNameEn || (session.user as any).companyName || "Your Company";
+      companyDisplayName = user.companyNameEn || user.companyName || "Your Company";
     }
   }
 
+  // ⏱️ وقت تشغيل النظام
   useEffect(() => {
     const startTime = new Date();
     const interval = setInterval(() => {
@@ -89,48 +99,49 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [isRTL]);
 
-  const fetchStats = useCallback(async () => {
-    setLoading(true);
-    setError(false);
-    try {
-      const endpoints = [
-        "/api/stats/assets-count",
-        "/api/stats/work-orders-count",
-        "/api/stats/low-inventory-count",
-        "/api/tickets/count?status=PENDING",
-      ];
-
-      const results = await Promise.allSettled(
-        endpoints.map(async (url) => {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}`);
-          const json: StatsResponse = await res.json();
-          if (typeof json === "number") return json;
-          return json.count ?? 0;
-        })
-      );
-
-      const values = results.map((result) => (result.status === "fulfilled" ? result.value : 0));
-
-      const [assets, workOrders, lowInventory, pendingTickets] = values;
-
-      setData({
-        assets: assets ?? 0,
-        workOrders: workOrders ?? 0,
-        lowInventory: lowInventory ?? 0,
-        pendingRequests: pendingTickets ?? 0,
-      });
-    } catch (err) {
-      console.error("Dashboard error:", err);
-      setError(true);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // 📊 جلب الإحصائيات – تم دمج الدالة داخل useEffect مباشرة
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    async function loadStats() {
+      setLoading(true);
+      setError(false);
+
+      try {
+        const endpoints = [
+          "/api/stats/assets-count",
+          "/api/stats/work-orders-count",
+          "/api/stats/low-inventory-count",
+          "/api/tickets/count?status=PENDING",
+        ];
+
+        const results = await Promise.allSettled(
+          endpoints.map(async (url) => {
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+            const json: StatsResponse = await res.json();
+            return json.count ?? 0;
+          })
+        );
+
+        const values = results.map((result) =>
+          result.status === "fulfilled" ? result.value : 0
+        );
+
+        setData({
+          assets: values[0] ?? 0,
+          workOrders: values[1] ?? 0,
+          lowInventory: values[2] ?? 0,
+          pendingRequests: values[3] ?? 0,
+        });
+      } catch (err) {
+        console.error("Dashboard error:", err);
+        setError(true);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    void loadStats();
+  }, []); // ✅ يعمل مرة واحدة فقط عند التحميل
 
   const statsCards = useMemo(
     () => [
@@ -413,7 +424,7 @@ function QuickActionLink({
 }: {
   href: string;
   title: string;
-  icon: any;
+  icon: LucideIcon;
   description: string;
   variant: "blue" | "emerald" | "purple" | "amber";
   isRTL: boolean;

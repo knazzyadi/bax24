@@ -3,10 +3,9 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
+import { useLocale } from "next-intl";
 import { toast } from "sonner";
 import { AdminGuard } from "@/lib/client-guard";
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,7 +30,6 @@ import {
   ClipboardCheck,
   Calendar,
   FileText,
-  Layers,
   CheckCircle2,
   ArrowRight,
   Sparkles,
@@ -78,7 +76,6 @@ export default function NewInspectionPage() {
   const router = useRouter();
   const locale = useLocale();
   const isRtl = locale === "ar";
-  const t = useTranslations("Inspections");
 
   // ============================================================
   // 2.1 State
@@ -108,10 +105,11 @@ export default function NewInspectionPage() {
     const fetchAllData = async () => {
       setLoading(true);
       try {
+        // ✅ تم تعديل هذا السطر: إضافة ?active=true لجلب الأقسام النشطة فقط
         const [sectionsRes, templatesRes, categoriesRes] = await Promise.all([
-          fetch("/api/inspection-sections"),
-          fetch("/api/inspection-templates"),
-          fetch("/api/inspection-categories"),
+          fetch("/api/inspection-sections?active=true"),
+          fetch("/api/inspection-templates?active=true"),
+          fetch("/api/inspection-categories?active=true"),
         ]);
 
         if (!sectionsRes.ok || !templatesRes.ok || !categoriesRes.ok) {
@@ -134,7 +132,7 @@ export default function NewInspectionPage() {
         setSections(sectionsData);
         setTemplates(templatesData);
         setCategories(categoriesWithCount);
-      } catch (error) {
+      } catch {
         toast.error(isRtl ? "فشل في تحميل البيانات" : "Failed to load data");
       } finally {
         setLoading(false);
@@ -291,8 +289,15 @@ export default function NewInspectionPage() {
 
       toast.success(isRtl ? "✅ تم إنشاء الفحص بنجاح" : "✅ Inspection created successfully");
       router.push(`/${locale}/inspections`);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : isRtl
+            ? "حدث خطأ غير معروف"
+            : "Unknown error occurred";
+
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

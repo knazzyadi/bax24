@@ -26,7 +26,7 @@ interface RoomSelectorProps {
   rooms: Room[];
   floorId: string;
   loading?: boolean;
-  placeholder?: string;
+  placeholder?: string; // ✅ إعادة إضافة placeholder
   emptyMessage?: string;
   noFloorMessage?: string;
   className?: string;
@@ -34,7 +34,6 @@ interface RoomSelectorProps {
   isRtl?: boolean;
 }
 
-// ✅ نقل الثابت خارج المكون
 const NONE_VALUE = "__none__";
 
 export function RoomSelector({
@@ -43,17 +42,15 @@ export function RoomSelector({
   rooms,
   floorId,
   loading = false,
-  placeholder = "اختر الغرفة",
+  placeholder, // ✅ استقبال placeholder
   emptyMessage = "لا توجد غرف",
   noFloorMessage = "اختر الدور أولاً",
   className,
   disabled = false,
   isRtl = true,
 }: RoomSelectorProps) {
-  // ✅ حماية البيانات من null/undefined
   const safeRooms = (rooms || []).filter(Boolean);
 
-  // ✅ خيار افتراضي يظهر دائماً (حتى لو كانت البيانات فارغة)
   const defaultOption = {
     id: NONE_VALUE,
     name: isRtl ? "— اختر الغرفة —" : "— Select room —",
@@ -61,28 +58,39 @@ export function RoomSelector({
     floorId: "",
   };
 
-  // ✅ دمج الخيار الافتراضي مع الغرف دائماً (إذا كان هناك دور محدد)
-  const displayRooms = floorId ? [defaultOption, ...safeRooms] : [];
+  const displayRooms = floorId
+    ? [defaultOption, ...safeRooms]
+    : [];
 
-  // تحويل القيمة الفارغة ("") إلى القيمة المميزة للعرض
   const selectValue = value || NONE_VALUE;
 
   const handleValueChange = (val: string) => {
     if (val === NONE_VALUE) {
-      onValueChange(""); // إعادة تعيين إلى قيمة فارغة (لا شيء محدد)
+      onValueChange("");
     } else {
       onValueChange(val);
     }
   };
 
-  // ✅ عرض الغرفة مع الكود (استخدام fullCode إن وجد)
   const getRoomDisplay = (room: Room) => {
-    const name = isRtl ? room.name : (room.nameEn || room.name);
+    const name = isRtl
+      ? room.name
+      : room.nameEn || room.name;
+
     const code = room.fullCode || room.code;
-    return code ? `${code}. ${name}` : name;
+
+    return code
+      ? `${code}. ${name}`
+      : name;
   };
 
-  const isDisabled = disabled || loading || !floorId;
+  const isDisabled =
+    disabled ||
+    loading ||
+    !floorId;
+
+  // ✅ استخدام placeholder الممرر أو القيمة الافتراضية
+  const placeholderText = placeholder ?? (isRtl ? "اختر الغرفة" : "Select room");
 
   return (
     <Select
@@ -96,8 +104,9 @@ export function RoomSelector({
           className
         )}
       >
-        <SelectValue /> {/* ✅ بدون placeholder، لأن القيمة موجودة دائماً */}
+        <SelectValue placeholder={placeholderText} />
       </SelectTrigger>
+
       <SelectContent>
         {!floorId ? (
           <div className="px-2 py-2 text-sm text-amber-500">
@@ -113,7 +122,10 @@ export function RoomSelector({
           </div>
         ) : (
           displayRooms.map((room) => (
-            <SelectItem key={room.id} value={room.id}>
+            <SelectItem
+              key={room.id}
+              value={room.id}
+            >
               {room.id === NONE_VALUE
                 ? room.name
                 : getRoomDisplay(room)}

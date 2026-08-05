@@ -5,21 +5,18 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { useSession } from "next-auth/react";
+import Image from "next/image";
 import {
-  Info,
   User,
   Send,
   Loader2,
-  Plus,
   X,
-  Upload,
   MapPin,
   Building,
   Layers,
   DoorOpen,
   AlertCircle,
   FileText,
-  Sparkles,
   Shield,
   ImageIcon,
 } from "lucide-react";
@@ -42,6 +39,9 @@ import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 
+// =========================
+// أنواع البيانات
+// =========================
 interface Building {
   id: string;
   name: string;
@@ -72,11 +72,19 @@ interface AssetType {
   name: string;
   code?: string;
 }
+
 interface Asset {
   id: string;
   name: string;
   code: string;
   nameEn?: string;
+}
+
+interface ApiRoom {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
 }
 
 // =========================
@@ -95,13 +103,11 @@ export default function NewTicketPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
-  // الموقع الهرمي
   const [buildingId, setBuildingId] = useState<string>("");
   const [floorId, setFloorId] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
   const [branchId, setBranchId] = useState<string>("");
 
-  // المباني والأدوار والغرف
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
@@ -109,41 +115,30 @@ export default function NewTicketPage() {
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
+  // ✅ تهيئة formData مباشرة باستخدام session
   const [formData, setFormData] = useState({
     type: "MAINTENANCE",
     title: "",
     description: "",
     assetTypeId: "",
     assetId: "",
-    reporterName: "",
-    reporterEmail: "",
+    reporterName: session?.user?.name ?? "",
+    reporterEmail: session?.user?.email ?? "",
     phone: "",
   });
 
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
 
-  // كرت الخلفية الزجاجي
   const glassCard =
     "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
-  // تعبئة بيانات المبلّغ تلقائياً من الجلسة
-  useEffect(() => {
-    if (session?.user) {
-      setFormData((prev) => ({
-        ...prev,
-        reporterName: session.user.name || "",
-        reporterEmail: session.user.email || "",
-      }));
-    }
-  }, [session]);
-
-  // جلب المباني وأنواع الأصول (مع المسار الجديد)
+  // جلب المباني وأنواع الأصول
   useEffect(() => {
     async function fetchInitialData() {
       try {
         const [buildingsRes, assetTypesRes] = await Promise.all([
-          fetch("/api/locations/buildings"), // ✅ تم التحديث
+          fetch("/api/locations/buildings"),
           fetch("/api/asset-types"),
         ]);
         const buildingsData = await buildingsRes.json();
@@ -161,16 +156,15 @@ export default function NewTicketPage() {
     fetchInitialData();
   }, [t]);
 
-  // جلب الأدوار (مع المسار الجديد)
+  // جلب الأدوار (بدون setFloors([]))
   useEffect(() => {
     if (!buildingId) {
-      setFloors([]);
       return;
     }
     async function fetchFloors() {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`); // ✅ تم التحديث
+        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`);
         if (res.ok) {
           const data = await res.json();
           setFloors(Array.isArray(data) ? data : []);
@@ -184,16 +178,15 @@ export default function NewTicketPage() {
     fetchFloors();
   }, [buildingId]);
 
-  // جلب الغرف مع الكود الكامل (مع المسار الجديد)
+  // جلب الغرف (بدون setRooms([]))
   useEffect(() => {
     if (!floorId) {
-      setRooms([]);
       return;
     }
     async function fetchRooms() {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/locations/floors/${floorId}/rooms`); // ✅ تم التحديث
+        const res = await fetch(`/api/locations/floors/${floorId}/rooms`);
         if (res.ok) {
           const data = await res.json();
           const currentBuilding = buildings.find((b) => b.id === buildingId);
@@ -201,7 +194,7 @@ export default function NewTicketPage() {
           const buildingCode = currentBuilding?.code || "";
           const floorCode = currentFloor?.code || "";
           const roomsWithCode = (Array.isArray(data) ? data : []).map(
-            (room: any) => ({
+            (room: ApiRoom) => ({
               id: room.id,
               name: room.name,
               nameEn: room.nameEn,
@@ -222,45 +215,53 @@ export default function NewTicketPage() {
     fetchRooms();
   }, [floorId, buildingId, buildings, floors]);
 
-  // ✅ جلب الأصول بناءً على الغرفة ونوع الأصل (لا يتغير لأنه يستخدم /api/assets)
+  // ✅ جلب الأصول مع AbortController وعدم مسح assets
   useEffect(() => {
     if (!roomId) {
-      setAssets([]);
       return;
     }
+
+    const abortController = new AbortController();
 
     const fetchAssets = async () => {
       setLoadingAssets(true);
       try {
         const params = new URLSearchParams();
         params.append("roomId", roomId);
-        if (formData.assetTypeId && formData.assetTypeId !== "all" && formData.assetTypeId !== "") {
+        if (formData.assetTypeId && formData.assetTypeId !== "all") {
           params.append("typeId", formData.assetTypeId);
         }
 
-        const res = await fetch(`/api/assets?${params.toString()}`);
-        if (res.ok) {
-          const data = await res.json();
-          const assetsData = data.data || data.assets || data || [];
-          setAssets(Array.isArray(assetsData) ? assetsData : []);
-        } else {
-          setAssets([]);
+        const res = await fetch(`/api/assets?${params.toString()}`, {
+          signal: abortController.signal,
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch assets");
         }
-      } catch (error) {
-        console.error("Error fetching assets:", error);
-        setAssets([]);
+
+        const data = await res.json();
+        const assetsData = data.data || data || [];
+        setAssets(Array.isArray(assetsData) ? assetsData : []);
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name !== "AbortError") {
+          console.error("Error fetching assets:", error);
+          toast.error(t("fetchError"));
+        }
       } finally {
         setLoadingAssets(false);
       }
     };
 
     fetchAssets();
-  }, [roomId, formData.assetTypeId]);
 
-  // عند تغيير الغرفة أو نوع الأصل، نمسح الأصل المحدد
-  useEffect(() => {
-    setFormData((prev) => ({ ...prev, assetId: "" }));
-  }, [roomId, formData.assetTypeId]);
+    return () => abortController.abort();
+  }, [roomId, formData.assetTypeId, t]); // ✅ إضافة t إلى التبعيات
+
+  // المتغيرات المشتقة
+  const visibleFloors = buildingId ? floors : [];
+  const visibleRooms = floorId ? rooms : [];
+  const visibleAssets = roomId ? assets : [];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -345,7 +346,6 @@ export default function NewTicketPage() {
 
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
       {/* رأس الصفحة */}
@@ -472,6 +472,7 @@ export default function NewTicketPage() {
                       setBuildingId(val);
                       setFloorId("");
                       setRoomId("");
+                      setFormData((prev) => ({ ...prev, assetId: "" }));
                     }}
                     buildings={buildings}
                     loading={loadingBuildings}
@@ -491,8 +492,9 @@ export default function NewTicketPage() {
                     onValueChange={(val) => {
                       setFloorId(val);
                       setRoomId("");
+                      setFormData((prev) => ({ ...prev, assetId: "" }));
                     }}
-                    floors={floors}
+                    floors={visibleFloors}
                     buildingId={buildingId}
                     loading={loadingFloors}
                     placeholder={isRtl ? "اختر الدور" : "Select floor"}
@@ -509,8 +511,11 @@ export default function NewTicketPage() {
                   <RoomSelector
                     className="w-full"
                     value={roomId}
-                    onValueChange={setRoomId}
-                    rooms={rooms}
+                    onValueChange={(val) => {
+                      setRoomId(val);
+                      setFormData((prev) => ({ ...prev, assetId: "" }));
+                    }}
+                    rooms={visibleRooms}
                     floorId={floorId}
                     loading={loadingRooms}
                     placeholder={isRtl ? "اختر الغرفة" : "Select room"}
@@ -557,7 +562,11 @@ export default function NewTicketPage() {
                 <Select
                   value={formData.assetTypeId}
                   onValueChange={(val) => {
-                    setFormData((prev) => ({ ...prev, assetTypeId: val, assetId: "" }));
+                    setFormData((prev) => ({
+                      ...prev,
+                      assetTypeId: val,
+                      assetId: "",
+                    }));
                   }}
                   disabled={!roomId}
                 >
@@ -575,7 +584,9 @@ export default function NewTicketPage() {
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">{isRtl ? "جميع الأنواع" : "All types"}</SelectItem>
+                    <SelectItem value="all">
+                      {isRtl ? "جميع الأنواع" : "All types"}
+                    </SelectItem>
                     {assetTypes.map((type) => (
                       <SelectItem key={type.id} value={type.id}>
                         {type.name} {type.code ? `(${type.code})` : ""}
@@ -607,7 +618,7 @@ export default function NewTicketPage() {
                           ? isRtl
                             ? "اختر الموقع أولاً"
                             : "Select location first"
-                          : assets.length === 0
+                          : visibleAssets.length === 0
                           ? isRtl
                             ? "لا توجد أصول في هذا الموقع"
                             : "No assets at this location"
@@ -618,7 +629,7 @@ export default function NewTicketPage() {
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    {assets.map((asset) => (
+                    {visibleAssets.map((asset) => (
                       <SelectItem key={asset.id} value={asset.id}>
                         {isRtl ? asset.name : asset.nameEn || asset.name} ({asset.code})
                       </SelectItem>
@@ -627,7 +638,7 @@ export default function NewTicketPage() {
                 </Select>
                 {roomId && !loadingAssets && (
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                    {assets.length} {isRtl ? "أصل متاح" : "asset(s) available"}
+                    {visibleAssets.length} {isRtl ? "أصل متاح" : "asset(s) available"}
                   </p>
                 )}
               </div>
@@ -752,9 +763,11 @@ export default function NewTicketPage() {
                 <div className="grid grid-cols-3 gap-3">
                   {previews.map((src, idx) => (
                     <div key={idx} className="relative group">
-                      <img
+                      <Image
                         src={src}
                         alt={`preview-${idx}`}
+                        width={200}
+                        height={100}
                         className="w-full h-24 object-cover rounded-xl border border-slate-200/50 dark:border-slate-700/50"
                       />
                       <button

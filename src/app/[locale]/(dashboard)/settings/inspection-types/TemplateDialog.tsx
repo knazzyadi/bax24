@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/inspection-types/TemplateDialog.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react"; // ✅ حذف useEffect من الاستيراد
 import { toast } from "sonner";
 import {
   Dialog,
@@ -19,6 +19,24 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
 import type { InspectionTemplate, InspectionSection } from "./types";
 
+// ============================================================
+// ✅ دالة مساعدة لتهيئة البيانات
+// ============================================================
+const getInitialFormData = (
+  template: InspectionTemplate | null,
+  sectionId?: string
+) => ({
+  sectionId: template?.sectionId ?? sectionId ?? "",
+  code: template?.code ?? "",
+  name: template?.name ?? "",
+  nameAr: template?.nameAr ?? "",
+  description: template?.description ?? "",
+  isActive: template?.isActive ?? true,
+});
+
+// ============================================================
+// المكون الرئيسي
+// ============================================================
 interface TemplateDialogProps {
   open: boolean;
   onOpenChange: (open: boolean, refetch?: boolean) => void;
@@ -37,37 +55,41 @@ export function TemplateDialog({
   isRtl,
 }: TemplateDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [selectedSectionId, setSelectedSectionId] = useState(sectionId || "");
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [nameAr, setNameAr] = useState("");
-  const [description, setDescription] = useState("");
-  const [isActive, setIsActive] = useState(true);
-
   const isEditing = !!template;
 
-  useEffect(() => {
-    if (template) {
-      setSelectedSectionId(template.sectionId);
-      setCode(template.code || "");
-      setName(template.name || "");
-      setNameAr(template.nameAr || "");
-      setDescription(template.description || "");
-      setIsActive(template.isActive ?? true);
-    } else {
-      setSelectedSectionId(sectionId || "");
-      setCode("");
-      setName("");
-      setNameAr("");
-      setDescription("");
-      setIsActive(true);
+  // ✅ استخدام useState مع دالة initializer
+  const [formData, setFormData] = useState(() =>
+    getInitialFormData(template, sectionId)
+  );
+
+  // ✅ دالة معالجة فتح/إغلاق النافذة مع إعادة ضبط البيانات
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!loading) {
+      if (newOpen) {
+        setFormData(getInitialFormData(template, sectionId));
+      }
+      onOpenChange(newOpen, false);
     }
-  }, [template, sectionId, open]);
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+    }));
+  };
+
+  const handleSwitchChange = (checked: boolean) => {
+    setFormData((prev) => ({ ...prev, isActive: checked }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedSectionId || !code.trim() || !name.trim()) {
+    if (!formData.sectionId || !formData.code.trim() || !formData.name.trim()) {
       toast.error(isRtl ? "القسم والكود والاسم مطلوبون" : "Section, code and name are required");
       return;
     }
@@ -75,12 +97,12 @@ export function TemplateDialog({
     setLoading(true);
     try {
       const payload = {
-        sectionId: selectedSectionId,
-        code: code.trim(),
-        name: name.trim(),
-        nameAr: nameAr.trim(),
-        description: description.trim(),
-        isActive,
+        sectionId: formData.sectionId,
+        code: formData.code.trim(),
+        name: formData.name.trim(),
+        nameAr: formData.nameAr.trim(),
+        description: formData.description.trim(),
+        isActive: formData.isActive,
       };
 
       const url = isEditing
@@ -100,18 +122,20 @@ export function TemplateDialog({
       }
 
       toast.success(isEditing ? "تم التحديث" : "تمت الإضافة");
-
-      // ✅ إغلاق الحوار مع إعادة التحميل
       onOpenChange(false, true);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : (isRtl ? "فشل الحفظ" : "Save failed")
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !loading && onOpenChange(open, false)}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px] rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-slate-200/50 dark:border-slate-800/50">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">
@@ -134,9 +158,11 @@ export function TemplateDialog({
               {isRtl ? "القسم *" : "Section *"}
             </Label>
             <select
-              value={selectedSectionId}
-              onChange={(e) => setSelectedSectionId(e.target.value)}
-              className="w-full h-11 rounded-xl border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 px-4"
+              name="sectionId"
+              value={formData.sectionId}
+              onChange={handleChange}
+              className="w-full h-11 rounded-xl border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 px-4 focus:ring-2 focus:ring-indigo-500/50"
+              required
             >
               <option value="">{isRtl ? "اختر القسم" : "Select section"}</option>
               {sections.map((s) => (
@@ -152,8 +178,9 @@ export function TemplateDialog({
               {isRtl ? "الكود *" : "Code *"}
             </Label>
             <Input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
+              name="code"
+              value={formData.code}
+              onChange={handleChange}
               placeholder={isRtl ? "مثال: SAF-GEN" : "e.g. SAF-GEN"}
               className="rounded-xl font-mono uppercase"
               dir="ltr"
@@ -165,8 +192,9 @@ export function TemplateDialog({
               {isRtl ? "الاسم (إنجليزي) *" : "Name (English) *"}
             </Label>
             <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
               placeholder={isRtl ? "مثال: General Safety" : "e.g. General Safety"}
               className="rounded-xl"
               dir="ltr"
@@ -178,8 +206,9 @@ export function TemplateDialog({
               {isRtl ? "الاسم (عربي)" : "Name (Arabic)"}
             </Label>
             <Input
-              value={nameAr}
-              onChange={(e) => setNameAr(e.target.value)}
+              name="nameAr"
+              value={formData.nameAr}
+              onChange={handleChange}
               placeholder={isRtl ? "مثال: السلامة العامة" : "e.g. General Safety"}
               className="rounded-xl"
               dir={isRtl ? "rtl" : "ltr"}
@@ -191,8 +220,9 @@ export function TemplateDialog({
               {isRtl ? "الوصف (اختياري)" : "Description (Optional)"}
             </Label>
             <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
               placeholder={isRtl ? "وصف النموذج" : "Template description"}
               className="rounded-xl min-h-[80px]"
               dir={isRtl ? "rtl" : "ltr"}
@@ -204,8 +234,8 @@ export function TemplateDialog({
               {isRtl ? "حالة التفعيل" : "Active Status"}
             </Label>
             <Switch
-              checked={isActive}
-              onCheckedChange={setIsActive}
+              checked={formData.isActive}
+              onCheckedChange={handleSwitchChange}
               className="data-[state=checked]:bg-indigo-600"
             />
           </div>
@@ -214,7 +244,7 @@ export function TemplateDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false, false)}
+              onClick={() => handleOpenChange(false)}
               disabled={loading}
               className="rounded-xl"
             >

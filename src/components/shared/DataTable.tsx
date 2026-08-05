@@ -21,7 +21,7 @@ interface DataTableProps<T> {
   rowKey?: keyof T | string;
 }
 
-export function DataTable<T extends Record<string, any>>({
+export function DataTable<T>({
   data,
   columns,
   emptyMessage = 'لا توجد بيانات',
@@ -32,15 +32,22 @@ export function DataTable<T extends Record<string, any>>({
   if (data.length === 0) {
     return (
       <div className="text-center py-16 bg-card rounded-2xl border border-dashed border-border">
-        <p className="text-muted-foreground font-medium">{emptyMessage}</p>
+        <p className="text-muted-foreground font-medium">
+          {emptyMessage}
+        </p>
       </div>
     );
   }
-
+  
   const getRowKey = (item: T, index: number): string => {
-    if (rowKey && item[rowKey as keyof T] !== undefined) {
-      return String(item[rowKey as keyof T]);
+    if (rowKey) {
+      const value = item[rowKey as keyof T];
+
+      if (value !== undefined && value !== null) {
+        return String(value);
+      }
     }
+
     return String(index);
   };
 
@@ -53,31 +60,38 @@ export function DataTable<T extends Record<string, any>>({
               {columns.map((col) => (
                 <th
                   key={String(col.key)}
-                  className={cn("p-4 text-right text-sm font-bold text-muted-foreground", col.className)}
+                  className={cn(
+                    'p-4 text-right text-sm font-bold text-muted-foreground',
+                    col.className
+                  )}
                 >
                   {col.header || col.title || String(col.key)}
                 </th>
               ))}
             </tr>
           </thead>
+
           <tbody>
             {data.map((item, index) => (
               <tr
                 key={getRowKey(item, index)}
                 className={cn(
-                  "border-b border-border hover:bg-muted/30 transition-colors",
-                  onRowClick && "cursor-pointer",
+                  'border-b border-border hover:bg-muted/30 transition-colors',
+                  onRowClick && 'cursor-pointer',
                   rowClassName
                 )}
                 onClick={() => onRowClick?.(item)}
               >
                 {columns.map((col) => (
-                  <td key={String(col.key)} className={cn("p-4", col.className)}>
+                  <td
+                    key={String(col.key)}
+                    className={cn('p-4', col.className)}
+                  >
                     {col.cell
                       ? col.cell(item, index)
                       : col.render
-                      ? col.render(item, index)
-                      : (item[col.key as keyof T] as React.ReactNode)}
+                        ? col.render(item, index)
+                        : (item[col.key as keyof T] as React.ReactNode)}
                   </td>
                 ))}
               </tr>

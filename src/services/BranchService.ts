@@ -1,32 +1,49 @@
 // src/services/BranchService.ts
 import { prisma } from '@/lib/prisma';
 import { randomUUID } from 'crypto';
-import { generateSlug } from '@/lib/utils';
+import { Prisma } from '@prisma/client';
+
+// تعريف Session مع دعم null لـ branchIds
+interface Session {
+  role: string;
+  companyId?: string | null;
+  branchIds?: string[] | null; // ← تم التعديل
+}
 
 export interface BranchCreateData {
   name: string;
   nameEn?: string;
   code: string;
-  companyId: string;
+  companyId?: string;
 }
 
 export interface BranchUpdateData {
   name?: string;
   nameEn?: string;
   code?: string;
+  companyId?: string;
+}
+
+function generateSlug(text: string): string {
+  return text
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 }
 
 export class BranchService {
-  /**
-   * جلب جميع الفروع مع صلاحيات المستخدم
-   */
-  static async getAll(session: any, companyIdParam?: string) {
-    const where: any = {};
+  static async getAll(session: Session, companyIdParam?: string) {
+    const where: Prisma.BranchWhereInput = {};
+    const companyId = companyIdParam ?? session.companyId;
 
     if (session.role !== 'SUPER_ADMIN') {
-      where.companyId = session.companyId;
-      if (session.role !== 'ADMIN' && session.branchIds?.length > 0) {
-        where.id = { in: session.branchIds };
+      where.companyId = companyId ?? undefined;
+      const branchIds = session.branchIds ?? [];
+      if (session.role !== 'ADMIN' && branchIds.length > 0) {
+        where.id = { in: branchIds };
       }
     } else if (companyIdParam) {
       where.companyId = companyIdParam;
@@ -41,28 +58,18 @@ export class BranchService {
     });
   }
 
-  /**
-   * إنشاء فرع جديد
-   */
-  static async create(data: BranchCreateData, session: any) {
+  static async create(data: BranchCreateData, session: Session) {
     const { name, nameEn, code, companyId } = data;
 
-    if (!name?.trim()) {
-      throw new Error('اسم الفرع مطلوب');
+    let targetCompanyId = companyId;
+    if (session.role !== 'SUPER_ADMIN') {
+      targetCompanyId = session.companyId ?? undefined;
     }
-    if (!code?.trim()) {
-      throw new Error('كود الفرع مطلوب');
-    }
-
-    const targetCompanyId = session.role !== 'SUPER_ADMIN'
-      ? session.companyId
-      : companyId;
 
     if (!targetCompanyId) {
       throw new Error('لا توجد شركة مرتبطة');
     }
 
-    // التحقق من تكرار الكود
     const duplicate = await prisma.branch.findFirst({
       where: {
         companyId: targetCompanyId,
@@ -73,11 +80,15 @@ export class BranchService {
       throw new Error('يوجد فرع بنفس الكود');
     }
 
-    // إنشاء slug فريد
-    const baseSlug = generateSlug(nameEn?.trim() || name.trim()) || 'branch';
+    let baseSlug = generateSlug(nameEn?.trim() || name.trim());
+    if (!baseSlug) baseSlug = 'branch';
     let slug = baseSlug;
     let counter = 1;
-    while (await prisma.branch.findFirst({ where: { slug } })) {
+    while (
+      await prisma.branch.findFirst({
+        where: { slug },
+      })
+    ) {
       slug = `${baseSlug}-${counter++}`;
     }
 
@@ -90,39 +101,32 @@ export class BranchService {
         slug,
         publicToken: randomUUID(),
         allowPublicTickets: true,
-        // ✅ تم إزالة isActive (غير موجود في الـ Schema)
       },
     });
   }
 
-  /**
-   * تحديث فرع
-   */
-  static async update(id: string, data: BranchUpdateData, session: any) {
+  static async update(id: string, data: BranchUpdateData, session: Session) {
     const { name, nameEn, code } = data;
 
-    const existing = await prisma.branch.findUnique({ where: { id } });
-    if (!existing) {
+    const branch = await prisma.branch.findUnique({ where: { id } });
+    if (!branch) {
       throw new Error('الفرع غير موجود');
     }
 
-    // التحقق من الصلاحية
-    if (session.role !== 'SUPER_ADMIN' && existing.companyId !== session.companyId) {
-      throw new Error('لا تملك الصلاحية');
+    let targetCompanyId = branch.companyId;
+    if (session.role !== 'SUPER_ADMIN') {
+      if (branch.companyId !== session.companyId) {
+        throw new Error('لا تملك الصلاحية');
+      }
+      targetCompanyId = session.companyId ?? branch.companyId;
+    } else if (data.companyId) {
+      targetCompanyId = data.companyId;
     }
 
-    if (name && !name.trim()) {
-      throw new Error('اسم الفرع مطلوب');
-    }
-    if (code && !code.trim()) {
-      throw new Error('كود الفرع مطلوب');
-    }
-
-    // التحقق من تكرار الكود (باستثناء نفس السجل)
     if (code) {
       const duplicate = await prisma.branch.findFirst({
         where: {
-          companyId: existing.companyId,
+          companyId: targetCompanyId,
           code: code.trim(),
           NOT: { id },
         },
@@ -135,37 +139,24 @@ export class BranchService {
     return prisma.branch.update({
       where: { id },
       data: {
-        name: name?.trim() || existing.name,
+        name: name?.trim() || branch.name,
         nameEn: nameEn?.trim() || null,
-        code: code?.trim() || existing.code,
+        code: code?.trim() || branch.code,
+        ...(data.companyId && session.role === 'SUPER_ADMIN'
+          ? { companyId: data.companyId }
+          : {}),
       },
     });
   }
 
-  /**
-   * حذف فرع
-   */
-  static async delete(id: string, session: any) {
-    const existing = await prisma.branch.findUnique({
-      where: { id },
-      include: {
-        tickets: { take: 1 },
-        workOrders: { take: 1 },
-        assets: { take: 1 },
-      },
-    });
-
-    if (!existing) {
+  static async delete(id: string, session: Session) {
+    const branch = await prisma.branch.findUnique({ where: { id } });
+    if (!branch) {
       throw new Error('الفرع غير موجود');
     }
 
-    if (session.role !== 'SUPER_ADMIN' && existing.companyId !== session.companyId) {
+    if (session.role !== 'SUPER_ADMIN' && branch.companyId !== session.companyId) {
       throw new Error('لا تملك الصلاحية');
-    }
-
-    // التحقق من وجود بيانات مرتبطة
-    if (existing.tickets.length > 0 || existing.workOrders.length > 0 || existing.assets.length > 0) {
-      throw new Error('لا يمكن حذف الفرع لوجود بيانات مرتبطة');
     }
 
     return prisma.branch.delete({ where: { id } });

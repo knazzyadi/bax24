@@ -8,10 +8,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { 
-  Plus, FileText, Building, DollarSign, Calendar, Upload, Loader2, X, Save, 
-  Paperclip, File, Image, FileUp, Trash2, Eye, User, Phone, Mail,
-  Sparkles, Shield, CheckCircle2, ArrowRight
+import {
+  Image as ImageIcon, Plus, FileText, Building, DollarSign, Calendar, Upload, Loader2, X, Save, 
+  Paperclip, File, Trash2, Eye, User, Phone, Mail,
+  Sparkles, CheckCircle2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BranchSelector } from "@/components/shared/BranchSelector";
@@ -138,9 +138,19 @@ export default function NewContractPage() {
       toast.success(isRtl ? "تم إنشاء العقد بنجاح" : "Contract created successfully");
       router.push(`/${locale}/contracts`);
       router.refresh();
-    } catch (err: any) {
-      console.error("Create error:", err);
-      toast.error(err.message || (isRtl ? "فشل إنشاء العقد" : "Failed to create contract"));
+    } catch (err: unknown) {
+    console.error("Create error:", err);
+
+    let message = isRtl
+      ? "فشل إنشاء العقد"
+      : "Failed to create contract";
+
+    if (err instanceof Error) {
+      message = err.message;
+    }
+
+    toast.error(message);
+
     } finally {
       setLoading(false);
     }
@@ -372,7 +382,7 @@ export default function NewContractPage() {
                             <div className="flex items-center gap-3 overflow-hidden">
                               <div className="shrink-0">
                                 {att.type.startsWith('image/') ? (
-                                  <Image className="h-5 w-5 text-indigo-400" />
+                                  <ImageIcon className="h-5 w-5 text-indigo-400" />
                                 ) : att.type === 'application/pdf' ? (
                                   <FileText className="h-5 w-5 text-rose-400" />
                                 ) : (

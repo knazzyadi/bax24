@@ -1,7 +1,8 @@
 // src/components/shared/AssetDetailsCard.tsx
+
 "use client";
 
-import { Package, Calendar, MapPin } from "lucide-react";
+import { Package, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 

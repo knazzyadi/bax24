@@ -36,10 +36,10 @@ import {
   Clock,
 } from "lucide-react";
 import { LocationSelector, type LocationValue } from "@/components/shared/LocationSelector";
-import type { AssetStatus, AssetType, Building, Floor, Room } from "@/types/assets";
+import type { AssetStatus, AssetType, Building } from "@/types/assets";
 
 // ============================================================
-// 1. Hook لجلب البيانات الوصفية (مع المسارات الجديدة)
+// 1. Hook لجلب البيانات الوصفية
 // ============================================================
 function useMetadata(locale: string) {
   const [statuses, setStatuses] = useState<AssetStatus[]>([]);
@@ -56,7 +56,7 @@ function useMetadata(locale: string) {
       const [statusesRes, typesRes, buildingsRes, suppliersRes] = await Promise.all([
         fetch(`/api/asset-statuses?locale=${locale}`),
         fetch(`/api/asset-types?locale=${locale}`),
-        fetch(`/api/locations/buildings`), // ✅ تم التحديث
+        fetch(`/api/locations/buildings`),
         fetch(`/api/suppliers?locale=${locale}`),
       ]);
       if (statusesRes.ok) setStatuses(await statusesRes.json());
@@ -72,14 +72,15 @@ function useMetadata(locale: string) {
   }, [locale]);
 
   useEffect(() => {
-    fetchMetadata();
-  }, [fetchMetadata]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  void fetchMetadata();
+}, [fetchMetadata]);
 
   return { statuses, types, buildings, suppliers, loading, error, refetch: fetchMetadata };
 }
 
 // ============================================================
-// 2. Hook لجلب بيانات الأصل وتعبئة النموذج (مع المسارات الجديدة)
+// 2. Hook لجلب بيانات الأصل وتعبئة النموذج
 // ============================================================
 function useAssetForm(assetId: string) {
   const [loading, setLoading] = useState(true);
@@ -165,15 +166,16 @@ function useAssetForm(assetId: string) {
   }, [assetId]);
 
   useEffect(() => {
-    fetchAsset();
-  }, [fetchAsset]);
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  void fetchAsset();
+}, [fetchAsset]);
 
   const handleLocationChange = (location: LocationValue) => {
     setLocationData(location);
     setFormData((prev) => ({ ...prev, roomId: location.roomId }));
 
     if (location.roomId) {
-      fetch(`/api/locations/rooms/${location.roomId}`) // ✅ تم التحديث
+      fetch(`/api/locations/rooms/${location.roomId}`)
         .then((res) => {
           if (res.ok) return res.json();
           return null;

@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/asset-types/AssetTypeTable.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ إزالة useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import {
   Edit,
@@ -110,8 +110,6 @@ function DraggableRow({
         {type.code || "—"}
       </td>
 
-      {/* ❌ تم حذف عمود "الترتيب" (يتم استخدام الترتيب عبر السحب) */}
-
       {/* الافتراضي */}
       <td className="py-3 px-4 text-center">
         {type.isDefault ? (
@@ -168,11 +166,10 @@ export function AssetTypeTable({
   isRtl,
 }: AssetTypeTableProps) {
   const t = useTranslations("AssetTypes");
+  // ✅ حذف useEffect - نترك state مع القيمة الأولية فقط
   const [items, setItems] = useState<AssetType[]>(data);
 
-  useEffect(() => {
-    setItems(data);
-  }, [data]);
+  // ✅ تم حذف useEffect بالكامل
 
   const sensors = useSensors(
     useSensor(PointerSensor),

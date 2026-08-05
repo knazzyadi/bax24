@@ -18,7 +18,7 @@ interface DetailsCardProps {
     } | null;
   };
   isRtl: boolean;
-  t: any;
+  t: (key: string) => string; // ✅ استبدال any
 }
 
 export function DetailsCard({ workOrder, isRtl, t }: DetailsCardProps) {

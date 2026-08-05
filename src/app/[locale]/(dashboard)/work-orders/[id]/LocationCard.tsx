@@ -16,10 +16,9 @@ interface LocationCardProps {
     };
   } | null;
   isRtl: boolean;
-  t: any;
 }
 
-export function LocationCard({ room, isRtl, t }: LocationCardProps) {
+export function LocationCard({ room, isRtl }: LocationCardProps) {
   if (!room) {
     return (
       <div className="p-4 text-sm text-slate-500 dark:text-slate-400">
@@ -33,16 +32,21 @@ export function LocationCard({ room, isRtl, t }: LocationCardProps) {
       ? room.floor.building.name
       : room.floor.building.nameEn || room.floor.building.name
     : "";
+
   const floorName = room.floor
     ? isRtl
       ? room.floor.name
       : room.floor.nameEn || room.floor.name
     : "";
+
   const roomName = isRtl ? room.name : room.nameEn || room.name;
 
   return (
     <div className="space-y-1">
-      <p className="font-semibold text-slate-800 dark:text-slate-100">{roomName}</p>
+      <p className="font-semibold text-slate-800 dark:text-slate-100">
+        {roomName}
+      </p>
+
       {(floorName || buildingName) && (
         <p className="text-sm text-slate-500 dark:text-slate-400">
           {[floorName, buildingName].filter(Boolean).join(" - ")}

@@ -1,4 +1,5 @@
 // src/app/[locale]/(dashboard)/super-admin/backups/page.tsx
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -16,9 +17,8 @@ export default function BackupsPage() {
 
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [companies, setCompanies] = useState<Company[]>([]);
-  const [loadingCompanies, setLoadingCompanies] = useState(true);
 
-  // ✅ جلب قائمة الشركات
+  // ✅ جلب قائمة الشركات (بدون حالة تحميل)
   useEffect(() => {
     const fetchCompanies = async () => {
       try {
@@ -28,8 +28,6 @@ export default function BackupsPage() {
         setCompanies(data);
       } catch (error) {
         console.error("Error fetching companies:", error);
-      } finally {
-        setLoadingCompanies(false);
       }
     };
     fetchCompanies();

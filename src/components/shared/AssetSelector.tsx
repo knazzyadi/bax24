@@ -29,7 +29,6 @@ interface AssetSelectorProps {
   placeholder?: string;
 }
 
-// ✅ نقل الثابت خارج المكون
 const NONE_VALUE = "__none__";
 
 export default function AssetSelector({
@@ -39,53 +38,62 @@ export default function AssetSelector({
   onChange,
   disabled = false,
   className = "",
-  placeholder,
 }: AssetSelectorProps) {
   const locale = useLocale();
   const isRtl = locale === "ar";
+
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!locationId) {
-      setAssets([]);
       return;
     }
 
     const fetchAssets = async () => {
       setLoading(true);
       setError(null);
+
       try {
         const params = new URLSearchParams();
+
         params.append("locationId", locationId);
+
         if (assetTypeId && assetTypeId !== "all") {
           params.append("typeId", assetTypeId);
         }
+
         params.append("limit", "1000");
 
         const res = await fetch(`/api/assets?${params.toString()}`);
-        if (!res.ok) throw new Error("Failed to fetch assets");
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch assets");
+        }
+
         const data = await res.json();
 
         let assetsArray: Asset[] = [];
+
         if (Array.isArray(data)) {
           assetsArray = data;
-        } else if (data.assets && Array.isArray(data.assets)) {
+        } else if (Array.isArray(data.assets)) {
           assetsArray = data.assets;
-        } else if (data.items && Array.isArray(data.items)) {
+        } else if (Array.isArray(data.items)) {
           assetsArray = data.items;
-        } else if (data.data && Array.isArray(data.data)) {
+        } else if (Array.isArray(data.data)) {
           assetsArray = data.data;
         } else {
           console.warn("[AssetSelector] Unexpected API response", data);
-          assetsArray = [];
         }
 
         setAssets(assetsArray);
       } catch (err) {
         console.error(err);
-        setError(isRtl ? "فشل تحميل الأصول" : "Failed to load assets");
+        setError(
+          isRtl ? "فشل تحميل الأصول" : "Failed to load assets"
+        );
         setAssets([]);
       } finally {
         setLoading(false);
@@ -95,47 +103,57 @@ export default function AssetSelector({
     fetchAssets();
   }, [locationId, assetTypeId, isRtl]);
 
-  // ✅ حماية البيانات من null/undefined
-  const safeAssets = (assets || []).filter(Boolean);
+  const safeAssets = locationId ? assets.filter(Boolean) : [];
 
-  // ✅ خيار افتراضي يظهر دائماً (إذا كان هناك موقع محدد)
   const defaultOption = {
     id: NONE_VALUE,
     label: isRtl ? "— اختر الأصل —" : "— Select asset —",
   };
 
-  // ✅ بناء الخيارات مع الخيار الافتراضي
   const getDisplayName = (asset: Asset) => {
-    const name = isRtl ? asset.name : (asset.nameEn || asset.name);
-    return asset.code ? `${asset.code}. ${name}` : name;
+    const name = isRtl
+      ? asset.name
+      : asset.nameEn || asset.name;
+
+    return asset.code
+      ? `${asset.code}. ${name}`
+      : name;
   };
 
-  // ✅ دمج الخيار الافتراضي مع الأصول دائماً (إذا كان هناك موقع محدد)
   const assetOptions = locationId
-    ? [defaultOption, ...safeAssets.map((asset) => ({ id: asset.id, label: getDisplayName(asset) }))]
+    ? [
+        defaultOption,
+        ...safeAssets.map((asset) => ({
+          id: asset.id,
+          label: getDisplayName(asset),
+        })),
+      ]
     : [];
 
-  // ✅ تحويل القيمة الفارغة إلى القيمة المميزة للعرض
   const selectValue = value || NONE_VALUE;
 
   const handleValueChange = (val: string) => {
-    if (val === NONE_VALUE) {
-      onChange(""); // إعادة تعيين إلى قيمة فارغة (لا شيء محدد)
-    } else {
-      onChange(val);
-    }
+    onChange(val === NONE_VALUE ? "" : val);
   };
 
-  // ✅ العنصر المختار للعرض في الـ Trigger
-  const selectedAsset = safeAssets.find((a) => a.id === value);
-  const displayValue = selectedAsset ? getDisplayName(selectedAsset) : undefined;
+  const selectedAsset = safeAssets.find(
+    (asset) => asset.id === value
+  );
 
-  // ✅ تحديد ما إذا كان Select معطلاً
-  const isDisabled = disabled || !locationId || loading;
+  const displayValue = selectedAsset
+    ? getDisplayName(selectedAsset)
+    : undefined;
 
-  const defaultPlaceholder = isRtl ? "اختر الأصل..." : "Select asset...";
-  const noLocationMessage = isRtl ? "اختر الموقع أولاً" : "Select location first";
-  const noAssetsMessage = isRtl ? "لا توجد أصول في هذا الموقع" : "No assets at this location";
+  const isDisabled =
+    disabled || !locationId || loading;
+
+  const noLocationMessage = isRtl
+    ? "اختر الموقع أولاً"
+    : "Select location first";
+
+  const noAssetsMessage = isRtl
+    ? "لا توجد أصول في هذا الموقع"
+    : "No assets at this location";
 
   return (
     <Select
@@ -144,13 +162,16 @@ export default function AssetSelector({
       disabled={isDisabled}
     >
       <SelectTrigger
-        className={className || "h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"}
+        className={
+          className ||
+          "h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
+        }
       >
-        {/* ✅ بدون placeholder، لأن القيمة موجودة دائماً */}
         <SelectValue>
           {displayValue}
         </SelectValue>
       </SelectTrigger>
+
       <SelectContent>
         {!locationId ? (
           <div className="px-2 py-2 text-sm text-amber-500">

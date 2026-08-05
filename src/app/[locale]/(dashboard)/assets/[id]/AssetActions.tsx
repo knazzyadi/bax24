@@ -48,7 +48,7 @@ export default function AssetActions({
         const error = await res.json();
         toast.error(error.error || (isRtl ? "فشل حذف الأصل" : "Failed to delete asset"));
       }
-    } catch (err) {
+    } catch {
       toast.error(isRtl ? "حدث خطأ أثناء الحذف" : "An error occurred");
     } finally {
       setIsDeleting(false);

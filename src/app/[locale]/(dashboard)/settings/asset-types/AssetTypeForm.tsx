@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/asset-types/AssetTypeForm.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ إزالة useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,33 +24,27 @@ export function AssetTypeForm({
 }: AssetTypeFormProps) {
   const t = useTranslations("AssetTypes");
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    nameEn: "",
-    code: "",
-    isDefault: false,
-    isActive: true,
-  });
 
-  useEffect(() => {
-    if (type) {
-      setFormData({
-        name: type.name || "",
-        nameEn: type.nameEn || "",
-        code: type.code || "",
-        isDefault: type.isDefault || false,
-        isActive: type.isActive !== undefined ? type.isActive : true,
-      });
-    } else {
-      setFormData({
-        name: "",
-        nameEn: "",
-        code: "",
-        isDefault: false,
-        isActive: true,
-      });
-    }
-  }, [type]);
+  // ✅ استخدام useState مع دالة initializer تعتمد على type
+  const [formData, setFormData] = useState(() =>
+    type
+      ? {
+          name: type.name || "",
+          nameEn: type.nameEn || "",
+          code: type.code || "",
+          isDefault: type.isDefault || false,
+          isActive: type.isActive !== undefined ? type.isActive : true,
+        }
+      : {
+          name: "",
+          nameEn: "",
+          code: "",
+          isDefault: false,
+          isActive: true,
+        }
+  );
+
+  // ✅ تم حذف useEffect بالكامل
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type: inputType, checked } = e.target;
@@ -95,8 +89,12 @@ export function AssetTypeForm({
 
       toast.success(type ? t("updateSuccess") : t("createSuccess"));
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || t("saveError"));
+      } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("saveError")
+      );
       console.error(error);
     } finally {
       setLoading(false);
@@ -145,8 +143,6 @@ export function AssetTypeForm({
           className="h-12 rounded-2xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all font-mono uppercase tracking-wider"
         />
       </div>
-
-      {/* ❌ تم حذف حقل "الترتيب" (يتم استخدام الترتيب عبر السحب) */}
 
       <div className="space-y-4 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
         <div className="flex items-center gap-3">

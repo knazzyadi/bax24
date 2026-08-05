@@ -33,6 +33,7 @@ export async function GET() {
       where: {
         companyId,
         deletedAt: null,
+        isActive: true,
       },
       orderBy: [
         { order: 'asc' },

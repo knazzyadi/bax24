@@ -11,6 +11,7 @@ import { UserFormDialog } from './components/UserFormDialog';
 import { UserDeleteDialog } from './components/UserDeleteDialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Pagination } from '@/components/ui/pagination';
+import type { User, Branch, UserFormData } from './types';
 
 function UsersPageContent() {
   const params = useParams();
@@ -19,13 +20,11 @@ function UsersPageContent() {
 
   const {
     users,
-    total,
     totalPages,
     isLoading,
     isSaving,
     isDeleting,
     filters,
-    updateFilters,
     changePage,
     createUser,
     updateUser,
@@ -35,14 +34,29 @@ function UsersPageContent() {
   } = useUsers();
 
   const [formDialogOpen, setFormDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<any>(null);
+  const [editingUser, setEditingUser] = useState<User | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const [branches] = useState<any[]>([]);
-  const [roles] = useState<any[]>([
-    { id: 'BRANCH_MANAGER', name: 'BRANCH_MANAGER', label: isRtl ? 'مدير فرع' : 'Branch Manager' },
-    { id: 'TECHNICIAN', name: 'TECHNICIAN', label: isRtl ? 'فني' : 'Technician' },
+    type Role = {
+    id: string;
+    name: string;
+    label: string | null;
+  };
+
+  const [branches] = useState<Branch[]>([]);
+
+  const [roles] = useState<Role[]>([
+    {
+      id: 'BRANCH_MANAGER',
+      name: 'BRANCH_MANAGER',
+      label: isRtl ? 'مدير فرع' : 'Branch Manager',
+    },
+    {
+      id: 'TECHNICIAN',
+      name: 'TECHNICIAN',
+      label: isRtl ? 'فني' : 'Technician',
+    },
   ]);
 
   const handleAdd = () => {
@@ -50,7 +64,7 @@ function UsersPageContent() {
     setFormDialogOpen(true);
   };
 
-  const handleEdit = (user: any) => {
+  const handleEdit = (user: User) => {
     setEditingUser(user);
     setFormDialogOpen(true);
   };
@@ -70,8 +84,8 @@ function UsersPageContent() {
     setDeletingId(null);
   };
 
-  const handleSave = async (data: any) => {
-    if (editingUser) {
+      const handleSave = async (data: UserFormData) => {
+      if (editingUser) {
       await updateUser(editingUser.id, data);
     } else {
       await createUser(data);

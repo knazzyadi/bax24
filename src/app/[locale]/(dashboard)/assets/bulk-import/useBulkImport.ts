@@ -1,6 +1,6 @@
 // src/app/[locale]/(dashboard)/assets/bulk-import/useBulkImport.ts
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation'; // ✅ إضافة useRouter
+import { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { useLocale } from 'next-intl';
 import { toast } from 'sonner';
@@ -10,7 +10,39 @@ import { BulkAssetRow } from './bulkImport.types';
 import { generateId } from './generateId';
 
 // =======================================================
-// 1. دوال مساعدة (normalization, parseDate)
+// الأنواع
+// =======================================================
+
+type SubmitError = {
+  message: string;
+};
+
+type SubmitResult = {
+  successCount: number;
+  failCount: number;
+  errors: SubmitError[];
+};
+
+// الغرفة مع الكود الكامل (يُستخدم فقط في القيم المشتقة)
+type RoomWithCode = Room & {
+  nameEn?: string;
+  fullCode: string; // ✅ تمت إضافة fullCode
+};
+
+type CsvRow = Record<string, string | undefined>;
+
+type FilePickerWindow = Window & {
+  showOpenFilePicker?: (options?: {
+    multiple?: boolean;
+    types?: {
+      description: string;
+      accept: Record<string, string[]>;
+    }[];
+  }) => Promise<FileSystemFileHandle[]>;
+};
+
+// =======================================================
+// دوال مساعدة
 // =======================================================
 
 const normalizeBuilding = (b: Building): Building & { nameEn?: string } => ({
@@ -21,11 +53,6 @@ const normalizeBuilding = (b: Building): Building & { nameEn?: string } => ({
 const normalizeFloor = (f: Floor): Floor & { nameEn?: string } => ({
   ...f,
   nameEn: f.nameEn ?? undefined,
-});
-
-const normalizeRoom = (r: Room): Room & { nameEn?: string } => ({
-  ...r,
-  nameEn: r.nameEn ?? undefined,
 });
 
 function parseDate(value: string): string {
@@ -52,31 +79,30 @@ function parseDate(value: string): string {
 }
 
 // =======================================================
-// 2. الهوك الرئيسي
+// الهوك الرئيسي
 // =======================================================
 
 export function useBulkImport() {
-  const router = useRouter(); // ✅ استخدام useRouter
+  const router = useRouter();
   const { data: session } = useSession();
   const locale = useLocale();
   const isRtl = locale === 'ar';
 
-  // ---------- الحالة: الموقع ----------
+  // ---------- الحالة: البيانات الخام ----------
   const [rawBuildings, setRawBuildings] = useState<Building[]>([]);
   const [rawFloors, setRawFloors] = useState<Floor[]>([]);
-  const [rawRooms, setRawRooms] = useState<Room[]>([]);
-  const [buildings, setBuildings] = useState<(Building & { nameEn?: string })[]>([]);
-  const [floors, setFloors] = useState<(Floor & { nameEn?: string })[]>([]);
-  const [rooms, setRooms] = useState<(Room & { nameEn?: string })[]>([]);
+  const [rawRooms, setRawRooms] = useState<Room[]>([]); // ✅ تغيير النوع إلى Room[]
+
+  // ---------- الحالة: الاختيارات ----------
   const [selectedBuildingId, setSelectedBuildingId] = useState('');
   const [selectedFloorId, setSelectedFloorId] = useState('');
   const [selectedRoomId, setSelectedRoomId] = useState('');
-  const [selectedRoomCode, setSelectedRoomCode] = useState('');
-  const [selectedRoomName, setSelectedRoomName] = useState('');
+
+  // ---------- الحالة: مؤشرات التحميل والأخطاء ----------
   const [loadingBuildings, setLoadingBuildings] = useState(false);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
-  const [locationError, setLocationError] = useState<string | null>(null);
+  const [locationFetchError, setLocationFetchError] = useState<string | null>(null);
 
   // ---------- الحالة: الأنواع والحالات ----------
   const [types, setTypes] = useState<AssetType[]>([]);
@@ -110,26 +136,65 @@ export function useBulkImport() {
 
   // ---------- الحالة: التقديم ----------
   const [submitting, setSubmitting] = useState(false);
-  const [submitResult, setSubmitResult] = useState<{
-    successCount: number;
-    failCount: number;
-    errors: any[];
-  } | null>(null);
+  const [submitResult, setSubmitResult] = useState<SubmitResult | null>(null);
 
   // =======================================================
-  // 3. تأثيرات جلب البيانات (useEffect)
+  // قيم محسوبة (بدون حالة)
+  // =======================================================
+
+  const locationError = !session?.user?.companyId
+    ? 'لا توجد شركة مرتبطة بالمستخدم'
+    : locationFetchError ?? null;
+
+  // =======================================================
+  // قيم مشتقة باستخدام useMemo
+  // =======================================================
+
+  const buildings = useMemo(
+    () => rawBuildings.map(normalizeBuilding),
+    [rawBuildings]
+  );
+
+  const floors = useMemo(() => {
+    if (!selectedBuildingId) return [];
+    return rawFloors.map(normalizeFloor);
+  }, [rawFloors, selectedBuildingId]);
+
+  // الغرف مع fullCode محسوب من المبنى والدور
+  const rooms = useMemo((): RoomWithCode[] => {
+    if (!selectedFloorId) return [];
+    const building = rawBuildings.find(b => b.id === selectedBuildingId);
+    const floor = rawFloors.find(f => f.id === selectedFloorId);
+    return rawRooms.map((room) => ({
+      ...room,
+      nameEn: room.nameEn ?? undefined,
+      fullCode: `${building?.code ?? ''}-${floor?.code ?? ''}-${room.code ?? ''}`,
+    }));
+  }, [rawRooms, selectedFloorId, selectedBuildingId, rawBuildings, rawFloors]);
+
+  const selectedRoomCode = useMemo(() => {
+    const room = rooms.find(r => r.id === selectedRoomId);
+    return room?.fullCode || '';
+  }, [rooms, selectedRoomId]);
+
+  const selectedRoomName = useMemo(() => {
+    const room = rooms.find(r => r.id === selectedRoomId);
+    return room?.name || '';
+  }, [rooms, selectedRoomId]);
+
+  // =======================================================
+  // تأثيرات جلب البيانات
   // =======================================================
 
   // جلب المباني
   useEffect(() => {
     if (!session?.user?.companyId) {
-      setLocationError('لا توجد شركة مرتبطة بالمستخدم');
       return;
     }
 
     const fetchBuildings = async () => {
       setLoadingBuildings(true);
-      setLocationError(null);
+      setLocationFetchError(null);
       try {
         const res = await fetch(`/api/locations/buildings?companyId=${session.user.companyId}`);
         if (!res.ok) {
@@ -138,12 +203,11 @@ export function useBulkImport() {
         }
         const data = await res.json();
         setRawBuildings(data);
-        setBuildings(data.map(normalizeBuilding));
-      } catch (err: any) {
-        setLocationError(err.message);
-        toast.error(err.message);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'حدث خطأ غير متوقع';
+        setLocationFetchError(message);
+        toast.error(message);
         setRawBuildings([]);
-        setBuildings([]);
       } finally {
         setLoadingBuildings(false);
       }
@@ -152,64 +216,78 @@ export function useBulkImport() {
     fetchBuildings();
   }, [session]);
 
-  // جلب الأدوار
+  // جلب الأدوار (مع إلغاء الطلب)
   useEffect(() => {
-    if (!selectedBuildingId) {
-      setRawFloors([]);
-      setFloors([]);
-      return;
-    }
-    setLoadingFloors(true);
-    fetch(`/api/locations/buildings/${selectedBuildingId}/floors`)
-      .then(res => {
-        if (!res.ok) throw new Error('فشل تحميل الأدوار');
-        return res.json();
-      })
-      .then(data => {
-        setRawFloors(data);
-        setFloors(data.map(normalizeFloor));
-      })
-      .catch(err => {
-        toast.error(err.message);
-        setRawFloors([]);
-        setFloors([]);
-      })
-      .finally(() => setLoadingFloors(false));
+    if (!selectedBuildingId) return;
+
+    let cancelled = false;
+
+    const loadFloors = async () => {
+      try {
+        setLoadingFloors(true);
+        const res = await fetch(`/api/locations/buildings/${selectedBuildingId}/floors`);
+        if (!res.ok) {
+          throw new Error('فشل تحميل الأدوار');
+        }
+        const data: Floor[] = await res.json();
+        if (!cancelled) {
+          setRawFloors(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(err instanceof Error ? err.message : 'خطأ غير معروف');
+          setRawFloors([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingFloors(false);
+        }
+      }
+    };
+
+    loadFloors();
+
+    return () => {
+      cancelled = true;
+    };
   }, [selectedBuildingId]);
 
-  // جلب الغرف
+  // جلب الغرف (مع إلغاء الطلب) - نخزن البيانات الخام بدون fullCode
   useEffect(() => {
-    if (!selectedFloorId) {
-      setRawRooms([]);
-      setRooms([]);
-      setSelectedRoomCode('');
-      setSelectedRoomName('');
-      return;
-    }
-    setLoadingRooms(true);
-    fetch(`/api/locations/floors/${selectedFloorId}/rooms`)
-      .then(res => {
-        if (!res.ok) throw new Error('فشل تحميل الغرف');
-        return res.json();
-      })
-      .then(data => {
-        const building = rawBuildings.find(b => b.id === selectedBuildingId);
-        const floor = rawFloors.find(f => f.id === selectedFloorId);
-        const roomsWithCode = data.map((room: any) => ({
-          ...room,
-          nameEn: room.nameEn ?? undefined,
-          fullCode: `${building?.code || ''}-${floor?.code || ''}-${room.code || ''}`,
-        }));
-        setRawRooms(roomsWithCode);
-        setRooms(roomsWithCode.map(normalizeRoom));
-      })
-      .catch(err => {
-        toast.error(err.message);
-        setRawRooms([]);
-        setRooms([]);
-      })
-      .finally(() => setLoadingRooms(false));
-  }, [selectedFloorId, selectedBuildingId, rawBuildings, rawFloors]);
+    if (!selectedFloorId) return;
+
+    let cancelled = false;
+
+    const loadRooms = async () => {
+      try {
+        setLoadingRooms(true);
+        const res = await fetch(`/api/locations/floors/${selectedFloorId}/rooms`);
+        if (!res.ok) {
+          throw new Error('فشل تحميل الغرف');
+        }
+        const data: Room[] = await res.json();
+        if (!cancelled) {
+          // نخزن البيانات الخام فقط (بدون fullCode)
+          setRawRooms(data);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          toast.error(err instanceof Error ? err.message : 'خطأ غير معروف');
+          setRawRooms([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadingRooms(false);
+        }
+      }
+    };
+
+    loadRooms();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedFloorId]);
 
   // جلب الأنواع والحالات
   useEffect(() => {
@@ -221,7 +299,7 @@ export function useBulkImport() {
         ]);
         if (typesRes.ok) setTypes(await typesRes.json());
         if (statusesRes.ok) setStatuses(await statusesRes.json());
-      } catch (err) {
+      } catch {
         toast.error('Failed to load types/statuses');
       } finally {
         setLoadingTypesStatuses(false);
@@ -231,33 +309,26 @@ export function useBulkImport() {
   }, [locale]);
 
   // =======================================================
-  // 4. دوال الموقع
+  // دوال الموقع
   // =======================================================
 
   const handleBuildingChange = (id: string) => {
     setSelectedBuildingId(id);
     setSelectedFloorId('');
     setSelectedRoomId('');
-    setSelectedRoomCode('');
-    setSelectedRoomName('');
   };
 
   const handleFloorChange = (id: string) => {
     setSelectedFloorId(id);
     setSelectedRoomId('');
-    setSelectedRoomCode('');
-    setSelectedRoomName('');
   };
 
   const handleRoomChange = (id: string) => {
     setSelectedRoomId(id);
-    const room = rooms.find(r => r.id === id);
-    setSelectedRoomCode(room?.fullCode || '');
-    setSelectedRoomName(room?.name || '');
   };
 
   // =======================================================
-  // 5. دوال صفوف الأصول
+  // دوال صفوف الأصول
   // =======================================================
 
   const addRow = () => {
@@ -303,7 +374,7 @@ export function useBulkImport() {
   };
 
   // =======================================================
-  // 6. دوال CSV
+  // دوال CSV
   // =======================================================
 
   const processCSVFile = async (file: File) => {
@@ -323,7 +394,7 @@ export function useBulkImport() {
         header: true,
         skipEmptyLines: true,
         complete: (results) => {
-          const rawData = results.data as any[];
+          const rawData = results.data as CsvRow[];
           const validatedRows: BulkAssetRow[] = [];
           const errors: string[] = [];
 
@@ -377,15 +448,16 @@ export function useBulkImport() {
           }
           setCsvLoading(false);
         },
-        error: (err: any) => {
+        error: (err: { message: string }) => {
           toast.error(isRtl ? 'فشل تحليل ملف CSV' : 'Failed to parse CSV');
           setCsvError(err.message);
           setCsvLoading(false);
         },
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to read file';
       toast.error(isRtl ? 'فشل قراءة الملف' : 'Failed to read file');
-      setCsvError(err.message);
+      setCsvError(message);
       setCsvLoading(false);
     }
   };
@@ -393,14 +465,22 @@ export function useBulkImport() {
   const uploadFile = async () => {
     if ('showOpenFilePicker' in window) {
       try {
-        const [fileHandle] = await (window as any).showOpenFilePicker({
-          types: [{ description: 'CSV files', accept: { 'text/csv': ['.csv'] } }],
+        const pickerWindow = window as FilePickerWindow;
+        const [fileHandle] = await pickerWindow.showOpenFilePicker!({
           multiple: false,
+          types: [
+            {
+              description: 'CSV files',
+              accept: {
+                'text/csv': ['.csv'],
+              },
+            },
+          ],
         });
         const file = await fileHandle.getFile();
         processCSVFile(file);
-      } catch (err: any) {
-        if (err.name !== 'AbortError') {
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name !== 'AbortError') {
           toast.error(isRtl ? 'فشل اختيار الملف' : 'File selection failed');
         }
       }
@@ -408,8 +488,9 @@ export function useBulkImport() {
       const input = document.createElement('input');
       input.type = 'file';
       input.accept = '.csv';
-      input.onchange = (e: any) => {
-        const file = e.target.files?.[0];
+      input.onchange = (e: Event) => {
+        const target = e.target as HTMLInputElement;
+        const file = target.files?.[0];
         if (file) processCSVFile(file);
       };
       input.click();
@@ -417,7 +498,7 @@ export function useBulkImport() {
   };
 
   // =======================================================
-  // 7. دالة التقديم (المعدلة للتوجيه إلى قائمة الأصول)
+  // دالة التقديم
   // =======================================================
 
   const submit = async () => {
@@ -485,7 +566,6 @@ export function useBulkImport() {
           );
         }
 
-        // ✅ التوجيه إلى صفحة قائمة الأصول بعد نجاح الاستيراد
         setTimeout(() => {
           router.push(`/${locale}/assets`);
           router.refresh();
@@ -498,8 +578,7 @@ export function useBulkImport() {
           errors: [{ message: data.error || 'Unknown error' }],
         });
       }
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error(isRtl ? 'خطأ في الاتصال بالخادم' : 'Server connection error');
       setSubmitResult({
         successCount: 0,
@@ -512,7 +591,7 @@ export function useBulkImport() {
   };
 
   // =======================================================
-  // 8. القيم المُرجعة
+  // القيم المُرجعة
   // =======================================================
 
   const isLoading = loadingBuildings || loadingFloors || loadingRooms || loadingTypesStatuses;
@@ -521,7 +600,7 @@ export function useBulkImport() {
     location: {
       buildings,
       floors,
-      rooms,
+      rooms,          // الآن من النوع RoomWithCode[] (يحتوي fullCode)
       selectedBuildingId,
       selectedFloorId,
       selectedRoomId,

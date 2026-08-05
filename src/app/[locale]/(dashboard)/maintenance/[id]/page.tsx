@@ -13,21 +13,15 @@ import {
   Loader2,
   Play,
   ArrowLeft,
-  CheckCircle2,
   XCircle,
-  Info,
   MapPin,
-  Layers,
-  DoorOpen,
-  Sparkles,
   Shield,
-  Wrench,
   CalendarDays,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { addDays, addMonths, addYears, format } from "date-fns";
+import { addMonths, addYears, format } from "date-fns";
 import { arSA, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
@@ -45,9 +39,9 @@ interface ScheduleDetail {
   lastRunAt: string | null;
   branch: { id: string; name: string; nameEn?: string } | null;
   building: { id: string; name: string; nameEn?: string } | null;
-  floor: { id: string; name: string; nameEn?: string } | null;  // ✅ إضافة
-  room: { id: string; name: string; nameEn?: string } | null;    // ✅ إضافة
-  locationLevel: string | null;                                   // ✅ إضافة
+  floor: { id: string; name: string; nameEn?: string } | null;
+  room: { id: string; name: string; nameEn?: string } | null;
+  locationLevel: string | null;
   assetType: { id: string; name: string; nameEn?: string } | null;
   scheduleAssets: { asset: { id: string; name: string; code: string; nameEn?: string } }[];
 }
@@ -55,7 +49,16 @@ interface ScheduleDetail {
 // =========================
 // تكوين التردد
 // =========================
-const FREQUENCY_MAP: Record<string, { ar: string; en: string; icon: any; color: string }> = {
+import type { LucideIcon } from "lucide-react";
+const FREQUENCY_MAP: Record<
+  string,
+  {
+    ar: string;
+    en: string;
+    icon: LucideIcon;
+    color: string;
+  }
+> = {
   MONTHLY: {
     ar: "شهري",
     en: "Monthly",
@@ -97,7 +100,6 @@ export default function MaintenanceScheduleDetailPage() {
   const [loading, setLoading] = useState(true);
   const [executing, setExecuting] = useState(false);
 
-  // كرت الخلفية الزجاجي
   const glassCard =
     "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
@@ -123,15 +125,28 @@ export default function MaintenanceScheduleDetailPage() {
     setExecuting(true);
     toast.loading(isRtl ? "جاري تنفيذ الجدول..." : "Executing schedule...");
     try {
-      const res = await fetch(`/api/maintenance/schedules/${id}/run`, { method: "POST" });
+      const res = await fetch(`/api/maintenance/schedules/${id}/run`, {
+        method: "POST",
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       toast.dismiss();
-      toast.success(data.message || (isRtl ? "تم تنفيذ الجدول بنجاح" : "Schedule executed successfully"));
+      toast.success(
+        data.message ||
+          (isRtl
+            ? "تم تنفيذ الجدول بنجاح"
+            : "Schedule executed successfully")
+      );
       router.refresh();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast.dismiss();
-      toast.error(error.message || (isRtl ? "فشل التنفيذ" : "Execution failed"));
+      const message =
+        error instanceof Error
+          ? error.message
+          : isRtl
+            ? "فشل التنفيذ"
+            : "Execution failed";
+      toast.error(message);
     } finally {
       setExecuting(false);
     }
@@ -195,16 +210,11 @@ export default function MaintenanceScheduleDetailPage() {
     };
   };
 
-  // ============================================================
-  // ✅ بناء اسم الموقع مع الدعم الكامل (مبنى + دور + غرفة)
-  // ============================================================
   const getLocationName = (): string => {
     if (!schedule) return "";
 
-    // بناء الاسم حسب المستوى المختار
     const parts: string[] = [];
 
-    // المستوى: غرفة (الأكثر تحديداً)
     if (schedule.locationLevel === "room" && schedule.room) {
       parts.push(isRtl ? schedule.room.name : schedule.room.nameEn || schedule.room.name);
       if (schedule.floor) {
@@ -219,7 +229,6 @@ export default function MaintenanceScheduleDetailPage() {
       return parts.join(" - ");
     }
 
-    // المستوى: دور
     if (schedule.locationLevel === "floor" && schedule.floor) {
       parts.push(isRtl ? schedule.floor.name : schedule.floor.nameEn || schedule.floor.name);
       if (schedule.building) {
@@ -231,7 +240,6 @@ export default function MaintenanceScheduleDetailPage() {
       return parts.join(" - ");
     }
 
-    // المستوى: مبنى
     if (schedule.locationLevel === "building" && schedule.building) {
       parts.push(isRtl ? schedule.building.name : schedule.building.nameEn || schedule.building.name);
       if (schedule.branch) {
@@ -240,7 +248,6 @@ export default function MaintenanceScheduleDetailPage() {
       return parts.join(" - ");
     }
 
-    // المستوى: فرع فقط
     if (schedule.branch) {
       return isRtl ? schedule.branch.name : schedule.branch.nameEn || schedule.branch.name;
     }
@@ -265,10 +272,8 @@ export default function MaintenanceScheduleDetailPage() {
 
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      {/* رأس الصفحة */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
@@ -312,9 +317,7 @@ export default function MaintenanceScheduleDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* العمود الرئيسي (2/3) */}
         <div className="lg:col-span-2 space-y-8">
-          {/* معلومات أساسية */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
@@ -349,7 +352,6 @@ export default function MaintenanceScheduleDetailPage() {
                 </p>
               </div>
 
-              {/* ✅ عرض الموقع الكامل (مبنى + دور + غرفة) */}
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   <MapPin className="h-3.5 w-3.5" />
@@ -361,7 +363,6 @@ export default function MaintenanceScheduleDetailPage() {
                     {getLocationName()}
                   </span>
                 </div>
-                {/* عرض المستوى المختار */}
                 {schedule.locationLevel && (
                   <p className="text-xs text-slate-400 dark:text-slate-500">
                     {isRtl ? `المستوى: ${schedule.locationLevel === 'room' ? 'غرفة' : schedule.locationLevel === 'floor' ? 'دور' : 'مبنى'}` :
@@ -417,7 +418,6 @@ export default function MaintenanceScheduleDetailPage() {
             </div>
           </div>
 
-          {/* معلومات التنفيذ */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
@@ -451,7 +451,6 @@ export default function MaintenanceScheduleDetailPage() {
             </div>
           </div>
 
-          {/* الأصول المحددة */}
           {schedule.scheduleAssets && schedule.scheduleAssets.length > 0 && (
             <div className={glassCard}>
               <div className="flex items-center gap-3 mb-6">
@@ -493,9 +492,7 @@ export default function MaintenanceScheduleDetailPage() {
           )}
         </div>
 
-        {/* العمود الجانبي (1/3) */}
         <div className="space-y-6">
-          {/* الملاحظات */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2 rounded-xl bg-amber-50 dark:bg-amber-950/40">
@@ -510,7 +507,6 @@ export default function MaintenanceScheduleDetailPage() {
             </div>
           </div>
 
-          {/* الإجراءات */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
@@ -535,7 +531,6 @@ export default function MaintenanceScheduleDetailPage() {
             )}
           </div>
 
-          {/* مساعدة سريعة */}
           <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
             <Shield className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
             <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -545,7 +540,6 @@ export default function MaintenanceScheduleDetailPage() {
             </div>
           </div>
 
-          {/* زر العودة */}
           <Button
             variant="outline"
             onClick={() => router.push(`/${locale}/maintenance`)}

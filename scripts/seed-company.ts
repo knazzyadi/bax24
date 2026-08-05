@@ -1,5 +1,4 @@
 // scripts/seed-company.ts
-import { Prisma } from '@prisma/client';
 import { prisma } from '@/lib/prisma';
 import {
   defaultWorkOrderTypes,
@@ -16,10 +15,20 @@ import {
 } from '../src/lib/defaults';
 
 // ============================================================
-// دالة عامة للجداول البسيطة (Create-Only) - بدون قيود على T
+// نوع عام لـ Prisma delegates التي تدعم createMany
+// ============================================================
+type CreateManyDelegate<T> = {
+  createMany: (args: {
+    data: Array<T & { companyId: string }>;
+    skipDuplicates?: boolean;
+  }) => Promise<unknown>;
+};
+
+// ============================================================
+// دالة عامة للجداول البسيطة (Create-Only)
 // ============================================================
 async function seedSimpleTable<T>(
-  model: any, // يمكن استبدالها بـ Prisma.Delegate إذا أردت تحسين النوع
+  model: CreateManyDelegate<T>,
   companyId: string,
   data: T[]
 ): Promise<void> {
@@ -41,54 +50,56 @@ async function seedCompany(companyId: string): Promise<void> {
   console.log(`🌱 Start seeding company: ${companyId}`);
 
   await prisma.$transaction(async (tx) => {
-    // =====================================================
-    // Work Order Types
-    // =====================================================
     await seedSimpleTable(tx.workOrderType, companyId, defaultWorkOrderTypes);
 
-    // =====================================================
-    // Work Order Priorities
-    // =====================================================
-    await seedSimpleTable(tx.workOrderPriority, companyId, defaultWorkOrderPriorities);
+    await seedSimpleTable(
+      tx.workOrderPriority,
+      companyId,
+      defaultWorkOrderPriorities
+    );
 
-    // =====================================================
-    // Work Order Statuses
-    // =====================================================
-    await seedSimpleTable(tx.workOrderStatus, companyId, defaultWorkOrderStatuses);
+    await seedSimpleTable(
+      tx.workOrderStatus,
+      companyId,
+      defaultWorkOrderStatuses
+    );
 
-    // =====================================================
-    // Work Order Close Reasons
-    // =====================================================
-    await seedSimpleTable(tx.workOrderCloseReason, companyId, defaultWorkOrderCloseReasons);
+    await seedSimpleTable(
+      tx.workOrderCloseReason,
+      companyId,
+      defaultWorkOrderCloseReasons
+    );
 
-    // =====================================================
-    // Work Order Cancel Reasons
-    // =====================================================
-    await seedSimpleTable(tx.workOrderCancelReason, companyId, defaultWorkOrderCancelReasons);
+    await seedSimpleTable(
+      tx.workOrderCancelReason,
+      companyId,
+      defaultWorkOrderCancelReasons
+    );
 
-    // =====================================================
-    // Asset Types
-    // =====================================================
     await seedSimpleTable(tx.assetType, companyId, defaultAssetTypes);
 
-    // =====================================================
-    // Asset Statuses
-    // =====================================================
     await seedSimpleTable(tx.assetStatus, companyId, defaultAssetStatuses);
 
     // =====================================================
-    // Inspection Sections (تعتمد على التسلسل الهرمي)
+    // Inspection Sections
     // =====================================================
     const sectionMap = new Map<string, string>();
+
     for (const item of defaultInspectionSections) {
       const result = await tx.inspectionSection.upsert({
-        where: { companyId_code: { companyId, code: item.code } },
+        where: {
+          companyId_code: {
+            companyId,
+            code: item.code,
+          },
+        },
         update: {},
         create: {
           companyId,
           ...item,
         },
       });
+
       sectionMap.set(item.code, result.id);
     }
 
@@ -96,21 +107,28 @@ async function seedCompany(companyId: string): Promise<void> {
     // Inspection Templates
     // =====================================================
     const templateMap = new Map<string, string>();
+
     for (const item of defaultInspectionTemplates) {
       const sectionId = sectionMap.get(item.sectionCode);
+
       if (!sectionId) {
         throw new Error(
-          `❌ Section "${item.sectionCode}" not found for template "${item.code}". ` +
-          `Check defaultInspectionTemplates in src/lib/defaults/data/inspection-templates.ts`
+          `❌ Section "${item.sectionCode}" not found for template "${item.code}".`
         );
       }
+
       const result = await tx.inspectionTemplate.upsert({
-        where: { companyId_code: { companyId, code: item.code } },
+        where: {
+          companyId_code: {
+            companyId,
+            code: item.code,
+          },
+        },
         update: {},
         create: {
           companyId,
           code: item.code,
-          sectionId: sectionId,
+          sectionId,
           name: item.name,
           nameAr: item.nameAr,
           description: item.description,
@@ -118,6 +136,7 @@ async function seedCompany(companyId: string): Promise<void> {
           isActive: item.isActive,
         },
       });
+
       templateMap.set(item.code, result.id);
     }
 
@@ -125,21 +144,28 @@ async function seedCompany(companyId: string): Promise<void> {
     // Inspection Categories
     // =====================================================
     const categoryMap = new Map<string, string>();
+
     for (const item of defaultInspectionCategories) {
       const templateId = templateMap.get(item.templateCode);
+
       if (!templateId) {
         throw new Error(
-          `❌ Template "${item.templateCode}" not found for category "${item.code}". ` +
-          `Check defaultInspectionCategories in src/lib/defaults/data/inspection-categories.ts`
+          `❌ Template "${item.templateCode}" not found for category "${item.code}".`
         );
       }
+
       const result = await tx.inspectionCategory.upsert({
-        where: { companyId_code: { companyId, code: item.code } },
+        where: {
+          companyId_code: {
+            companyId,
+            code: item.code,
+          },
+        },
         update: {},
         create: {
           companyId,
           code: item.code,
-          templateId: templateId,
+          templateId,
           name: item.name,
           nameAr: item.nameAr,
           description: item.description,
@@ -147,6 +173,7 @@ async function seedCompany(companyId: string): Promise<void> {
           isActive: item.isActive,
         },
       });
+
       categoryMap.set(item.code, result.id);
     }
 
@@ -155,19 +182,25 @@ async function seedCompany(companyId: string): Promise<void> {
     // =====================================================
     for (const item of defaultInspectionItems) {
       const categoryId = categoryMap.get(item.categoryCode);
+
       if (!categoryId) {
         throw new Error(
-          `❌ Category "${item.categoryCode}" not found for item "${item.code}". ` +
-          `Check defaultInspectionItems in src/lib/defaults/data/inspection-items.ts`
+          `❌ Category "${item.categoryCode}" not found for item "${item.code}".`
         );
       }
+
       await tx.inspectionItem.upsert({
-        where: { companyId_code: { companyId, code: item.code } },
+        where: {
+          companyId_code: {
+            companyId,
+            code: item.code,
+          },
+        },
         update: {},
         create: {
           companyId,
           code: item.code,
-          categoryId: categoryId,
+          categoryId,
           name: item.name,
           nameAr: item.nameAr,
           description: item.description,
@@ -181,11 +214,11 @@ async function seedCompany(companyId: string): Promise<void> {
     }
   });
 
-  console.log(`✅ Company ${companyId} seeded successfully! (Create-Only mode)`);
+  console.log(`✅ Company ${companyId} seeded successfully!`);
 }
 
 // ============================================================
-// سكريبت CLI (يدعم فقط --id)
+// CLI
 // ============================================================
 async function main(): Promise<void> {
   const args = process.argv.slice(2);
@@ -197,19 +230,20 @@ async function main(): Promise<void> {
 
 Usage:
   npm run seed:company -- --id=cm...
-
-Example:
-  npm run seed:company -- --id=cms50gy0k0000li7sep4ieqn8
 `);
     process.exit(1);
   }
 
   const companyId = idArg.split('=')[1];
 
-  // تحقق من وجود الشركة
   const company = await prisma.company.findUnique({
-    where: { id: companyId },
-    select: { id: true, name: true },
+    where: {
+      id: companyId,
+    },
+    select: {
+      id: true,
+      name: true,
+    },
   });
 
   if (!company) {
@@ -218,12 +252,13 @@ Example:
   }
 
   console.log(`📋 Seeding for company: ${company.name} (${company.id})`);
+
   await seedCompany(companyId);
 }
 
 main()
-  .catch((e) => {
-    console.error('❌ Seed failed:', e);
+  .catch((error) => {
+    console.error('❌ Seed failed:', error);
     process.exit(1);
   })
   .finally(async () => {

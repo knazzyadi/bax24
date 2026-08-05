@@ -14,13 +14,16 @@ export interface Status extends LocalizedEntity {
   color?: string;
 }
 
-export interface Branch extends CodeEntity {}
+export type Branch = CodeEntity;
+
 export interface Building extends CodeEntity {
   branch?: Branch;
 }
+
 export interface Floor extends CodeEntity {
   building?: Building;
 }
+
 export interface Room extends CodeEntity {
   floor?: Floor;
 }

@@ -35,7 +35,7 @@ export default function InspectionTypesPage() {
   const [itemsMap, setItemsMap] = useState<Record<string, InspectionItem[]>>({});
   const [loadingItems, setLoadingItems] = useState<Record<string, boolean>>({});
 
-  // ✅ حالات التوسيع (كائنات وليس قيماً مفردة)
+  // حالات التوسيع
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [expandedTemplates, setExpandedTemplates] = useState<Record<string, boolean>>({});
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
@@ -63,14 +63,20 @@ export default function InspectionTypesPage() {
   // ============================================================
   // دالة الحصول على الاسم حسب اللغة
   // ============================================================
-  const getLocalizedName = useCallback((item: any) => {
+  type LocalizedItem = {
+    name?: string | null;
+    nameAr?: string | null;
+  };
+  const getLocalizedName = useCallback((item: LocalizedItem) => {
     if (isRtl && item.nameAr) return item.nameAr;
-    return item.name;
+    return item.name ?? "";
   }, [isRtl]);
 
   // ============================================================
-  // Fetch Functions
+  // دوال التحميل المستقلة
   // ============================================================
+
+  // 1. تحميل الأقسام
   const fetchSections = useCallback(async () => {
     setLoadingSections(true);
     try {
@@ -78,13 +84,14 @@ export default function InspectionTypesPage() {
       if (!res.ok) throw new Error("Failed to fetch sections");
       const data = await res.json();
       setSections(data);
-    } catch (error) {
+    } catch {
       toast.error(t("fetchError"));
     } finally {
       setLoadingSections(false);
     }
   }, [t]);
 
+  // 2. تحميل النماذج لقسم معين
   const fetchTemplates = useCallback(async (sectionId: string) => {
     if (!sectionId) return;
     setLoadingTemplates((prev) => ({ ...prev, [sectionId]: true }));
@@ -93,13 +100,14 @@ export default function InspectionTypesPage() {
       if (!res.ok) throw new Error("Failed to fetch templates");
       const data = await res.json();
       setTemplatesMap((prev) => ({ ...prev, [sectionId]: data }));
-    } catch (error) {
+    } catch {
       toast.error(t("fetchError"));
     } finally {
       setLoadingTemplates((prev) => ({ ...prev, [sectionId]: false }));
     }
   }, [t]);
 
+  // 3. تحميل الفئات لنموذج معين
   const fetchCategories = useCallback(async (templateId: string) => {
     if (!templateId) return;
     setLoadingCategories((prev) => ({ ...prev, [templateId]: true }));
@@ -108,13 +116,14 @@ export default function InspectionTypesPage() {
       if (!res.ok) throw new Error("Failed to fetch categories");
       const data = await res.json();
       setCategoriesMap((prev) => ({ ...prev, [templateId]: data }));
-    } catch (error) {
+    } catch {
       toast.error(t("fetchError"));
     } finally {
       setLoadingCategories((prev) => ({ ...prev, [templateId]: false }));
     }
   }, [t]);
 
+  // 4. تحميل البنود لفئة معينة
   const fetchItems = useCallback(async (categoryId: string) => {
     if (!categoryId) return;
     setLoadingItems((prev) => ({ ...prev, [categoryId]: true }));
@@ -123,7 +132,7 @@ export default function InspectionTypesPage() {
       if (!res.ok) throw new Error("Failed to fetch items");
       const data = await res.json();
       setItemsMap((prev) => ({ ...prev, [categoryId]: data }));
-    } catch (error) {
+    } catch {
       toast.error(t("fetchError"));
     } finally {
       setLoadingItems((prev) => ({ ...prev, [categoryId]: false }));
@@ -131,62 +140,40 @@ export default function InspectionTypesPage() {
   }, [t]);
 
   // ============================================================
-  // ✅ دوال التوسيع مع سجلات التتبع
+  // دوال التوسيع مع تحميل البيانات عند الحاجة
   // ============================================================
   const toggleSection = useCallback((sectionId: string) => {
-    console.log("🔵 toggleSection called with:", sectionId);
     setExpandedSections((prev) => {
       const newState = !prev[sectionId];
-      console.log("🔵 setExpandedSections: prev[sectionId] =", prev[sectionId], "newState =", newState);
-      
-      // إذا تم التوسيع ولم تكن البيانات محملة، قم بجلبها
       if (newState && !templatesMap[sectionId]) {
-        console.log("🟡 Fetching templates for section:", sectionId);
         fetchTemplates(sectionId);
       }
-      
-      const newStateObj = { ...prev, [sectionId]: newState };
-      console.log("🔵 new expandedSections:", newStateObj);
-      return newStateObj;
+      return { ...prev, [sectionId]: newState };
     });
   }, [templatesMap, fetchTemplates]);
 
   const toggleTemplate = useCallback((templateId: string) => {
-    console.log("🔵 toggleTemplate called with:", templateId);
     setExpandedTemplates((prev) => {
       const newState = !prev[templateId];
-      console.log("🔵 setExpandedTemplates: prev[templateId] =", prev[templateId], "newState =", newState);
-      
       if (newState && !categoriesMap[templateId]) {
-        console.log("🟡 Fetching categories for template:", templateId);
         fetchCategories(templateId);
       }
-      
-      const newStateObj = { ...prev, [templateId]: newState };
-      console.log("🔵 new expandedTemplates:", newStateObj);
-      return newStateObj;
+      return { ...prev, [templateId]: newState };
     });
   }, [categoriesMap, fetchCategories]);
 
   const toggleCategory = useCallback((categoryId: string) => {
-    console.log("🔵 toggleCategory called with:", categoryId);
     setExpandedCategories((prev) => {
       const newState = !prev[categoryId];
-      console.log("🔵 setExpandedCategories: prev[categoryId] =", prev[categoryId], "newState =", newState);
-      
       if (newState && !itemsMap[categoryId]) {
-        console.log("🟡 Fetching items for category:", categoryId);
         fetchItems(categoryId);
       }
-      
-      const newStateObj = { ...prev, [categoryId]: newState };
-      console.log("🔵 new expandedCategories:", newStateObj);
-      return newStateObj;
+      return { ...prev, [categoryId]: newState };
     });
   }, [itemsMap, fetchItems]);
 
   // ============================================================
-  // 🌳 بناء الشجرة (مع إضافة description و descriptionEn)
+  // 🌳 بناء الشجرة
   // ============================================================
   const treeData = useMemo<TreeNode[]>(() => {
     return sections.map((section) => ({
@@ -237,15 +224,20 @@ export default function InspectionTypesPage() {
   }, [sections, templatesMap, categoriesMap, itemsMap, getLocalizedName, loadingTemplates, loadingCategories, loadingItems]);
 
   // ============================================================
-  // Effects
+  // Effect: تحميل الأقسام عند المصادقة
   // ============================================================
   useEffect(() => {
     if (status !== "authenticated") return;
-    fetchSections();
+
+    const loadSections = async () => {
+      await fetchSections();
+    };
+
+    void loadSections();
   }, [status, fetchSections]);
 
   // ============================================================
-  // CRUD Handlers (مختصرة)
+  // CRUD Handlers
   // ============================================================
   const handleAddSection = () => {
     setEditingSection(null);
@@ -302,42 +294,24 @@ export default function InspectionTypesPage() {
     setItemDialogCategoryId(undefined);
     setItemDialogOpen(true);
   };
-
-  const handleItemReorder = useCallback(async (items: InspectionItem[], categoryId: string) => {
-    try {
-      const res = await fetch("/api/inspection-items/reorder", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ids: items.map((item) => item.id) }),
-      });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || "فشل تحديث ترتيب البنود");
-      }
-      toast.success(isRtl ? "تم تحديث ترتيب البنود" : "Items reordered successfully");
-      // إعادة جلب البنود للفئة
-      setItemsMap((prev) => ({ ...prev, [categoryId]: [] }));
-      await fetchItems(categoryId);
-    } catch (error: any) {
-      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to reorder"));
-    }
-  }, [fetchItems, isRtl]);
-
+  
   const handleDeleteClick = (id: string, type: "section" | "template" | "category" | "item") => {
     setConfirmDialog({ open: true, id, type });
   };
 
   const handleConfirmDelete = async () => {
-    if (!confirmDialog.id) return;
+    if (!confirmDialog.id || !confirmDialog.type) return;
+
     setDeleting(true);
     try {
-      const endpoints = {
+      const endpoints: Record<"section" | "template" | "category" | "item", string> = {
         section: "/api/inspection-sections",
         template: "/api/inspection-templates",
         category: "/api/inspection-categories",
         item: "/api/inspection-items",
       };
-      const res = await fetch(`${endpoints[confirmDialog.type!]}/${confirmDialog.id}`, {
+
+      const res = await fetch(`${endpoints[confirmDialog.type]}/${confirmDialog.id}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -348,20 +322,17 @@ export default function InspectionTypesPage() {
 
       if (confirmDialog.type === "section") {
         await fetchSections();
-        // إزالة الحالة التوسعية للقسم
         setExpandedSections((prev) => {
           const newState = { ...prev };
           delete newState[confirmDialog.id!];
           return newState;
         });
       } else if (confirmDialog.type === "template") {
-        // إعادة جلب النماذج للقسم
         for (const section of sections) {
           const templates = templatesMap[section.id] || [];
           if (templates.some(t => t.id === confirmDialog.id)) {
             setTemplatesMap((prev) => ({ ...prev, [section.id]: [] }));
             await fetchTemplates(section.id);
-            // إزالة الحالة التوسعية للنموذج
             setExpandedTemplates((prev) => {
               const newState = { ...prev };
               delete newState[confirmDialog.id!];
@@ -371,7 +342,6 @@ export default function InspectionTypesPage() {
           }
         }
       } else if (confirmDialog.type === "category") {
-        // إعادة جلب الفئات للنموذج
         for (const section of sections) {
           const templates = templatesMap[section.id] || [];
           for (const template of templates) {
@@ -379,7 +349,6 @@ export default function InspectionTypesPage() {
             if (categories.some(c => c.id === confirmDialog.id)) {
               setCategoriesMap((prev) => ({ ...prev, [template.id]: [] }));
               await fetchCategories(template.id);
-              // إزالة الحالة التوسعية للفئة
               setExpandedCategories((prev) => {
                 const newState = { ...prev };
                 delete newState[confirmDialog.id!];
@@ -408,8 +377,12 @@ export default function InspectionTypesPage() {
       }
 
       setConfirmDialog({ open: false });
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : (isRtl ? "فشل الحذف" : "Delete failed")
+      );
     } finally {
       setDeleting(false);
     }
@@ -496,12 +469,9 @@ export default function InspectionTypesPage() {
       onSectionDialogClose={handleSectionDialogClose}
       onTemplateDialogClose={handleTemplateDialogClose}
       onCategoryDialogClose={handleCategoryDialogClose}
-      onItemDialogClose={handleItemDialogClose}
-      onItemReorder={handleItemReorder}
-      
+      onItemDialogClose={handleItemDialogClose}      
       sections={sections}
       templatesMap={templatesMap}
-      categoriesMap={categoriesMap}
     />
   );
 }

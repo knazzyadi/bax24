@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/work-order-close-reasons/WorkOrderCloseReasonTable.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ إزالة useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import {
   Edit,
@@ -101,10 +101,6 @@ function DraggableRow({
         {isRtl ? reason.name : reason.nameEn || reason.name}
       </td>
 
-      {/* ✅ تم إزالة عمود description */}
-
-      {/* ✅ تم إزالة عمود order */}
-
       {/* الافتراضي */}
       <td className="py-3 px-4 text-center">
         {reason.isDefault ? (
@@ -161,11 +157,10 @@ export function WorkOrderCloseReasonTable({
   isRtl,
 }: WorkOrderCloseReasonTableProps) {
   const t = useTranslations("WorkOrderCloseReasons");
+  // ✅ حذف useEffect - فقط نترك state مع القيمة الأولية
   const [items, setItems] = useState<WorkOrderCloseReason[]>(data);
 
-  useEffect(() => {
-    setItems(data);
-  }, [data]);
+  // ✅ تم حذف useEffect بالكامل
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -214,8 +209,6 @@ export function WorkOrderCloseReasonTable({
                 )}>
                   {t("name")}
                 </th>
-                {/* ✅ تم إزالة عمود description */}
-                {/* ✅ تم إزالة عمود order */}
                 <th className="py-3 px-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider text-center">
                   {t("default")}
                 </th>

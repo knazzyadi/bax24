@@ -1,4 +1,4 @@
-// src/app/[locale]/(super-admin)/super-admin/branches/components/BranchToolbar.tsx
+// src/app/[locale]/(super-admin)/super-admin/branches/BranchToolbar.tsx
 'use client';
 
 import { Plus } from 'lucide-react';

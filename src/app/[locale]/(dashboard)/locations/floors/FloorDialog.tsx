@@ -1,8 +1,15 @@
 // src/app/[locale]/(dashboard)/locations/floors/FloorDialog.tsx
 'use client';
 
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+
 import { FloorForm } from './FloorForm';
+
 import type { Floor, Building } from './types';
 
 interface FloorDialogProps {
@@ -25,7 +32,10 @@ export function FloorDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => onOpenChange()}>
+    <Dialog
+      open={open}
+      onOpenChange={() => onOpenChange()}
+    >
       <DialogContent className="sm:max-w-[500px] rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-foreground">
@@ -34,11 +44,13 @@ export function FloorDialog({
                 ? 'تعديل دور'
                 : 'Edit Floor'
               : isRtl
-              ? 'إضافة دور جديد'
-              : 'Add New Floor'}
+                ? 'إضافة دور جديد'
+                : 'Add New Floor'}
           </DialogTitle>
         </DialogHeader>
+
         <FloorForm
+          key={editingFloor?.id ?? 'new'}
           editingFloor={editingFloor}
           buildings={buildings}
           onSuccess={handleSuccess}

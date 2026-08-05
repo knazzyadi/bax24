@@ -21,10 +21,9 @@ export function Pagination({
   if (totalPages <= 1) return null;
 
   const getPageNumbers = () => {
-    const pages: (number | string)[] = [];
     const delta = 2;
-    const range = [];
-    const rangeWithDots = [];
+    const range: number[] = [];
+    const rangeWithDots: (number | string)[] = [];
 
     for (let i = 1; i <= totalPages; i++) {
       if (
@@ -75,7 +74,7 @@ export function Pagination({
       </button>
 
       {pages.map((page, index) => {
-        if (page === '...') {
+        if (typeof page === 'string') {
           return (
             <span
               key={`dots-${index}`}
@@ -86,7 +85,7 @@ export function Pagination({
           );
         }
 
-        const pageNum = page as number;
+        const pageNum = page;
         const isActive = pageNum === currentPage;
 
         return (

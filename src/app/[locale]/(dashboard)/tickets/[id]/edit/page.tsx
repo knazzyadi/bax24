@@ -1,9 +1,10 @@
 // src/app/[locale]/(dashboard)/tickets/[id]/edit/page.tsx
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,14 +21,12 @@ import {
   FileText,
   MapPin,
   User,
-  Info,
   Save,
   X,
   Loader2,
   Image as ImageIcon,
   Upload,
   Trash2,
-  Sparkles,
   Shield,
   ArrowLeft,
   AlertCircle,
@@ -35,8 +34,6 @@ import {
   Layers,
   DoorOpen,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { BranchSelector } from "@/components/shared/BranchSelector";
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
@@ -79,6 +76,13 @@ interface Room {
   fullCode?: string;
 }
 
+interface ApiRoom {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+}
+
 export default function EditTicketPage() {
   const router = useRouter();
   const params = useParams();
@@ -93,7 +97,6 @@ export default function EditTicketPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
-  // بيانات الموقع الهرمي
   const [buildingId, setBuildingId] = useState<string>("");
   const [floorId, setFloorId] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
@@ -104,10 +107,8 @@ export default function EditTicketPage() {
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  // حالة الصورة
   const [currentImageUrl, setCurrentImageUrl] = useState<string>("");
   const [imageFile, setImageFile] = useState<File | null>(null);
-  const [imagePreview, setImagePreview] = useState<string>("");
   const [deletingImage, setDeletingImage] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -122,18 +123,34 @@ export default function EditTicketPage() {
     phone: "",
   });
 
-  // كرت الخلفية الزجاجي
   const glassCard =
     "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
-  // جلب أنواع الأصول والمباني (مع المسار الجديد)
+  // المتغيرات المشتقة
+  const visibleFloors = buildingId ? floors : [];
+  const visibleRooms = floorId ? rooms : [];
+  const visibleAssets = roomId ? assets : [];
+
+  // معاينة الصورة (بدون useState)
+  const imagePreview = imageFile ? URL.createObjectURL(imageFile) : "";
+
+  // تنظيف الرابط عند تغيير الصورة
+  useEffect(() => {
+    return () => {
+      if (imagePreview) {
+        URL.revokeObjectURL(imagePreview);
+      }
+    };
+  }, [imagePreview]);
+
+  // جلب أنواع الأصول والمباني
   useEffect(() => {
     const controller = new AbortController();
     const fetchInitialData = async () => {
       try {
         const [assetTypesRes, buildingsRes] = await Promise.all([
           fetch("/api/asset-types", { signal: controller.signal }),
-          fetch("/api/locations/buildings", { signal: controller.signal }), // ✅ تم التحديث
+          fetch("/api/locations/buildings", { signal: controller.signal }),
         ]);
         if (assetTypesRes.ok) {
           const data = await assetTypesRes.json();
@@ -154,17 +171,14 @@ export default function EditTicketPage() {
     return () => controller.abort();
   }, []);
 
-  // جلب الأدوار (مع المسار الجديد)
+  // جلب الأدوار
   useEffect(() => {
-    if (!buildingId) {
-      setFloors([]);
-      return;
-    }
+    if (!buildingId) return;
     const controller = new AbortController();
     const fetchFloors = async () => {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`, { // ✅ تم التحديث
+        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`, {
           signal: controller.signal,
         });
         if (res.ok) {
@@ -182,17 +196,14 @@ export default function EditTicketPage() {
     return () => controller.abort();
   }, [buildingId]);
 
-  // جلب الغرف (مع المسار الجديد)
+  // جلب الغرف
   useEffect(() => {
-    if (!floorId) {
-      setRooms([]);
-      return;
-    }
+    if (!floorId) return;
     const controller = new AbortController();
     const fetchRooms = async () => {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/locations/floors/${floorId}/rooms`, { // ✅ تم التحديث
+        const res = await fetch(`/api/locations/floors/${floorId}/rooms`, {
           signal: controller.signal,
         });
         if (res.ok) {
@@ -202,7 +213,7 @@ export default function EditTicketPage() {
           const buildingCode = currentBuilding?.code || "";
           const floorCode = currentFloor?.code || "";
           const roomsWithCode = (Array.isArray(data) ? data : []).map(
-            (room: any) => ({
+            (room: ApiRoom) => ({
               id: room.id,
               name: room.name,
               nameEn: room.nameEn,
@@ -225,12 +236,9 @@ export default function EditTicketPage() {
     return () => controller.abort();
   }, [floorId, buildingId, buildings, floors]);
 
-  // جلب الأصول بناءً على الغرفة ونوع الأصل (لا يتغير)
+  // جلب الأصول
   useEffect(() => {
-    if (!roomId) {
-      setAssets([]);
-      return;
-    }
+    if (!roomId) return;
     const controller = new AbortController();
     const fetchAssets = async () => {
       setLoadingAssets(true);
@@ -304,17 +312,6 @@ export default function EditTicketPage() {
     fetchTicket();
     return () => controller.abort();
   }, [id, locale, router, t]);
-
-  // معاينة الصورة عند اختيار ملف جديد
-  useEffect(() => {
-    if (!imageFile) {
-      setImagePreview("");
-      return;
-    }
-    const objectUrl = URL.createObjectURL(imageFile);
-    setImagePreview(objectUrl);
-    return () => URL.revokeObjectURL(objectUrl);
-  }, [imageFile]);
 
   const handleDeleteImage = async () => {
     if (!currentImageUrl) return;
@@ -392,7 +389,6 @@ export default function EditTicketPage() {
 
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
       {/* رأس الصفحة */}
@@ -527,7 +523,7 @@ export default function EditTicketPage() {
                             setFloorId(val);
                             setRoomId("");
                           }}
-                          floors={floors}
+                          floors={visibleFloors}
                           buildingId={buildingId}
                           loading={loadingFloors}
                         />
@@ -541,7 +537,7 @@ export default function EditTicketPage() {
                         <RoomSelector
                           value={roomId}
                           onValueChange={setRoomId}
-                          rooms={rooms}
+                          rooms={visibleRooms}
                           floorId={floorId}
                           loading={loadingRooms}
                         />
@@ -624,7 +620,7 @@ export default function EditTicketPage() {
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="">{t("none")}</SelectItem>
-                          {assets.map((asset) => (
+                          {visibleAssets.map((asset) => (
                             <SelectItem key={asset.id} value={asset.id}>
                               {isRtl ? asset.name : asset.nameEn || asset.name} (
                               {asset.code})
@@ -634,7 +630,7 @@ export default function EditTicketPage() {
                       </Select>
                       {roomId && !loadingAssets && (
                         <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
-                          {assets.length}{" "}
+                          {visibleAssets.length}{" "}
                           {isRtl ? "أصل متاح" : "asset(s) available"}
                         </p>
                       )}
@@ -711,16 +707,18 @@ export default function EditTicketPage() {
                   <ImageIcon className="h-5 w-5 text-amber-600 dark:text-amber-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                  {t("attachedImage") || "الصورة المرفقة"}
+                  {t("attachedImage")}
                 </h3>
               </div>
 
               <div className="space-y-4">
                 {(currentImageUrl || imagePreview) && (
                   <div className="relative rounded-xl overflow-hidden border border-slate-200/50 dark:border-slate-700/50 bg-slate-100/50 dark:bg-slate-800/30">
-                    <img
+                    <Image
                       src={imagePreview || currentImageUrl}
                       alt="Ticket attachment"
+                      width={400}
+                      height={200}
                       className="w-full h-auto max-h-48 object-contain"
                     />
                     {!imagePreview && currentImageUrl && (

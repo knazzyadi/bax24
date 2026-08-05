@@ -4,6 +4,15 @@ import { requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// واجهة بيانات تحديث دور
+interface UpdateFloorBody {
+  name: string;
+  nameEn?: string;
+  code: string;
+  order?: number;
+  buildingId: string;
+}
+
 // ============================================================
 // PUT: تحديث دور
 // ============================================================
@@ -21,7 +30,8 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const { name, nameEn, code, order, buildingId } = await request.json();
+    const body = (await request.json()) as UpdateFloorBody;
+    const { name, nameEn, code, order, buildingId } = body;
 
     if (!name || !code || !buildingId) {
       return NextResponse.json(
@@ -91,12 +101,13 @@ export async function PUT(
 
     revalidatePath('/ar/locations/floors');
     return NextResponse.json(updatedFloor);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('PUT /api/locations/floors/[id] error:', error);
-    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'غير مصرح به - يرجى تسجيل الدخول') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    if (error.message?.includes('permission')) {
+    if (message?.includes('permission')) {
       return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
@@ -150,12 +161,13 @@ export async function DELETE(
     await prisma.floor.delete({ where: { id } });
     revalidatePath('/ar/locations/floors');
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('DELETE /api/locations/floors/[id] error:', error);
-    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'غير مصرح به - يرجى تسجيل الدخول') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    if (error.message?.includes('permission')) {
+    if (message?.includes('permission')) {
       return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });

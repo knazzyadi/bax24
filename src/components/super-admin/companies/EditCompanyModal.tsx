@@ -1,42 +1,44 @@
-//src\components\super-admin\companies\EditCompanyModal.tsx
-//إنشاء نافذة (Modal) لتعديل بيانات الشركة داخل لوحة الـ Super Admin
+// src/components/super-admin/companies/EditCompanyModal.tsx
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+
+interface Company {
+  id: string;
+  name?: string | null;
+  nameEn?: string | null;
+  adminEmail?: string | null;
+  subscriptionStartDate?: string | Date | null;
+  subscriptionEndDate?: string | Date | null;
+}
+
+interface EditCompanyModalProps {
+  open: boolean;
+  company: Company;
+  onClose: () => void;
+  onSuccess: () => void;
+}
 
 export default function EditCompanyModal({
   open,
   company,
   onClose,
   onSuccess,
-}: any) {
-  const [form, setForm] = useState({
-    name: '',
-    nameEn: '',
-    adminEmail: '',
+}: EditCompanyModalProps) {
+  const [form, setForm] = useState(() => ({
+    name: company?.name ?? '',
+    nameEn: company?.nameEn ?? '',
+    adminEmail: company?.adminEmail ?? '',
     adminPassword: '',
-    subscriptionStartDate: '',
-    subscriptionEndDate: '',
-  });
+    subscriptionStartDate: company?.subscriptionStartDate
+      ? new Date(company.subscriptionStartDate).toISOString().split('T')[0]
+      : '',
+    subscriptionEndDate: company?.subscriptionEndDate
+      ? new Date(company.subscriptionEndDate).toISOString().split('T')[0]
+      : '',
+  }));
 
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (company) {
-      setForm({
-        name: company.name || '',
-        nameEn: company.nameEn || '',
-        adminEmail: company.adminEmail || '',
-        adminPassword: '',
-        subscriptionStartDate: company.subscriptionStartDate
-          ? company.subscriptionStartDate.split('T')[0]
-          : '',
-        subscriptionEndDate: company.subscriptionEndDate
-          ? company.subscriptionEndDate.split('T')[0]
-          : '',
-      });
-    }
-  }, [company]);
 
   if (!open) return null;
 
@@ -51,12 +53,19 @@ export default function EditCompanyModal({
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error);
+
+      if (!res.ok) {
+        throw new Error(data.error || 'فشل تحديث الشركة');
+      }
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        alert(err.message);
+      } else {
+        alert('حدث خطأ غير معروف');
+      }
     } finally {
       setLoading(false);
     }
@@ -65,7 +74,6 @@ export default function EditCompanyModal({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-card p-6 rounded-xl w-full max-w-lg space-y-3">
-
         <h2 className="text-xl font-bold">تعديل الشركة</h2>
 
         <input
@@ -103,7 +111,10 @@ export default function EditCompanyModal({
           type="date"
           value={form.subscriptionStartDate}
           onChange={(e) =>
-            setForm({ ...form, subscriptionStartDate: e.target.value })
+            setForm({
+              ...form,
+              subscriptionStartDate: e.target.value,
+            })
           }
           className="w-full border p-2 rounded"
         />
@@ -112,13 +123,19 @@ export default function EditCompanyModal({
           type="date"
           value={form.subscriptionEndDate}
           onChange={(e) =>
-            setForm({ ...form, subscriptionEndDate: e.target.value })
+            setForm({
+              ...form,
+              subscriptionEndDate: e.target.value,
+            })
           }
           className="w-full border p-2 rounded"
         />
 
         <div className="flex justify-end gap-2 pt-2">
-          <button onClick={onClose} className="px-3 py-1 border rounded">
+          <button
+            onClick={onClose}
+            className="px-3 py-1 border rounded"
+          >
             إلغاء
           </button>
 

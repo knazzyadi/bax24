@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/work-orders/AssetCard.tsx
 "use client";
 
-import { FileText, Plus, X, Check, Loader2 } from "lucide-react";
+import { Plus, X, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import {
@@ -13,11 +13,32 @@ import {
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
 import type { WorkOrderFormData } from "./types";
 
+// ============================================================
+// الأنواع
+// ============================================================
+
+interface Option {
+  id: string;
+  name: string;
+  code?: string | null;
+}
+
+interface AssetOption {
+  id: string;
+  name: string;
+  nameEn?: string | null;
+  code?: string | null;
+}
+
+// ============================================================
+// Props
+// ============================================================
+
 interface AssetCardProps {
   formData: WorkOrderFormData;
-  setFormData: (data: WorkOrderFormData) => void;
-  assetTypes: any[];
-  assets: any[];
+  setFormData: React.Dispatch<React.SetStateAction<WorkOrderFormData>>; // ✅ تم التعديل
+  assetTypes: Option[];
+  assets: AssetOption[];
   selectedAssetIds: string[];
   loadingAssets: boolean;
   assetDialogOpen: boolean;
@@ -29,14 +50,21 @@ interface AssetCardProps {
   onAssetDialogOpenChange: (open: boolean) => void;
   isLocationSelected: boolean;
   isRtl: boolean;
-  t: any;
+  t: (key: string) => string;
 }
 
-// دالة مساعدة لعرض اسم الأصل مع الكود
-const getAssetDisplay = (asset: any, isRtl: boolean) => {
+// ============================================================
+// دوال مساعدة
+// ============================================================
+
+const getAssetDisplay = (asset: AssetOption, isRtl: boolean) => {
   const name = isRtl ? asset.name : (asset.nameEn || asset.name);
   return asset.code ? `${asset.code}. ${name}` : name;
 };
+
+// ============================================================
+// المكون
+// ============================================================
 
 export function AssetCard({
   formData,
@@ -56,8 +84,7 @@ export function AssetCard({
   isRtl,
   t,
 }: AssetCardProps) {
-  // عرض خيارات الأصول مع التنسيق المحسن
-  const getAssetLabel = (asset: any) => {
+  const getAssetLabel = (asset: AssetOption) => {
     const name = isRtl ? asset.name : (asset.nameEn || asset.name);
     return asset.code ? `${asset.code}. ${name}` : name;
   };

@@ -1,14 +1,18 @@
 // src/components/shared/LocationSelector.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useLocale } from "next-intl";
 import { Building, Layers, DoorOpen } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { BuildingSelector } from "./BuildingSelector";
 import { FloorSelector } from "./FloorSelector";
 import { RoomSelector } from "./RoomSelector";
-import type { Building as BuildingType, Floor as FloorType, Room as RoomType } from "@/types/assets";
+import type {
+  Building as BuildingType,
+  Floor as FloorType,
+  Room as RoomType,
+} from "@/types/assets";
 
 export interface LocationValue {
   buildingId: string;
@@ -30,11 +34,13 @@ const normalizeBuilding = (b: BuildingType) => ({
 const normalizeFloor = (f: FloorType) => ({
   ...f,
   nameEn: f.nameEn ?? undefined,
-  building: f.building ? {
-    id: f.building.id,
-    name: f.building.name,
-    nameEn: f.building.nameEn ?? undefined,
-  } : undefined,
+  building: f.building
+    ? {
+        id: f.building.id,
+        name: f.building.name,
+        nameEn: f.building.nameEn ?? undefined,
+      }
+    : undefined,
 });
 
 const normalizeRoom = (r: RoomType) => ({
@@ -42,7 +48,11 @@ const normalizeRoom = (r: RoomType) => ({
   nameEn: r.nameEn ?? undefined,
 });
 
-export function LocationSelector({ value, onChange, disabled = false }: LocationSelectorProps) {
+export function LocationSelector({
+  value,
+  onChange,
+  disabled = false,
+}: LocationSelectorProps) {
   const locale = useLocale();
   const isRtl = locale === "ar";
 
@@ -50,118 +60,235 @@ export function LocationSelector({ value, onChange, disabled = false }: Location
   const [selectedFloorId, setSelectedFloorId] = useState(value.floorId);
   const [selectedRoomId, setSelectedRoomId] = useState(value.roomId);
 
-  useEffect(() => {
-    setSelectedBuildingId(value.buildingId);
-    setSelectedFloorId(value.floorId);
-    setSelectedRoomId(value.roomId);
-  }, [value.buildingId, value.floorId, value.roomId]);
-
   const [buildings, setBuildings] = useState<BuildingType[]>([]);
   const [floors, setFloors] = useState<FloorType[]>([]);
   const [rooms, setRooms] = useState<RoomType[]>([]);
+
   const [loadingBuildings, setLoadingBuildings] = useState(true);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  // ✅ جلب المباني - مع حماية البيانات
+  // ============================================================
+  // تحميل المباني (مرة واحدة عند التحميل)
+  // ============================================================
   useEffect(() => {
-    fetch("/api/locations/buildings")
-      .then(res => res.json())
-      .then(data => {
+    const controller = new AbortController();
+
+    const loadBuildings = async () => {
+      setLoadingBuildings(true);
+
+      try {
+        const res = await fetch("/api/locations/buildings", {
+          signal: controller.signal,
+        });
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch buildings");
+        }
+
+        const data = await res.json();
         setBuildings(Array.isArray(data) ? data : []);
-      })
-      .catch(() => setBuildings([]))
-      .finally(() => setLoadingBuildings(false));
+      } catch (error) {
+        if (error instanceof Error && error.name !== "AbortError") {
+          console.error("Error fetching buildings:", error);
+          setBuildings([]);
+        }
+      } finally {
+        setLoadingBuildings(false);
+      }
+    };
+
+    loadBuildings();
+
+    return () => controller.abort();
   }, []);
 
-  // ✅ جلب الأدوار - مع حماية البيانات
+  // ============================================================
+  // تحميل الطوابق عند تغيير المبنى
+  // ============================================================
   useEffect(() => {
-    if (!selectedBuildingId) {
-      setFloors([]);
-      return;
-    }
-    setLoadingFloors(true);
-    fetch(`/api/locations/buildings/${selectedBuildingId}/floors`)
-      .then(res => res.ok ? res.json() : [])
-      .then(data => {
-        const floorsData = Array.isArray(data) ? data : [];
-        const floorsWithBuilding = floorsData.map((floor: any) => ({
-          ...floor,
-          building: floor.building || null,
-        }));
-        setFloors(floorsWithBuilding);
-      })
-      .catch(() => setFloors([]))
-      .finally(() => setLoadingFloors(false));
+    const controller = new AbortController();
+
+    const loadFloors = async () => {
+      if (!selectedBuildingId) {
+        setFloors([]);
+        return;
+      }
+
+      setLoadingFloors(true);
+
+      try {
+        const res = await fetch(
+          `/api/locations/buildings/${selectedBuildingId}/floors`,
+          {
+            signal: controller.signal,
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch floors");
+        }
+
+        const data = await res.json();
+        setFloors(Array.isArray(data) ? data : []);
+      } catch (error) {
+        if (error instanceof Error && error.name !== "AbortError") {
+          console.error("Error fetching floors:", error);
+          setFloors([]);
+        }
+      } finally {
+        setLoadingFloors(false);
+      }
+    };
+
+    loadFloors();
+
+    return () => controller.abort();
   }, [selectedBuildingId]);
 
-  // ✅ جلب الغرف - مع حماية البيانات
+  // ============================================================
+  // تحميل الغرف عند تغيير الدور
+  // ============================================================
   useEffect(() => {
-    if (!selectedFloorId) {
-      setRooms([]);
-      return;
-    }
-    setLoadingRooms(true);
-    fetch(`/api/locations/floors/${selectedFloorId}/rooms`)
-      .then(res => res.ok ? res.json() : [])
-      .then(data => {
+    const controller = new AbortController();
+
+    const loadRooms = async () => {
+      if (!selectedFloorId) {
+        setRooms([]);
+        return;
+      }
+
+      setLoadingRooms(true);
+
+      try {
+        const res = await fetch(
+          `/api/locations/floors/${selectedFloorId}/rooms`,
+          {
+            signal: controller.signal,
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch rooms");
+        }
+
+        const data = await res.json();
         setRooms(Array.isArray(data) ? data : []);
-      })
-      .catch(() => setRooms([]))
-      .finally(() => setLoadingRooms(false));
+      } catch (error) {
+        if (error instanceof Error && error.name !== "AbortError") {
+          console.error("Error fetching rooms:", error);
+          setRooms([]);
+        }
+      } finally {
+        setLoadingRooms(false);
+      }
+    };
+
+    loadRooms();
+
+    return () => controller.abort();
   }, [selectedFloorId]);
 
+  // ============================================================
+  // دوال التطبيع
+  // ============================================================
+  const normalizedBuildings = useMemo(
+    () => buildings.map(normalizeBuilding),
+    [buildings]
+  );
+
+  const normalizedFloors = useMemo(
+    () => floors.map(normalizeFloor),
+    [floors]
+  );
+
+  const normalizedRooms = useMemo(
+    () => rooms.map(normalizeRoom),
+    [rooms]
+  );
+
+  // ============================================================
+  // دوال التغيير
+  // ============================================================
   const handleBuildingChange = (buildingId: string) => {
     setSelectedBuildingId(buildingId);
     setSelectedFloorId("");
     setSelectedRoomId("");
+
+    onChange({
+      buildingId,
+      floorId: "",
+      roomId: "",
+    });
   };
 
   const handleFloorChange = (floorId: string) => {
     setSelectedFloorId(floorId);
     setSelectedRoomId("");
+
+    onChange({
+      buildingId: selectedBuildingId,
+      floorId,
+      roomId: "",
+    });
   };
 
   const handleRoomChange = (roomId: string) => {
     setSelectedRoomId(roomId);
-    onChange({ buildingId: selectedBuildingId, floorId: selectedFloorId, roomId });
+
+    onChange({
+      buildingId: selectedBuildingId,
+      floorId: selectedFloorId,
+      roomId,
+    });
   };
 
+  // ============================================================
+  // العرض
+  // ============================================================
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
-          <Building size={12} /> {isRtl ? "المبنى / الموقع" : "Building / Location"}
+          <Building size={12} />
+          {isRtl ? "المبنى / الموقع" : "Building / Location"}
         </Label>
         <BuildingSelector
           value={selectedBuildingId}
           onValueChange={handleBuildingChange}
-          buildings={buildings.map(normalizeBuilding)}
+          buildings={normalizedBuildings}
           loading={loadingBuildings}
+          disabled={disabled}
         />
       </div>
+
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
-          <Layers size={12} /> {isRtl ? "الدور / المنطقة" : "Floor / Zone"}
+          <Layers size={12} />
+          {isRtl ? "الدور / المنطقة" : "Floor / Zone"}
         </Label>
         <FloorSelector
           value={selectedFloorId}
           onValueChange={handleFloorChange}
-          floors={floors.map(normalizeFloor)}
+          floors={normalizedFloors}
           buildingId={selectedBuildingId}
           loading={loadingFloors}
+          disabled={disabled}
         />
       </div>
+
       <div className="space-y-2">
         <Label className="text-xs font-medium text-muted-foreground/70 flex items-center gap-1">
-          <DoorOpen size={12} /> {isRtl ? "الوحدة" : "Unit"}
+          <DoorOpen size={12} />
+          {isRtl ? "الوحدة" : "Unit"}
         </Label>
         <RoomSelector
           value={selectedRoomId}
           onValueChange={handleRoomChange}
-          rooms={rooms.map(normalizeRoom)}
+          rooms={normalizedRooms}
           floorId={selectedFloorId}
           loading={loadingRooms}
+          disabled={disabled}
         />
       </div>
     </div>

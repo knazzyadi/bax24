@@ -4,7 +4,6 @@
 import * as React from "react";
 import { Switch } from "@/components/ui/switch";
 import { FormField } from "./FormField";
-import { cn } from "@/lib/utils";
 
 export interface StatusSwitchProps {
   label: string;

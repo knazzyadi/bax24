@@ -45,11 +45,22 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
   const [notes, setNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
+  // ============================================================
+  // ✅ دالة جلب عناصر المخزون المرتبطة بأمر العمل (مستقلة)
+  // ============================================================
   const fetchItems = useCallback(async () => {
+    if (!workOrderId) {
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
       const res = await fetch(`/api/work-orders/${workOrderId}/inventory`);
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t("fetchInventoryError"));
+      }
       const data = await res.json();
       if (Array.isArray(data)) {
         setItems(data);
@@ -58,20 +69,30 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
         setItems([]);
         toast.error(t("fetchInventoryError"));
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      toast.error(t("fetchInventoryError"));
+      const message =
+        error instanceof Error
+          ? error.message
+          : t("fetchInventoryError");
+      toast.error(message);
       setItems([]);
     } finally {
       setLoading(false);
     }
   }, [workOrderId, t]);
 
+  // ============================================================
+  // ✅ دالة جلب العناصر المتاحة (مستقلة)
+  // ============================================================
   const fetchAvailableItems = useCallback(async () => {
     setLoadingAvailable(true);
     try {
       const res = await fetch("/api/inventory?inStock=true");
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t("fetchInventoryError"));
+      }
       const data = await res.json();
       if (Array.isArray(data)) {
         setAvailableItems(data);
@@ -80,28 +101,41 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
         setAvailableItems([]);
         toast.error(t("fetchInventoryError"));
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
       setAvailableItems([]);
-      toast.error(t("fetchInventoryError"));
+      const message =
+        error instanceof Error
+          ? error.message
+          : t("fetchInventoryError");
+      toast.error(message);
     } finally {
       setLoadingAvailable(false);
     }
   }, [t]);
 
+  // ============================================================
+  // ✅ useEffect محسّن باستخدام دالة وسيطة مع void
+  // ============================================================
   useEffect(() => {
-    fetchItems();
+    const loadItems = async () => {
+      await fetchItems();
+    };
+    void loadItems();
   }, [fetchItems]);
 
-  const openAddDialog = async () => {
+  // ============================================================
+  // باقي الدوال
+  // ============================================================
+  const openAddDialog = useCallback(async () => {
     await fetchAvailableItems();
     setSelectedItemId("");
     setQuantity(1);
     setNotes("");
     setDialogOpen(true);
-  };
+  }, [fetchAvailableItems]);
 
-  const handleAdd = async () => {
+  const handleAdd = useCallback(async () => {
     if (!selectedItemId) {
       toast.error(t("selectItem"));
       return;
@@ -118,39 +152,52 @@ export function WorkOrderInventory({ workOrderId, locale }: Props) {
         body: JSON.stringify({ inventoryItemId: selectedItemId, quantity, notes }),
       });
       if (!res.ok) {
-        const err = await res.json();
+        const err = await res.json().catch(() => ({}));
         throw new Error(err.error || t("addError"));
       }
       toast.success(t("itemAdded"));
       setDialogOpen(false);
       await fetchItems();
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("addError")
+      );
     } finally {
       setSubmitting(false);
     }
-  };
+  }, [selectedItemId, quantity, notes, workOrderId, t, fetchItems]);
 
-  const handleDelete = async (recordId: string) => {
+  const handleDelete = useCallback(async (recordId: string) => {
     if (!confirm(isRtl ? "هل أنت متأكد من حذف هذه القطعة؟" : "Are you sure you want to remove this item?")) return;
     try {
       const res = await fetch(`/api/work-orders/${workOrderId}/inventory?recordId=${recordId}`, {
         method: "DELETE",
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || t("deleteError"));
+      }
       toast.success(t("itemRemoved"));
       await fetchItems();
-    } catch {
-      toast.error(t("deleteError"));
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : t("deleteError")
+      );
     }
-  };
+  }, [workOrderId, t, fetchItems, isRtl]);
 
   const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = Number(e.target.value);
     setQuantity(value > 0 ? value : 1);
   };
 
-  if (loading) return <div className="py-4 text-center"><Loader2 className="animate-spin h-6 w-6 inline" /></div>;
+  if (loading) {
+    return <div className="py-4 text-center"><Loader2 className="animate-spin h-6 w-6 inline" /></div>;
+  }
 
   return (
     <div className="space-y-4">

@@ -4,6 +4,16 @@ import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-help
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// واجهة بيانات تحديث غرفة
+interface UpdateRoomBody {
+  name: string;
+  nameEn?: string;
+  code: string;
+  order?: number;
+  floorId: string;
+  buildingId: string;
+}
+
 // ============================================================
 // دالة مساعدة للتحقق من ملكية الغرفة
 // ============================================================
@@ -49,7 +59,7 @@ export async function PUT(
     }
 
     const { id } = await params;
-    const body = await request.json();
+    const body = (await request.json()) as UpdateRoomBody;
     const { name, nameEn, code, order, floorId, buildingId } = body;
 
     if (!name || !code || !floorId || !buildingId) {
@@ -114,9 +124,10 @@ export async function PUT(
 
     revalidatePath('/ar/locations/rooms');
     return NextResponse.json(updatedRoom);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('PUT /api/locations/rooms/[id] error:', error);
-    if (error.message === 'FORBIDDEN') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'FORBIDDEN') {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
@@ -166,9 +177,10 @@ export async function DELETE(
     await prisma.room.delete({ where: { id } });
     revalidatePath('/ar/locations/rooms');
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('DELETE /api/locations/rooms/[id] error:', error);
-    if (error.message === 'FORBIDDEN') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'FORBIDDEN') {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });

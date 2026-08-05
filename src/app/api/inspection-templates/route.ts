@@ -18,8 +18,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Company not found" }, { status: 400 });
     }
 
+    // ✅ استخراج query parameters مع إضافة active
     const { searchParams } = new URL(req.url);
     const sectionId = searchParams.get("sectionId");
+    const activeOnly = searchParams.get("active") === "true";
 
     // ✅ التحقق من صحة sectionId إذا تم إرساله
     if (sectionId && sectionId.trim() === "") {
@@ -48,10 +50,18 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const templates = await InspectionTemplateRepository.findAll(
-      companyId,
-      sectionId || undefined
-    );
+    // ✅ استبدال الاستدعاء بـ prisma مباشرة مع إضافة فلتر isActive
+    const templates = await prisma.inspectionTemplate.findMany({
+      where: {
+        companyId,
+        deletedAt: null,
+        ...(sectionId ? { sectionId } : {}),
+        ...(activeOnly ? { isActive: true } : {}),
+      },
+      orderBy: {
+        sortOrder: "asc",
+      },
+    });
 
     return NextResponse.json(templates);
   } catch (error) {

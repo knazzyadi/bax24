@@ -48,16 +48,33 @@ export async function GET(request: NextRequest) {
     // ✅ 5. تنفيذ المنطق
     const result = await UserService.getUsers(companyId, filters);
     return NextResponse.json(result);
-  } catch (error: any) {
-    console.error('GET /api/company/users', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+  } catch (error: unknown) {
+  console.error('GET /api/company/users', error);
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : 'حدث خطأ في الخادم';
+
+  if (message === 'UNAUTHORIZED') {
+    return NextResponse.json(
+      { error: 'غير مصرح' },
+      { status: 401 }
+    );
   }
+
+  if (message === 'FORBIDDEN') {
+    return NextResponse.json(
+      { error: 'لا تملك الصلاحية' },
+      { status: 403 }
+    );
+  }
+
+  return NextResponse.json(
+    { error: 'حدث خطأ في الخادم' },
+    { status: 500 }
+  );
+}
 }
 
 // ============================================================
@@ -93,14 +110,31 @@ export async function POST(request: NextRequest) {
     // ✅ 5. تنفيذ المنطق
     const user = await UserService.createUser(companyId, body);
     return NextResponse.json(user, { status: 201 });
-  } catch (error: any) {
-    console.error('POST /api/company/users', error);
-    if (error.message === 'UNAUTHORIZED') {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
-    }
-    if (error.message === 'FORBIDDEN') {
-      return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
-    }
-    return NextResponse.json({ error: error.message || 'حدث خطأ في الخادم' }, { status: 400 });
+  } catch (error: unknown) {
+  console.error('POST /api/company/users', error);
+
+  const message =
+    error instanceof Error
+      ? error.message
+      : 'حدث خطأ في الخادم';
+
+  if (message === 'UNAUTHORIZED') {
+    return NextResponse.json(
+      { error: 'غير مصرح' },
+      { status: 401 }
+    );
   }
+
+  if (message === 'FORBIDDEN') {
+    return NextResponse.json(
+      { error: 'لا تملك الصلاحية' },
+      { status: 403 }
+    );
+  }
+
+  return NextResponse.json(
+    { error: message },
+    { status: 400 }
+  );
+}
 }

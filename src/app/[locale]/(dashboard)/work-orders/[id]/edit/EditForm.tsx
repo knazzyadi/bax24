@@ -1,6 +1,7 @@
 // src/app/[locale]/(dashboard)/work-orders/[id]/edit/EditForm.tsx
 "use client";
 
+import { useMemo } from "react";
 import { BasicInfoCard } from "../../BasicInfoCard";
 import { LocationCard } from "../../LocationCard";
 import { NotesEditor } from "../../NotesEditor";
@@ -8,26 +9,61 @@ import { GuidelinesCard } from "../../GuidelinesCard";
 import { glassCard } from "../../constants";
 import { Button } from "@/components/ui/button";
 import { Loader2, Save, X, MapPin } from "lucide-react";
+import type { WorkOrderFormData } from "../../types";
+
+// ============================================================
+// الأنواع المحلية (للاستخدام الداخلي)
+// ============================================================
+
+interface Option {
+  id: string;
+  name: string;
+  nameEn?: string | null;
+  code?: string | null;
+  fullCode?: string;
+  buildingId?: string | null;
+  floorId?: string | null;
+}
+
+interface SelectedAsset {
+  id: string;
+  name: string;
+  code?: string | null;
+}
+
+// ============================================================
+// الأنواع الخاصة بالمكون
+// ============================================================
 
 interface EditFormProps {
-  formData: any;
-  setFormData: (data: any) => void;
-  priorities: any[];
-  statuses: any[];
-  assetTypes: any[];
-  buildings: any[];
-  floors: any[];
-  rooms: any[];
+  formData: WorkOrderFormData;
+  setFormData: React.Dispatch<React.SetStateAction<WorkOrderFormData>>;
+
+  priorities: Option[];
+  statuses: Option[];
+  assetTypes: Option[];
+  buildings: Option[];
+  floors: Option[];
+  rooms: Option[];
+
   loadingFloors: boolean;
   loadingRooms: boolean;
-  onSave: (data: any) => Promise<void>;
+
+  onSave: (data: WorkOrderFormData) => Promise<void>;
+
   isSaving: boolean;
   isRtl: boolean;
-  t: any;
-  workOrderTypes: any[];
-  // ✅ إضافة selectedAssets لتمرير الأصول المرتبطة
-  selectedAssets: any[];
+
+  t: (key: string) => string;
+
+  workOrderTypes: Option[];
+
+  selectedAssets: SelectedAsset[];
 }
+
+// ============================================================
+// المكون
+// ============================================================
 
 export function EditForm({
   formData,
@@ -45,12 +81,67 @@ export function EditForm({
   isRtl,
   t,
   workOrderTypes,
-  selectedAssets, // ✅ استقبال الأصول المرتبطة
+  selectedAssets,
 }: EditFormProps) {
+  // ============================================================
+  // تحويل البيانات لتتوافق مع LocationCard
+  // ============================================================
+
+  const buildingsForLocation = useMemo(
+    () =>
+      buildings.map((b) => ({
+        id: b.id,
+        name: b.name,
+        nameEn: b.nameEn ?? undefined,
+        code: b.code ?? undefined,
+        branchId: formData.branchId ?? undefined,
+      })),
+    [buildings, formData.branchId]
+  );
+
+  const floorsForLocation = useMemo(
+    () =>
+      floors.map((f) => ({
+        id: f.id,
+        name: f.name,
+        nameEn: f.nameEn ?? undefined,
+        code: f.code ?? undefined,
+        buildingId: formData.buildingId ?? "",
+      })),
+    [floors, formData.buildingId]
+  );
+
+  const roomsForLocation = useMemo(
+    () =>
+      rooms.map((r) => ({
+        id: r.id,
+        name: r.name,
+        nameEn: r.nameEn ?? undefined,
+        code: r.code ?? undefined,
+        floorId: formData.floorId ?? "",
+      })),
+    [rooms, formData.floorId]
+  );
+
+  // ============================================================
+  // دوال المعالجة
+  // ============================================================
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await onSave(formData);
   };
+
+  const handleRemoveAsset = (assetId: string) => {
+    setFormData((prev) => ({
+      ...prev,
+      assetIds: prev.assetIds?.filter((id) => id !== assetId) ?? [],
+    }));
+  };
+
+  // ============================================================
+  // التصميم
+  // ============================================================
 
   return (
     <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -61,7 +152,9 @@ export function EditForm({
             <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
               <span className="h-5 w-5 text-indigo-600 dark:text-indigo-400">📋</span>
             </div>
-            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">{t("basicInfo")}</h2>
+            <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
+              {t("basicInfo")}
+            </h2>
           </div>
           <BasicInfoCard
             formData={formData}
@@ -74,7 +167,7 @@ export function EditForm({
           />
         </div>
 
-        {/* الموقع والأصل - حاوية مدمجة */}
+        {/* الموقع والأصل */}
         <div className={glassCard}>
           <div className="flex items-center gap-3 mb-6">
             <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
@@ -87,47 +180,40 @@ export function EditForm({
           <LocationCard
             formData={formData}
             setFormData={setFormData}
-            buildings={buildings}
-            floors={floors}
-            rooms={rooms}
+            buildings={buildingsForLocation}
+            floors={floorsForLocation}
+            rooms={roomsForLocation}
             loadingFloors={loadingFloors}
             loadingRooms={loadingRooms}
             isRtl={isRtl}
-            // الأصول
             assetTypes={assetTypes}
-            // ✅ تمرير الأصول الفعلية (المرتبطة) بدلاً من []
             assets={selectedAssets}
-            selectedAssetIds={formData.assetIds || []}
+            selectedAssetIds={formData.assetIds ?? []}
             loadingAssets={false}
             assetDialogOpen={false}
             tempSelectedAssetIds={[]}
             onOpenAssetDialog={() => {}}
             onConfirmAssetSelection={() => {}}
-            onRemoveAsset={(id: string) => {
-              setFormData({
-                ...formData,
-                assetIds: formData.assetIds.filter((aid: string) => aid !== id),
-              });
-            }}
+            onRemoveAsset={handleRemoveAsset}
             onTempAssetChange={() => {}}
             onAssetDialogOpenChange={() => {}}
-            isLocationSelected={!!formData.roomId}
+            isLocationSelected={!!formData.buildingId && !!formData.floorId}
             t={t}
           />
         </div>
       </div>
 
+      {/* العمود الجانبي */}
       <div className="space-y-6">
         <NotesEditor
           value={formData.notes || ""}
           onChange={(value: string) =>
-            setFormData({
-              ...formData,
+            setFormData((prev) => ({
+              ...prev,
               notes: value,
-            })
+            }))
           }
-          isRtl={isRtl}
-          t={t}
+          t={t} // ✅ تم حذف isRtl={isRtl}
         />
 
         <GuidelinesCard isRtl={isRtl} />
@@ -146,7 +232,11 @@ export function EditForm({
             disabled={isSaving}
             className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-12 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
           >
-            {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Save className="h-5 w-5 mr-2" />}
+            {isSaving ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <Save className="h-5 w-5 mr-2" />
+            )}
             {t("save")}
           </Button>
         </div>

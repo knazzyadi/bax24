@@ -14,7 +14,6 @@ export function AssetError({ error }: AssetErrorProps) {
   const router = useRouter();
   const t = useTranslations("Assets");
   const locale = useLocale();
-  const isRtl = locale === "ar";
 
   return (
     <div className="relative p-6">

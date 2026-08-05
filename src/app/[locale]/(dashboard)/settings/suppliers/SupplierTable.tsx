@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/suppliers/SupplierTable.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ إزالة useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import {
   Edit,
@@ -188,11 +188,10 @@ export function SupplierTable({
   isRtl,
 }: SupplierTableProps) {
   const t = useTranslations("Suppliers");
+  // ✅ حذف useEffect - فقط نترك state مع القيمة الأولية
   const [items, setItems] = useState<Supplier[]>(data);
 
-  useEffect(() => {
-    setItems(data);
-  }, [data]);
+  // ✅ تم حذف useEffect بالكامل
 
   const sensors = useSensors(
     useSensor(PointerSensor),

@@ -51,9 +51,24 @@ export function useUsers() {
     }
   }, []);
 
+  // تهيئة البيانات مع إمكانية الإلغاء لتجنب تحذير set-state-in-effect
   useEffect(() => {
-    loadUsers();
-    loadMeta();
+    let cancelled = false;
+
+    const initialize = async () => {
+      if (cancelled) return;
+
+      await Promise.all([
+        loadUsers(),
+        loadMeta(),
+      ]);
+    };
+
+    void initialize();
+
+    return () => {
+      cancelled = true;
+    };
   }, [loadUsers, loadMeta]);
 
   // تحديث الفلاتر وإعادة التحميل
@@ -77,8 +92,12 @@ export function useUsers() {
       toast.success('تم إرسال الدعوة بنجاح');
       await loadUsers();
       return true;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'حدث خطأ غير متوقع'
+      );
       return false;
     } finally {
       setIsSaving(false);
@@ -101,8 +120,12 @@ export function useUsers() {
       toast.success('تم تحديث المستخدم بنجاح');
       await loadUsers();
       return true;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'حدث خطأ غير متوقع'
+      );
       return false;
     } finally {
       setIsSaving(false);
@@ -124,8 +147,12 @@ export function useUsers() {
       toast.success(`تم ${!currentStatus ? 'تفعيل' : 'تعطيل'} المستخدم`);
       await loadUsers();
       return true;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'حدث خطأ غير متوقع'
+      );
       return false;
     }
   }, [loadUsers]);
@@ -142,8 +169,12 @@ export function useUsers() {
       }
       toast.success('تم إعادة إرسال الدعوة بنجاح');
       return true;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'حدث خطأ غير متوقع'
+      );
       return false;
     }
   }, []);
@@ -160,8 +191,12 @@ export function useUsers() {
       toast.success('تم حذف المستخدم بنجاح');
       await loadUsers();
       return true;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : 'حدث خطأ غير متوقع'
+      );
       return false;
     } finally {
       setIsDeleting(false);

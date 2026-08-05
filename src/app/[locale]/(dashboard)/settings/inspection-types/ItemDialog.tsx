@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/inspection-types/ItemDialog.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react"; // ✅ إزالة useEffect
 import { toast } from "sonner";
 import {
   Dialog,
@@ -26,6 +26,24 @@ import {
 import { Loader2 } from "lucide-react";
 import type { InspectionItem } from "./types";
 
+// =========================
+// ✅ تعريف الأنواع
+// =========================
+type RiskLevel = "low" | "medium" | "high" | "critical";
+type InputType = "pass_fail" | "numeric" | "text";
+
+// =========================
+// ✅ دالة مساعدة لتهيئة البيانات
+// =========================
+const getInitialFormData = (item: InspectionItem | null) => ({
+  name: item?.name ?? "",
+  nameAr: item?.nameAr ?? "",
+  description: item?.description ?? "",
+  riskLevel: (item?.riskLevel as RiskLevel) ?? "medium",
+  inputType: (item?.inputType as InputType) ?? "pass_fail",
+  isActive: item?.isActive ?? true,
+});
+
 interface ItemDialogProps {
   open: boolean;
   onOpenChange: (open: boolean, refetch?: boolean) => void;
@@ -34,6 +52,9 @@ interface ItemDialogProps {
   isRtl: boolean;
 }
 
+// =========================
+// المكون الرئيسي
+// =========================
 export function ItemDialog({
   open,
   onOpenChange,
@@ -42,37 +63,64 @@ export function ItemDialog({
   isRtl,
 }: ItemDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [name, setName] = useState("");
-  const [nameAr, setNameAr] = useState("");
-  const [description, setDescription] = useState("");
-  const [riskLevel, setRiskLevel] = useState<"low" | "medium" | "high" | "critical">("medium");
-  const [inputType, setInputType] = useState<"pass_fail" | "numeric" | "text">("pass_fail");
-  const [isActive, setIsActive] = useState(true);
-
   const isEditing = !!item;
 
-  useEffect(() => {
-    if (item) {
-      setName(item.name || "");
-      setNameAr(item.nameAr || "");
-      setDescription(item.description || "");
-      setRiskLevel(item.riskLevel || "medium");
-      setInputType(item.inputType || "pass_fail");
-      setIsActive(item.isActive ?? true);
-    } else {
-      setName("");
-      setNameAr("");
-      setDescription("");
-      setRiskLevel("medium");
-      setInputType("pass_fail");
-      setIsActive(true);
+  // ✅ استخدام useState مع دالة initializer
+  const [formData, setFormData] = useState<{
+    name: string;
+    nameAr: string;
+    description: string;
+    riskLevel: RiskLevel;
+    inputType: InputType;
+    isActive: boolean;
+  }>(() => getInitialFormData(item));
+
+  // ✅ دالة معالجة فتح/إغلاق النافذة مع إعادة ضبط البيانات
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!loading) {
+      if (newOpen) {
+        setFormData(getInitialFormData(item));
+      }
+      onOpenChange(newOpen, false);
     }
-  }, [item, open]);
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+    }));
+  };
+
+  // ✅ تعريف محسّن مع تحديد أسماء الحقول المسموحة فقط
+  const handleSelectChange = (
+    name: "riskLevel" | "inputType",
+    value: string
+  ) => {
+    if (name === "riskLevel") {
+      setFormData((prev) => ({
+        ...prev,
+        riskLevel: value as RiskLevel,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        inputType: value as InputType,
+      }));
+    }
+  };
+
+  const handleSwitchChange = (checked: boolean) => {
+    setFormData((prev) => ({ ...prev, isActive: checked }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim() && !nameAr.trim()) {
+    if (!formData.name.trim() && !formData.nameAr.trim()) {
       toast.error(isRtl ? "يرجى إدخال اسم البند" : "Please enter item name");
       return;
     }
@@ -85,12 +133,12 @@ export function ItemDialog({
     setLoading(true);
     try {
       const payload = {
-        name: name.trim(),
-        nameAr: nameAr.trim(),
-        description: description.trim(),
-        riskLevel,
-        inputType,
-        isActive,
+        name: formData.name.trim(),
+        nameAr: formData.nameAr.trim(),
+        description: formData.description.trim(),
+        riskLevel: formData.riskLevel,
+        inputType: formData.inputType,
+        isActive: formData.isActive,
         categoryId: isEditing ? undefined : categoryId,
       };
 
@@ -112,15 +160,19 @@ export function ItemDialog({
 
       toast.success(isEditing ? "تم تحديث البند" : "تمت إضافة البند");
       onOpenChange(false, true);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : (isRtl ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving")
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !loading && onOpenChange(open, false)}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[480px] max-h-[85vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-slate-200/50 dark:border-slate-800/50 p-0">
         <DialogHeader className="p-4 pb-2 border-b border-slate-200/60 dark:border-slate-700/60">
           <DialogTitle className="text-lg font-bold text-slate-800 dark:text-slate-100">
@@ -146,8 +198,9 @@ export function ItemDialog({
                 {isRtl ? "الاسم (إنجليزي)" : "Name (English)"}
               </Label>
               <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
                 placeholder={isRtl ? "مثال: Fire Extinguisher" : "e.g. Fire Extinguisher"}
                 className="h-10 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50"
                 dir="ltr"
@@ -158,8 +211,9 @@ export function ItemDialog({
                 {isRtl ? "الاسم (عربي)" : "Name (Arabic)"}
               </Label>
               <Input
-                value={nameAr}
-                onChange={(e) => setNameAr(e.target.value)}
+                name="nameAr"
+                value={formData.nameAr}
+                onChange={handleChange}
                 placeholder={isRtl ? "مثال: طفاية حريق" : "e.g. Tufayet Harek"}
                 className="h-10 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50"
                 dir={isRtl ? "rtl" : "ltr"}
@@ -172,8 +226,9 @@ export function ItemDialog({
               {isRtl ? "الوصف (اختياري)" : "Description (Optional)"}
             </Label>
             <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
               placeholder={isRtl ? "أدخل وصفاً مختصراً للبند..." : "Enter a brief description for the item..."}
               className="min-h-[60px] rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50"
               dir={isRtl ? "rtl" : "ltr"}
@@ -185,7 +240,10 @@ export function ItemDialog({
               <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {isRtl ? "مستوى الخطورة" : "Risk Level"}
               </Label>
-              <Select value={riskLevel} onValueChange={(val) => setRiskLevel(val as any)}>
+              <Select
+                value={formData.riskLevel}
+                onValueChange={(val) => handleSelectChange("riskLevel", val)}
+              >
                 <SelectTrigger className="h-10 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50">
                   <SelectValue placeholder={isRtl ? "اختر الخطورة" : "Select risk"} />
                 </SelectTrigger>
@@ -201,7 +259,10 @@ export function ItemDialog({
               <Label className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 {isRtl ? "نوع الإدخال" : "Input Type"}
               </Label>
-              <Select value={inputType} onValueChange={(val) => setInputType(val as any)}>
+              <Select
+                value={formData.inputType}
+                onValueChange={(val) => handleSelectChange("inputType", val)}
+              >
                 <SelectTrigger className="h-10 rounded-xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50">
                   <SelectValue placeholder={isRtl ? "اختر النوع" : "Select type"} />
                 </SelectTrigger>
@@ -220,8 +281,8 @@ export function ItemDialog({
             </Label>
             <Switch
               id="item-active"
-              checked={isActive}
-              onCheckedChange={setIsActive}
+              checked={formData.isActive}
+              onCheckedChange={handleSwitchChange}
               className="data-[state=checked]:bg-indigo-600"
             />
           </div>
@@ -230,7 +291,7 @@ export function ItemDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false, false)}
+              onClick={() => handleOpenChange(false)}
               disabled={loading}
               className="flex-1 h-10 rounded-xl border-slate-300/80 dark:border-slate-700/80 hover:bg-slate-100 dark:hover:bg-slate-800 font-medium"
             >

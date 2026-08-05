@@ -36,8 +36,7 @@ export default function RoomsClient({
     floors,
     isLoading,
     isDeleting,
-    filters,
-    updateFilters,
+    // ✅ حذف filters و updateFilters
     deleteRoom,
     refreshRooms,
   } = useRooms(initialRooms, initialFloors);
@@ -71,7 +70,8 @@ export default function RoomsClient({
       } else {
         toast.error(t('deleteError'));
       }
-    } catch (error) {
+    } catch {
+      // ✅ حذف (error) واستخدام catch بدون معامل
       toast.error(t('deleteError'));
     }
   };
@@ -127,7 +127,6 @@ export default function RoomsClient({
             ) : (
               <RoomsTable
                 data={rooms}
-                floors={floors}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
                 isRtl={isRtl}

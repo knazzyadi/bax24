@@ -1,7 +1,22 @@
 // src/app/api/maintenance/schedules/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper';
+import {
+  getAuthenticatedSession,
+  requirePermission,
+} from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
+
+// ============================================================
+// دالة مساعدة لاستخراج رسالة الخطأ
+// ============================================================
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'Unknown error';
+}
 
 // ============================================================
 // GET: جلب قائمة جداول الصيانة
@@ -9,12 +24,18 @@ import { prisma } from '@/lib/prisma';
 export async function GET(req: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
+
     await requirePermission('maintenance.read');
 
     const companyId = session.companyId;
+
     if (!companyId) {
       return NextResponse.json(
         { error: 'لا توجد شركة مرتبطة بالمستخدم' },
@@ -23,8 +44,9 @@ export async function GET(req: NextRequest) {
     }
 
     const searchParams = req.nextUrl.searchParams;
-    const page = parseInt(searchParams.get('page') || '1');
-    const limit = parseInt(searchParams.get('limit') || '10');
+
+    const page = Number.parseInt(searchParams.get('page') ?? '1', 10);
+    const limit = Number.parseInt(searchParams.get('limit') ?? '10', 10);
     const skip = (page - 1) * limit;
 
     const [schedules, total] = await Promise.all([
@@ -42,10 +64,13 @@ export async function GET(req: NextRequest) {
             },
           },
         },
-        orderBy: { createdAt: 'desc' },
+        orderBy: {
+          createdAt: 'desc',
+        },
         skip,
         take: limit,
       }),
+
       prisma.maintenanceSchedule.count({
         where: { companyId },
       }),
@@ -60,10 +85,14 @@ export async function GET(req: NextRequest) {
         totalPages: Math.ceil(total / limit),
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GET /api/maintenance/schedules error:', error);
+
     return NextResponse.json(
-      { error: 'حدث خطأ في الخادم', details: error.message },
+      {
+        error: 'حدث خطأ في الخادم',
+        details: getErrorMessage(error),
+      },
       { status: 500 }
     );
   }
@@ -75,12 +104,18 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
+
     await requirePermission('maintenance.create');
 
     const companyId = session.companyId;
+
     if (!companyId) {
       return NextResponse.json(
         { error: 'لا توجد شركة مرتبطة بالمستخدم' },
@@ -107,6 +142,7 @@ export async function POST(req: NextRequest) {
     } = body;
 
     // ===== التحقق من البيانات المطلوبة =====
+
     if (!name?.trim()) {
       return NextResponse.json(
         { error: 'اسم الجدول مطلوب' },
@@ -128,7 +164,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ===== ✅ التحقق من صحة نوع الأصل (إن وجد) =====
+    // ===== التحقق من نوع الأصل =====
+
     if (assetTypeId) {
       const assetTypeExists = await prisma.assetType.findFirst({
         where: {
@@ -136,6 +173,7 @@ export async function POST(req: NextRequest) {
           companyId,
         },
       });
+
       if (!assetTypeExists) {
         return NextResponse.json(
           { error: 'نوع الأصل غير صالح أو لا ينتمي للشركة' },
@@ -144,11 +182,14 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ===== ✅ التحقق من صحة الأصول (إن وجدت) =====
+    // ===== التحقق من الأصول =====
+
     if (Array.isArray(assetIds) && assetIds.length > 0) {
       const validAssetsCount = await prisma.asset.count({
         where: {
-          id: { in: assetIds },
+          id: {
+            in: assetIds,
+          },
           companyId,
         },
       });
@@ -161,15 +202,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ===== تحديد المستوى الفعلي للموقع =====
-    let finalLocationLevel = "building";
+    // ===== تحديد مستوى الموقع =====
+
+    let finalLocationLevel = 'building';
+
     if (roomId) {
-      finalLocationLevel = "room";
+      finalLocationLevel = 'room';
     } else if (floorId) {
-      finalLocationLevel = "floor";
+      finalLocationLevel = 'floor';
     }
 
     // ===== إنشاء الجدول =====
+
     const newSchedule = await prisma.maintenanceSchedule.create({
       data: {
         name: name.trim(),
@@ -186,6 +230,7 @@ export async function POST(req: NextRequest) {
         roomId: roomId || null,
         locationLevel: finalLocationLevel,
         companyId,
+
         scheduleAssets: {
           create: Array.isArray(assetIds)
             ? assetIds.map((assetId: string) => ({
@@ -194,23 +239,33 @@ export async function POST(req: NextRequest) {
             : [],
         },
       },
+
       include: {
         branch: true,
         building: true,
         floor: true,
         room: true,
         assetType: true,
+
         scheduleAssets: {
-          include: { asset: true },
+          include: {
+            asset: true,
+          },
         },
       },
     });
 
-    return NextResponse.json(newSchedule, { status: 201 });
-  } catch (error: any) {
+    return NextResponse.json(newSchedule, {
+      status: 201,
+    });
+  } catch (error: unknown) {
     console.error('POST /api/maintenance/schedules error:', error);
+
     return NextResponse.json(
-      { error: 'حدث خطأ في الخادم', details: error.message },
+      {
+        error: 'حدث خطأ في الخادم',
+        details: getErrorMessage(error),
+      },
       { status: 500 }
     );
   }

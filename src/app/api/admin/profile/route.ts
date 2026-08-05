@@ -4,6 +4,13 @@ import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import bcrypt from 'bcryptjs';
 
+// واجهة بيانات الطلب
+interface UpdateProfileBody {
+  name: string;
+  email: string;
+  password?: string;
+}
+
 export async function PUT(request: Request) {
   try {
     let session;
@@ -25,7 +32,8 @@ export async function PUT(request: Request) {
       );
     }
 
-    const body = await request.json();
+    // استلام البيانات مع تحديد النوع
+    const body = (await request.json()) as UpdateProfileBody;
     const { name, email, password } = body;
 
     if (!name || !email) {
@@ -37,7 +45,7 @@ export async function PUT(request: Request) {
 
     // جلب المستخدم الحالي باستخدام session.userId
     const currentUser = await prisma.user.findUnique({
-      where: { id: session.userId }, // ✅ استخدام userId بدلاً من id
+      where: { id: session.userId },
     });
 
     if (!currentUser) {
@@ -76,7 +84,7 @@ export async function PUT(request: Request) {
     }
 
     const updatedUser = await prisma.user.update({
-      where: { id: session.userId }, // ✅ استخدام userId
+      where: { id: session.userId },
       data: updateData,
       select: {
         id: true,
@@ -89,11 +97,12 @@ export async function PUT(request: Request) {
       success: true,
       user: updatedUser,
     });
-
-  } catch (error: any) {
+  } catch (error: unknown) {
+    // ✅ معالجة آمنة للخطأ
+    const message = error instanceof Error ? error.message : 'خطأ غير معروف';
     console.error('PROFILE_UPDATE_ERROR:', error);
     return NextResponse.json(
-      { error: 'خطأ في تحديث الملف الشخصي' },
+      { error: `خطأ في تحديث الملف الشخصي: ${message}` },
       { status: 500 }
     );
   }

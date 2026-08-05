@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/inventory/InventoryClient.tsx
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -94,15 +94,13 @@ export default function InventoryClient({
   const totalItems = filteredItems.length;
   const totalPages = Math.ceil(totalItems / itemsPerPage);
 
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
+  // حساب الصفحة الآمنة دون استخدام useEffect
+  const safeCurrentPage =
+    totalPages > 0 && currentPage > totalPages ? 1 : currentPage;
 
   const paginatedItems = filteredItems.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (safeCurrentPage - 1) * itemsPerPage,
+    safeCurrentPage * itemsPerPage
   );
 
   // ===== دوال التعديل والحذف =====
@@ -110,8 +108,10 @@ export default function InventoryClient({
     router.push(`/${locale}/inventory/${id}/edit`);
   };
 
-  // ✅ إضافة نوع الإرجاع الصريح Promise<void>
+  // ✅ نُبقي على name كما هو للتوافق مع DataList، لكن نستخدم void name لتجنب تحذير ESLint
   const handleDelete = async (id: string, name: string): Promise<void> => {
+    void name; // يُشير إلى أننا ندرك وجود المعامل لكننا لا نستخدمه عمداً
+
     try {
       const res = await fetch(`/api/inventory/${id}`, { method: "DELETE" });
       if (!res.ok) {
@@ -122,7 +122,7 @@ export default function InventoryClient({
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : t("deleteError"));
-      throw error; // إعادة رمي الخطأ ليتعامل معه DataList
+      throw error;
     }
   };
 
@@ -282,7 +282,7 @@ export default function InventoryClient({
         onFilterChange={onFilterChange}
         items={paginatedItems}
         total={totalItems}
-        currentPage={currentPage}
+        currentPage={safeCurrentPage}
         totalPages={totalPages}
         onPageChange={setCurrentPage}
         renderItem={renderInventoryItem}

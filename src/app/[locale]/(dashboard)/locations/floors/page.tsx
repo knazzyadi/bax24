@@ -1,6 +1,5 @@
 // src/app/[locale]/(dashboard)/locations/floors/page.tsx
 
-import { redirect } from 'next/navigation';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import FloorsClient from './FloorsClient';

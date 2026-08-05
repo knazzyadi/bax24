@@ -1,9 +1,10 @@
 // src/app/[locale]/(dashboard)/locations/floors/FloorForm.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useState } from 'react';
 import { toast } from 'sonner';
+import { Loader2 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -14,7 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Loader2 } from 'lucide-react';
+
 import type { Floor, Building } from './types';
 
 interface FloorFormProps {
@@ -24,44 +25,47 @@ interface FloorFormProps {
   isRtl: boolean;
 }
 
+interface FormData {
+  name: string;
+  nameEn: string;
+  code: string;
+  order: number;
+  buildingId: string;
+}
+
+function getInitialData(editingFloor: Floor | null): FormData {
+  return {
+    name: editingFloor?.name ?? '',
+    nameEn: editingFloor?.nameEn ?? '',
+    code: editingFloor?.code ?? '',
+    order: editingFloor?.order ?? 0,
+    buildingId: editingFloor?.buildingId ?? '',
+  };
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'حدث خطأ أثناء الحفظ';
+}
+
 export function FloorForm({
   editingFloor,
   buildings,
   onSuccess,
   isRtl,
 }: FloorFormProps) {
-  const t = useTranslations('Locations');
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    nameEn: '',
-    code: '',
-    order: 0,
-    buildingId: '',
-  });
 
-  useEffect(() => {
-    if (editingFloor) {
-      setFormData({
-        name: editingFloor.name || '',
-        nameEn: editingFloor.nameEn || '',
-        code: editingFloor.code || '',
-        order: editingFloor.order ?? 0,
-        buildingId: editingFloor.buildingId || '',
-      });
-    } else {
-      setFormData({
-        name: '',
-        nameEn: '',
-        code: '',
-        order: 0,
-        buildingId: '',
-      });
-    }
-  }, [editingFloor]);
+  const [formData, setFormData] = useState<FormData>(() =>
+    getInitialData(editingFloor)
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
+
     setFormData((prev) => ({
       ...prev,
       [name]: type === 'number' ? Number(value) : value,
@@ -70,16 +74,19 @@ export function FloorForm({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!formData.name.trim()) {
       toast.error(isRtl ? 'الاسم مطلوب' : 'Name is required');
       return;
     }
+
     if (!formData.buildingId) {
       toast.error(isRtl ? 'المبنى مطلوب' : 'Building is required');
       return;
     }
 
     setLoading(true);
+
     try {
       const payload = {
         ...formData,
@@ -93,16 +100,20 @@ export function FloorForm({
       const url = editingFloor
         ? `/api/locations/floors/${editingFloor.id}`
         : '/api/locations/floors';
+
       const method = editingFloor ? 'PUT' : 'POST';
 
       const res = await fetch(url, {
         method,
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
-        const error = await res.json();
+        const error = (await res.json()) as { error?: string };
+
         throw new Error(error.error || 'Failed to save');
       }
 
@@ -112,12 +123,17 @@ export function FloorForm({
             ? 'تم تحديث الدور بنجاح'
             : 'Floor updated successfully'
           : isRtl
-          ? 'تم إنشاء الدور بنجاح'
-          : 'Floor created successfully'
+            ? 'تم إنشاء الدور بنجاح'
+            : 'Floor created successfully'
       );
+
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || (isRtl ? 'حدث خطأ أثناء الحفظ' : 'Save error'));
+    } catch (error: unknown) {
+      toast.error(
+        getErrorMessage(error) ||
+          (isRtl ? 'حدث خطأ أثناء الحفظ' : 'Save error')
+      );
+
       console.error(error);
     } finally {
       setLoading(false);
@@ -126,71 +142,85 @@ export function FloorForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 py-4">
-      {/* المبنى - قائمة منسدلة مع كود المبنى */}
+      {/* المبنى */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-foreground">
-          {isRtl ? 'المبنى' : 'Building'} <span className="text-destructive">*</span>
+          {isRtl ? 'المبنى' : 'Building'}{' '}
+          <span className="text-destructive">*</span>
         </Label>
+
         <Select
           value={formData.buildingId}
           onValueChange={(value) =>
-            setFormData((prev) => ({ ...prev, buildingId: value }))
+            setFormData((prev) => ({
+              ...prev,
+              buildingId: value,
+            }))
           }
         >
-          <SelectTrigger className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all">
-            <SelectValue placeholder={isRtl ? 'اختر المبنى' : 'Select building'} />
+          <SelectTrigger className="h-11 rounded-xl border-border bg-background/50">
+            <SelectValue
+              placeholder={isRtl ? 'اختر المبنى' : 'Select building'}
+            />
           </SelectTrigger>
+
           <SelectContent>
             {buildings.map((building) => (
               <SelectItem key={building.id} value={building.id}>
-                {building.name} {building.code ? `(${building.code})` : ''}
+                {building.name}
+                {building.code ? ` (${building.code})` : ''}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
-      {/* الاسم بالعربية */}
+      {/* الاسم العربي */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-foreground">
-          {isRtl ? 'الاسم بالعربية' : 'Arabic Name'} <span className="text-destructive">*</span>
+          {isRtl ? 'الاسم بالعربية' : 'Arabic Name'}{' '}
+          <span className="text-destructive">*</span>
         </Label>
+
         <Input
           name="name"
           value={formData.name}
           onChange={handleChange}
           placeholder={isRtl ? 'أدخل اسم الدور' : 'Enter floor name'}
           required
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+          className="h-11 rounded-xl border-border bg-background/50"
         />
       </div>
 
-      {/* الاسم بالإنجليزية */}
+      {/* الاسم الإنجليزي */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-foreground">
           {isRtl ? 'الاسم بالإنجليزية' : 'English Name'}
         </Label>
+
         <Input
           name="nameEn"
           value={formData.nameEn}
           onChange={handleChange}
           placeholder={isRtl ? 'الاسم بالإنجليزية' : 'Name in English'}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+          className="h-11 rounded-xl border-border bg-background/50"
         />
       </div>
 
       {/* الكود */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium text-foreground">
-          {isRtl ? 'الكود' : 'Code'} <span className="text-destructive">*</span>
+          {isRtl ? 'الكود' : 'Code'}{' '}
+          <span className="text-destructive">*</span>
         </Label>
+
         <Input
           name="code"
           value={formData.code}
           onChange={handleChange}
           placeholder={isRtl ? 'أدخل الكود' : 'Enter code'}
           required
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all font-mono uppercase tracking-wider"
+          className="h-11 rounded-xl border-border bg-background/50 font-mono uppercase tracking-wider"
         />
       </div>
 
@@ -199,38 +229,41 @@ export function FloorForm({
         <Label className="text-sm font-medium text-foreground">
           {isRtl ? 'الترتيب' : 'Order'}
         </Label>
+
         <Input
           name="order"
           type="number"
           value={formData.order}
           onChange={handleChange}
-          className="h-11 rounded-xl border-border bg-background/50 focus:ring-2 focus:ring-ring transition-all"
+          className="h-11 rounded-xl border-border bg-background/50"
         />
       </div>
 
       {/* الأزرار */}
-      <div className="flex gap-3 pt-4 border-t border-border">
+      <div className="flex gap-3 border-t border-border pt-4">
         <Button
           type="button"
           variant="outline"
-          onClick={() => onSuccess()}
-          className="flex-1 rounded-xl border-border h-11"
+          onClick={onSuccess}
+          className="h-11 flex-1 rounded-xl"
         >
           {isRtl ? 'إلغاء' : 'Cancel'}
         </Button>
+
         <Button
           type="submit"
           disabled={loading}
-          className="flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-11 shadow-lg shadow-indigo-500/20"
+          className="h-11 flex-1 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 text-white"
         >
-          {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+          {loading && <Loader2 className="h-5 w-5 animate-spin" />}
+
           {editingFloor
             ? isRtl
               ? 'تحديث'
               : 'Update'
             : isRtl
-            ? 'حفظ'
-            : 'Save'}
+              ? 'حفظ'
+              : 'Save'}
         </Button>
       </div>
     </form>

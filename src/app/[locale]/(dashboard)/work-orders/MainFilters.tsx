@@ -2,26 +2,17 @@
 "use client";
 
 import { useMemo } from "react";
-import type { FilterSection } from "@/components/shared/DataList";
 
 interface MainFiltersProps {
   statuses: { id: string; name: string; nameEn?: string }[];
   priorities: { id: string; name: string; nameEn?: string }[];
   isRtl: boolean;
-  selectedStatusId: string;
-  selectedPriorityId: string;
-  onStatusChange: (value: string) => void;
-  onPriorityChange: (value: string) => void;
 }
 
 export function MainFilters({
   statuses,
   priorities,
   isRtl,
-  selectedStatusId,
-  selectedPriorityId,
-  onStatusChange,
-  onPriorityChange,
 }: MainFiltersProps) {
   const filterSections = useMemo(
     () => [
@@ -50,11 +41,6 @@ export function MainFilters({
     ],
     [isRtl, statuses, priorities]
   );
-
-  // هذا المكون يمكن استخدامه داخل DataList مباشرة،
-  // لكننا سنعيد استخدامه في WorkOrdersList
-  // يمكننا إما تمرير filterSections إلى DataList أو بناء DataList هنا.
-  // بما أن DataList يقبل filterSections، سنعيد export للمصفوفة.
 
   return { filterSections };
 }

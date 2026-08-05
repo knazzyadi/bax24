@@ -106,5 +106,5 @@ export default async function WorkOrderPrintPage({
     auditLogs,
   };
 
-  return <WorkOrderPrint data={initialData} isRtl={locale === "ar"} locale={locale} />;
+return <WorkOrderPrint data={initialData} isRtl={locale === "ar"} />;
 }

@@ -1,15 +1,13 @@
 // src/app/[locale]/(dashboard)/locations/buildings/BuildingsTable.tsx
 'use client';
 
-import { useTranslations } from 'next-intl';
 import { Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/shared/layout/DataTable';
-import type { Building, Branch } from './types';
+import type { Building } from './types';
 
 interface BuildingsTableProps {
   data: Building[];
-  branches: Branch[];
   onEdit: (building: Building) => void;
   onDelete: (id: string) => void;
   isRtl: boolean;
@@ -17,13 +15,10 @@ interface BuildingsTableProps {
 
 export function BuildingsTable({
   data,
-  branches,
   onEdit,
   onDelete,
   isRtl,
 }: BuildingsTableProps) {
-  const t = useTranslations('Locations');
-
   const columns = [
     {
       key: 'name',
@@ -68,10 +63,9 @@ export function BuildingsTable({
     {
       key: 'actions',
       title: isRtl ? 'الإجراءات' : 'Actions',
-      headerClassName: isRtl ? 'text-right' : 'text-right', // ✅ دائماً يمين
+      headerClassName: isRtl ? 'text-right' : 'text-right',
       render: (row: Building) => (
-        <div className={`flex items-center gap-2 ${isRtl ? 'justify-end' : 'justify-end'}`}> 
-          {/* ✅ justify-end دائماً (في RTL النهاية = يسار، في LTR النهاية = يمين) */}
+        <div className={`flex items-center gap-2 ${isRtl ? 'justify-end' : 'justify-end'}`}>
           <Button
             variant="ghost"
             size="sm"

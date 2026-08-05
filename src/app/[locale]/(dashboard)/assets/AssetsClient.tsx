@@ -3,7 +3,6 @@
 
 import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
 import {
   Package,
   AlertCircle,
@@ -23,14 +22,21 @@ import { toast } from "sonner";
 import type { Asset, AssetType, AssetStatus } from "@/types/assets";
 import { DataList, type FilterSection, type ItemActions } from "@/components/shared/DataList";
 import { useDebounce } from "@/hooks/useDebounce";
+import type { LucideIcon } from "lucide-react";
 
 // ============================================================
 // 1. تكوين الحالات
 // ============================================================
-const STATUS_CONFIG: Record<
-  string,
-  { label: { ar: string; en: string }; hex: string; icon: any; glow: string; bg: string }
-> = {
+  const STATUS_CONFIG: Record<
+    string,
+    {
+      label: { ar: string; en: string };
+      hex: string;
+      icon: LucideIcon;
+      glow: string;
+      bg: string;
+    }
+  > = {
   AVAILABLE: {
     label: { ar: "متاح", en: "Available" },
     hex: "#22c55e",

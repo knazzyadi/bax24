@@ -1,6 +1,7 @@
+//src\app\[locale]\(dashboard)\work-orders\new\ClientWrapper.tsx
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -10,9 +11,6 @@ import {
   X,
   AlertCircle,
   MapPin,
-  ClipboardList,
-  Paperclip,
-  ListChecks,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -24,10 +22,36 @@ import { NotesEditor } from "../NotesEditor";
 import { GuidelinesCard } from "../GuidelinesCard";
 import { AttachmentsCard } from "../AttachmentsCard";
 import type { WorkOrderFormData, WorkOrderSource } from "../types";
+import type { Session } from "next-auth";
 
 // ============================================================
 // الأنواع
 // ============================================================
+
+interface Floor {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+  buildingId?: string; // اختياري
+}
+
+interface Room {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+  floorId: string;
+  buildingId: string;
+  fullCode: string;
+}
+
+interface Asset {
+  id: string;
+  name: string;
+  nameEn?: string;
+  code?: string;
+}
 
 interface Priority {
   id: string;
@@ -66,13 +90,13 @@ interface WorkOrderType {
 
 interface NewWorkOrderClientProps {
   locale: string;
-  session: any;
+  session: Session | null;
   initialPriorities: Priority[];
   initialStatuses: Status[];
   initialAssetTypes: AssetType[];
   initialBuildings: Building[];
   initialWorkOrderTypes: WorkOrderType[];
-  initialSource: WorkOrderSource; // ✅ تم التعديل
+  initialSource: WorkOrderSource;
   initialSourceId: string | null;
   isSourceEditable: boolean;
 }
@@ -122,7 +146,7 @@ export function NewWorkOrderClient({
     priorityId: defaultPriorityId,
     statusId: defaultStatusId,
     assetTypeId: "",
-    category: "", // ✅ أضفنا category (إذا كان موجوداً في النوع)
+    category: "",
     reason: "",
     notes: "",
     branchId: "",
@@ -130,17 +154,17 @@ export function NewWorkOrderClient({
     floorId: "",
     roomId: "",
     assetIds: [],
-    assignedTo: "", // ✅ تم التعديل
+    assignedTo: "",
     sourceId: initialSourceId,
   });
 
   const [buildings] = useState<Building[]>(initialBuildings);
-  const [floors, setFloors] = useState<any[]>([]);
-  const [rooms, setRooms] = useState<any[]>([]);
+  const [floors, setFloors] = useState<Floor[]>([]);
+  const [rooms, setRooms] = useState<Room[]>([]);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  const [assets, setAssets] = useState<any[]>([]);
+  const [assets, setAssets] = useState<Asset[]>([]);
   const [selectedAssetIds, setSelectedAssetIds] = useState<string[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
@@ -162,33 +186,51 @@ export function NewWorkOrderClient({
   );
 
   // ============================================================
+  // تحويل البيانات لتتوافق مع LocationCard
+  // ============================================================
+
+  const buildingsForLocation = useMemo(
+    () =>
+      buildings.map((b) => ({
+        id: b.id,
+        name: b.name,
+        nameEn: b.nameEn ?? undefined,
+        code: b.code ?? undefined,
+        branchId: formData.branchId ?? undefined,
+      })),
+    [buildings, formData.branchId]
+  );
+
+  // ============================================================
   // جلب الأدوار (Floors)
   // ============================================================
 
   useEffect(() => {
-    if (!formData.buildingId) {
-      setFloors([]);
-      return;
-    }
     async function fetchFloors() {
+      if (!formData.buildingId) {
+        setFloors([]);
+        return;
+      }
+
       setLoadingFloors(true);
+
       try {
         const res = await fetch(
           `/api/locations/buildings/${formData.buildingId}/floors`
         );
-        if (res.ok) {
-          const data = await res.json();
-          setFloors(data);
-        } else {
-          setFloors([]);
-        }
+
+        const data: Floor[] = res.ok ? await res.json() : [];
+
+        // ✅ تعيين البيانات مباشرة (buildingId اختياري)
+        setFloors(data);
       } catch {
         setFloors([]);
       } finally {
         setLoadingFloors(false);
       }
     }
-    fetchFloors();
+
+    void fetchFloors();
   }, [formData.buildingId]);
 
   // ============================================================
@@ -196,46 +238,52 @@ export function NewWorkOrderClient({
   // ============================================================
 
   useEffect(() => {
-    if (!formData.floorId) {
-      setRooms([]);
-      return;
-    }
     async function fetchRooms() {
+      const floorId = formData.floorId;
+      const buildingId = formData.buildingId;
+
+      if (!floorId || !buildingId) {
+        setRooms([]);
+        return;
+      }
+
       setLoadingRooms(true);
+
       try {
         const res = await fetch(
-          `/api/locations/floors/${formData.floorId}/rooms`
+          `/api/locations/floors/${floorId}/rooms`
         );
-        if (res.ok) {
-          const data = await res.json();
-          const currentBuilding = buildings.find(
-            (b) => b.id === formData.buildingId
-          );
-          const currentFloor = floors.find(
-            (f) => f.id === formData.floorId
-          );
-          const buildingCode = currentBuilding?.code || "";
-          const floorCode = currentFloor?.code || "";
-          const roomsWithCode = data.map((room: any) => ({
-            id: room.id,
-            name: room.name,
-            nameEn: room.nameEn,
-            code: room.code,
-            floorId: formData.floorId,
-            buildingId: formData.buildingId,
-            fullCode: `${buildingCode}-${floorCode}-${room.code || ""}`,
-          }));
-          setRooms(roomsWithCode);
-        } else {
-          setRooms([]);
-        }
+
+        const data: Room[] = res.ok ? await res.json() : [];
+
+        const currentBuilding = buildings.find(
+          (b) => b.id === buildingId
+        );
+        const currentFloor = floors.find(
+          (f) => f.id === floorId
+        );
+        const buildingCode = currentBuilding?.code || "";
+        const floorCode = currentFloor?.code || "";
+
+        const roomsWithCode: Room[] = data.map((room) => ({
+          id: room.id,
+          name: room.name,
+          nameEn: room.nameEn,
+          code: room.code,
+          floorId,
+          buildingId,
+          fullCode: `${buildingCode}-${floorCode}-${room.code ?? ""}`,
+        }));
+
+        setRooms(roomsWithCode);
       } catch {
         setRooms([]);
       } finally {
         setLoadingRooms(false);
       }
     }
-    fetchRooms();
+
+    void fetchRooms();
   }, [formData.floorId, formData.buildingId, buildings, floors]);
 
   // ============================================================
@@ -243,53 +291,55 @@ export function NewWorkOrderClient({
   // ============================================================
 
   useEffect(() => {
-    if (!formData.assetTypeId) {
-      setAssets([]);
-      return;
-    }
+    async function fetchAssets() {
+      if (!formData.assetTypeId) {
+        setAssets([]);
+        return;
+      }
 
-    let level: 'room' | 'floor' | 'building' | null = null;
-    let id: string | null = null;
+      let level: 'room' | 'floor' | 'building' | null = null;
+      let id: string | null = null;
 
-    if (formData.roomId) {
-      level = 'room';
-      id = formData.roomId;
-    } else if (formData.floorId) {
-      level = 'floor';
-      id = formData.floorId;
-    } else if (formData.buildingId) {
-      level = 'building';
-      id = formData.buildingId;
-    }
+      if (formData.roomId) {
+        level = 'room';
+        id = formData.roomId;
+      } else if (formData.floorId) {
+        level = 'floor';
+        id = formData.floorId;
+      } else if (formData.buildingId) {
+        level = 'building';
+        id = formData.buildingId;
+      }
 
-    if (!level || !id) {
-      setAssets([]);
-      return;
-    }
+      if (!level || !id) {
+        setAssets([]);
+        return;
+      }
 
-    const params = new URLSearchParams();
-    params.append('typeId', formData.assetTypeId);
-    if (formData.branchId) params.append('branchId', formData.branchId);
-    if (level === 'room') params.append('roomId', id);
-    else if (level === 'floor') params.append('floorId', id);
-    else if (level === 'building') params.append('buildingId', id);
+      const params = new URLSearchParams();
+      params.append('typeId', formData.assetTypeId);
+      if (formData.branchId) params.append('branchId', formData.branchId);
+      if (level === 'room') params.append('roomId', id);
+      else if (level === 'floor') params.append('floorId', id);
+      else if (level === 'building') params.append('buildingId', id);
 
-    const fetchAssets = async () => {
       setLoadingAssets(true);
+
       try {
         const res = await fetch(`/api/assets?${params.toString()}`);
+
         if (res.ok) {
           const data = await res.json();
-          let fetchedAssets: any[] = [];
+          let fetchedAssets: Asset[] = [];
+
           if (Array.isArray(data.assets)) {
             fetchedAssets = data.assets;
           } else if (Array.isArray(data.data)) {
             fetchedAssets = data.data;
           } else if (Array.isArray(data)) {
             fetchedAssets = data;
-          } else {
-            fetchedAssets = [];
           }
+
           setAssets(fetchedAssets);
         } else {
           setAssets([]);
@@ -300,9 +350,9 @@ export function NewWorkOrderClient({
       } finally {
         setLoadingAssets(false);
       }
-    };
+    }
 
-    fetchAssets();
+    void fetchAssets();
   }, [
     formData.buildingId,
     formData.floorId,
@@ -359,15 +409,15 @@ export function NewWorkOrderClient({
       const formDataToSend = new FormData();
       formDataToSend.append("title", formData.title);
       formDataToSend.append("description", formData.description || "");
-      formDataToSend.append("workOrderTypeId", formData.workOrderTypeId ?? ""); // ✅
+      formDataToSend.append("workOrderTypeId", formData.workOrderTypeId ?? "");
       formDataToSend.append("priorityId", formData.priorityId);
       formDataToSend.append("statusId", formData.statusId || "");
       formDataToSend.append("branchId", formData.branchId);
       formDataToSend.append("assetTypeId", formData.assetTypeId || "");
       formDataToSend.append("notes", formData.notes || "");
-      formDataToSend.append("source", formData.source ?? "manual"); // ✅
+      formDataToSend.append("source", formData.source ?? "manual");
       formDataToSend.append("sourceId", formData.sourceId || "");
-      formDataToSend.append("category", formData.category || ""); // ✅ إذا كان موجوداً
+      formDataToSend.append("category", formData.category || "");
       formDataToSend.append("reason", formData.reason || "");
       formDataToSend.append("assetIds", JSON.stringify(selectedAssetIds));
 
@@ -377,7 +427,6 @@ export function NewWorkOrderClient({
         formDataToSend.append("roomId", formData.roomId);
       }
 
-      // إضافة assignedTo إذا كان موجوداً
       if (formData.assignedTo) {
         formDataToSend.append("assignedTo", formData.assignedTo);
       }
@@ -480,8 +529,11 @@ export function NewWorkOrderClient({
               <LocationCard
                 formData={formData}
                 setFormData={setFormData}
-                buildings={buildings}
-                floors={floors}
+                buildings={buildingsForLocation}
+                floors={floors.map((floor) => ({
+                  ...floor,
+                  buildingId: floor.buildingId ?? formData.buildingId ?? '', // ✅ ضمان string
+                }))}
                 rooms={rooms}
                 loadingFloors={loadingFloors}
                 loadingRooms={loadingRooms}
@@ -510,7 +562,6 @@ export function NewWorkOrderClient({
               <NotesEditor
                 value={formData.notes ?? undefined}
                 onChange={(value) => setFormData({ ...formData, notes: value })}
-                isRtl={isRtl}
                 t={t}
               />
             </div>
@@ -520,7 +571,6 @@ export function NewWorkOrderClient({
               <AttachmentsCard
                 onFilesChange={setAttachedFiles}
                 isRtl={isRtl}
-                t={t}
               />
             </div>
 

@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/suppliers/SupplierForm.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ الخطوة 1: حذف useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,6 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Loader2, User } from "lucide-react";
 import type { Supplier } from "@/types/suppliers";
-import { cn } from "@/lib/utils";
 
 interface SupplierFormProps {
   supplier: Supplier | null;
@@ -25,42 +24,23 @@ export function SupplierForm({
 }: SupplierFormProps) {
   const t = useTranslations("Suppliers");
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    nameEn: "",
-    contactPerson: "",
-    phone: "",
-    email: "",
-    address: "",
-    taxNumber: "",
-    isActive: true,
+
+  // ✅ الخطوة 2: دالة لإرجاع القيم الافتراضية قبل useState
+  const getInitialFormData = () => ({
+    name: supplier?.name ?? "",
+    nameEn: supplier?.nameEn ?? "",
+    contactPerson: supplier?.contactPerson ?? "",
+    phone: supplier?.phone ?? "",
+    email: supplier?.email ?? "",
+    address: supplier?.address ?? "",
+    taxNumber: supplier?.taxNumber ?? "",
+    isActive: supplier?.isActive ?? true,
   });
 
-  useEffect(() => {
-    if (supplier) {
-      setFormData({
-        name: supplier.name || "",
-        nameEn: supplier.nameEn || "",
-        contactPerson: supplier.contactPerson || "",
-        phone: supplier.phone || "",
-        email: supplier.email || "",
-        address: supplier.address || "",
-        taxNumber: supplier.taxNumber || "",
-        isActive: supplier.isActive !== undefined ? supplier.isActive : true,
-      });
-    } else {
-      setFormData({
-        name: "",
-        nameEn: "",
-        contactPerson: "",
-        phone: "",
-        email: "",
-        address: "",
-        taxNumber: "",
-        isActive: true,
-      });
-    }
-  }, [supplier]);
+  // ✅ الخطوة 3: تعريف الـ state باستخدام الدالة
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  // ✅ الخطوة 4: تم حذف useEffect بالكامل
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -108,8 +88,13 @@ export function SupplierForm({
 
       toast.success(supplier ? t("updateSuccess") : t("createSuccess"));
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || t("saveError"));
+      } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : t("saveError");
+
+      toast.error(message);
       console.error(error);
     } finally {
       setLoading(false);

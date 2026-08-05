@@ -31,7 +31,7 @@ export default function NewMaintenanceSchedulePage() {
   const {
     // البيانات
     formData,
-    setFormData, // ✅ تمت الإضافة
+    setFormData,
     branchId,
     setBranchId,
     buildingId,
@@ -58,8 +58,6 @@ export default function NewMaintenanceSchedulePage() {
     handleSubmit,
     getSelectedLocationSummary,
     isLocationSelected,
-    // ✅ تم حذف: handleNameChange, handleFrequencyChange, handleLeadDaysChange,
-    // handleFrequencyDaysChange, handleStartDateChange, handleIsActiveChange
     handleNotesChange,
     handleAssetTypeChange,
     // دوال حوار الأصول
@@ -110,7 +108,7 @@ export default function NewMaintenanceSchedulePage() {
           <div className={glassCard}>
             <BasicInfoSection
               formData={formData}
-              setFormData={setFormData} // ✅ تم التحديث
+              setFormData={setFormData}
               isRtl={isRtl}
               t={t}
             />
@@ -150,7 +148,6 @@ export default function NewMaintenanceSchedulePage() {
               selectedAssetIds={selectedAssetIds}
               removeAsset={removeAsset}
               loadingAssetTypes={loadingAssetTypes}
-              loadingAssets={loadingAssets}
               isLocationSelected={isLocationSelected}
               isRtl={isRtl}
               t={t}
@@ -166,14 +163,13 @@ export default function NewMaintenanceSchedulePage() {
             <NotesSection
               formData={formData}
               handleNotesChange={handleNotesChange}
-              isRtl={isRtl}
               t={t}
             />
           </div>
 
           {/* 5. إرشادات */}
           <div className={glassCard}>
-            <GuidelinesSection isRtl={isRtl} t={t} />
+            <GuidelinesSection isRtl={isRtl} />
           </div>
 
           {/* 6. الأزرار */}
@@ -201,7 +197,7 @@ export default function NewMaintenanceSchedulePage() {
           </div>
 
           {/* 7. مساعدة سريعة */}
-          <QuickHelpSection isRtl={isRtl} t={t} />
+          <QuickHelpSection isRtl={isRtl} />
         </div>
       </div>
 
@@ -222,7 +218,11 @@ export default function NewMaintenanceSchedulePage() {
 }
 
 // ========== مكونات مساعدة ==========
-function GuidelinesSection({ isRtl, t }: { isRtl: boolean; t: any }) {
+function GuidelinesSection({
+  isRtl,
+}: {
+  isRtl: boolean;
+}) {
   return (
     <>
       <div className="flex items-center gap-3 mb-4">
@@ -271,7 +271,12 @@ function GuidelinesSection({ isRtl, t }: { isRtl: boolean; t: any }) {
   );
 }
 
-function QuickHelpSection({ isRtl, t }: { isRtl: boolean; t: any }) {
+// ✅ تم حذف t من هنا
+function QuickHelpSection({
+  isRtl,
+}: {
+  isRtl: boolean;
+}) {
   return (
     <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
       <Info className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />

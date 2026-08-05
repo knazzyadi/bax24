@@ -1,4 +1,3 @@
-// src/components/dashboard/SidebarNavItem.tsx
 "use client";
 
 import Link from "next/link";
@@ -14,6 +13,7 @@ interface SidebarNavItemProps {
   subItem?: boolean;
   locale: string;
   badgeCount?: number;
+  onNavigate?: () => void; // ✅ إضافة prop
 }
 
 export function SidebarNavItem({
@@ -25,11 +25,13 @@ export function SidebarNavItem({
   subItem,
   locale,
   badgeCount,
+  onNavigate, // ✅ استقبال الدالة
 }: SidebarNavItemProps) {
   const finalHref = `/${locale}${href}`;
   return (
     <Link
       href={finalHref}
+      onClick={() => onNavigate?.()} // ✅ استدعاء الدالة عند النقر
       className={cn(
         "flex items-center gap-4 transition-all duration-200 group relative rounded-xl",
         !isOpen ? "justify-center px-0" : "px-4",

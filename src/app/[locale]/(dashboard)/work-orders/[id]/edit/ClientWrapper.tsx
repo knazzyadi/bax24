@@ -4,20 +4,52 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { ArrowLeft, Loader2, Wrench, MapPin } from "lucide-react";
+import { ArrowLeft, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { EditForm } from "./EditForm";
+import type { WorkOrderFormData } from "../../types";
+
+// ============================================================
+// الأنواع
+// ============================================================
+
+interface Option {
+  id: string;
+  name: string;
+  code?: string | null;
+  fullCode?: string;
+  buildingId?: string | null;
+  floorId?: string | null;
+}
+
+interface SelectedAsset {
+  id: string;
+  name: string;
+  code?: string | null;
+}
+
+// ✅ FormData يمدد WorkOrderFormData مع تعديل الخصائص المطلوبة
+// تم حذف [key: string]: unknown; لتجنب تعارض التوقيع الفهرسي
+interface FormData extends WorkOrderFormData {
+  id?: string;
+  branchId?: string | null;
+  selectedAssets?: SelectedAsset[];
+}
 
 interface EditWorkOrderClientProps {
   locale: string;
-  initialData: any;
-  priorities: any[];
-  statuses: any[];
-  assetTypes: any[];
-  buildings: any[];
-  initialWorkOrderTypes: any[];
+  initialData: FormData;
+  priorities: Option[];
+  statuses: Option[];
+  assetTypes: Option[];
+  buildings: Option[];
+  initialWorkOrderTypes: Option[];
 }
+
+// ============================================================
+// المكون
+// ============================================================
 
 export function EditWorkOrderClient({
   locale,
@@ -32,8 +64,7 @@ export function EditWorkOrderClient({
   const isRtl = locale === "ar";
   const t = useTranslations("WorkOrdersForm");
 
-  // ✅ التأكد من أن جميع الحقول المطلوبة موجودة في formData
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<FormData>({
     ...initialData,
     assetTypeId: initialData.assetTypeId ?? null,
     workOrderTypeId: initialData.workOrderTypeId ?? "",
@@ -44,64 +75,82 @@ export function EditWorkOrderClient({
 
   const [saving, setSaving] = useState(false);
 
-  const [floors, setFloors] = useState<any[]>([]);
-  const [rooms, setRooms] = useState<any[]>([]);
+  const [floors, setFloors] = useState<Option[]>([]);
+  const [rooms, setRooms] = useState<Option[]>([]);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
-  // جلب الأدوار - مع المسار الجديد
+  // ============================================================
+  // جلب الأدوار (Floors)
+  // ============================================================
+
   useEffect(() => {
-    if (!formData.buildingId) {
-      setFloors([]);
-      return;
-    }
+    const buildingId = formData.buildingId;
+    if (!buildingId) return;
+
     const fetchFloors = async () => {
       setLoadingFloors(true);
+
       try {
-        const res = await fetch(`/api/locations/buildings/${formData.buildingId}/floors`); // ✅ تم التحديث
-        if (res.ok) {
-          const data = await res.json();
-          setFloors(Array.isArray(data) ? data : []);
-        } else {
-          setFloors([]);
-        }
+        const res = await fetch(
+          `/api/locations/buildings/${buildingId}/floors`
+        );
+
+        const data: Option[] = res.ok ? await res.json() : [];
+
+        setFloors(Array.isArray(data) ? data : []);
       } catch {
         setFloors([]);
       } finally {
         setLoadingFloors(false);
       }
     };
-    fetchFloors();
+
+    void fetchFloors();
   }, [formData.buildingId]);
 
-  // جلب الغرف - مع المسار الجديد
+  // ============================================================
+  // جلب الغرف (Rooms)
+  // ============================================================
+
   useEffect(() => {
-    if (!formData.floorId) {
-      setRooms([]);
-      return;
-    }
+    const floorId = formData.floorId;
+    const buildingId = formData.buildingId;
+
+    if (!floorId || !buildingId) return;
+
     const fetchRooms = async () => {
       setLoadingRooms(true);
+
       try {
-        const res = await fetch(`/api/locations/floors/${formData.floorId}/rooms`); // ✅ تم التحديث
-        if (res.ok) {
-          const data = await res.json();
-          // ✅ نمرر الغرف كما هي، مع الحفاظ على room.code و room.name
-          const roomsData = Array.isArray(data) ? data : [];
-          setRooms(roomsData);
-        } else {
-          setRooms([]);
-        }
+        const res = await fetch(
+          `/api/locations/floors/${floorId}/rooms`
+        );
+
+        const data: Option[] = res.ok ? await res.json() : [];
+
+        const roomsWithExtra = data.map((room) => ({
+          ...room,
+          buildingId: room.buildingId ?? buildingId,
+          floorId: room.floorId ?? floorId,
+        }));
+
+        setRooms(roomsWithExtra);
       } catch {
         setRooms([]);
       } finally {
         setLoadingRooms(false);
       }
     };
-    fetchRooms();
+
+    void fetchRooms();
   }, [formData.floorId, formData.buildingId]);
 
-  const handleSubmit = async (data: any) => {
+  // ============================================================
+  // دالة الإرسال
+  // ============================================================
+
+  const handleSubmit = async (data: FormData) => {
     setSaving(true);
     try {
       const payload = {
@@ -110,13 +159,13 @@ export function EditWorkOrderClient({
         workOrderTypeId: data.workOrderTypeId || null,
         priorityId: data.priorityId || null,
         statusId: data.statusId || null,
-        branchId: data.branchId,
+        branchId: data.branchId ?? null,
         assetTypeId: data.assetTypeId || null,
         assetIds: data.assetIds || [],
         notes: data.notes || null,
-        roomId: data.locationLevel === "room" ? data.roomId : null,
-        floorId: data.locationLevel === "floor" ? data.floorId : null,
-        buildingId: data.locationLevel === "building" ? data.buildingId : null,
+        roomId: data.roomId || null,
+        floorId: data.floorId || null,
+        buildingId: data.buildingId || null,
         source: data.source,
         sourceId: data.sourceId,
       };
@@ -142,6 +191,10 @@ export function EditWorkOrderClient({
     }
   };
 
+  // ============================================================
+  // التصميم (JSX)
+  // ============================================================
+
   return (
     <div className="relative space-y-8 p-6">
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
@@ -152,8 +205,12 @@ export function EditWorkOrderClient({
             <Wrench className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div>
-            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">{t("editTitle")}</h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400">{t("editSubtitle")}</p>
+            <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              {t("editTitle")}
+            </h1>
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              {t("editSubtitle")}
+            </p>
           </div>
         </div>
         <Button
@@ -182,7 +239,6 @@ export function EditWorkOrderClient({
         isRtl={isRtl}
         t={t}
         workOrderTypes={initialWorkOrderTypes}
-        // ✅ تمرير الأصول المختارة إلى EditForm
         selectedAssets={formData.selectedAssets || []}
       />
     </div>

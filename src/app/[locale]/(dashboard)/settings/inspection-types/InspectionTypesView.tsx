@@ -32,7 +32,7 @@ interface InspectionTypesViewProps {
   loadingSections: boolean;
   isRtl: boolean;
 
-  // ✅ الخرائط الثلاث
+  // الخرائط الثلاث
   expandedSections: Record<string, boolean>;
   expandedTemplates: Record<string, boolean>;
   expandedCategories: Record<string, boolean>;
@@ -41,7 +41,7 @@ interface InspectionTypesViewProps {
   onToggleTemplate: (templateId: string) => void;
   onToggleCategory: (categoryId: string) => void;
 
-  // ... باقي البروبس (دون تغيير)
+  // باقي البروبس
   sectionDialogOpen: boolean;
   editingSection: InspectionSection | null;
   templateDialogOpen: boolean;
@@ -74,11 +74,10 @@ interface InspectionTypesViewProps {
   onTemplateDialogClose: (refetch?: boolean, sectionId?: string) => void;
   onCategoryDialogClose: (refetch?: boolean, templateId?: string) => void;
   onItemDialogClose: (refetch?: boolean, categoryId?: string) => void;
-  onItemReorder: (items: InspectionItem[], categoryId: string) => void;
 
   sections: InspectionSection[];
   templatesMap: Record<string, InspectionTemplate[]>;
-  categoriesMap: Record<string, InspectionCategory[]>;
+  // ❌ تم حذف categoriesMap
 }
 
 export default function InspectionTypesView({
@@ -91,7 +90,6 @@ export default function InspectionTypesView({
   onToggleSection,
   onToggleTemplate,
   onToggleCategory,
-  // ... باقي البروبس
   sectionDialogOpen,
   editingSection,
   templateDialogOpen,
@@ -119,10 +117,9 @@ export default function InspectionTypesView({
   onTemplateDialogClose,
   onCategoryDialogClose,
   onItemDialogClose,
-  onItemReorder,
   sections,
   templatesMap,
-  categoriesMap,
+  // ❌ تم حذف onItemReorder و categoriesMap
 }: InspectionTypesViewProps) {
   const t = useTranslations("InspectionTypes");
 
@@ -233,7 +230,6 @@ export default function InspectionTypesView({
                     onEdit={handleEdit}
                     onDelete={handleDelete}
                     isLoading={node.isLoading}
-                    // ✅ يتم تمرير description تلقائياً عبر node
                   />
                 ))}
               </div>

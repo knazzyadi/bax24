@@ -45,8 +45,12 @@ export default function AssetStatusesPage() {
       }
       toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
       refetch();
-    } catch (error: any) {
-      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to update order"));
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : (isRtl ? "فشل تحديث الترتيب" : "Failed to update order")
+      );
     }
   };
 
@@ -76,8 +80,12 @@ export default function AssetStatusesPage() {
       toast.success(t("deleteSuccess"));
       refetch();
       setConfirmDialog({ open: false });
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : (isRtl ? "فشل الحذف" : "Delete failed")
+      );
     } finally {
       setDeleting(false);
     }

@@ -4,6 +4,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
+// نوع البيانات المرسلة في طلبات PUT
+type InventoryBody = {
+  name: string;
+  nameEn?: string;
+  sku?: string;
+  quantity?: number;
+  minQuantity?: number;
+  unit?: string;
+  roomId: string;
+  notes?: string;
+};
+
 // ============================================================
 // GET /api/inventory/[id] - جلب صنف واحد
 // ============================================================
@@ -17,16 +29,15 @@ export async function GET(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    // ✅ استخدم requirePermission بدلاً من checkPermission
     await requirePermission('assets.read');
 
     const { id } = await params;
-    const companyId = session.companyId!; // ✅ تأكيد وجود companyId
+    const companyId = session.companyId!;
 
     const item = await prisma.inventoryItem.findFirst({
       where: {
         id,
-        companyId, // ✅ أضف شرط companyId
+        companyId,
         deletedAt: null,
       },
       include: {
@@ -48,7 +59,6 @@ export async function GET(
       return NextResponse.json({ error: 'الصنف غير موجود' }, { status: 404 });
     }
 
-    // تحويل التواريخ
     const serialized = {
       ...item,
       createdAt: item.createdAt.toISOString(),
@@ -56,7 +66,7 @@ export async function GET(
     };
 
     return NextResponse.json(serialized);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GET /api/inventory/[id] error:', error);
     return NextResponse.json({ error: 'خطأ في جلب الصنف' }, { status: 500 });
   }
@@ -75,11 +85,10 @@ export async function PUT(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    // ✅ استخدم requirePermission
     await requirePermission('assets.update');
 
     const { id } = await params;
-    const body = await request.json();
+    const body: InventoryBody = await request.json();
     const { name, nameEn, sku, quantity, minQuantity, unit, roomId, notes } = body;
 
     if (!name || !roomId) {
@@ -88,7 +97,6 @@ export async function PUT(
 
     const companyId = session.companyId!;
 
-    // التحقق من وجود الصنف مع companyId
     const existing = await prisma.inventoryItem.findFirst({
       where: { id, companyId, deletedAt: null },
     });
@@ -113,7 +121,7 @@ export async function PUT(
     });
 
     return NextResponse.json(updatedItem);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('PUT /api/inventory/[id] error:', error);
     return NextResponse.json({ error: 'خطأ في تحديث الصنف' }, { status: 500 });
   }
@@ -132,7 +140,6 @@ export async function DELETE(
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
-    // ✅ استخدم requirePermission
     await requirePermission('assets.delete');
 
     const { id } = await params;
@@ -151,7 +158,7 @@ export async function DELETE(
     });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('DELETE /api/inventory/[id] error:', error);
     return NextResponse.json({ error: 'خطأ في حذف الصنف' }, { status: 500 });
   }

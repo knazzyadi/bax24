@@ -24,11 +24,17 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     const { id } = await params;
     const updated = await CompanyService.toggleStatus(id);
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    // ✅ معالجة آمنة للخطأ
     console.error('PATCH /api/companies/[id]/toggle-status', error);
-    if (error.message === 'الشركة غير موجودة') {
+
+    // التحقق من رسالة الخطأ إذا كان من نوع Error
+    const errorMessage = error instanceof Error ? error.message : '';
+
+    if (errorMessage === 'الشركة غير موجودة') {
       return NextResponse.json({ error: 'الشركة غير موجودة' }, { status: 404 });
     }
+
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
   }
 }

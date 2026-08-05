@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import InspectionsClient from './InspectionsClient';
 import type { Inspection } from './types';
-import { Prisma } from '@prisma/client';
+import { Prisma, InspectionStatus } from '@prisma/client';
 
 export default async function InspectionsPage({
   params,
@@ -50,8 +50,14 @@ export default async function InspectionsPage({
       { title: { contains: q, mode: 'insensitive' } },
     ];
   }
+
+  // التحقق الآمن من الحالة بدون استخدام any
   if (status && status !== 'all') {
-    where.status = status as any;
+    // التأكد من أن القيمة المرسلة هي حالة صالحة في Prisma enum
+    if (Object.values(InspectionStatus).includes(status as InspectionStatus)) {
+      where.status = status as InspectionStatus;
+    }
+    // إذا كانت القيمة غير صالحة، يمكن تجاهلها أو تسجيل خطأ، لكننا هنا نتجاهلها ببساطة
   }
 
   const [inspections, totalCount] = await Promise.all([
@@ -87,7 +93,7 @@ export default async function InspectionsPage({
     { id: 'in_progress', name: 'قيد التنفيذ', nameEn: 'In Progress' },
     { id: 'completed', name: 'مكتمل', nameEn: 'Completed' },
     { id: 'approved', name: 'معتمد', nameEn: 'Approved' },
-    { id: 'cancelled', name: 'ملغي', nameEn: 'Cancelled' }, // ✅ أضف هذا
+    { id: 'cancelled', name: 'ملغي', nameEn: 'Cancelled' },
   ];
 
   const baseUrl = `/${locale}/inspections`;

@@ -5,6 +5,22 @@ import { prisma } from "@/lib/prisma";
 import { InspectionTemplateRepository } from "@/lib/repositories/inspection-template.repository";
 import { UpdateInspectionTemplateSchema } from "@/lib/validations/inspection-template.schema";
 
+// Helper functions for error handling
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return "Internal Server Error";
+}
+
+function isPrismaError(error: unknown): error is { code: string } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error
+  );
+}
+
 // GET: جلب نموذج معين
 export async function GET(
   req: NextRequest,
@@ -23,7 +39,6 @@ export async function GET(
 
     const { id } = await params;
 
-    // ✅ التحقق من صحة المعرف
     if (!id || id.trim() === "") {
       return NextResponse.json(
         { error: "Template ID is required" },
@@ -38,10 +53,10 @@ export async function GET(
     }
 
     return NextResponse.json(template);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Error fetching inspection template:", error);
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: getErrorMessage(error) },
       { status: 500 }
     );
   }
@@ -65,7 +80,6 @@ export async function PUT(
 
     const { id } = await params;
 
-    // ✅ التحقق من صحة المعرف
     if (!id || id.trim() === "") {
       return NextResponse.json(
         { error: "Template ID is required" },
@@ -75,7 +89,6 @@ export async function PUT(
 
     const body = await req.json();
 
-    // ✅ التحقق من صحة البيانات باستخدام Zod
     const validation = UpdateInspectionTemplateSchema.safeParse(body);
     if (!validation.success) {
       const errorMessage = validation.error?.issues?.[0]?.message || "بيانات غير صالحة";
@@ -85,7 +98,6 @@ export async function PUT(
       );
     }
 
-    // ✅ التأكد من وجود القالب قبل التحديث
     const existing = await prisma.inspectionTemplate.findFirst({
       where: {
         id,
@@ -102,13 +114,12 @@ export async function PUT(
       );
     }
 
-    // ✅ التحقق من عدم وجود اسم مكرر (إذا تم تغيير الاسم)
     const updateData = validation.data;
     if (updateData.name) {
       const duplicate = await prisma.inspectionTemplate.findFirst({
         where: {
           companyId,
-          sectionId: updateData.sectionId, // إذا تم تغيير القسم أيضاً
+          sectionId: updateData.sectionId,
           name: updateData.name.trim(),
           id: { not: id },
           deletedAt: null,
@@ -125,11 +136,10 @@ export async function PUT(
     const template = await InspectionTemplateRepository.update(id, companyId, updateData);
 
     return NextResponse.json(template);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error updating inspection template:", error);
-    
-    // ✅ معالجة أخطاء Prisma المعروفة
-    if (error.code === "P2025") {
+
+    if (isPrismaError(error) && error.code === "P2025") {
       return NextResponse.json(
         { error: "Template not found" },
         { status: 404 }
@@ -137,7 +147,7 @@ export async function PUT(
     }
 
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: getErrorMessage(error) },
       { status: 500 }
     );
   }
@@ -161,7 +171,6 @@ export async function DELETE(
 
     const { id } = await params;
 
-    // ✅ التحقق من صحة المعرف
     if (!id || id.trim() === "") {
       return NextResponse.json(
         { error: "Template ID is required" },
@@ -169,7 +178,6 @@ export async function DELETE(
       );
     }
 
-    // ✅ التأكد من وجود القالب قبل الحذف
     const existing = await prisma.inspectionTemplate.findFirst({
       where: {
         id,
@@ -186,7 +194,6 @@ export async function DELETE(
       );
     }
 
-    // ✅ التحقق من عدم وجود فئات تابعة قبل الحذف
     const childCategories = await prisma.inspectionCategory.findFirst({
       where: {
         templateId: id,
@@ -208,10 +215,10 @@ export async function DELETE(
       { message: "Template deleted successfully" },
       { status: 200 }
     );
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("Error deleting inspection template:", error);
-    
-    if (error.code === "P2025") {
+
+    if (isPrismaError(error) && error.code === "P2025") {
       return NextResponse.json(
         { error: "Template not found" },
         { status: 404 }
@@ -219,7 +226,7 @@ export async function DELETE(
     }
 
     return NextResponse.json(
-      { error: error.message || "Internal Server Error" },
+      { error: getErrorMessage(error) },
       { status: 500 }
     );
   }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useLocale } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -19,7 +19,6 @@ import {
   FileText,
   Loader2,
   Plus,
-  X,
 } from "lucide-react";
 
 interface Attachment {
@@ -49,33 +48,64 @@ export function AttachmentsManager({
   const locale = useLocale();
   const isRtl = locale === "ar";
   const [attachments, setAttachments] = useState<Attachment[]>([]);
-  const [loading, setLoading] = useState(true);
+  // ✅ تغيير القيمة الافتراضية إلى !!workOrderId
+  const [loading, setLoading] = useState(!!workOrderId);
   const [uploading, setUploading] = useState(false);
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [fileName, setFileName] = useState("");
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const fetchAttachments = useCallback(async () => {
+  // ============================================================
+  // ✅ تحميل المرفقات مباشرة في useEffect (بدون useCallback)
+  // ============================================================
+  useEffect(() => {
+    if (!workOrderId) {
+      return; // ✅ لا نضبط setLoading(false) هنا
+    }
+
+    const loadAttachments = async () => {
+      setLoading(true);
+
+      try {
+        const res = await fetch(`/api/work-orders/${workOrderId}/attachments`);
+
+        if (res.ok) {
+          const data = await res.json();
+          setAttachments(data);
+        } else {
+          console.error("Failed to fetch attachments:", res.status);
+        }
+      } catch (error) {
+        console.error("Error fetching attachments:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void loadAttachments();
+  }, [workOrderId]);
+
+  // ============================================================
+  // ✅ دالة مستقلة لإعادة تحميل المرفقات (تُستخدم بعد الرفع والحذف)
+  // ============================================================
+  const reloadAttachments = async () => {
     try {
       const res = await fetch(`/api/work-orders/${workOrderId}/attachments`);
       if (res.ok) {
         const data = await res.json();
         setAttachments(data);
+      } else {
+        console.error("Failed to reload attachments:", res.status);
       }
     } catch (error) {
-      console.error("Error fetching attachments:", error);
-    } finally {
-      setLoading(false);
+      console.error("Error reloading attachments:", error);
     }
-  }, [workOrderId]);
+  };
 
-  useEffect(() => {
-    if (workOrderId) {
-      fetchAttachments();
-    }
-  }, [workOrderId, fetchAttachments]);
-
+  // ============================================================
+  // باقي الدوال
+  // ============================================================
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -114,12 +144,12 @@ export function AttachmentsManager({
         setOpenDialog(false);
         setSelectedFile(null);
         setFileName("");
-        fetchAttachments();
+        await reloadAttachments();
       } else {
         const error = await res.json();
         toast.error(error.error || (isRtl ? "فشل الرفع" : "Upload failed"));
       }
-    } catch (error) {
+    } catch {
       toast.error(isRtl ? "خطأ في الاتصال" : "Network error");
     } finally {
       setUploading(false);
@@ -140,11 +170,11 @@ export function AttachmentsManager({
 
       if (res.ok) {
         toast.success(isRtl ? "تم حذف الملف" : "File deleted");
-        fetchAttachments();
+        await reloadAttachments();
       } else {
         toast.error(isRtl ? "فشل الحذف" : "Delete failed");
       }
-    } catch (error) {
+    } catch {
       toast.error(isRtl ? "خطأ في الاتصال" : "Network error");
     } finally {
       setDeletingId(null);

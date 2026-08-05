@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/inspection-types/SectionDialog.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -26,6 +26,15 @@ interface SectionDialogProps {
   isRtl: boolean;
 }
 
+// ✅ دالة مساعدة لتهيئة البيانات – تُستخدم في useState و عند فتح النافذة
+const getInitialFormData = (section: InspectionSection | null) => ({
+  code: section?.code ?? "",
+  name: section?.name ?? "",
+  nameAr: section?.nameAr ?? "",
+  description: section?.description ?? "",
+  isActive: section?.isActive ?? true,
+});
+
 export function SectionDialog({
   open,
   onOpenChange,
@@ -33,34 +42,43 @@ export function SectionDialog({
   isRtl,
 }: SectionDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [nameAr, setNameAr] = useState("");
-  const [description, setDescription] = useState("");
-  const [isActive, setIsActive] = useState(true);
-
   const isEditing = !!section;
 
-  useEffect(() => {
-    if (section) {
-      setCode(section.code || "");
-      setName(section.name || "");
-      setNameAr(section.nameAr || "");
-      setDescription(section.description || "");
-      setIsActive(section.isActive ?? true);
-    } else {
-      setCode("");
-      setName("");
-      setNameAr("");
-      setDescription("");
-      setIsActive(true);
-    }
-  }, [section, open]);
+  // ✅ استخدام useState مع دالة initializer – لا حاجة لـ useEffect
+  const [formData, setFormData] = useState(() => getInitialFormData(section));
+
+  // ✅ عند فتح النافذة أو تغيير section، نعيد ضبط البيانات
+  const handleOpenChange = useCallback(
+    (newOpen: boolean) => {
+      if (!loading) {
+        if (newOpen) {
+          // عند الفتح، نحدّث البيانات بناءً على section الجديد
+          setFormData(getInitialFormData(section));
+        }
+        onOpenChange(newOpen, false);
+      }
+    },
+    [loading, section, onOpenChange]
+  );
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
+  ) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+    }));
+  };
+
+  const handleSwitchChange = (checked: boolean) => {
+    setFormData((prev) => ({ ...prev, isActive: checked }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!code.trim() || !name.trim()) {
+    if (!formData.code.trim() || !formData.name.trim()) {
       toast.error(isRtl ? "الكود والاسم مطلوبان" : "Code and name are required");
       return;
     }
@@ -68,11 +86,11 @@ export function SectionDialog({
     setLoading(true);
     try {
       const payload = {
-        code: code.trim(),
-        name: name.trim(),
-        nameAr: nameAr.trim(),
-        description: description.trim(),
-        isActive,
+        code: formData.code.trim(),
+        name: formData.name.trim(),
+        nameAr: formData.nameAr.trim(),
+        description: formData.description.trim(),
+        isActive: formData.isActive,
       };
 
       const url = isEditing
@@ -92,18 +110,20 @@ export function SectionDialog({
       }
 
       toast.success(isEditing ? "تم التحديث" : "تمت الإضافة");
-
-      // ✅ إغلاق الحوار مع إعادة التحميل
       onOpenChange(false, true);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : (isRtl ? "فشل الحفظ" : "Failed to save")
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !loading && onOpenChange(open, false)}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px] rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-slate-200/50 dark:border-slate-800/50">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">
@@ -126,8 +146,9 @@ export function SectionDialog({
               {isRtl ? "الكود *" : "Code *"}
             </Label>
             <Input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
+              name="code"
+              value={formData.code}
+              onChange={handleChange}
               placeholder={isRtl ? "مثال: SAF" : "e.g. SAF"}
               className="rounded-xl font-mono uppercase"
               dir="ltr"
@@ -139,8 +160,9 @@ export function SectionDialog({
               {isRtl ? "الاسم (إنجليزي) *" : "Name (English) *"}
             </Label>
             <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
               placeholder={isRtl ? "مثال: Safety" : "e.g. Safety"}
               className="rounded-xl"
               dir="ltr"
@@ -152,8 +174,9 @@ export function SectionDialog({
               {isRtl ? "الاسم (عربي)" : "Name (Arabic)"}
             </Label>
             <Input
-              value={nameAr}
-              onChange={(e) => setNameAr(e.target.value)}
+              name="nameAr"
+              value={formData.nameAr}
+              onChange={handleChange}
               placeholder={isRtl ? "مثال: السلامة" : "e.g. Safety"}
               className="rounded-xl"
               dir={isRtl ? "rtl" : "ltr"}
@@ -165,8 +188,9 @@ export function SectionDialog({
               {isRtl ? "الوصف (اختياري)" : "Description (Optional)"}
             </Label>
             <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
               placeholder={isRtl ? "وصف القسم" : "Section description"}
               className="rounded-xl min-h-[80px]"
               dir={isRtl ? "rtl" : "ltr"}
@@ -178,8 +202,8 @@ export function SectionDialog({
               {isRtl ? "حالة التفعيل" : "Active Status"}
             </Label>
             <Switch
-              checked={isActive}
-              onCheckedChange={setIsActive}
+              checked={formData.isActive}
+              onCheckedChange={handleSwitchChange}
               className="data-[state=checked]:bg-indigo-600"
             />
           </div>
@@ -188,7 +212,7 @@ export function SectionDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false, false)}
+              onClick={() => handleOpenChange(false)}
               disabled={loading}
               className="rounded-xl"
             >

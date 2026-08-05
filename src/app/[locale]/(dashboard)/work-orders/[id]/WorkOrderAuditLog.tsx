@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
-import { Clock, User, ArrowRight, Loader2 } from "lucide-react";
+import { Clock, ArrowRight, Loader2 } from "lucide-react";
 
 interface AuditLogEntry {
   id: string;
@@ -90,7 +90,6 @@ export function WorkOrderAuditLog({ workOrderId }: WorkOrderAuditLogProps) {
       <div className="relative space-y-3 before:absolute before:left-[11px] before:top-3 before:bottom-3 before:w-0.5 before:bg-slate-200 dark:before:bg-slate-700">
         {logs.map((log, index) => {
           const isFirst = index === 0;
-          const isLast = index === logs.length - 1;
 
           return (
             <div key={log.id} className="relative pl-8">

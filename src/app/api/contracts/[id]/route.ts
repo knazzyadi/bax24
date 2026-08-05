@@ -6,6 +6,26 @@ import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-help
 import { prisma } from '@/lib/prisma';
 import { deleteFileFromR2 } from '@/lib/storage';
 
+type ContractBody = {
+  title: string;
+  supplier: string;
+  value?: number;
+  startDate: string;
+  endDate: string;
+  description?: string;
+  notes?: string;
+  buildingId?: string | null;
+  attachmentIds?: string[];
+  agentName?: string;
+  agentPhone?: string;
+  agentEmail?: string;
+};
+
+type ContractAttachment = {
+  id: string;
+  key: string;
+};
+
 // GET: جلب عقد واحد مع مرفقاته وحقول المندوب
 export async function GET(
   request: NextRequest,
@@ -13,30 +33,56 @@ export async function GET(
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     await requirePermission('contracts.read');
 
     const { id } = await params;
-    const companyId = session.companyId!;
-    if (!companyId) return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+    const companyId = session.companyId;
+
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
+    }
 
     const contract = await prisma.contract.findFirst({
-      where: { id, companyId, deletedAt: null },
+      where: {
+        id,
+        companyId,
+        deletedAt: null,
+      },
       include: {
         branch: true,
         attachments: true,
       },
     });
 
-    if (!contract) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
+    if (!contract) {
+      return NextResponse.json(
+        { error: 'العقد غير موجود' },
+        { status: 404 }
+      );
+    }
 
-    // التحقق من صلاحية الفرع للمستخدمين غير الأدمن
-    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const isAdmin =
+      session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+
     if (!isAdmin) {
       const userBranchIds = session.branchIds || [];
-      const contractBranchId = contract.branchId;
-      if (!contractBranchId || !userBranchIds.includes(contractBranchId)) {
-        return NextResponse.json({ error: 'غير مصرح بالوصول إلى هذا العقد' }, { status: 403 });
+
+      if (
+        !contract.branchId ||
+        !userBranchIds.includes(contract.branchId)
+      ) {
+        return NextResponse.json(
+          { error: 'غير مصرح بالوصول إلى هذا العقد' },
+          { status: 403 }
+        );
       }
     }
 
@@ -46,49 +92,94 @@ export async function GET(
       endDate: contract.endDate.toISOString().split('T')[0],
       createdAt: contract.createdAt.toISOString(),
       updatedAt: contract.updatedAt.toISOString(),
-      agentName: contract.agentName || null,
-      agentPhone: contract.agentPhone || null,
-      agentEmail: contract.agentEmail || null,
+      agentName: contract.agentName ?? null,
+      agentPhone: contract.agentPhone ?? null,
+      agentEmail: contract.agentEmail ?? null,
     };
 
     return NextResponse.json(serialized);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GET /api/contracts/[id] error:', error);
-    return NextResponse.json({ error: 'خطأ في جلب العقد' }, { status: 500 });
+
+    return NextResponse.json(
+      { error: 'خطأ في جلب العقد' },
+      { status: 500 }
+    );
   }
 }
 
-// PUT: تحديث عقد (يدعم تحديث المرفقات وحقول المندوب)
+// PUT: تحديث عقد
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     await requirePermission('contracts.update');
 
     const { id } = await params;
-    const body = await request.json();
+
+    const body: ContractBody = await request.json();
+
     const {
-      title, supplier, value, startDate, endDate, description, notes,
-      buildingId, attachmentIds,
-      agentName, agentPhone, agentEmail
+      title,
+      supplier,
+      value,
+      startDate,
+      endDate,
+      description,
+      notes,
+      buildingId,
+      attachmentIds,
+      agentName,
+      agentPhone,
+      agentEmail,
     } = body;
 
     if (!title || !supplier || !startDate || !endDate) {
-      return NextResponse.json({ error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة' }, { status: 400 });
+      return NextResponse.json(
+        {
+          error: 'العنوان، المورد، وتاريخي البداية والنهاية مطلوبة',
+        },
+        { status: 400 }
+      );
     }
 
-    const companyId = session.companyId!;
-    const existing = await prisma.contract.findFirst({
-      where: { id, companyId, deletedAt: null },
-      select: { branchId: true, attachments: true },
-    });
-    if (!existing) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
+    const companyId = session.companyId;
 
-    // تحويل buildingId إلى branchId
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
+    }
+
+    const existing = await prisma.contract.findFirst({
+      where: {
+        id,
+        companyId,
+        deletedAt: null,
+      },
+      select: {
+        branchId: true,
+        attachments: true,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'العقد غير موجود' },
+        { status: 404 }
+      );
+    }
+
     let branchId = existing.branchId;
+
     if (buildingId !== undefined) {
       if (buildingId === null || buildingId === '') {
         branchId = null;
@@ -97,47 +188,74 @@ export async function PUT(
           where: { id: buildingId },
           select: { branchId: true },
         });
-        if (!building) return NextResponse.json({ error: 'المبنى المختار غير موجود' }, { status: 400 });
+
+        if (!building) {
+          return NextResponse.json(
+            { error: 'المبنى المختار غير موجود' },
+            { status: 400 }
+          );
+        }
+
         branchId = building.branchId;
       }
     }
 
-    // التحقق من صلاحية الفرع
-    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    const isAdmin =
+      session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+
     if (!isAdmin && branchId) {
       const userBranchIds = session.branchIds || [];
+
       if (!userBranchIds.includes(branchId)) {
-        return NextResponse.json({ error: 'لا تملك صلاحية تعديل عقد لهذا الفرع' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'لا تملك صلاحية تعديل عقد لهذا الفرع' },
+          { status: 403 }
+        );
       }
     }
 
-    // معالجة المرفقات
-    if (attachmentIds && Array.isArray(attachmentIds) && attachmentIds.length > 0) {
-      const currentAttachments = existing.attachments as { id: string; key: string }[];
-      const toKeepIds = attachmentIds.filter((id: string) =>
-        currentAttachments.some((a: { id: string }) => a.id === id)
+    if (Array.isArray(attachmentIds)) {
+      const currentAttachments: ContractAttachment[] =
+        existing.attachments;
+
+      const toKeepIds = attachmentIds.filter((attachmentId) =>
+        currentAttachments.some(
+          (attachment) => attachment.id === attachmentId
+        )
       );
-      const toRemove = currentAttachments.filter((a: { id: string }) => !attachmentIds.includes(a.id));
-      for (const att of toRemove) {
-        await deleteFileFromR2(att.key);
-        await prisma.contractAttachment.delete({ where: { id: att.id } });
-      }
-      const newAttachmentIds = attachmentIds.filter((id: string) => !toKeepIds.includes(id));
-      if (newAttachmentIds.length > 0) {
-        await prisma.contractAttachment.updateMany({
-          where: { id: { in: newAttachmentIds } },
-          data: { contractId: id },
+
+      const toRemove = currentAttachments.filter(
+        (attachment) => !attachmentIds.includes(attachment.id)
+      );
+
+      for (const attachment of toRemove) {
+        await deleteFileFromR2(attachment.key);
+
+        await prisma.contractAttachment.delete({
+          where: {
+            id: attachment.id,
+          },
         });
       }
-    } else if (attachmentIds !== undefined && attachmentIds.length === 0) {
-      const currentAttachments = existing.attachments as { id: string; key: string }[];
-      for (const att of currentAttachments) {
-        await deleteFileFromR2(att.key);
-        await prisma.contractAttachment.delete({ where: { id: att.id } });
+
+      const newAttachmentIds = attachmentIds.filter(
+        (attachmentId) => !toKeepIds.includes(attachmentId)
+      );
+
+      if (newAttachmentIds.length > 0) {
+        await prisma.contractAttachment.updateMany({
+          where: {
+            id: {
+              in: newAttachmentIds,
+            },
+          },
+          data: {
+            contractId: id,
+          },
+        });
       }
     }
 
-    // تحديث بيانات العقد
     const updated = await prisma.contract.update({
       where: { id },
       data: {
@@ -153,59 +271,102 @@ export async function PUT(
         agentPhone: agentPhone ?? null,
         agentEmail: agentEmail ?? null,
       },
-      include: { attachments: true },
+      include: {
+        attachments: true,
+      },
     });
 
     return NextResponse.json(updated);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('PUT /api/contracts/[id] error:', error);
-    return NextResponse.json({ error: 'خطأ في تحديث العقد' }, { status: 500 });
+
+    return NextResponse.json(
+      { error: 'خطأ في تحديث العقد' },
+      { status: 500 }
+    );
   }
 }
 
-// DELETE: حذف ناعم للعقد مع حذف المرفقات من R2
+// DELETE: حذف ناعم للعقد
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getAuthenticatedSession();
-    if (!session) return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+
+    if (!session) {
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+    }
+
     await requirePermission('contracts.delete');
 
     const { id } = await params;
-    const companyId = session.companyId!;
+    const companyId = session.companyId;
+
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
+    }
 
     const existing = await prisma.contract.findFirst({
-      where: { id, companyId, deletedAt: null },
-      include: { attachments: true },
+      where: {
+        id,
+        companyId,
+        deletedAt: null,
+      },
+      include: {
+        attachments: true,
+      },
     });
-    if (!existing) return NextResponse.json({ error: 'العقد غير موجود' }, { status: 404 });
 
-    // التحقق من صلاحية الفرع
-    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+    if (!existing) {
+      return NextResponse.json(
+        { error: 'العقد غير موجود' },
+        { status: 404 }
+      );
+    }
+
+    const isAdmin =
+      session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
+
     if (!isAdmin && existing.branchId) {
       const userBranchIds = session.branchIds || [];
+
       if (!userBranchIds.includes(existing.branchId)) {
-        return NextResponse.json({ error: 'لا تملك صلاحية حذف هذا العقد' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'لا تملك صلاحية حذف هذا العقد' },
+          { status: 403 }
+        );
       }
     }
 
-    // حذف المرفقات من R2 ثم من قاعدة البيانات
-    for (const att of existing.attachments) {
-      await deleteFileFromR2(att.key);
-      await prisma.contractAttachment.delete({ where: { id: att.id } });
+    for (const attachment of existing.attachments) {
+      await deleteFileFromR2(attachment.key);
+
+      await prisma.contractAttachment.delete({
+        where: {
+          id: attachment.id,
+        },
+      });
     }
 
-    // حذف ناعم للعقد
     await prisma.contract.update({
       where: { id },
-      data: { deletedAt: new Date() },
+      data: {
+        deletedAt: new Date(),
+      },
     });
 
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('DELETE /api/contracts/[id] error:', error);
-    return NextResponse.json({ error: 'خطأ في حذف العقد' }, { status: 500 });
+
+    return NextResponse.json(
+      { error: 'خطأ في حذف العقد' },
+      { status: 500 }
+    );
   }
 }

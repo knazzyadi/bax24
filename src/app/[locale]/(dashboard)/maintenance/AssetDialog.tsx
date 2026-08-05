@@ -11,6 +11,25 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+type AssetItem = {
+  id: string;
+  name: string;
+  nameEn?: string | null;
+  code?: string | null;
+};
+
+type AssetDialogProps = {
+  open: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+  assets: AssetItem[];
+  tempSelectedAssetIds: string[];
+  setTempSelectedAssetIds: React.Dispatch<React.SetStateAction<string[]>>;
+  loadingAssets: boolean;
+  isRtl: boolean;
+  t: (key: string) => string;
+};
+
 export function AssetDialog({
   open,
   onClose,
@@ -21,7 +40,7 @@ export function AssetDialog({
   loadingAssets,
   isRtl,
   t,
-}: any) {
+}: AssetDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
@@ -30,6 +49,7 @@ export function AssetDialog({
             {t("selectAssets")}
           </DialogTitle>
         </DialogHeader>
+
         <div className="space-y-3 mt-4">
           {loadingAssets ? (
             <div className="flex justify-center py-8">
@@ -41,7 +61,7 @@ export function AssetDialog({
             </div>
           ) : (
             <div className="space-y-2">
-              {assets.map((asset: any) => (
+              {assets.map((asset) => (
                 <div
                   key={asset.id}
                   className="flex items-center gap-3 p-3 rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:bg-slate-50/50 dark:hover:bg-slate-900/30 transition-colors"
@@ -52,25 +72,29 @@ export function AssetDialog({
                     checked={tempSelectedAssetIds.includes(asset.id)}
                     onChange={(e) => {
                       if (e.target.checked) {
-                        setTempSelectedAssetIds((prev: string[]) => [
+                        setTempSelectedAssetIds((prev) => [
                           ...prev,
                           asset.id,
                         ]);
                       } else {
-                        setTempSelectedAssetIds((prev: string[]) =>
+                        setTempSelectedAssetIds((prev) =>
                           prev.filter((id) => id !== asset.id)
                         );
                       }
                     }}
                     className="w-4 h-4 text-indigo-600 focus:ring-indigo-500 rounded border-slate-300 dark:border-slate-600"
                   />
+
                   <Label
                     htmlFor={`asset-${asset.id}`}
                     className="flex-1 cursor-pointer"
                   >
                     <div className="font-medium text-slate-800 dark:text-slate-100">
-                      {isRtl ? asset.name : asset.nameEn || asset.name}
+                      {isRtl
+                        ? asset.name
+                        : asset.nameEn || asset.name}
                     </div>
+
                     <div className="text-xs font-mono text-slate-400 dark:text-slate-500">
                       {asset.code}
                     </div>
@@ -80,6 +104,7 @@ export function AssetDialog({
             </div>
           )}
         </div>
+
         <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
           <Button
             variant="outline"
@@ -88,6 +113,7 @@ export function AssetDialog({
           >
             {t("cancel")}
           </Button>
+
           <Button
             onClick={onConfirm}
             disabled={loadingAssets}

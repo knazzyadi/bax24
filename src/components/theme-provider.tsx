@@ -1,12 +1,18 @@
-//src\components\theme-provider.tsx
+// src/components/theme-provider.tsx
 /**المسؤول عن
  * إدارة الوضع الليلي / النهاري
  * غالبًا يستخدم next-themes
  * هذا أساسي (لا تحذفه)
 */
+
 'use client';
 
-import { createContext, useContext, useEffect, useState } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+} from 'react';
 
 type Theme = 'light' | 'dark';
 
@@ -22,33 +28,39 @@ type ThemeContextType = {
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
+function getInitialTheme(defaultTheme: Theme): Theme {
+  if (typeof window === 'undefined') {
+    return defaultTheme;
+  }
+
+  const stored = localStorage.getItem('theme');
+
+  if (stored === 'light' || stored === 'dark') {
+    return stored;
+  }
+
+  return defaultTheme;
+}
+
 export function ThemeProvider({
   children,
   defaultTheme = 'dark',
 }: ThemeProviderProps) {
-  const [theme, setTheme] = useState<Theme>(defaultTheme);
-  const [mounted, setMounted] = useState(false);
+  const [theme, setTheme] = useState<Theme>(() =>
+    getInitialTheme(defaultTheme)
+  );
 
   useEffect(() => {
-    const stored = localStorage.getItem('theme') as Theme | null;
-    if (stored === 'light' || stored === 'dark') {
-      setTheme(stored);
-    }
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    if (!mounted) return;
     const root = document.documentElement;
+
     if (theme === 'dark') {
       root.classList.add('dark');
     } else {
       root.classList.remove('dark');
     }
-    localStorage.setItem('theme', theme);
-  }, [theme, mounted]);
 
-  if (!mounted) return null;
+    localStorage.setItem('theme', theme);
+  }, [theme]);
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
@@ -59,6 +71,10 @@ export function ThemeProvider({
 
 export const useTheme = () => {
   const context = useContext(ThemeContext);
-  if (!context) throw new Error('useTheme must be used within ThemeProvider');
+
+  if (!context) {
+    throw new Error('useTheme must be used within ThemeProvider');
+  }
+
   return context;
 };

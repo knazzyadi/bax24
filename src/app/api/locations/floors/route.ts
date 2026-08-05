@@ -4,6 +4,15 @@ import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { revalidatePath } from 'next/cache';
 
+// واجهة بيانات إنشاء دور
+interface CreateFloorBody {
+  name: string;
+  nameEn?: string;
+  code: string;
+  order?: number;
+  buildingId: string;
+}
+
 // ============================================================
 // GET: جلب الأدوار (يمكن فلترتها حسب buildingId)
 // ============================================================
@@ -29,10 +38,14 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const buildingId = searchParams.get('buildingId');
 
-    const where: any = {
+    // ✅ إزالة النوع الصريح any والاعتماد على استنتاج TypeScript
+    const where = {
       building: {
         companyId: companyId,
       },
+    } as {
+      building: { companyId: string };
+      buildingId?: string;
     };
     if (buildingId) {
       where.buildingId = buildingId;
@@ -59,9 +72,10 @@ export async function GET(request: Request) {
     });
 
     return NextResponse.json(floors);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error('GET /api/locations/floors error:', error);
-    return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'حدث خطأ في الخادم';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -87,7 +101,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة بهذا الحساب' }, { status: 400 });
     }
 
-    const { name, nameEn, code, order, buildingId } = await request.json();
+    // استلام البيانات مع تحديد النوع
+    const body = (await request.json()) as CreateFloorBody;
+    const { name, nameEn, code, order, buildingId } = body;
 
     // التحقق من الحقول المطلوبة
     if (!name || !code || !buildingId) {
@@ -135,12 +151,13 @@ export async function POST(request: Request) {
 
     revalidatePath('/ar/locations/floors');
     return NextResponse.json(newFloor, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('POST /api/locations/floors error:', error);
-    if (error.message === 'غير مصرح به - يرجى تسجيل الدخول') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'غير مصرح به - يرجى تسجيل الدخول') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    if (error.message?.includes('permission')) {
+    if (message?.includes('permission')) {
       return NextResponse.json({ error: 'غير مسموح' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });

@@ -2,7 +2,6 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
 import {
   Dialog,
   DialogContent,
@@ -53,7 +52,6 @@ export function RestoreDialog({
   onRestoreComplete,
   isRtl,
 }: RestoreDialogProps) {
-  const t = useTranslations("SuperAdmin.Backups");
   const [restoreType, setRestoreType] = useState<RestoreType>("full");
   const [selectedModules, setSelectedModules] = useState<string[]>(
     MODULES.map((m) => m.id)
@@ -88,16 +86,18 @@ export function RestoreDialog({
       toast.success(isRtl ? "تم استرجاع النسخة بنجاح" : "Backup restored successfully");
       onRestoreComplete();
       onOpenChange(false);
-    } catch (error: any) {
-      toast.error(error.message || (isRtl ? "فشل الاسترجاع" : "Restore failed"));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : isRtl
+            ? "فشل الاسترجاع"
+            : "Restore failed";
+
+      toast.error(message);
     } finally {
       setIsRestoring(false);
     }
-  };
-
-  const getModuleLabel = (moduleId: string) => {
-    const mod = MODULES.find((m) => m.id === moduleId);
-    return mod ? (isRtl ? mod.labelAr : mod.labelEn) : moduleId;
   };
 
   return (

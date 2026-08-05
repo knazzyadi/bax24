@@ -1,7 +1,23 @@
 // src/services/SupplierService.ts
 
 import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+
+// ============================================================
+// ✅ تعريف نوع موحد لبيانات المورد
+// ============================================================
+type SupplierInput = {
+  name?: string;
+  nameEn?: string | null;
+  code?: string | null;
+  description?: string | null;
+  contactPerson?: string | null;
+  phone?: string | null;
+  email?: string | null;
+  website?: string | null;
+  address?: string | null;
+  taxNumber?: string | null;
+  isActive?: boolean;
+};
 
 export class SupplierService {
   /**
@@ -18,7 +34,7 @@ export class SupplierService {
         deletedAt: null,
       },
       orderBy: {
-        name: 'asc', // ✅ تم التعديل: order → name
+        name: 'asc',
       },
       select: {
         id: true,
@@ -95,19 +111,10 @@ export class SupplierService {
   /**
    * إنشاء مورد جديد
    */
-  static async createSupplier(data: {
-    name: string;
-    nameEn?: string | null;
-    code?: string | null;
-    description?: string | null;
-    contactPerson?: string | null;
-    phone?: string | null;
-    email?: string | null;
-    website?: string | null;
-    address?: string | null;
-    taxNumber?: string | null;
-    isActive?: boolean;
-  }, companyId: string) {
+  static async createSupplier(
+    data: Required<Pick<SupplierInput, 'name'>> & SupplierInput,
+    companyId: string
+  ) {
     // التحقق من عدم وجود كود مكرر
     if (data.code) {
       const existing = await this.getSupplierByCode(data.code, companyId);
@@ -127,16 +134,16 @@ export class SupplierService {
     return prisma.supplier.create({
       data: {
         name: data.name,
-        nameEn: data.nameEn || null,
-        code: data.code || null,
-        description: data.description || null,
-        contactPerson: data.contactPerson || null,
-        phone: data.phone || null,
-        email: data.email || null,
-        website: data.website || null,
-        address: data.address || null,
-        taxNumber: data.taxNumber || null,
-        isActive: data.isActive !== undefined ? data.isActive : true,
+        nameEn: data.nameEn ?? null,
+        code: data.code ?? null,
+        description: data.description ?? null,
+        contactPerson: data.contactPerson ?? null,
+        phone: data.phone ?? null,
+        email: data.email ?? null,
+        website: data.website ?? null,
+        address: data.address ?? null,
+        taxNumber: data.taxNumber ?? null,
+        isActive: data.isActive ?? true,
         companyId,
       },
     });
@@ -147,19 +154,7 @@ export class SupplierService {
    */
   static async updateSupplier(
     id: string,
-    data: {
-      name?: string;
-      nameEn?: string | null;
-      code?: string | null;
-      description?: string | null;
-      contactPerson?: string | null;
-      phone?: string | null;
-      email?: string | null;
-      website?: string | null;
-      address?: string | null;
-      taxNumber?: string | null;
-      isActive?: boolean;
-    },
+    data: SupplierInput,
     companyId: string
   ) {
     // التحقق من وجود المورد
@@ -187,11 +182,13 @@ export class SupplierService {
     return prisma.supplier.update({
       where: { id },
       data: {
-        name: data.name,
+        name: data.name ?? existing.name,
         nameEn: data.nameEn !== undefined ? data.nameEn : existing.nameEn,
         code: data.code !== undefined ? data.code : existing.code,
-        description: data.description !== undefined ? data.description : existing.description,
-        contactPerson: data.contactPerson !== undefined ? data.contactPerson : existing.contactPerson,
+        description:
+          data.description !== undefined ? data.description : existing.description,
+        contactPerson:
+          data.contactPerson !== undefined ? data.contactPerson : existing.contactPerson,
         phone: data.phone !== undefined ? data.phone : existing.phone,
         email: data.email !== undefined ? data.email : existing.email,
         website: data.website !== undefined ? data.website : existing.website,

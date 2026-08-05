@@ -46,8 +46,9 @@ export default function WorkOrderCancelReasonsPage() {
       }
       toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
       refetch(); // إعادة تحميل البيانات من الخادم
-    } catch (error: any) {
-      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to update order"));
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : (isRtl ? "فشل تحديث الترتيب" : "Failed to update order");
+      toast.error(message);
     }
   };
 
@@ -77,8 +78,9 @@ export default function WorkOrderCancelReasonsPage() {
       toast.success(t("deleteSuccess"));
       refetch();
       setConfirmDialog({ open: false });
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "حدث خطأ غير معروف";
+      toast.error(message);
     } finally {
       setDeleting(false);
     }

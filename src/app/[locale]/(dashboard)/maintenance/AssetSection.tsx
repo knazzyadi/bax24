@@ -19,7 +19,6 @@ interface AssetSectionProps {
   selectedAssetIds: string[];
   removeAsset: (id: string) => void;
   loadingAssetTypes: boolean;
-  loadingAssets: boolean;
   isLocationSelected: () => boolean;
   isRtl: boolean;
   t: (key: string) => string;
@@ -34,7 +33,6 @@ export function AssetSection({
   selectedAssetIds,
   removeAsset,
   loadingAssetTypes,
-  loadingAssets,
   isLocationSelected,
   isRtl,
   t,

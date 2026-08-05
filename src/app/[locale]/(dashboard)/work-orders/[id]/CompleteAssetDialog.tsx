@@ -1,4 +1,4 @@
-// work-orders/[id]/components/CompleteAssetDialog.tsx
+// src/app/[locale]/(dashboard)/work-orders/[id]/components/CompleteAssetDialog.tsx
 "use client";
 
 import {
@@ -13,6 +13,25 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2 } from "lucide-react";
 
+interface SelectedAsset {
+  asset: {
+    name: string;
+    nameEn?: string;
+  };
+}
+
+interface CompleteAssetDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  selectedAsset: SelectedAsset | null;
+  completionNote: string;
+  onCompletionNoteChange: (value: string) => void;
+  onConfirm: () => void;
+  isSubmitting: boolean;
+  isRtl: boolean;
+  t: (key: string, values?: Record<string, string>) => string;
+}
+
 export function CompleteAssetDialog({
   open,
   onOpenChange,
@@ -23,7 +42,7 @@ export function CompleteAssetDialog({
   isSubmitting,
   isRtl,
   t,
-}: any) {
+}: CompleteAssetDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">

@@ -10,7 +10,6 @@ import {
   Tag,
   Hash,
   Package,
-  Building2,
   MapPin,
   Info,
   Wrench,
@@ -20,15 +19,23 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// واجهة البيانات التي تأتي من الـ Audit Log
+// ============================================================
+// ✅ واجهة البيانات (بدون any)
+// ============================================================
 interface AuditLogEntry {
   id: string;
   action: string;
   userEmail: string;
   createdAt: string;
-  oldData: Record<string, any>;
-  newData: Record<string, any>;
-  changes: Record<string, { old: any; new: any }>;
+  oldData: Record<string, unknown>;      // ✅ استبدال any بـ unknown
+  newData: Record<string, unknown>;      // ✅ استبدال any بـ unknown
+  changes: Record<
+    string,
+    {
+      old: unknown;                      // ✅ استبدال any بـ unknown
+      new: unknown;                      // ✅ استبدال any بـ unknown
+    }
+  >;
 }
 
 interface AuditLogCardProps {
@@ -36,9 +43,28 @@ interface AuditLogCardProps {
   isExpanded?: boolean;
 }
 
-// دالة مساعدة لعرض القيمة بشكل منسق
-const formatValue = (value: any): string => {
-  if (value === undefined || value === null || value === "") return "—";
+// ============================================================
+// ✅ دالة مساعدة لعرض القيمة بأمان (بدون any)
+// ============================================================
+const formatValue = (value: unknown): string => {
+  if (value === null || value === undefined || value === "") return "—";
+
+  if (value instanceof Date) {
+    return value.toLocaleDateString();
+  }
+
+  if (typeof value === "string" || typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "—";
+    }
+  }
+
   return String(value);
 };
 

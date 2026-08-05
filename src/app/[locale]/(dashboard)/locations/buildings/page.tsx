@@ -1,6 +1,5 @@
 // src/app/[locale]/(dashboard)/locations/buildings/page.tsx
 
-import { redirect } from 'next/navigation';
 import { requireRole } from '@/lib/authz';
 import { prisma } from '@/lib/prisma';
 import BuildingsClient from './BuildingsClient';

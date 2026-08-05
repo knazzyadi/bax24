@@ -1,12 +1,24 @@
 // src/services/UserService.ts
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
+
+// ========== تعريف الأنواع ==========
+interface Session {
+  role?: string;
+  companyId?: string;
+  branchIds?: string[];
+  userId?: string;
+}
 
 export interface UserFilters {
   role?: string;
   companyId?: string;
   search?: string;
+  status?: boolean;
+  page?: number;
+  limit?: number;
 }
 
 export interface UserCreateData {
@@ -15,6 +27,7 @@ export interface UserCreateData {
   roleId: string;
   companyId: string;
   status?: boolean;
+  password?: string;
 }
 
 export interface UserUpdateData {
@@ -23,22 +36,65 @@ export interface UserUpdateData {
   roleId?: string;
   companyId?: string;
   status?: boolean;
+  password?: string;
 }
 
+// نوع المستخدم مع العلاقات المستخدمة في getAll
+type UserWithRelations = Prisma.UserGetPayload<{
+  include: {
+    role: true;
+    company: {
+      select: {
+        name: true;
+        id: true;
+      };
+    };
+  };
+}>;
+
+// ========== الخدمة ==========
 export class UserService {
   /**
-   * جلب جميع المستخدمين مع فلترة
+   * جلب قائمة المستخدمين مع إمكانية التصفية والبحث
+   * لا تحتاج Session لأن صلاحية الوصول يتم التحقق منها في الـ route
    */
-  static async getAll(filters: UserFilters = {}) {
-    const { role, companyId, search } = filters;
-    const where: any = {};
+  static async getAll(
+    filters: UserFilters = {}
+  ): Promise<{
+    users: UserWithRelations[];
+    total: number;
+    page: number;
+    totalPages: number;
+  }> {
+    const {
+      role,
+      companyId,
+      search,
+      status,
+      page = 1,
+      limit = 10,
+    } = filters;
 
-    if (role) {
-      where.role = { name: role };
-    }
+    const skip = (page - 1) * limit;
+
+    const where: Prisma.UserWhereInput = {
+      deletedAt: null,
+    };
+
     if (companyId) {
       where.companyId = companyId;
     }
+
+    if (role) {
+      where.role = {
+        name: role,
+      };
+    }
+
+    if (status !== undefined) {
+      where.status = status;
+    }
+
     if (search) {
       where.OR = [
         { name: { contains: search, mode: 'insensitive' } },
@@ -46,96 +102,139 @@ export class UserService {
       ];
     }
 
-    return prisma.user.findMany({
-      where,
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        status: true,
-        createdAt: true,
-        role: { select: { id: true, name: true, label: true } },
-        company: { select: { id: true, name: true } },
-      },
-      orderBy: { createdAt: 'desc' },
-    });
+    const [users, total] = await Promise.all([
+      prisma.user.findMany({
+        where,
+        include: {
+          role: true,
+          company: { select: { name: true, id: true } },
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      prisma.user.count({ where }),
+    ]);
+
+    return {
+      users,
+      total,
+      page,
+      totalPages: Math.ceil(total / limit),
+    };
   }
 
   /**
-   * جلب مستخدم واحد
+   * جلب مستخدم بواسطة ID
    */
-  static async getById(id: string) {
+  static async getById(id: string, session?: Session) {
+    if (!session) throw new Error('Session is required');
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(session.role ?? '')) {
+      throw new Error('ليس لديك صلاحية لعرض هذا المستخدم');
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        status: true,
-        createdAt: true,
-        role: { select: { id: true, name: true, label: true } },
-        company: { select: { id: true, name: true } },
+      where: { id, deletedAt: null },
+      include: {
+        role: true,
+        company: { select: { name: true, id: true } },
       },
     });
+
     if (!user) {
       throw new Error('المستخدم غير موجود');
     }
+
+    if (session.role !== 'SUPER_ADMIN' && user.companyId !== session.companyId) {
+      throw new Error('لا تملك صلاحية الوصول لهذا المستخدم');
+    }
+
     return user;
   }
 
   /**
-   * إنشاء مستخدم جديد
+   * إنشاء مستخدم جديد (عادةً عبر دعوة)
    */
-  static async create(data: UserCreateData) {
-    const { name, email, roleId, companyId, status } = data;
+  static async create(data: UserCreateData, session?: Session) {
+    if (!session) throw new Error('Session is required');
+    const { name, email, roleId, companyId, status = true, password } = data;
 
-    if (!name?.trim()) throw new Error('الاسم مطلوب');
-    if (!email?.trim()) throw new Error('البريد الإلكتروني مطلوب');
-    if (!roleId) throw new Error('الدور مطلوب');
-    if (!companyId) throw new Error('الشركة مطلوبة');
+    if (!name?.trim() || !email?.trim() || !roleId || !companyId) {
+      throw new Error('الاسم، البريد الإلكتروني، الدور، والشركة مطلوبة');
+    }
 
-    const existing = await prisma.user.findUnique({
-      where: { email: email.trim() },
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(session.role ?? '')) {
+      throw new Error('ليس لديك صلاحية لإنشاء مستخدم');
+    }
+
+    let targetCompanyId = companyId;
+    if (session.role !== 'SUPER_ADMIN') {
+      if (companyId !== session.companyId) {
+        throw new Error('لا يمكنك إنشاء مستخدم لشركة أخرى');
+      }
+      targetCompanyId = session.companyId!;
+    }
+
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        email: email.trim().toLowerCase(),
+        deletedAt: null,
+      },
     });
-    if (existing) {
+    if (existingUser) {
       throw new Error('البريد الإلكتروني مستخدم بالفعل');
     }
 
-    return prisma.user.create({
+    let hashedPassword: string | undefined;
+    if (password) {
+      hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+    }
+
+    const user = await prisma.user.create({
       data: {
         name: name.trim(),
-        email: email.trim(),
+        email: email.trim().toLowerCase(),
         roleId,
-        companyId,
-        status: status ?? true,
+        companyId: targetCompanyId,
+        status,
+        password: hashedPassword,
       },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        status: true,
-        createdAt: true,
-        role: { select: { id: true, name: true, label: true } },
-        company: { select: { id: true, name: true } },
+      include: {
+        role: true,
+        company: { select: { name: true } },
       },
     });
+
+    return user;
   }
 
   /**
    * تحديث مستخدم
    */
-  static async update(id: string, data: UserUpdateData) {
-    const { name, email, roleId, companyId, status } = data;
+  static async update(id: string, data: UserUpdateData, session?: Session) {
+    if (!session) throw new Error('Session is required');
+    const { name, email, roleId, companyId, status, password } = data;
 
-    const existing = await prisma.user.findUnique({ where: { id } });
-    if (!existing) {
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(session.role ?? '')) {
+      throw new Error('ليس لديك صلاحية لتحديث هذا المستخدم');
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id, deletedAt: null },
+    });
+    if (!existingUser) {
       throw new Error('المستخدم غير موجود');
     }
 
-    if (email) {
+    if (session.role !== 'SUPER_ADMIN' && existingUser.companyId !== session.companyId) {
+      throw new Error('لا تملك صلاحية تحديث هذا المستخدم');
+    }
+
+    if (email && email.trim().toLowerCase() !== existingUser.email) {
       const duplicate = await prisma.user.findFirst({
         where: {
-          email: email.trim(),
+          email: email.trim().toLowerCase(),
+          deletedAt: null,
           NOT: { id },
         },
       });
@@ -144,108 +243,159 @@ export class UserService {
       }
     }
 
+    let targetCompanyId = existingUser.companyId;
+    if (session.role === 'SUPER_ADMIN' && companyId) {
+      targetCompanyId = companyId;
+    } else if (companyId && companyId !== existingUser.companyId) {
+      throw new Error('لا يمكن تغيير الشركة إلا بواسطة السوبر أدمن');
+    }
+
+    let hashedPassword: string | undefined;
+    if (password) {
+      hashedPassword = crypto.createHash('sha256').update(password).digest('hex');
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        name: name?.trim() || existingUser.name,
+        email: email?.trim().toLowerCase() || existingUser.email,
+        roleId: roleId || existingUser.roleId,
+        companyId: targetCompanyId,
+        status: status !== undefined ? status : existingUser.status,
+        ...(hashedPassword ? { password: hashedPassword } : {}),
+      },
+      include: {
+        role: true,
+        company: { select: { name: true } },
+      },
+    });
+
+    return updatedUser;
+  }
+
+  /**
+   * حذف مستخدم (ناعم)
+   */
+  static async delete(id: string, session?: Session) {
+    if (!session) throw new Error('Session is required');
+    if (!['ADMIN', 'SUPER_ADMIN'].includes(session.role ?? '')) {
+      throw new Error('ليس لديك صلاحية لحذف المستخدم');
+    }
+
+    const existingUser = await prisma.user.findUnique({
+      where: { id, deletedAt: null },
+    });
+    if (!existingUser) {
+      throw new Error('المستخدم غير موجود');
+    }
+
+    if (session.role !== 'SUPER_ADMIN' && existingUser.companyId !== session.companyId) {
+      throw new Error('لا تملك صلاحية حذف هذا المستخدم');
+    }
+
+    if (id === session.userId) {
+      throw new Error('لا يمكنك حذف حسابك الخاص');
+    }
+
     return prisma.user.update({
       where: { id },
       data: {
-        name: name?.trim() ?? existing.name,
-        email: email?.trim() ?? existing.email,
-        roleId: roleId ?? existing.roleId,
-        companyId: companyId ?? existing.companyId,
-        status: status ?? existing.status,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        status: true,
-        createdAt: true,
-        role: { select: { id: true, name: true, label: true } },
-        company: { select: { id: true, name: true } },
+        deletedAt: new Date(),
       },
     });
   }
 
   /**
-   * تبديل حالة المستخدم
+   * إعادة تعيين كلمة المرور (إرسال رابط إعادة تعيين)
+   */
+  static async requestPasswordReset(email: string) {
+    const user = await prisma.user.findUnique({
+      where: { email: email.trim().toLowerCase(), deletedAt: null },
+    });
+    if (!user) {
+      throw new Error('البريد الإلكتروني غير مسجل');
+    }
+
+    const resetToken = crypto.randomBytes(32).toString('hex');
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        resetToken,
+      },
+    });
+
+    return { message: 'تم إرسال رابط إعادة تعيين كلمة المرور إلى بريدك الإلكتروني' };
+  }
+
+  /**
+   * تغيير كلمة المرور باستخدام الرمز
+   */
+  static async resetPassword(token: string, newPassword: string) {
+    const user = await prisma.user.findFirst({
+      where: {
+        resetToken: token,
+        deletedAt: null,
+      },
+    });
+    if (!user) {
+      throw new Error('الرمز غير صالح');
+    }
+
+    const hashedPassword = crypto.createHash('sha256').update(newPassword).digest('hex');
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        password: hashedPassword,
+        resetToken: null,
+      },
+    });
+
+    return { message: 'تم تغيير كلمة المرور بنجاح' };
+  }
+
+  /**
+   * تبديل حالة المستخدم (تفعيل / تعطيل)
    */
   static async toggleStatus(id: string) {
-    const existing = await prisma.user.findUnique({ where: { id } });
-    if (!existing) {
-      throw new Error('المستخدم غير موجود');
-    }
-
-    return prisma.user.update({
-      where: { id },
-      data: { status: !existing.status },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        status: true,
-        createdAt: true,
-        role: { select: { id: true, name: true, label: true } },
-        company: { select: { id: true, name: true } },
-      },
-    });
-  }
-
-  /**
-   * حذف مستخدم - التحقق من وجود بيانات مرتبطة باستخدام count
-   */
-  static async delete(id: string) {
-    const existing = await prisma.user.findUnique({ where: { id } });
-    if (!existing) {
-      throw new Error('المستخدم غير موجود');
-    }
-
-    // ✅ استخدام count بدلاً من include لتجنب مشاكل الأنواع
-    const [ticketCount, createdWorkOrderCount, assignedWorkOrderCount] = await Promise.all([
-      prisma.ticket.count({ where: { userId: id } }),
-      prisma.workOrder.count({ where: { createdBy: id } }),
-      prisma.workOrder.count({ where: { assignedTo: id } }),
-    ]);
-
-    const hasRelated = ticketCount > 0 || createdWorkOrderCount > 0 || assignedWorkOrderCount > 0;
-
-    if (hasRelated) {
-      throw new Error('لا يمكن حذف المستخدم لوجود بيانات مرتبطة (تذاكر أو أوامر عمل)');
-    }
-
-    return prisma.user.delete({ where: { id } });
-  }
-
-  /**
-   * جلب جميع الأدوار
-   */
-  static async getRoles() {
-    return prisma.role.findMany({
-      select: { id: true, name: true, label: true },
-      orderBy: { name: 'asc' },
-    });
-  }
-
-  /**
-   * ✅ إعادة إرسال دعوة لمستخدم
-   */
-  static async resendInvite(id: string) {
     const user = await prisma.user.findUnique({
       where: { id },
-      include: { role: true, company: true },
     });
 
     if (!user) {
       throw new Error('المستخدم غير موجود');
     }
 
-    if (user.role?.name === 'SUPER_ADMIN') {
-      throw new Error('لا يمكن إعادة إرسال دعوة للسوبر أدمن');
+    return prisma.user.update({
+      where: { id },
+      data: {
+        status: !user.status,
+      },
+    });
+  }
+
+  /**
+   * إعادة إرسال دعوة للمستخدم (إنشاء رمز جديد وإرسال بريد)
+   */
+  static async resendInvite(id: string) {
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        company: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error('المستخدم غير موجود');
     }
 
     const token = crypto.randomBytes(32).toString('hex');
-    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+    const expires = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 ساعة
 
     await prisma.user.update({
-      where: { id: user.id },
+      where: { id },
       data: {
         invitationToken: token,
         invitationExpires: expires,
@@ -260,6 +410,8 @@ export class UserService {
       user.company?.name || 'الشركة'
     );
 
-    return { success: true };
+    return {
+      success: true,
+    };
   }
 }

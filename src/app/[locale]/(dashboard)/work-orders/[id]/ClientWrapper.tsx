@@ -2,29 +2,41 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, Wrench, FileText, MapPin, Printer } from "lucide-react";
+import { Wrench, FileText, MapPin, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import Link from "next/link";
 
-// ✅ استيرادات مباشرة من الملفات في جذر work-orders
 import { DetailsCard } from "./DetailsCard";
 import { AssetsCard } from "./AssetsCard";
 import { SparePartsCard } from "./SparePartsCard";
-import { AttachmentsCard } from "../AttachmentsCard";
 import { CompleteAssetDialog } from "./CompleteAssetDialog";
 import { NotesViewer } from "./NotesViewer";
 import { QuickUpdateDialog } from "./QuickUpdateDialog";
-import { LocationCard } from "../LocationCard";
 import { InfoBar } from "../InfoBar";
 import { WorkOrderActions } from "./WorkOrderActions";
 import { WorkOrderAuditLog } from "./WorkOrderAuditLog";
 import { glassCard } from "../constants";
 
-// تعريف الأنواع (مع إضافة building, floor, room كعلاقات مباشرة)
+// ============================================================
+// الأنواع
+// ============================================================
+
+interface AssetType {
+  id: string;
+  name: string;
+  nameEn?: string | null;
+}
+
+interface WorkOrderAttachment {
+  id: string;
+  url: string;
+  originalName?: string | null;
+  fileName?: string | null;
+}
+
 interface WorkOrderAsset {
   assetId: string;
   completedAt: string | null;
@@ -50,18 +62,17 @@ interface WorkOrderDetailData {
   } | null;
   priority: { id: string; name: string; nameEn?: string; color?: string } | null;
   status: { id: string; name: string; nameEn?: string; color?: string } | null;
-  // ✅ إضافة العلاقات المباشرة للموقع
   building: { id: string; name: string; nameEn?: string } | null;
   floor: { id: string; name: string; nameEn?: string } | null;
   room: { id: string; name: string; nameEn?: string } | null;
   branch: { id: string; name: string; nameEn?: string } | null;
-  assetType: any;
+  assetType: AssetType | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
   workOrderAssets: WorkOrderAsset[];
   ticketId: string | null;
-  attachments: any[];
+  attachments: WorkOrderAttachment[];
   source: "manual" | "ticket" | "pm" | "checklist";
   sourceId: string | null;
   reason: string | null;
@@ -78,6 +89,10 @@ interface WorkOrderDetailClientProps {
   priorities: { id: string; name: string; nameEn?: string; color?: string }[];
 }
 
+// ============================================================
+// المكون الرئيسي
+// ============================================================
+
 export function WorkOrderDetailClient({
   initialData,
   canEdit,
@@ -86,7 +101,6 @@ export function WorkOrderDetailClient({
   statuses,
   priorities,
 }: WorkOrderDetailClientProps) {
-  const router = useRouter();
   const isRtl = locale === "ar";
   const t = useTranslations("WorkOrders");
 
@@ -139,8 +153,10 @@ export function WorkOrderDetailClient({
       toast.success(isRtl ? "تم التحديث بنجاح" : "Updated successfully");
       await refreshData();
       setQuickUpdateOpen(false);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : "حدث خطأ غير متوقع"
+      );
     } finally {
       setIsUpdating(false);
     }
@@ -232,7 +248,6 @@ export function WorkOrderDetailClient({
     return icons[workOrder.source] || "📋";
   };
 
-  // ✅ بناء سلسلة الموقع الكاملة من العلاقات المباشرة
   const locationParts = [];
   if (workOrder.branch) {
     locationParts.push(isRtl ? workOrder.branch.name : workOrder.branch.nameEn || workOrder.branch.name);
@@ -246,8 +261,6 @@ export function WorkOrderDetailClient({
   if (workOrder.room) {
     locationParts.push(isRtl ? workOrder.room.name : workOrder.room.nameEn || workOrder.room.name);
   }
-
-  const locationString = locationParts.length > 0 ? locationParts.join(" → ") : (isRtl ? "غير محدد" : "Not specified");
 
   return (
     <div className="relative space-y-8 p-6">
@@ -344,7 +357,7 @@ export function WorkOrderDetailClient({
                   {isRtl ? "ملاحظات" : "Notes"}
                 </h3>
               </div>
-              <NotesViewer notes={workOrder.notes} isRtl={isRtl} t={t} />
+                <NotesViewer notes={workOrder.notes} />
             </div>
           )}
 
@@ -367,7 +380,7 @@ export function WorkOrderDetailClient({
                 </h3>
               </div>
               <div className="space-y-2">
-                {workOrder.attachments.map((att: any) => (
+                {workOrder.attachments.map((att: WorkOrderAttachment) => (
                   <a
                     key={att.id}
                     href={att.url}
@@ -443,7 +456,7 @@ export function WorkOrderDetailClient({
             </div>
           </div>
 
-          {/* ✅ الموقع - عرض السلسلة الكاملة بدون LocationCard */}
+          {/* الموقع */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-4">
               <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">

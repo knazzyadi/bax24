@@ -1,4 +1,4 @@
-// src/app/[locale]/(super-admin)/super-admin/companies/components/DeleteCompanyDialog.tsx
+// src/app/[locale]/(super-admin)/super-admin/DeleteCompanyDialog.tsx
 'use client';
 
 import {
@@ -34,7 +34,9 @@ export function DeleteCompanyDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
           <AlertDialogDescription>
-            هل أنت متأكد من حذف الشركة <strong className="text-rose-500">"{companyName}"</strong>؟
+            هل أنت متأكد من حذف الشركة:
+            <br />
+            <strong className="text-rose-500">{companyName}</strong>
             <br />
             هذا الإجراء لا يمكن التراجع عنه.
           </AlertDialogDescription>

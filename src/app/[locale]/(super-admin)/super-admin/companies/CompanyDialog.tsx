@@ -3,7 +3,7 @@
 
 import { useEffect } from 'react';
 import { useTranslations } from 'next-intl';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, useWatch, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import {
   Dialog,
@@ -41,15 +41,18 @@ export function CompanyDialog({
     register,
     handleSubmit,
     reset,
+    control,
     setValue,
-    watch,
     formState: { errors },
   } = useForm<CompanyFormValues>({
     resolver: zodResolver(companySchema),
     defaultValues: defaultCompanyValues,
   });
 
-  const isActive = watch('isActive');
+  const isActive = useWatch({
+    control,
+    name: 'isActive',
+  });
 
   // ✅ تعبئة النموذج عند التعديل أو الإضافة
   useEffect(() => {

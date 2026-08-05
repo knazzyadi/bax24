@@ -5,13 +5,17 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { Building as BuildingIcon, Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+
 import { AdminGuard } from '@/lib/client-guard';
 import { cn } from '@/lib/utils';
+
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+
 import { useBuildings } from './useBuildings';
 import { BuildingsTable } from './BuildingsTable';
 import { BuildingDialog } from './BuildingDialog';
+
 import type { Building, Branch } from './types';
 
 const glassCard =
@@ -36,15 +40,21 @@ export default function BuildingsClient({
     branches,
     isLoading,
     isDeleting,
-    filters,
-    updateFilters,
     deleteBuilding,
     refetch,
   } = useBuildings(initialBuildings, initialBranches);
 
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingBuilding, setEditingBuilding] = useState<Building | null>(null);
-  const [confirmDialog, setConfirmDialog] = useState<{ open: boolean; id?: string }>({ open: false });
+
+  const [editingBuilding, setEditingBuilding] =
+    useState<Building | null>(null);
+
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    id?: string;
+  }>({
+    open: false,
+  });
 
   const handleCreate = () => {
     setEditingBuilding(null);
@@ -57,29 +67,41 @@ export default function BuildingsClient({
   };
 
   const handleDeleteClick = (id: string) => {
-    setConfirmDialog({ open: true, id });
+    setConfirmDialog({
+      open: true,
+      id,
+    });
   };
 
   const handleConfirmDelete = async () => {
     if (!confirmDialog.id) return;
+
     try {
       const success = await deleteBuilding(confirmDialog.id);
+
       if (success) {
         toast.success(t('deleteSuccess'));
-        setConfirmDialog({ open: false });
-        refetch();
+
+        setConfirmDialog({
+          open: false,
+        });
+
+        await refetch();
       } else {
         toast.error(t('deleteError'));
       }
-    } catch (error) {
+    } catch {
       toast.error(t('deleteError'));
     }
   };
 
-  const handleDialogClose = (refetchData?: boolean) => {
+  const handleDialogClose = async (refresh?: boolean) => {
     setDialogOpen(false);
     setEditingBuilding(null);
-    if (refetchData) refetch();
+
+    if (refresh) {
+      await refetch();
+    }
   };
 
   return (
@@ -91,30 +113,33 @@ export default function BuildingsClient({
           isRtl ? 'text-right' : 'text-left'
         )}
       >
-        {/* خلفية متدرجة */}
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-        <header className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30">
               <BuildingIcon className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
             </div>
+
             <div>
-              <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
+              <h1 className="text-2xl font-bold">
                 {t('buildings')}
               </h1>
-              <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+
+              <p className="text-sm text-slate-500 dark:text-slate-400">
                 {isRtl
                   ? 'إدارة المباني والفروع وتنظيم المواقع'
                   : 'Manage buildings, branches and organize locations'}
               </p>
             </div>
           </div>
+
           <Button
             onClick={handleCreate}
-            className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-medium h-11 px-5 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
+            className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600"
           >
             <Plus className="h-4 w-4 ml-2" />
+
             {t('addBuilding')}
           </Button>
         </header>
@@ -128,7 +153,6 @@ export default function BuildingsClient({
             ) : (
               <BuildingsTable
                 data={buildings}
-                branches={branches}
                 onEdit={handleEdit}
                 onDelete={handleDeleteClick}
                 isRtl={isRtl}
@@ -147,7 +171,12 @@ export default function BuildingsClient({
 
         <ConfirmDialog
           open={confirmDialog.open}
-          onOpenChange={(open) => setConfirmDialog({ open, id: confirmDialog.id })}
+          onOpenChange={(open) =>
+            setConfirmDialog({
+              open,
+              id: confirmDialog.id,
+            })
+          }
           onConfirm={handleConfirmDelete}
           title={isRtl ? 'تأكيد الحذف' : 'Confirm Delete'}
           description={

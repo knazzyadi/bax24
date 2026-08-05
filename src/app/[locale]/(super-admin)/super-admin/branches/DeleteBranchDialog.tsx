@@ -1,4 +1,4 @@
-// src/app/[locale]/(super-admin)/super-admin/branches/components/DeleteBranchDialog.tsx
+// src/app/[locale]/(super-admin)/super-admin/branches/DeleteBranchDialog.tsx
 'use client';
 
 import {
@@ -34,7 +34,7 @@ export function DeleteBranchDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>تأكيد الحذف</AlertDialogTitle>
           <AlertDialogDescription>
-            هل أنت متأكد من حذف الفرع <strong className="text-rose-500">"{branchName}"</strong>؟
+            هل أنت متأكد من حذف الفرع <strong className="text-rose-500">«{branchName}»</strong>؟
             <br />
             هذا الإجراء لا يمكن التراجع عنه.
           </AlertDialogDescription>

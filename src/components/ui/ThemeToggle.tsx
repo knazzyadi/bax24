@@ -1,17 +1,28 @@
-//src\components\ui\ThemeToggle.tsx
-//زر تغيير الوضع (Dark / Light)
+// src/components/ui/ThemeToggle.tsx
 'use client';
 
 import { useTheme } from '@/components/theme-provider';
 import { Sun, Moon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
+
+const subscribe = () => () => {};
+
+const getClientSnapshot = () => true;
+
+const getServerSnapshot = () => false;
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
 
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
+  const mounted = useSyncExternalStore(
+    subscribe,
+    getClientSnapshot,
+    getServerSnapshot
+  );
+
+  if (!mounted) {
+    return null;
+  }
 
   const toggle = () => {
     setTheme(theme === 'dark' ? 'light' : 'dark');

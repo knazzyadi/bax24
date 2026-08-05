@@ -152,10 +152,10 @@ export interface WorkOrderFormData {
 }
 
 // ============================================================
-// تفاصيل أمر العمل (يمتد من WorkOrder)
+// تفاصيل أمر العمل - نوع بدلاً من واجهة فارغة
 // ============================================================
 
-export interface WorkOrderDetailData extends WorkOrder {}
+export type WorkOrderDetailData = WorkOrder; // ✅ استبدال interface ب type
 
 // ============================================================
 // أنواع الكيانات المرتبطة (حالة، أولوية) - معدلة

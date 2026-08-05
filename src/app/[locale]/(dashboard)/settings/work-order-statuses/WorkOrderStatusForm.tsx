@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/work-order-statuses/WorkOrderStatusForm.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ حذف useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,33 +25,20 @@ export function WorkOrderStatusForm({
 }: WorkOrderStatusFormProps) {
   const t = useTranslations("WorkOrderStatuses");
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    nameEn: "",
-    color: "#6B7280",
-    isDefault: false,
-    isActive: true,
+
+  // ✅ دالة القيم الافتراضية
+  const getInitialFormData = () => ({
+    name: status?.name ?? "",
+    nameEn: status?.nameEn ?? "",
+    color: status?.color ?? "#6B7280",
+    isDefault: status?.isDefault ?? false,
+    isActive: status?.isActive ?? true,
   });
 
-  useEffect(() => {
-    if (status) {
-      setFormData({
-        name: status.name || "",
-        nameEn: status.nameEn || "",
-        color: status.color || "#6B7280",
-        isDefault: status.isDefault || false,
-        isActive: status.isActive !== undefined ? status.isActive : true,
-      });
-    } else {
-      setFormData({
-        name: "",
-        nameEn: "",
-        color: "#6B7280",
-        isDefault: false,
-        isActive: true,
-      });
-    }
-  }, [status]);
+  // ✅ تعريف state باستخدام الدالة
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  // ✅ تم حذف useEffect بالكامل
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -100,8 +87,13 @@ export function WorkOrderStatusForm({
 
       toast.success(status ? t("updateSuccess") : t("createSuccess"));
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || t("saveError"));
+        } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : t("saveError");
+
+      toast.error(message);
       console.error(error);
     } finally {
       setLoading(false);
@@ -142,8 +134,6 @@ export function WorkOrderStatusForm({
         value={formData.color}
         onChange={handleColorChange}
       />
-
-      {/* ❌ تم حذف حقول "الكود" و "الترتيب" */}
 
       <div className="space-y-4 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
         <div className="flex items-center gap-3">

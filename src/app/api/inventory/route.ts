@@ -1,8 +1,40 @@
 // src/app/api/inventory/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper'; // ✅ استبدال checkPermission بـ requirePermission
+import { getAuthenticatedSession, requirePermission } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
+import { Prisma } from '@prisma/client';
+
+// نوع العنصر مع العلاقات المضمنة
+type InventoryItemWithRelations = Prisma.InventoryItemGetPayload<{
+  include: {
+    room: {
+      include: {
+        floor: {
+          include: {
+            building: {
+              include: {
+                branch: true;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+}>;
+
+// نوع بيانات الجسم في طلب POST
+type CreateInventoryBody = {
+  name: string;
+  nameEn?: string;
+  sku?: string;
+  quantity?: number;
+  minQuantity?: number;
+  unit?: string;
+  roomId: string;
+  notes?: string;
+};
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,7 +42,7 @@ export async function GET(request: NextRequest) {
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission('assets.read'); // ✅
+    await requirePermission('assets.read');
 
     const searchParams = request.nextUrl.searchParams;
     const q = searchParams.get('q') || '';
@@ -20,7 +52,7 @@ export async function GET(request: NextRequest) {
     const limit = 10;
     const skip = (page - 1) * limit;
 
-    const companyId = session.companyId!; // ✅
+    const companyId = session.companyId!;
     if (!companyId) {
       return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
     }
@@ -28,19 +60,21 @@ export async function GET(request: NextRequest) {
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     const branchIds = session.branchIds || [];
 
-    const where: any = {
+    // بناء where بالتدريج بنوع صريح
+    const where: Prisma.InventoryItemWhereInput = {
       companyId,
       deletedAt: null,
     };
 
+    // إضافة قيود الفروع إذا لم يكن المستخدم أدمن
     if (!isAdmin) {
       if (branchIds.length > 0) {
         where.room = {
           floor: {
             building: {
-              branchId: { in: branchIds }
-            }
-          }
+              branchId: { in: branchIds },
+            },
+          },
         };
       } else {
         // لا فروع مسموحة -> لا نعرض أي أصناف
@@ -57,6 +91,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // البحث النصي
     if (q) {
       where.OR = [
         { name: { contains: q, mode: 'insensitive' } },
@@ -65,15 +100,50 @@ export async function GET(request: NextRequest) {
       ];
     }
 
-    if (status === 'low') {
-      where.quantity = { lt: prisma.inventoryItem.fields.minQuantity };
-    } else if (status === 'out') {
+    // حالة out (كمية = 0) - يمكن تطبيقها مباشرة
+    if (status === 'out') {
       where.quantity = 0;
     }
 
-    // ✅ إذا طلبنا العناصر المتاحة فقط (للاستخدام في المكونات العامة)
+    // معالجة حالة low (quantity < minQuantity) باستخدام استعلام مساعد لجلب المعرفات
+    let lowItemIds: string[] | null = null;
+    if (status === 'low') {
+      // نستعمل where الحالي (بدون شرط الكمية) لجلب جميع العناصر المطابقة للشروط الأخرى
+      const allItems = await prisma.inventoryItem.findMany({
+        where,
+        select: { id: true, quantity: true, minQuantity: true },
+      });
+      lowItemIds = allItems
+        .filter((item) => item.quantity < item.minQuantity)
+        .map((item) => item.id);
+
+      // إذا لم يكن هناك عناصر low نعيد استجابة فارغة
+      if (lowItemIds.length === 0) {
+        if (inStock) {
+          return NextResponse.json([]);
+        }
+        return NextResponse.json({
+          items: [],
+          total: 0,
+          currentPage: page,
+          totalPages: 0,
+          limit,
+        });
+      }
+    }
+
+    // إضافة شرط inStock (quantity > 0)
     if (inStock) {
       where.quantity = { gt: 0 };
+    }
+
+    // إضافة شرط lowItemIds إذا وجدت
+    if (lowItemIds !== null) {
+      where.id = { in: lowItemIds };
+    }
+
+    // إذا كان الطلب خاص بالعناصر المتاحة فقط (بدون pagination) وليس هناك فلتر status
+    if (inStock && !status) {
       const items = await prisma.inventoryItem.findMany({
         where,
         select: {
@@ -85,11 +155,10 @@ export async function GET(request: NextRequest) {
         },
         orderBy: { name: 'asc' },
       });
-      // ✅ نعيد مصفوفة مباشرة (بدون pagination)
       return NextResponse.json(items);
     }
 
-    // الوضع العادي (مع pagination للوحة التحكم)
+    // الوضع العادي مع pagination
     const [items, total] = await Promise.all([
       prisma.inventoryItem.findMany({
         where,
@@ -113,26 +182,33 @@ export async function GET(request: NextRequest) {
       prisma.inventoryItem.count({ where }),
     ]);
 
-    const serialized = items.map((item: any) => ({
+    // تحويل التواريخ إلى نصوص وتسوية هيكل room
+    const serialized = items.map((item: InventoryItemWithRelations) => ({
       ...item,
       createdAt: item.createdAt.toISOString(),
       updatedAt: item.updatedAt.toISOString(),
-      room: item.room ? {
-        id: item.room.id,
-        name: item.room.name,
-        nameEn: item.room.nameEn,
-        code: item.room.code,
-        floor: item.room.floor ? {
-          id: item.room.floor.id,
-          name: item.room.floor.name,
-          nameEn: item.room.floor.nameEn,
-          building: item.room.floor.building ? {
-            id: item.room.floor.building.id,
-            name: item.room.floor.building.name,
-            nameEn: item.room.floor.building.nameEn,
-          } : null,
-        } : null,
-      } : null,
+      room: item.room
+        ? {
+            id: item.room.id,
+            name: item.room.name,
+            nameEn: item.room.nameEn,
+            code: item.room.code,
+            floor: item.room.floor
+              ? {
+                  id: item.room.floor.id,
+                  name: item.room.floor.name,
+                  nameEn: item.room.floor.nameEn,
+                  building: item.room.floor.building
+                    ? {
+                        id: item.room.floor.building.id,
+                        name: item.room.floor.building.name,
+                        nameEn: item.room.floor.building.nameEn,
+                      }
+                    : null,
+                }
+              : null,
+          }
+        : null,
     }));
 
     return NextResponse.json({
@@ -142,31 +218,30 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
       limit,
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('GET /api/inventory error:', error);
     return NextResponse.json({ error: 'خطأ في جلب المخزون' }, { status: 500 });
   }
 }
 
-// POST: إنشاء صنف جديد (مع التحقق من الصلاحيات والعضوية)
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
     if (!session) {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    await requirePermission('assets.create'); // ✅
+    await requirePermission('assets.create');
 
-    const body = await request.json();
+    const body: CreateInventoryBody = await request.json();
     const { name, nameEn, sku, quantity, minQuantity, unit, roomId, notes } = body;
 
     if (!name || !roomId) {
       return NextResponse.json({ error: 'الاسم والغرفة إلزاميان' }, { status: 400 });
     }
 
-    const companyId = session.companyId!; // ✅
+    const companyId = session.companyId!;
 
-    // التحقق من أن الغرفة تنتمي إلى الشركة وإلى فرع المستخدم (إذا لم يكن أدمن)
+    // التحقق من أن الغرفة تنتمي إلى الشركة
     const room = await prisma.room.findFirst({
       where: { id: roomId, floor: { building: { companyId } } },
       include: { floor: { include: { building: true } } },
@@ -175,6 +250,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'الغرفة غير موجودة أو لا تنتمي لشركتك' }, { status: 400 });
     }
 
+    // التحقق من صلاحية الفرع إذا لم يكن أدمن
     const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     if (!isAdmin) {
       const userBranchIds = session.branchIds || [];
@@ -199,7 +275,7 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(newItem, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('POST /api/inventory error:', error);
     return NextResponse.json({ error: 'خطأ في إنشاء الصنف' }, { status: 500 });
   }

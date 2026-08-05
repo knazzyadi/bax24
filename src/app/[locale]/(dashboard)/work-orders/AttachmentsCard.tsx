@@ -1,18 +1,16 @@
-// src/app/[locale]/(dashboard)/work-orders/shared/AttachmentsCard.tsx
+// src/app/[locale]/(dashboard)/work-orders/AttachmentsCard.tsx
 "use client";
 
 import { useState, useRef } from "react";
 import { Paperclip, X, Upload, File } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 
 interface AttachmentsCardProps {
   onFilesChange: (files: File[]) => void;
   isRtl: boolean;
-  t: any;
 }
 
-export function AttachmentsCard({ onFilesChange, isRtl, t }: AttachmentsCardProps) {
+export function AttachmentsCard({ onFilesChange, isRtl }: AttachmentsCardProps) {
   const [files, setFiles] = useState<File[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -44,7 +42,6 @@ export function AttachmentsCard({ onFilesChange, isRtl, t }: AttachmentsCardProp
       </div>
 
       <div className="space-y-4">
-        {/* زر رفع الملفات */}
         <Button
           type="button"
           variant="outline"
@@ -64,7 +61,6 @@ export function AttachmentsCard({ onFilesChange, isRtl, t }: AttachmentsCardProp
           accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif,.txt"
         />
 
-        {/* عرض الملفات المختارة */}
         {files.length > 0 && (
           <div className="space-y-2 max-h-48 overflow-y-auto">
             {files.map((file, index) => (

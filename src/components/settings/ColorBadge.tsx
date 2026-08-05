@@ -1,7 +1,5 @@
 "use client";
 
-import { cn } from "@/lib/utils";
-
 interface ColorBadgeProps {
   color?: string;
   label?: string;
@@ -29,7 +27,6 @@ export function ColorBadge({
         dark:text-indigo-300
       "
     >
-
       <span
         className="
           h-4
@@ -55,7 +52,6 @@ export function ColorBadge({
           {label}
         </span>
       )}
-
     </div>
   );
 }

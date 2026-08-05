@@ -1,11 +1,18 @@
 // src/app/[locale]/(dashboard)/assets/page.tsx
+
 import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/prisma';
-import { AssetRepository } from '@/lib/repositories/asset.repository';
+import {
+  AssetRepository,
+  type AssetWithRelations,
+} from '@/lib/repositories/asset.repository';
 import AssetsClient from './AssetsClient';
-import type { Asset, AssetType, AssetStatus } from '@/types/assets';
+import type { AssetType, AssetStatus } from '@/types/assets';
 import { Prisma } from '@prisma/client';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+import { mapAsset } from '@/lib/mappers/asset.mapper';
+
+// --- مكون الصفحة الرئيسي ---
 
 export default async function AssetsPage({
   params,
@@ -17,6 +24,7 @@ export default async function AssetsPage({
   const paramsResolved = await params;
   const searchParamsResolved = await searchParams || {};
 
+  // 1. التحقق من المصادقة والصلاحيات
   let session;
   try {
     session = await getAuthenticatedSession();
@@ -40,6 +48,7 @@ export default async function AssetsPage({
     redirect('/login');
   }
 
+  // 2. إعداد التصفية والترقيم
   const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 10;
   const skip = (pageNum - 1) * limitNum;
@@ -65,6 +74,7 @@ export default async function AssetsPage({
   if (typeId && typeId !== 'all') where.typeId = typeId;
   if (statusId && statusId !== 'all') where.statusId = statusId;
 
+  // 3. جلب البيانات من المستودع
   const totalCount = await AssetRepository.count(where);
 
   const result = await AssetRepository.findMany({
@@ -74,47 +84,13 @@ export default async function AssetsPage({
     orderBy: { createdAt: 'desc' },
   });
 
-  const { data: assetsRaw } = result;
-
+  const assetsRaw: AssetWithRelations[] = result.data;
   const startIndex = totalCount > 0 ? skip + 1 : 0;
 
-  // ✅ استخدام ...asset للحفاظ على جميع الحقول بما فيها companyId
-  const transformedAssets: Asset[] = assetsRaw.map((asset: any) => ({
-    ...asset,
-    nameEn: asset.nameEn ?? undefined,
-    description: asset.description ?? undefined,
-    descriptionEn: asset.descriptionEn ?? undefined,
-    purchaseDate: asset.purchaseDate?.toISOString() ?? null,
-    warrantyEnd: asset.warrantyEnd?.toISOString() ?? null,
-    lastMaintenanceDate: asset.lastMaintenanceDate?.toISOString() ?? null,
-    notes: asset.notes ?? undefined,
-    createdAt: asset.createdAt.toISOString(),
-    updatedAt: asset.updatedAt.toISOString(),
-    // ✅ type و status مع companyId
-    type: asset.type ? {
-      ...asset.type,
-      nameEn: asset.type.nameEn ?? undefined,
-      description: asset.type.description ?? undefined,
-    } : undefined,
-    status: asset.status ? {
-      ...asset.status,
-      nameEn: asset.status.nameEn ?? undefined,
-      color: asset.status.color ?? undefined,
-    } : undefined,
-    room: asset.room ? {
-      ...asset.room,
-      nameEn: asset.room.nameEn ?? undefined,
-      floor: asset.room.floor ? {
-        ...asset.room.floor,
-        nameEn: asset.room.floor.nameEn ?? undefined,
-        building: asset.room.floor.building ? {
-          ...asset.room.floor.building,
-          nameEn: asset.room.floor.building.nameEn ?? undefined,
-        } : undefined,
-      } : undefined,
-    } : undefined,
-  }));
+  // 4. تحويل البيانات الخام باستخدام mapper
+  const transformedAssets = assetsRaw.map(mapAsset);
 
+  // 5. جلب أنواع وحالات الأصول (بدون علاقات)
   const [assetTypesRaw, assetStatusesRaw] = await Promise.all([
     prisma.assetType.findMany({
       where: { companyId },
@@ -126,20 +102,27 @@ export default async function AssetsPage({
     }),
   ]);
 
-  // ✅ استخدام ...type للحفاظ على companyId
-  const assetTypes: AssetType[] = assetTypesRaw.map((type: any) => ({
+  const assetTypes: AssetType[] = assetTypesRaw.map((type) => ({
     ...type,
     nameEn: type.nameEn ?? undefined,
+    code: type.code ?? undefined,
     description: type.description ?? undefined,
+    deletedAt: type.deletedAt?.toISOString() ?? null,
+    createdAt: type.createdAt.toISOString(),
+    updatedAt: type.updatedAt.toISOString(),
   }));
 
-  // ✅ استخدام ...status للحفاظ على companyId
-  const assetStatuses: AssetStatus[] = assetStatusesRaw.map((status: any) => ({
+  const assetStatuses: AssetStatus[] = assetStatusesRaw.map((status) => ({
     ...status,
     nameEn: status.nameEn ?? undefined,
+    code: status.code ?? undefined,
     color: status.color ?? undefined,
+    deletedAt: status.deletedAt?.toISOString() ?? null,
+    createdAt: status.createdAt.toISOString(),
+    updatedAt: status.updatedAt.toISOString(),
   }));
 
+  // 6. بناء روابط التنقل
   const baseUrl = `/${locale}/assets`;
   const queryParams = new URLSearchParams();
   if (q) queryParams.set('q', q);
@@ -148,13 +131,16 @@ export default async function AssetsPage({
   if (limit) queryParams.set('limit', limit);
 
   const totalPages = Math.ceil(totalCount / limitNum);
-  const nextUrl = pageNum < totalPages
-    ? `${baseUrl}?${queryParams.toString()}&page=${pageNum + 1}`
-    : null;
-  const prevUrl = pageNum > 1
-    ? `${baseUrl}?${queryParams.toString()}&page=${pageNum - 1}`
-    : null;
+  const nextUrl =
+    pageNum < totalPages
+      ? `${baseUrl}?${queryParams.toString()}&page=${pageNum + 1}`
+      : null;
+  const prevUrl =
+    pageNum > 1
+      ? `${baseUrl}?${queryParams.toString()}&page=${pageNum - 1}`
+      : null;
 
+  // 7. عرض المكون العميل مع البيانات
   return (
     <AssetsClient
       initialAssets={transformedAssets}

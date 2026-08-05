@@ -2,10 +2,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const prisma = new PrismaClient();
 
@@ -151,7 +147,7 @@ async function importCompanyConfig(companyId: string, filePath: string) {
     for (const item of category.items || []) {
       await prisma.inspectionItem.upsert({
         where: {
-            companyId_code: { companyId, code: item.code },
+          companyId_code: { companyId, code: item.code },
         },
         update: {},
         create: {

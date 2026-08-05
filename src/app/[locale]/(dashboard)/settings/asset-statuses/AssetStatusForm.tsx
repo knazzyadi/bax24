@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/asset-statuses/AssetStatusForm.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,33 +25,25 @@ export function AssetStatusForm({
 }: AssetStatusFormProps) {
   const t = useTranslations("AssetStatuses");
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    nameEn: "",
-    color: "#6B7280",
-    isDefault: false,
-    isActive: true,
-  });
 
-  useEffect(() => {
-    if (status) {
-      setFormData({
-        name: status.name || "",
-        nameEn: status.nameEn || "",
-        color: status.color || "#6B7280",
-        isDefault: status.isDefault || false,
-        isActive: status.isActive !== undefined ? status.isActive : true,
-      });
-    } else {
-      setFormData({
-        name: "",
-        nameEn: "",
-        color: "#6B7280",
-        isDefault: false,
-        isActive: true,
-      });
-    }
-  }, [status]);
+  // ✅ استخدام useState مع دالة initializer تعتمد على status
+  const [formData, setFormData] = useState(() =>
+    status
+      ? {
+          name: status.name || "",
+          nameEn: status.nameEn || "",
+          color: status.color || "#6B7280",
+          isDefault: status.isDefault || false,
+          isActive: status.isActive !== undefined ? status.isActive : true,
+        }
+      : {
+          name: "",
+          nameEn: "",
+          color: "#6B7280",
+          isDefault: false,
+          isActive: true,
+        }
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -98,10 +90,18 @@ export function AssetStatusForm({
         throw new Error(errorData.error || "Failed to save");
       }
 
-      toast.success(status ? t("updateSuccess") : t("createSuccess"));
-      onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || t("saveError"));
+      // ✅ نجاح العملية
+      toast.success(
+        status
+          ? (isRtl ? "تم تحديث الحالة بنجاح" : "Status updated successfully")
+          : (isRtl ? "تم إضافة الحالة بنجاح" : "Status added successfully")
+      );
+      onSuccess(); // ✅ إغلاق النموذج وتحديث القائمة
+
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error ? error.message : t("saveError")
+      );
       console.error(error);
     } finally {
       setLoading(false);
@@ -142,8 +142,6 @@ export function AssetStatusForm({
         value={formData.color}
         onChange={handleColorChange}
       />
-
-      {/* ❌ تم حذف حقول "الكود" و "الترتيب" */}
 
       <div className="space-y-4 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
         <div className="flex items-center gap-3">
@@ -189,7 +187,7 @@ export function AssetStatusForm({
           disabled={loading}
           className="flex-1 h-12 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-semibold shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/30 transition-all duration-200"
         >
-          {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : null}
+          {loading && <Loader2 className="h-5 w-5 animate-spin" />}
           {status ? (isRtl ? "تحديث" : "Update") : (isRtl ? "حفظ" : "Save")}
         </Button>
       </div>

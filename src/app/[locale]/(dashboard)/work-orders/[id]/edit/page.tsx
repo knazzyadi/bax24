@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { EditWorkOrderClient } from "./ClientWrapper";
+import type { WorkOrderSource } from "../../types"; // استيراد النوع
 
 export default async function EditWorkOrderPage({
   params,
@@ -28,9 +29,9 @@ export default async function EditWorkOrderPage({
       priority: { select: { id: true, name: true, nameEn: true, color: true } },
       status: { select: { id: true, name: true, nameEn: true, color: true } },
       branch: { select: { id: true, name: true, nameEn: true } },
-      building: { select: { id: true, name: true, nameEn: true } }, // ✅ مباشر
-      floor: { select: { id: true, name: true, nameEn: true } }, // ✅ مباشر
-      room: { select: { id: true, name: true, nameEn: true } }, // ✅ مباشر
+      building: { select: { id: true, name: true, nameEn: true } },
+      floor: { select: { id: true, name: true, nameEn: true } },
+      room: { select: { id: true, name: true, nameEn: true } },
       assetType: { select: { id: true, name: true, nameEn: true } },
       workOrderType: {
         select: {
@@ -138,8 +139,17 @@ export default async function EditWorkOrderPage({
     ? "building"
     : "building";
 
-  // ✅ المصدر
-  const source = workOrder.sourceType ?? "manual";
+  // ✅ المصدر مع التأكد من القيمة (fix)
+  const rawSource = workOrder.sourceType ?? "manual";
+  const source: WorkOrderSource =
+    rawSource === "ticket" ||
+    rawSource === "ppm" ||
+    rawSource === "checklist" ||
+    rawSource === "inspection_finding" ||
+    rawSource === "manual"
+      ? rawSource
+      : "manual";
+
   const sourceId = workOrder.sourceId ?? null;
 
   // ✅ الأصول المختارة مع بياناتها الكاملة
@@ -159,7 +169,6 @@ export default async function EditWorkOrderPage({
     statusId: workOrder.statusId,
     assetTypeId: workOrder.assetTypeId,
     notes: workOrder.notes,
-    // ✅ جميع حقول الموقع
     branchId: workOrder.branchId ?? "",
     buildingId: buildingId ?? "",
     floorId: floorId ?? "",

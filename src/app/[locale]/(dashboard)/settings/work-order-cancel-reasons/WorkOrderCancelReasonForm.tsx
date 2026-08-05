@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/work-order-cancel-reasons/WorkOrderCancelReasonForm.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ حذف useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -24,30 +24,19 @@ export function WorkOrderCancelReasonForm({
 }: WorkOrderCancelReasonFormProps) {
   const t = useTranslations("WorkOrderCancelReasons");
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    nameEn: "",
-    isDefault: false,
-    isActive: true,
+
+  // ✅ دالة القيم الافتراضية
+  const getInitialFormData = () => ({
+    name: reason?.name ?? "",
+    nameEn: reason?.nameEn ?? "",
+    isDefault: reason?.isDefault ?? false,
+    isActive: reason?.isActive ?? true,
   });
 
-  useEffect(() => {
-    if (reason) {
-      setFormData({
-        name: reason.name || "",
-        nameEn: reason.nameEn || "",
-        isDefault: reason.isDefault || false,
-        isActive: reason.isActive !== undefined ? reason.isActive : true,
-      });
-    } else {
-      setFormData({
-        name: "",
-        nameEn: "",
-        isDefault: false,
-        isActive: true,
-      });
-    }
-  }, [reason]);
+  // ✅ تعريف state باستخدام الدالة
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  // ✅ تم حذف useEffect بالكامل
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -91,8 +80,13 @@ export function WorkOrderCancelReasonForm({
 
       toast.success(reason ? t("updateSuccess") : t("createSuccess"));
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || t("saveError"));
+        } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : t("saveError");
+
+      toast.error(message);
       console.error(error);
     } finally {
       setLoading(false);
@@ -127,8 +121,6 @@ export function WorkOrderCancelReasonForm({
           className="h-12 rounded-2xl border-slate-300/80 dark:border-slate-700/80 bg-white/90 dark:bg-slate-900/90 focus:ring-2 focus:ring-indigo-500/50 transition-all"
         />
       </div>
-
-      {/* ❌ تم حذف حقول "الكود"، "الوصف"، "الترتيب" */}
 
       <div className="space-y-4 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
         <div className="flex items-center gap-3">

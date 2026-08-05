@@ -151,8 +151,12 @@ export default function FindingsPage() {
     }
   }, [page, limit, filterStatus, filterRisk, searchQuery, t]);
 
-  useEffect(() => {
-    fetchFindings();
+    useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchFindings();
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [fetchFindings]);
 
   // ===== دوال التحديد =====
@@ -172,9 +176,13 @@ export default function FindingsPage() {
   };
 
   // عند تغيير الصفحة أو الفلترة، نعيد تعيين التحديدات
-  useEffect(() => {
-    setSelectedIds([]);
-    setSelectAll(false);
+    useEffect(() => {
+    const timer = setTimeout(() => {
+      setSelectedIds([]);
+      setSelectAll(false);
+    }, 0);
+
+    return () => clearTimeout(timer);
   }, [page, filterStatus, filterRisk, searchQuery]);
 
   // ===== دوال الـ Modal =====

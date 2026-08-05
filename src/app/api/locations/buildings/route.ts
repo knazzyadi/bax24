@@ -7,10 +7,10 @@ import { prisma } from '@/lib/prisma';
 // ============================================================
 // GET: جلب جميع مباني الشركة
 // ============================================================
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // ✅ 1. جلب الجلسة
     const session = await getAuthenticatedSession();
+
     if (!session) {
       return NextResponse.json(
         { error: 'غير مصرح: يرجى تسجيل الدخول' },
@@ -18,12 +18,11 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // ✅ 2. التحقق من الصلاحية
     const permissionError = requirePermission(session, 'locations.read');
     if (permissionError) return permissionError;
 
-    // ✅ 3. استخراج companyId
     const companyId = session.companyId;
+
     if (!companyId) {
       return NextResponse.json(
         { error: 'لا توجد شركة مرتبطة بهذا الحساب' },
@@ -60,14 +59,20 @@ export async function GET(request: NextRequest) {
     }));
 
     return NextResponse.json(formatted);
-  } catch (error: any) {
-    console.error('GET /api/locations/buildings error:', error);
-    if (error.message === 'FORBIDDEN') {
+
+  } catch (error: unknown) {
+    console.error(
+      'GET /api/locations/buildings error:',
+      error
+    );
+
+    if (error instanceof Error && error.message === 'FORBIDDEN') {
       return NextResponse.json(
         { error: 'لا تملك الصلاحية' },
         { status: 403 }
       );
     }
+
     return NextResponse.json(
       { error: 'حدث خطأ في الخادم' },
       { status: 500 }
@@ -75,13 +80,14 @@ export async function GET(request: NextRequest) {
   }
 }
 
+
 // ============================================================
 // POST: إضافة مبنى جديد
 // ============================================================
 export async function POST(request: NextRequest) {
   try {
-    // ✅ 1. جلب الجلسة
     const session = await getAuthenticatedSession();
+
     if (!session) {
       return NextResponse.json(
         { error: 'غير مصرح: يرجى تسجيل الدخول' },
@@ -89,12 +95,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ✅ 2. التحقق من الصلاحية
     const permissionError = requirePermission(session, 'locations.create');
     if (permissionError) return permissionError;
 
-    // ✅ 3. استخراج companyId
     const companyId = session.companyId;
+
     if (!companyId) {
       return NextResponse.json(
         { error: 'لا توجد شركة مرتبطة بهذا الحساب' },
@@ -103,15 +108,23 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, nameEn, code, order, branchId } = body;
 
-    // التحقق من الحقول المطلوبة
+    const {
+      name,
+      nameEn,
+      code,
+      order,
+      branchId,
+    } = body;
+
+
     if (!name || name.trim() === '') {
       return NextResponse.json(
         { error: 'الاسم مطلوب' },
         { status: 400 }
       );
     }
+
 
     if (!code || code.trim() === '') {
       return NextResponse.json(
@@ -120,7 +133,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // التحقق من أن الفرع (إذا وُجد) ينتمي إلى نفس الشركة
+
     if (branchId) {
       const branch = await prisma.branch.findFirst({
         where: {
@@ -128,53 +141,95 @@ export async function POST(request: NextRequest) {
           companyId,
         },
       });
+
       if (!branch) {
         return NextResponse.json(
-          { error: 'الفرع غير موجود أو لا ينتمي إلى هذه الشركة' },
-          { status: 400 }
+          {
+            error:
+              'الفرع غير موجود أو لا ينتمي إلى هذه الشركة',
+          },
+          {
+            status:400,
+          }
         );
       }
     }
 
-    // التحقق من عدم تكرار الكود لنفس الشركة
+
     const existing = await prisma.building.findFirst({
-      where: {
+      where:{
         companyId,
-        code: code.trim(),
-        deletedAt: null,
+        code:code.trim(),
+        deletedAt:null,
       },
     });
-    if (existing) {
+
+
+    if(existing){
       return NextResponse.json(
-        { error: `يوجد مبنى بنفس الكود "${code}"` },
-        { status: 409 }
+        {
+          error:`يوجد مبنى بنفس الكود "${code}"`,
+        },
+        {
+          status:409,
+        }
       );
     }
 
-    // إنشاء المبنى
+
     const building = await prisma.building.create({
-      data: {
-        name: name.trim(),
-        nameEn: nameEn?.trim() || null,
-        code: code.trim(),
-        order: typeof order === 'number' ? order : 0,
+      data:{
+        name:name.trim(),
+        nameEn:nameEn?.trim() || null,
+        code:code.trim(),
+        order:
+          typeof order === 'number'
+          ? order
+          : 0,
         companyId,
-        branchId: branchId || null,
+        branchId:branchId || null,
       },
     });
 
-    return NextResponse.json(building, { status: 201 });
-  } catch (error: any) {
-    console.error('POST /api/locations/buildings error:', error);
-    if (error.message === 'FORBIDDEN') {
+
+    return NextResponse.json(
+      building,
+      {
+        status:201,
+      }
+    );
+
+
+  } catch (error: unknown) {
+
+    console.error(
+      'POST /api/locations/buildings error:',
+      error
+    );
+
+
+    if(
+      error instanceof Error &&
+      error.message === 'FORBIDDEN'
+    ){
       return NextResponse.json(
-        { error: 'لا تملك الصلاحية' },
-        { status: 403 }
+        {
+          error:'لا تملك الصلاحية',
+        },
+        {
+          status:403,
+        }
       );
     }
+
+
     return NextResponse.json(
-      { error: 'حدث خطأ في الخادم' },
-      { status: 500 }
+      {
+        error:'حدث خطأ في الخادم',
+      },
+      {
+        status:500,
+      }
     );
   }
 }

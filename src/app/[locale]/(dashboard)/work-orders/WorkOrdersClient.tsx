@@ -63,7 +63,6 @@ interface WorkOrder {
     name: string;
     nameEn?: string;
   } | null;
-  // ✅ Direct location fields (no nesting)
   building: {
     id: string;
     name: string;
@@ -235,8 +234,9 @@ export default function WorkOrdersClient({
   // Actions
   // =========================
 
+  // ✅ حذف `name` من المعاملات
   const handleDelete = useCallback(
-    async (id: string, name: string) => {
+    async (id: string) => {
       try {
         const res = await fetch(`/api/work-orders/${id}`, { method: "DELETE" });
         if (!res.ok) {

@@ -2,8 +2,16 @@
 
 "use client";
 
-import { useState, useMemo } from "react";
-import { Building, Layers, DoorOpen, Plus, X, MapPin } from "lucide-react";
+import { useMemo } from "react";
+import {
+  Building,
+  Layers,
+  DoorOpen,
+  Plus,
+  X,
+  MapPin,
+  Check,
+} from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
@@ -26,61 +34,117 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { Check } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 // ============================================================
-// دوال مساعدة للحصول على اسم وكود الأصل (مرنة لمختلف هياكل البيانات)
+// الأنواع (معدلة لدعم null)
 // ============================================================
 
-function getAssetName(asset: any): string {
+interface AssetOption {
+  id: string;
+  name?: string;
+  nameEn?: string | null;
+  code?: string | null;
+  assetName?: string;
+  displayName?: string;
+  assetCode?: string;
+  serialNumber?: string;
+  asset?: {
+    name?: string;
+    code?: string;
+  };
+  title?: string;
+}
+
+interface LocationOption {
+  id: string;
+  name: string;
+  nameEn?: string | null;  // ✅ دعم null
+  code?: string | null;    // ✅ دعم null
+}
+
+interface BuildingOption extends LocationOption {
+  branchId?: string;
+}
+
+interface FloorOption extends LocationOption {
+  buildingId: string;
+}
+
+interface LocationRoom extends LocationOption {
+  floorId: string;
+  floor?: {
+    name: string;
+    nameEn?: string | null;
+    building?: {
+      name: string;
+      nameEn?: string | null;
+    };
+  };
+}
+
+// ============================================================
+// دوال مساعدة
+// ============================================================
+
+function getAssetName(asset: AssetOption): string {
   return (
-    asset?.name ??
-    asset?.assetName ??
-    asset?.displayName ??
-    asset?.asset?.name ??
-    asset?.title ??
+    asset.name ??
+    asset.assetName ??
+    asset.displayName ??
+    asset.asset?.name ??
+    asset.title ??
     "أصل بدون اسم"
   );
 }
 
-function getAssetCode(asset: any): string {
+function getAssetCode(asset: AssetOption): string {
   return (
-    asset?.code ??
-    asset?.assetCode ??
-    asset?.serialNumber ??
-    asset?.asset?.code ??
+    asset.code ??
+    asset.assetCode ??
+    asset.serialNumber ??
+    asset.asset?.code ??
     ""
   );
 }
 
 // ============================================================
-// الواجهات
+// واجهة Props (تستقبل البيانات مع null)
 // ============================================================
 
 interface LocationCardProps {
   formData?: WorkOrderFormData;
   setFormData?: (data: WorkOrderFormData) => void;
-  buildings?: any[];
-  floors?: any[];
-  rooms?: any[];
+
+  buildings?: BuildingOption[];
+  floors?: FloorOption[];
+  rooms?: LocationRoom[];
+
   loadingFloors?: boolean;
   loadingRooms?: boolean;
+
   isRtl: boolean;
-  assetTypes?: any[];
-  assets?: any[];
+
+  assetTypes?: LocationOption[];
+  assets?: AssetOption[];
+
   selectedAssetIds?: string[];
   loadingAssets?: boolean;
+
   assetDialogOpen?: boolean;
   tempSelectedAssetIds?: string[];
+
   onOpenAssetDialog?: () => void;
   onConfirmAssetSelection?: () => void;
   onRemoveAsset?: (id: string) => void;
   onTempAssetChange?: (ids: string[]) => void;
   onAssetDialogOpenChange?: (open: boolean) => void;
+
   isLocationSelected?: boolean;
-  t: any;
-  room?: any;
+
+  t: (key: string) => string;
+
+  room?: LocationRoom;
+
   compact?: boolean;
 }
 
@@ -113,6 +177,46 @@ export function LocationCard({
   room,
   compact = false,
 }: LocationCardProps) {
+  // ============================================================
+  // تحويل البيانات لتتوافق مع المكونات الفرعية (إزالة null)
+  // ============================================================
+
+  const buildingsForSelector = useMemo(
+    () =>
+      buildings.map((b) => ({
+        id: b.id,
+        name: b.name,
+        nameEn: b.nameEn ?? undefined,
+        code: b.code ?? undefined,
+        branchId: b.branchId,
+      })),
+    [buildings]
+  );
+
+  const floorsForSelector = useMemo(
+    () =>
+      floors.map((f) => ({
+        id: f.id,
+        name: f.name,
+        nameEn: f.nameEn ?? undefined,
+        code: f.code ?? undefined,
+        buildingId: f.buildingId,
+      })),
+    [floors]
+  );
+
+  const roomsForSelector = useMemo(
+    () =>
+      rooms.map((r) => ({
+        id: r.id,
+        name: r.name,
+        nameEn: r.nameEn ?? undefined,
+        code: r.code ?? undefined,
+        floorId: r.floorId,
+      })),
+    [rooms]
+  );
+
   const assetMap = useMemo(
     () => new Map(assets.map((a) => [a.id, a])),
     [assets]
@@ -150,7 +254,6 @@ export function LocationCard({
     );
   }
 
-  // الوضع الكامل
   const getSelectedLocationSummary = () => {
     if (formData?.roomId) {
       const roomItem = rooms.find((r) => r.id === formData.roomId);
@@ -180,12 +283,12 @@ export function LocationCard({
     }
   };
 
-  const getLocalizedAssetName = (asset: any) => {
+  const getLocalizedAssetName = (asset: AssetOption) => {
     const name = getAssetName(asset);
-    return isRtl ? name : asset?.nameEn || name;
+    return isRtl ? name : asset.nameEn || name;
   };
 
-  // ========== التصميم المحسن ==========
+  // ========== التصميم ==========
 
   return (
     <div className="space-y-6">
@@ -199,13 +302,16 @@ export function LocationCard({
           <BranchSelector
             value={formData?.branchId || ""}
             onValueChange={(val) => {
-              setFormData && setFormData({
-                ...formData!,
-                branchId: val,
-                buildingId: "",
-                floorId: "",
-                roomId: "",
-              });
+              // ✅ استبدال && بـ if
+              if (setFormData) {
+                setFormData({
+                  ...formData!,
+                  branchId: val,
+                  buildingId: "",
+                  floorId: "",
+                  roomId: "",
+                });
+              }
             }}
             className="w-full"
           />
@@ -220,9 +326,17 @@ export function LocationCard({
             <BuildingSelector
               value={formData?.buildingId ?? ""}
               onValueChange={(val) => {
-                setFormData && setFormData({ ...formData!, buildingId: val, floorId: "", roomId: "" });
+                // ✅ استبدال && بـ if
+                if (setFormData) {
+                  setFormData({
+                    ...formData!,
+                    buildingId: val,
+                    floorId: "",
+                    roomId: "",
+                  });
+                }
               }}
-              buildings={buildings}
+              buildings={buildingsForSelector}
               loading={false}
               className="w-full"
             />
@@ -233,7 +347,7 @@ export function LocationCard({
         </div>
       </div>
 
-      {/* الصف الثاني: الدور | الغرفة (الغرفة اختيارية) */}
+      {/* الصف الثاني: الدور | الغرفة */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
         <div className="space-y-1.5">
           <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 flex items-center gap-1.5">
@@ -243,9 +357,16 @@ export function LocationCard({
           <FloorSelector
             value={formData?.floorId ?? ""}
             onValueChange={(val) => {
-              setFormData && setFormData({ ...formData!, floorId: val, roomId: "" });
+              // ✅ استبدال && بـ if
+              if (setFormData) {
+                setFormData({
+                  ...formData!,
+                  floorId: val,
+                  roomId: "",
+                });
+              }
             }}
-            floors={floors}
+            floors={floorsForSelector}
             buildingId={formData?.buildingId ?? ""}
             loading={loadingFloors}
             className="w-full"
@@ -261,16 +382,21 @@ export function LocationCard({
           <RoomSelector
             value={formData?.roomId ?? ""}
             onValueChange={(val) => {
-              setFormData && setFormData({ ...formData!, roomId: val });
+              // ✅ استبدال && بـ if
+              if (setFormData) {
+                setFormData({
+                  ...formData!,
+                  roomId: val,
+                });
+              }
             }}
-            rooms={rooms}
+            rooms={roomsForSelector}
             floorId={formData?.floorId ?? ""}
             loading={loadingRooms}
             className="w-full"
             placeholder={isRtl ? "اختر غرفة (اختياري)" : "Select room (optional)"}
             isRtl={isRtl}
           />
-          {/* رسالة توضيحية عند ترك الغرفة فارغة */}
           {formData?.floorId && !formData?.roomId && (
             <p className="text-xs text-indigo-600 dark:text-indigo-400 mt-1.5 font-medium">
               {isRtl ? "💡 سيتم تطبيق أمر العمل على الدور بالكامل" : "💡 Work order will apply to the entire floor"}
@@ -292,10 +418,9 @@ export function LocationCard({
         </div>
       )}
 
-      {/* الفاصل */}
       <div className="border-t border-slate-200/60 dark:border-slate-700/60 my-4" />
 
-      {/* الصف الثالث: نوع الأصل */}
+      {/* نوع الأصل */}
       <div className="space-y-1.5">
         <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {isRtl ? "نوع الأصل" : "Asset Type"}
@@ -303,10 +428,13 @@ export function LocationCard({
         <AssetTypeField
           value={formData?.assetTypeId || ""}
           onChange={(val) => {
-            setFormData && setFormData({
-              ...formData!,
-              assetTypeId: val ?? "",
-            });
+            // ✅ استبدال && بـ if
+            if (setFormData) {
+              setFormData({
+                ...formData!,
+                assetTypeId: val ?? "",
+              });
+            }
           }}
           assetTypes={assetTypes}
           disabled={!isLocationSelected}
@@ -324,7 +452,7 @@ export function LocationCard({
         />
       </div>
 
-      {/* الصف الرابع: اختيار الأصل */}
+      {/* اختيار الأصل */}
       <div className="space-y-1.5">
         <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300">
           {isRtl ? "اختر الأصل" : "Select Asset"}
@@ -346,7 +474,6 @@ export function LocationCard({
             : "Select asset (optional)"}
         </Button>
 
-        {/* رسائل توضيحية عند التعطيل */}
         {!isAssetSelectionEnabled && (
           <p className="text-xs text-amber-600 dark:text-amber-400 font-medium">
             {!isLocationSelected && t("pleaseSelectLocationFirst")}
@@ -388,7 +515,7 @@ export function LocationCard({
         </div>
       )}
 
-      {/* حوار اختيار الأصول (Dialog) */}
+      {/* حوار اختيار الأصول */}
       <Dialog open={assetDialogOpen} onOpenChange={onAssetDialogOpenChange}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/60 dark:border-slate-700/60 shadow-xl">
           <DialogHeader>

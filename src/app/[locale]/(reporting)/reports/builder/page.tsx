@@ -1,9 +1,8 @@
 // src/app/[locale]/(reporting)/reports/builder/page.tsx
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useParams } from "next/navigation"; // ✅ إضافة useParams
-import { useSession } from "next-auth/react";
+import { useState } from "react";
+import { useRouter, useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -74,23 +73,16 @@ const MODELS: Record<
 
 export default function ReportBuilderPage() {
   const router = useRouter();
-  const params = useParams(); // ✅ جلب locale
-  const locale = params?.locale as string || "ar"; // ✅ استخدام اللغة الحالية
-  const { data: session } = useSession();
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const params = useParams();
+  const locale = params?.locale as string || "ar";
 
-  // حالة النموذج
   const [modelType, setModelType] = useState<string>("assets");
   const [reportName, setReportName] = useState("");
   const [description, setDescription] = useState("");
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
-
-  // عند تغيير النموذج، نختار كل الأعمدة افتراضياً
-  useEffect(() => {
-    const cols = MODELS[modelType]?.columns.map((c) => c.key) || [];
-    setSelectedColumns(cols);
-  }, [modelType]);
+  const [selectedColumns, setSelectedColumns] = useState<string[]>(
+    MODELS["assets"].columns.map((c) => c.key)
+  );
+  const [saving, setSaving] = useState(false);
 
   const toggleColumn = (key: string) => {
     setSelectedColumns((prev) =>
@@ -129,9 +121,12 @@ export default function ReportBuilderPage() {
       }
 
       toast.success("✅ تم حفظ التقرير بنجاح");
-      router.push(`/${locale}/reports`); // ✅ إضافة locale
-    } catch (error: any) {
-      toast.error(error.message || "حدث خطأ");
+      router.push(`/${locale}/reports`);
+    } catch (error: unknown) {
+      // ✅ إصلاح خطأ any
+      const message =
+        error instanceof Error ? error.message : "حدث خطأ غير متوقع";
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -142,7 +137,7 @@ export default function ReportBuilderPage() {
       model: modelType,
       columns: selectedColumns.join(","),
     });
-    router.push(`/${locale}/reports/preview?${params.toString()}`); // ✅ إضافة locale
+    router.push(`/${locale}/reports/preview?${params.toString()}`);
   };
 
   const model = MODELS[modelType];
@@ -155,7 +150,7 @@ export default function ReportBuilderPage() {
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push(`/${locale}/reports`)} // ✅ إضافة locale
+            onClick={() => router.push(`/${locale}/reports`)}
           >
             <ArrowLeft className="h-5 w-5" />
           </Button>
@@ -167,7 +162,7 @@ export default function ReportBuilderPage() {
           </div>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handlePreview} disabled={loading}>
+          <Button variant="outline" onClick={handlePreview}>
             <Eye className="h-4 w-4 ml-2" />
             معاينة
           </Button>
@@ -220,7 +215,14 @@ export default function ReportBuilderPage() {
           <CardTitle className="text-lg">مصدر البيانات</CardTitle>
         </CardHeader>
         <CardContent>
-          <Select value={modelType} onValueChange={setModelType}>
+          <Select
+            value={modelType}
+            onValueChange={(value) => {
+              setModelType(value);
+              const cols = MODELS[value]?.columns.map((c) => c.key) ?? [];
+              setSelectedColumns(cols);
+            }}
+          >
             <SelectTrigger className="w-full max-w-xs">
               <SelectValue placeholder="اختر نوع البيانات" />
             </SelectTrigger>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -32,33 +32,26 @@ export function UserFormDialog({
   isSaving,
   isRtl,
 }: UserFormDialogProps) {
-  const [form, setForm] = useState<UserFormData>({
-    name: '',
-    email: '',
-    roleId: roles[0]?.id || '',
-    branchIds: [],
-  });
-  const [submitting, setSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (open) {
-      if (editingUser) {
-        setForm({
-          name: editingUser.name || '',
-          email: editingUser.email,
-          roleId: editingUser.role.id,
-          branchIds: editingUser.branches?.map((b) => b.id) || [],
-        });
-      } else {
-        setForm({
-          name: '',
-          email: '',
-          roleId: roles[0]?.id || '',
-          branchIds: [],
-        });
-      }
+  const getInitialForm = (): UserFormData => {
+    if (editingUser) {
+      return {
+        name: editingUser.name || '',
+        email: editingUser.email,
+        roleId: editingUser.role.id,
+        branchIds: editingUser.branches?.map((b) => b.id) || [],
+      };
     }
-  }, [open, editingUser, roles]);
+
+    return {
+      name: '',
+      email: '',
+      roleId: roles[0]?.id || '',
+      branchIds: [],
+    };
+  };
+
+  const [form, setForm] = useState<UserFormData>(getInitialForm);
+  const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,7 +59,7 @@ export function UserFormDialog({
     try {
       await onSave(form);
       onOpenChange(false);
-    } catch (error) {
+      } catch {
       // Error already handled in hook
     } finally {
       setSubmitting(false);
@@ -105,8 +98,11 @@ export function UserFormDialog({
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1.5">
+          <form
+            key={editingUser?.id ?? 'new-user'}
+            onSubmit={handleSubmit}
+            className="space-y-4"
+          >          <div className="space-y-1.5">
             <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
               {isRtl ? 'الاسم الكامل' : 'Full Name'} <span className="text-rose-500">*</span>
             </Label>

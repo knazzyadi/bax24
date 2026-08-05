@@ -3,7 +3,6 @@
 
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
 import {
   FileText,
   Building,
@@ -47,9 +46,18 @@ interface Contract {
   agentEmail?: string | null;
 }
 
+import type { LucideIcon } from "lucide-react";
+
 const STATUS_CONFIG: Record<
   string,
-  { label: string; color: string; bg: string; icon: any; hex: string; glow: string }
+  {
+    label: string;
+    color: string;
+    bg: string;
+    icon: LucideIcon;
+    hex: string;
+    glow: string;
+  }
 > = {
   PENDING_REVIEW: {
     label: "قيد المراجعة",
@@ -134,8 +142,8 @@ export default function ContractsClient({
     router.push(`/${locale}/contracts/${id}/edit`);
   };
 
-  const handleDelete = async (id: string, title: string) => {
-    const res = await fetch(`/api/contracts/${id}`, { method: "DELETE" });
+      const handleDelete = async (id: string) => {
+      const res = await fetch(`/api/contracts/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const error = await res.json();
       throw new Error(error.error || "فشل الحذف");

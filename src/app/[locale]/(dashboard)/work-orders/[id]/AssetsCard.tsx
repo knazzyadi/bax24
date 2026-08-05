@@ -35,7 +35,7 @@ interface AssetsCardProps {
   onCompleteAsset: (asset: WorkOrderAsset) => void;
   onCompleteAll: () => void;
   isRtl: boolean;
-  t: (key: string, options?: any) => string;
+  t: (key: string, values?: Record<string, string | number | Date>) => string;
   actionLoading: boolean;
   locale: string;
 }
@@ -53,7 +53,6 @@ export function AssetsCard({
 }: AssetsCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
-  // ✅ تم تعديل الدالة لاستقبال string | null
   const formatDate = (dateStr: string | null) => {
     if (!dateStr) return "—";
     const date = new Date(dateStr);
@@ -63,7 +62,6 @@ export function AssetsCard({
 
   const textAlign = isRtl ? "text-right" : "text-left";
 
-  // ✅ عرض مبسط للأصول (قائمة مختصرة)
   const renderSimpleList = () => (
     <div className="flex flex-wrap gap-2 mt-2">
       {workOrderAssets.map((woa) => {
@@ -112,10 +110,8 @@ export function AssetsCard({
 
       {hasAssets ? (
         <>
-          {/* ✅ عرض القائمة المبسطة دائماً */}
           {renderSimpleList()}
 
-          {/* ✅ زر عرض التفاصيل / إخفائها */}
           <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-200/50 dark:border-slate-800/50">
             <Button
               variant="ghost"
@@ -149,7 +145,6 @@ export function AssetsCard({
             )}
           </div>
 
-          {/* ✅ الجدول التفصيلي (يظهر عند التوسيع) */}
           {isExpanded && (
             <div className="mt-4 border border-slate-200/50 dark:border-slate-800/50 rounded-xl overflow-x-auto">
               <Table>

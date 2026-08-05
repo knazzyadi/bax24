@@ -4,9 +4,18 @@ import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 import { uploadFileToR2, deleteFileFromR2 } from "@/lib/storage";
 import { createWorkOrderWithRetry } from "@/lib/generateCode";
+import { Prisma, TicketStatus, TicketType } from '@prisma/client';
 
-const allowedTicketTypes = ["MAINTENANCE", "INCIDENT"];
-const allowedTicketStatuses = ["PENDING", "APPROVED", "REJECTED"];
+const allowedTicketTypes: TicketType[] = [
+  'MAINTENANCE',
+  'INCIDENT',
+];
+
+const allowedTicketStatuses: TicketStatus[] = [
+  'PENDING',
+  'APPROVED',
+  'REJECTED',
+];
 
 // ===========================
 // GET
@@ -53,7 +62,7 @@ export async function GET(
     }
 
     return NextResponse.json(ticket);
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("GET /api/tickets/[id] error:", error);
     return NextResponse.json({ error: "خطأ في جلب التذكرة" }, { status: 500 });
   }
@@ -98,7 +107,9 @@ export async function PUT(
     }
 
     const contentType = request.headers.get("content-type") || "";
-    const dataToUpdate: any = { updatedAt: new Date() };
+    const dataToUpdate: Prisma.TicketUncheckedUpdateInput = {
+      updatedAt: new Date(),
+    };
 
     // ========== multipart/form-data ==========
     if (contentType.includes("multipart/form-data")) {
@@ -139,8 +150,9 @@ export async function PUT(
             await deleteFileFromR2(oldAtt.key);
             await prisma.ticketAttachment.delete({ where: { id: oldAtt.id } });
           }
-        } catch (err: any) {
-          return NextResponse.json({ error: err.message }, { status: 400 });
+        } catch (err: unknown) {
+          const message = err instanceof Error ? err.message : 'فشل رفع الملف';
+          return NextResponse.json({ error: message }, { status: 400 });
         }
       } else if (removeImage === "true") {
         for (const att of existingTicket.attachments) {
@@ -150,20 +162,20 @@ export async function PUT(
       }
 
       // التحقق من type و status
-      if (type && !allowedTicketTypes.includes(type)) {
+      if (type && !allowedTicketTypes.includes(type as TicketType)) {
         return NextResponse.json({ error: "نوع التذكرة غير صالح" }, { status: 400 });
       }
-      if (type) dataToUpdate.type = type;
+      if (type) dataToUpdate.type = type as TicketType;
 
       let newStatus = status;
       if (!newStatus && action === "APPROVED") newStatus = "APPROVED";
       if (!newStatus && action === "REJECTED") newStatus = "REJECTED";
 
       if (newStatus) {
-        if (!["APPROVED", "REJECTED"].includes(newStatus) && !allowedTicketStatuses.includes(newStatus)) {
+        if (!["APPROVED", "REJECTED"].includes(newStatus) && !allowedTicketStatuses.includes(newStatus as TicketStatus)) {
           return NextResponse.json({ error: "حالة التذكرة غير صالحة" }, { status: 400 });
         }
-        dataToUpdate.status = newStatus;
+        dataToUpdate.status = newStatus as TicketStatus;
         if (newStatus === "REJECTED") {
           if (!rejectionReason) {
             return NextResponse.json({ error: "سبب الرفض مطلوب" }, { status: 400 });
@@ -185,7 +197,6 @@ export async function PUT(
               return NextResponse.json({ error: "Missing default work order config" }, { status: 400 });
             }
             const workOrderType = existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE";
-            // ✅ إنشاء أمر العمل مع إزالة الحقول غير المدعومة (source, sourceType, sourceId)
             await createWorkOrderWithRetry({
               title: existingTicket.title,
               description: existingTicket.description ?? undefined,
@@ -198,7 +209,6 @@ export async function PUT(
               createdBy: session.userId,
               ticketId: existingTicket.id,
               assetId: existingTicket.assetId,
-              // تم إزالة source و sourceType و sourceId
             });
           }
         }
@@ -267,7 +277,6 @@ export async function PUT(
               return NextResponse.json({ error: "Missing default work order config" }, { status: 400 });
             }
             const workOrderType = existingTicket.type === "INCIDENT" ? "CORRECTIVE" : "MAINTENANCE";
-            // ✅ إنشاء أمر العمل مع إزالة الحقول غير المدعومة
             await createWorkOrderWithRetry({
               title: existingTicket.title,
               description: existingTicket.description ?? undefined,
@@ -280,7 +289,6 @@ export async function PUT(
               createdBy: session.userId,
               ticketId: existingTicket.id,
               assetId: existingTicket.assetId,
-              // تم إزالة source و sourceType و sourceId
             });
           }
         }
@@ -296,9 +304,10 @@ export async function PUT(
     });
 
     return NextResponse.json(updatedTicket);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("PUT /api/tickets/[id] error:", error);
-    return NextResponse.json({ error: error.message || "فشل التحديث" }, { status: 500 });
+    const message = error instanceof Error ? error.message : "فشل التحديث";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
@@ -353,7 +362,7 @@ export async function DELETE(
     });
 
     return NextResponse.json({ message: "تم حذف التذكرة وجميع مرفقاتها" });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("DELETE /api/tickets/[id] error:", error);
     return NextResponse.json({ error: "فشل الحذف" }, { status: 500 });
   }

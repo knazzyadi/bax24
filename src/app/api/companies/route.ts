@@ -5,8 +5,8 @@ import { requirePermission } from '@/lib/auth/permissions';
 import { CompanyService } from '@/services/CompanyService';
 
 // GET: جلب جميع الشركات
-export async function GET(request: NextRequest) {
-  try {
+export async function GET() {
+    try {
     // ✅ 1. جلب الجلسة
     const session = await getAuthenticatedSession();
     if (!session) {
@@ -24,41 +24,51 @@ export async function GET(request: NextRequest) {
     const companies = await CompanyService.getAll();
 
     return NextResponse.json(companies);
-  } catch (error: any) {
-    console.error('==============================');
-    console.error('GET /api/companies FULL ERROR');
-    console.error(error);
-    console.error('Message:', error?.message);
-    console.error('Stack:', error?.stack);
-    console.error('==============================');
+  } catch (error: unknown) {
+  console.error('==============================');
+  console.error('GET /api/companies FULL ERROR');
+  console.error(error);
 
-    if (error?.message === 'UNAUTHORIZED') {
-      return NextResponse.json(
-        { error: 'غير مصرح' },
-        { status: 401 }
-      );
-    }
+  const message =
+    error instanceof Error
+      ? error.message
+      : 'حدث خطأ في الخادم';
 
-    if (error?.message === 'FORBIDDEN') {
-      return NextResponse.json(
-        { error: 'لا تملك الصلاحية' },
-        { status: 403 }
-      );
-    }
+  const stack =
+    error instanceof Error
+      ? error.stack
+      : undefined;
 
+  console.error('Message:', message);
+  console.error('Stack:', stack);
+  console.error('==============================');
+
+  if (message === 'UNAUTHORIZED') {
     return NextResponse.json(
-      {
-        error: error?.message || 'حدث خطأ في الخادم',
-        stack:
-          process.env.NODE_ENV === 'development'
-            ? error?.stack
-            : undefined,
-      },
-      { status: 500 }
+      { error: 'غير مصرح' },
+      { status: 401 }
     );
   }
-}
 
+  if (message === 'FORBIDDEN') {
+    return NextResponse.json(
+      { error: 'لا تملك الصلاحية' },
+      { status: 403 }
+    );
+  }
+
+  return NextResponse.json(
+    {
+      error: message,
+      stack:
+        process.env.NODE_ENV === 'development'
+          ? stack
+          : undefined,
+    },
+    { status: 500 }
+  );
+}
+}
 // POST: إنشاء شركة جديدة
 export async function POST(request: NextRequest) {
   try {
@@ -83,47 +93,58 @@ export async function POST(request: NextRequest) {
     const companyWithStats = await CompanyService.getById(company.id);
 
     return NextResponse.json(companyWithStats, { status: 201 });
-  } catch (error: any) {
-    console.error('==============================');
-    console.error('POST /api/companies FULL ERROR');
-    console.error(error);
-    console.error('Message:', error?.message);
-    console.error('Stack:', error?.stack);
-    console.error('==============================');
+  } catch (error: unknown) {
+  console.error('==============================');
+  console.error('POST /api/companies FULL ERROR');
+  console.error(error);
 
-    if (error?.message === 'UNAUTHORIZED') {
-      return NextResponse.json(
-        { error: 'غير مصرح' },
-        { status: 401 }
-      );
-    }
+  const message =
+    error instanceof Error
+      ? error.message
+      : 'حدث خطأ في الخادم';
 
-    if (error?.message === 'FORBIDDEN') {
-      return NextResponse.json(
-        { error: 'لا تملك الصلاحية' },
-        { status: 403 }
-      );
-    }
+  const stack =
+    error instanceof Error
+      ? error.stack
+      : undefined;
 
-    if (
-      error?.message === 'يوجد شركة بنفس الاسم' ||
-      error?.message === 'اسم الشركة مطلوب'
-    ) {
-      return NextResponse.json(
-        { error: error.message },
-        { status: 400 }
-      );
-    }
+  console.error('Message:', message);
+  console.error('Stack:', stack);
+  console.error('==============================');
 
+  if (message === 'UNAUTHORIZED') {
     return NextResponse.json(
-      {
-        error: error?.message || 'حدث خطأ في الخادم',
-        stack:
-          process.env.NODE_ENV === 'development'
-            ? error?.stack
-            : undefined,
-      },
-      { status: 500 }
+      { error: 'غير مصرح' },
+      { status: 401 }
     );
   }
+
+  if (message === 'FORBIDDEN') {
+    return NextResponse.json(
+      { error: 'لا تملك الصلاحية' },
+      { status: 403 }
+    );
+  }
+
+  if (
+    message === 'يوجد شركة بنفس الاسم' ||
+    message === 'اسم الشركة مطلوب'
+  ) {
+    return NextResponse.json(
+      { error: message },
+      { status: 400 }
+    );
+  }
+
+  return NextResponse.json(
+    {
+      error: message,
+      stack:
+        process.env.NODE_ENV === 'development'
+          ? stack
+          : undefined,
+    },
+    { status: 500 }
+  );
+}
 }

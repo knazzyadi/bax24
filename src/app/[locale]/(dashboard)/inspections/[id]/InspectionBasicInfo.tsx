@@ -1,14 +1,21 @@
 // src/app/[locale]/(dashboard)/inspections/[id]/InspectionBasicInfo.tsx
+
 "use client";
 
 import { useLocale } from "next-intl";
 import { Calendar, MapPin, User, ClipboardCheck } from "lucide-react";
+import type { Inspection } from "../types";
 
 interface InspectionBasicInfoProps {
-  inspection: any;
+  inspection: Pick<
+    Inspection,
+    "locationName" | "scheduledDate" | "inspectorName" | "_count"
+  >;
 }
 
-export function InspectionBasicInfo({ inspection }: InspectionBasicInfoProps) {
+export function InspectionBasicInfo({
+  inspection,
+}: InspectionBasicInfoProps) {
   const locale = useLocale();
   const isRtl = locale === "ar";
 
@@ -16,22 +23,28 @@ export function InspectionBasicInfo({ inspection }: InspectionBasicInfoProps) {
     {
       icon: MapPin,
       label: isRtl ? "الموقع" : "Location",
-      value: inspection.locationName || (isRtl ? "غير محدد" : "Unspecified"),
+      value:
+        inspection.locationName ||
+        (isRtl ? "غير محدد" : "Unspecified"),
     },
     {
       icon: Calendar,
       label: isRtl ? "تاريخ الفحص" : "Date",
-      value: new Date(inspection.scheduledDate).toLocaleDateString(isRtl ? "ar-SA" : "en-US"),
+      value: new Date(
+        inspection.scheduledDate
+      ).toLocaleDateString(isRtl ? "ar-SA" : "en-US"),
     },
     {
       icon: User,
       label: isRtl ? "المفتش" : "Inspector",
-      value: inspection.inspectorName || (isRtl ? "غير محدد" : "Unspecified"),
+      value:
+        inspection.inspectorName ||
+        (isRtl ? "غير محدد" : "Unspecified"),
     },
     {
       icon: ClipboardCheck,
       label: isRtl ? "إجمالي البنود" : "Total Items",
-      value: inspection._count?.totalItems || 0,
+      value: inspection._count?.totalItems ?? 0,
     },
   ];
 
@@ -42,9 +55,15 @@ export function InspectionBasicInfo({ inspection }: InspectionBasicInfoProps) {
           <div className="p-2 rounded-xl bg-indigo-50/50 dark:bg-indigo-950/20">
             <item.icon className="h-4 w-4 text-indigo-500" />
           </div>
+
           <div>
-            <p className="text-xs text-slate-500">{item.label}</p>
-            <p className="text-sm font-medium text-slate-700">{item.value}</p>
+            <p className="text-xs text-slate-500">
+              {item.label}
+            </p>
+
+            <p className="text-sm font-medium text-slate-700">
+              {item.value}
+            </p>
           </div>
         </div>
       ))}

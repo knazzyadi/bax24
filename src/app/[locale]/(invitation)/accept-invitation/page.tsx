@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
-import { useTranslations, useLocale } from 'next-intl';
+import { useLocale } from 'next-intl';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -19,7 +19,6 @@ export default function AcceptInvitationPage() {
   const router = useRouter();
   const locale = useLocale();
   const isRtl = locale === 'ar';
-  const t = useTranslations('Invitation');
 
   const token = searchParams.get('token');
 
@@ -29,15 +28,15 @@ export default function AcceptInvitationPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  // ✅ استخدام null بدلاً من نص فارغ
+  const [error, setError] = useState<string | null>(() =>
+    !token
+      ? isRtl
+        ? 'رابط الدعوة غير صالح'
+        : 'Invalid invitation link'
+      : null
+  );
   const [success, setSuccess] = useState(false);
-
-  // التحقق من وجود التوكن
-  useEffect(() => {
-    if (!token) {
-      setError(isRtl ? 'رابط الدعوة غير صالح' : 'Invalid invitation link');
-    }
-  }, [token, isRtl]);
 
   // إعادة التوجيه بعد النجاح
   useEffect(() => {
@@ -68,7 +67,7 @@ export default function AcceptInvitationPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setError('');
+    setError(null); // ✅ استخدام null بدلاً من ''
 
     if (!token) {
       setError(isRtl ? 'رابط الدعوة غير صالح' : 'Invalid invitation link');

@@ -8,7 +8,7 @@ import {
   XCircle,
   type LucideIcon,
 } from "lucide-react";
-import type { WorkOrder, WorkOrderAttachment } from "./types";
+import type { WorkOrder } from "./types";
 
 // ============================================================
 // تعريف علاقات أمر العمل للاستعلامات المتكررة
@@ -363,6 +363,17 @@ export function getWorkOrderTypeLabel(type: string, isRtl: boolean = false): str
   return isRtl ? entry.ar : entry.en;
 }
 
-export function getAssetCount(workOrder: any): number {
+// ============================================================
+// ✅ واجهة مساعدة لحساب عدد الأصول (بدون any)
+// ============================================================
+interface AssetCountSource {
+  assetCount?: number | null;
+  workOrderAssets?: unknown[] | null;
+}
+
+// ============================================================
+// ✅ دالة حساب عدد الأصول (نوع آمن)
+// ============================================================
+export function getAssetCount(workOrder: AssetCountSource): number {
   return workOrder.assetCount ?? workOrder.workOrderAssets?.length ?? 0;
 }

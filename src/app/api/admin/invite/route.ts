@@ -5,6 +5,14 @@ import { prisma } from '@/lib/prisma';
 import crypto from 'crypto';
 import { sendInvitationEmail } from '@/lib/email';
 
+// واجهة بيانات الطلب
+interface InviteRequestBody {
+  email: string;
+  name: string;
+  roleId: string;
+  companyId: string;
+}
+
 export async function POST(req: Request) {
   try {
     let session;
@@ -26,8 +34,11 @@ export async function POST(req: Request) {
       );
     }
 
-    const { email, name, roleId, companyId } = await req.json();
+    // استلام البيانات مع تحديد النوع
+    const body = (await req.json()) as InviteRequestBody;
+    const { email, name, roleId, companyId } = body;
 
+    // التحقق من وجود جميع الحقول المطلوبة
     if (!email || !name || !roleId || !companyId) {
       return NextResponse.json(
         { error: 'بيانات ناقصة (البريد، الاسم، الدور، والشركة مطلوبة)' },
@@ -90,11 +101,7 @@ export async function POST(req: Request) {
     });
 
     // إرسال البريد الإلكتروني للدعوة
-    await sendInvitationEmail(
-      email,
-      token,
-      company.name
-    );
+    await sendInvitationEmail(email, token, company.name);
 
     return NextResponse.json({
       success: true,
@@ -108,10 +115,12 @@ export async function POST(req: Request) {
         createdAt: user.createdAt,
       },
     });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    // ✅ معالجة آمنة للخطأ باستخدام instanceof
+    const message = error instanceof Error ? error.message : 'حدث خطأ غير معروف';
     console.error('POST /api/admin/invite error:', error);
     return NextResponse.json(
-      { error: 'حدث خطأ في الخادم' },
+      { error: message },
       { status: 500 }
     );
   }

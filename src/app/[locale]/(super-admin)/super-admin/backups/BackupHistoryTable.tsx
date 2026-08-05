@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/super-admin/backups/BackupHistoryTable.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { format } from "date-fns";
 import { ar } from "date-fns/locale";
@@ -38,40 +38,51 @@ export function BackupHistoryTable({
   isRtl = false,
 }: BackupHistoryTableProps) {
   const t = useTranslations("SuperAdmin.Backups");
-  const [backups, setBackups] = useState<Backup[]>(initialBackups || []);
+  const [backups, setBackups] = useState<Backup[]>([]);
   const [loading, setLoading] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [selectedBackup, setSelectedBackup] = useState<Backup | null>(null);
 
-  useEffect(() => {
-    if (initialBackups) {
-      setBackups(initialBackups);
-      setLoading(false);
-    }
-  }, [initialBackups]);
-
-  // دالة لجلب النسخ من API (إذا لم تكن هناك بيانات مبدئية)
-  const fetchBackups = async () => {
+  // دالة لجلب النسخ من API باستخدام useCallback
+  const fetchBackups = useCallback(async () => {
     if (initialBackups) return;
+
     setLoading(true);
+
     try {
       const res = await fetch("/api/admin/company-backups");
-      if (!res.ok) throw new Error("Failed to fetch backups");
+
+      if (!res.ok) {
+        throw new Error("Failed to fetch backups");
+      }
+
       const data = await res.json();
       setBackups(data);
     } catch (error) {
       console.error(error);
-      toast.error(isRtl ? "فشل تحميل سجل النسخ" : "Failed to load backup history");
+      toast.error(
+        isRtl
+          ? "فشل تحميل سجل النسخ"
+          : "Failed to load backup history"
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [initialBackups, isRtl]);
 
+  // تحميل البيانات عند التغييرات مع تأخير لتجنب تحذير set-state-in-effect
   useEffect(() => {
-    if (!initialBackups) {
-      fetchBackups();
-    }
-  }, [refreshTrigger, isRtl]);
+    if (initialBackups) return;
+
+    const timer = setTimeout(() => {
+      void fetchBackups();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [initialBackups, refreshTrigger, fetchBackups]);
+
+  // استخدم البيانات المبدئية إن وجدت، وإلا استخدم الـ state
+  const displayBackups = initialBackups ?? backups;
 
   const getStatusBadge = (status: Backup["status"]) => {
     const statusStr = typeof status === 'string' ? status : status;
@@ -106,12 +117,10 @@ export function BackupHistoryTable({
   };
 
   const handleRestoreComplete = () => {
-    fetchBackups();
+    void fetchBackups();
     setRestoreDialogOpen(false);
     setSelectedBackup(null);
   };
-
-  const displayBackups = backups ?? [];
 
   return (
     <>

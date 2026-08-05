@@ -58,8 +58,9 @@ export default function WorkOrderPrioritiesPage() {
       toast.success(t("deleteSuccess"));
       refetch();
       setConfirmDialog({ open: false });
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "حدث خطأ غير معروف";
+      toast.error(message);
     } finally {
       setDeleting(false);
     }
@@ -81,11 +82,15 @@ export default function WorkOrderPrioritiesPage() {
           ids: newPriorities.map((p) => p.id),
         }),
       });
-      if (!res.ok) throw new Error("Failed to reorder");
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}));
+        throw new Error(error.error || "فشل تحديث الترتيب");
+      }
       toast.success(isRtl ? "تم تحديث الترتيب" : "Order updated");
       refetch();
-    } catch (error) {
-      toast.error(isRtl ? "فشل تحديث الترتيب" : "Failed to update order");
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : (isRtl ? "فشل تحديث الترتيب" : "Failed to update order");
+      toast.error(message);
     }
   };
 

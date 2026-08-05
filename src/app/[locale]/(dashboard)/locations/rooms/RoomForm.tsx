@@ -1,8 +1,7 @@
 // src/app/[locale]/(dashboard)/locations/rooms/RoomForm.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useState } from 'react'; // ✅ حذف useEffect
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,35 +29,16 @@ export function RoomForm({
   onSuccess,
   isRtl,
 }: RoomFormProps) {
-  const t = useTranslations('Locations');
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    nameEn: '',
-    code: '',
-    order: 0,
-    floorId: '',
-  });
 
-  useEffect(() => {
-    if (editingRoom) {
-      setFormData({
-        name: editingRoom.name || '',
-        nameEn: editingRoom.nameEn || '',
-        code: editingRoom.code || '',
-        order: editingRoom.order ?? 0,
-        floorId: editingRoom.floorId || '',
-      });
-    } else {
-      setFormData({
-        name: '',
-        nameEn: '',
-        code: '',
-        order: 0,
-        floorId: '',
-      });
-    }
-  }, [editingRoom]);
+  // ✅ حالة أولية مباشرة بدون useEffect
+  const [formData, setFormData] = useState(() => ({
+    name: editingRoom?.name ?? '',
+    nameEn: editingRoom?.nameEn ?? '',
+    code: editingRoom?.code ?? '',
+    order: editingRoom?.order ?? 0,
+    floorId: editingRoom?.floorId ?? '',
+  }));
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type } = e.target;
@@ -122,8 +102,15 @@ export function RoomForm({
           : 'Room created successfully'
       );
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || (isRtl ? 'حدث خطأ أثناء الحفظ' : 'Save error'));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : isRtl
+            ? 'حدث خطأ أثناء الحفظ'
+            : 'Save error';
+
+      toast.error(message);
       console.error(error);
     } finally {
       setLoading(false);

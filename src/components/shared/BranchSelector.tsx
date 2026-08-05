@@ -25,7 +25,7 @@ interface BranchSelectorProps {
   onValueChange: (value: string) => void;
   disabled?: boolean;
   className?: string;
-  placeholder?: string;
+  // ✅ تم حذف placeholder
   emptyMessage?: string;
   loadingMessage?: string;
   errorMessage?: string;
@@ -40,7 +40,7 @@ export function BranchSelector({
   onValueChange,
   disabled = false,
   className = "",
-  placeholder,
+  // ✅ تم حذف placeholder
   emptyMessage,
   loadingMessage,
   errorMessage,
@@ -82,7 +82,6 @@ export function BranchSelector({
       })
       .then((data) => {
         if (!signal.aborted) {
-          // ✅ حماية البيانات: التأكد من أن data مصفوفة
           setBranches(Array.isArray(data) ? data : []);
         }
       })
@@ -114,28 +113,28 @@ export function BranchSelector({
   // ✅ حماية البيانات من null/undefined
   const safeBranches = (branches || []).filter(Boolean);
 
-  // ✅ خيار افتراضي يظهر دائماً
-  const defaultOption = {
-    id: NONE_VALUE,
-    label: defaultText.selectLabel,
-  };
-
-  // ✅ بناء قائمة الخيارات مع الخيار الافتراضي دائماً
+  // ✅ بناء قائمة الخيارات مع الخيار الافتراضي (يُعرّف داخل useMemo)
   const branchOptions = useMemo(() => {
+    // خيار افتراضي
+    const defaultOption = {
+      id: NONE_VALUE,
+      label: defaultText.selectLabel,
+    };
+
     const options = safeBranches.map((branch) => ({
       id: branch.id,
       label: getDisplayName(branch),
     }));
-    // دمج الخيار الافتراضي مع الخيارات فقط إذا كانت هناك فروع
+
     return safeBranches.length > 0 ? [defaultOption, ...options] : options;
-  }, [safeBranches, getDisplayName, defaultOption]);
+  }, [safeBranches, getDisplayName, defaultText.selectLabel]);
 
   // ✅ تحويل القيمة الفارغة إلى القيمة المميزة للعرض
   const selectValue = value || NONE_VALUE;
 
   const handleValueChange = (val: string) => {
     if (val === NONE_VALUE) {
-      onValueChange(""); // إعادة تعيين إلى قيمة فارغة (لا شيء محدد)
+      onValueChange("");
     } else {
       onValueChange(val);
     }
@@ -148,14 +147,6 @@ export function BranchSelector({
   );
 
   const displayValue = selectedBranch ? getDisplayName(selectedBranch) : undefined;
-
-  // ----- نص الـ placeholder (يستخدم فقط للتحميل أو الخطأ) -----
-  const getPlaceholderText = () => {
-    if (loading) return loadingMessage ?? defaultText.loading;
-    if (error) return errorMessage ?? defaultText.error;
-    if (safeBranches.length === 0) return emptyMessage ?? defaultText.empty;
-    return placeholder ?? defaultText.placeholder;
-  };
 
   // ----- تحديد ما إذا كان Select معطلاً -----
   const isDisabled = disabled || loading || !!error || safeBranches.length === 0;
@@ -175,10 +166,7 @@ export function BranchSelector({
             (loading || error || safeBranches.length === 0) && "opacity-70"
           )}
         >
-          {/* ✅ بدون placeholder، لأن القيمة موجودة دائماً، مع عرض القيمة المختارة */}
-          <SelectValue>
-            {displayValue}
-          </SelectValue>
+          <SelectValue>{displayValue}</SelectValue>
           {loading && <Loader2 className="h-4 w-4 animate-spin shrink-0 ml-auto" />}
         </SelectTrigger>
 

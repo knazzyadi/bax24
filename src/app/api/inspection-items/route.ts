@@ -1,43 +1,79 @@
 // src/app/api/inspection-items/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
-import { prisma } from "@/lib/prisma";
+
+import { NextRequest, NextResponse } from 'next/server';
+
+import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
+import { prisma } from '@/lib/prisma';
 
 // Helper function to generate a unique code for item
 function generateItemCode(name: string, categoryCode: string): string {
   const prefix = name
-    .replace(/[^a-zA-Z0-9]/g, "")
+    .replace(/[^a-zA-Z0-9]/g, '')
     .substring(0, 3)
     .toUpperCase();
+
   const suffix = Date.now().toString().slice(-4);
+
   return `${categoryCode}-${prefix}${suffix}`;
 }
+
+type FindingData = {
+  id: string;
+  title: string;
+  riskLevel: string;
+  status: string;
+  description: string | null;
+  correctiveAction: string | null;
+  dueDate: Date | null;
+};
+
+type ResultData = {
+  id: string;
+  result: string;
+  notes: string | null;
+  finding: FindingData | null;
+};
+
+type FormItemMap = Record<
+  string,
+  {
+    result: ResultData | null;
+  }
+>;
 
 // GET: جلب البنود الخاصة بفئة معينة (categoryId) مع النتائج والـ Findings
 export async function GET(req: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const companyId = session.companyId;
+
     if (!companyId) {
-      return NextResponse.json({ error: "Company not found" }, { status: 400 });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const categoryId = searchParams.get("categoryId");
-    const inspectionId = searchParams.get("inspectionId");
-
-    if (!categoryId || categoryId.trim() === "") {
       return NextResponse.json(
-        { error: "categoryId is required" },
+        { error: 'Company not found' },
         { status: 400 }
       );
     }
 
-    // ✅ التحقق من أن الفئة تنتمي للشركة
+    const { searchParams } = new URL(req.url);
+
+    const categoryId = searchParams.get('categoryId');
+    const inspectionId = searchParams.get('inspectionId');
+
+    if (!categoryId || categoryId.trim() === '') {
+      return NextResponse.json(
+        { error: 'categoryId is required' },
+        { status: 400 }
+      );
+    }
+
     const category = await prisma.inspectionCategory.findFirst({
       where: {
         id: categoryId,
@@ -48,28 +84,31 @@ export async function GET(req: NextRequest) {
 
     if (!category) {
       return NextResponse.json(
-        { error: "Category not found or access denied" },
+        { error: 'Category not found or access denied' },
         { status: 404 }
       );
     }
 
-    // 1. جلب البنود (items) الخاصة بالفئة
     const items = await prisma.inspectionItem.findMany({
       where: {
         categoryId,
         deletedAt: null,
       },
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }],
+      orderBy: [
+        { sortOrder: 'asc' },
+        { createdAt: 'asc' },
+      ],
     });
 
-    // 2. إذا كان هناك inspectionId، جلب النتائج والـ Findings المرتبطة
-    let formItemsMap: Record<string, any> = {};
+    let formItemsMap: FormItemMap = {};
+
     if (inspectionId) {
-      // جلب inspectionFormItems المرتبطة بهذا الفحص وبهذه البنود
       const formItems = await prisma.inspectionFormItem.findMany({
         where: {
-          inspectionId: inspectionId,
-          itemId: { in: items.map((item) => item.id) },
+          inspectionId,
+          itemId: {
+            in: items.map((item) => item.id),
+          },
         },
         include: {
           results: {
@@ -80,48 +119,52 @@ export async function GET(req: NextRequest) {
         },
       });
 
-      // إنشاء خريطة itemId -> أول result مع findings
-      formItemsMap = formItems.reduce((acc, formItem) => {
+      formItemsMap = formItems.reduce<FormItemMap>((acc, formItem) => {
         const itemId = formItem.itemId;
-        if (!itemId) return acc;
 
-        const result = formItem.results?.[0] || null;
+        if (!itemId) {
+          return acc;
+        }
+
+        const result = formItem.results[0];
+
         acc[itemId] = {
           result: result
             ? {
                 id: result.id,
-                // ✅ التصحيح: استخدم الحقل الصحيح "result" بدلاً من "status"
                 result: result.result,
                 notes: result.notes,
-                finding: result.findings?.[0]
+                finding: result.findings[0]
                   ? {
                       id: result.findings[0].id,
                       title: result.findings[0].title,
-                      riskLevel: result.findings[0].riskLevel,
-                      status: result.findings[0].status,
+                      riskLevel: String(result.findings[0].riskLevel),
+                      status: String(result.findings[0].status),
                       description: result.findings[0].description,
-                      correctiveAction: result.findings[0].correctiveAction,
+                      correctiveAction:
+                        result.findings[0].correctiveAction,
                       dueDate: result.findings[0].dueDate,
                     }
                   : null,
               }
             : null,
         };
+
         return acc;
-      }, {} as Record<string, any>);
+      }, {});
     }
 
-    // 3. دمج النتائج مع البنود
     const transformedItems = items.map((item) => ({
       ...item,
-      result: formItemsMap[item.id]?.result || null,
+      result: formItemsMap[item.id]?.result ?? null,
     }));
 
     return NextResponse.json(transformedItems);
   } catch (error) {
-    console.error("Error fetching inspection items:", error);
+    console.error('Error fetching inspection items:', error);
+
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }
@@ -131,16 +174,25 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      );
     }
 
     const companyId = session.companyId;
+
     if (!companyId) {
-      return NextResponse.json({ error: "Company not found" }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Company not found' },
+        { status: 400 }
+      );
     }
 
     const body = await req.json();
+
     const {
       categoryId,
       name,
@@ -155,9 +207,9 @@ export async function POST(req: NextRequest) {
       code: providedCode,
     } = body;
 
-    if (!categoryId || categoryId.trim() === "") {
+    if (!categoryId || categoryId.trim() === '') {
       return NextResponse.json(
-        { error: "categoryId is required" },
+        { error: 'categoryId is required' },
         { status: 400 }
       );
     }
@@ -167,7 +219,7 @@ export async function POST(req: NextRequest) {
 
     if (!trimmedName && !trimmedNameAr) {
       return NextResponse.json(
-        { error: "Item name is required in at least one language" },
+        { error: 'Item name is required in at least one language' },
         { status: 400 }
       );
     }
@@ -182,31 +234,43 @@ export async function POST(req: NextRequest) {
 
     if (!categoryExists) {
       return NextResponse.json(
-        { error: "Parent category not found or access denied" },
+        { error: 'Parent category not found or access denied' },
         { status: 404 }
       );
+    }
+
+    const conditions = [];
+
+    if (trimmedName) {
+      conditions.push({ name: trimmedName });
+    }
+
+    if (trimmedNameAr) {
+      conditions.push({ nameAr: trimmedNameAr });
     }
 
     const existingName = await prisma.inspectionItem.findFirst({
       where: {
         companyId,
         categoryId,
-        OR: [
-          { name: trimmedName },
-          { nameAr: trimmedNameAr },
-        ].filter(condition => condition !== undefined && condition !== null),
+        OR: conditions,
         deletedAt: null,
       },
     });
 
     if (existingName) {
       return NextResponse.json(
-        { error: "Item with this name already exists in this category" },
+        { error: 'Item with this name already exists in this category' },
         { status: 409 }
       );
     }
 
-    const finalCode = providedCode?.trim() || generateItemCode(trimmedName || trimmedNameAr || "ITEM", categoryExists.code);
+    const finalCode =
+      providedCode?.trim() ||
+      generateItemCode(
+        trimmedName || trimmedNameAr || 'ITEM',
+        categoryExists.code
+      );
 
     const existingCode = await prisma.inspectionItem.findFirst({
       where: {
@@ -218,7 +282,7 @@ export async function POST(req: NextRequest) {
 
     if (existingCode) {
       return NextResponse.json(
-        { error: "Item code already exists" },
+        { error: 'Item code already exists' },
         { status: 409 }
       );
     }
@@ -228,12 +292,12 @@ export async function POST(req: NextRequest) {
         companyId,
         categoryId,
         code: finalCode,
-        name: trimmedName || trimmedNameAr || "Unnamed Item",
+        name: trimmedName || trimmedNameAr || 'Unnamed Item',
         nameAr: trimmedNameAr || null,
         cbahiCode: cbahiCode?.trim() || null,
         description: description?.trim() || null,
-        riskLevel: riskLevel || "medium",
-        inputType: inputType || "pass_fail",
+        riskLevel: riskLevel || 'medium',
+        inputType: inputType || 'pass_fail',
         sortOrder: sortOrder ?? 0,
         isActive: isActive ?? true,
         autoCreateWorkOrder: autoCreateWorkOrder ?? false,
@@ -242,9 +306,10 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(newItem, { status: 201 });
   } catch (error) {
-    console.error("Error creating inspection item:", error);
+    console.error('Error creating inspection item:', error);
+
     return NextResponse.json(
-      { error: "Internal Server Error" },
+      { error: 'Internal Server Error' },
       { status: 500 }
     );
   }

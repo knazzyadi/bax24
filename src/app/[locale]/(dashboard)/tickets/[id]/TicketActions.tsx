@@ -1,6 +1,9 @@
 // src/app/[locale]/(dashboard)/tickets/[id]/TicketActions.tsx
 "use client";
 
+// =========================
+// Imports
+// =========================
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
 import { Check, Loader2, Ban } from "lucide-react";
@@ -20,16 +23,23 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
+// =========================
+// Types
+// =========================
 interface TicketActionsProps {
   ticketId: string;
   currentStatus: string; // PENDING, APPROVED, REJECTED
 }
 
+// =========================
+// Component: TicketActions
+// =========================
 export function TicketActions({ ticketId, currentStatus }: TicketActionsProps) {
   const router = useRouter();
   const locale = useLocale();
   const isRtl = locale === "ar";
 
+  // ----- State -----
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const [rejectReason, setRejectReason] = useState("");
@@ -38,7 +48,7 @@ export function TicketActions({ ticketId, currentStatus }: TicketActionsProps) {
   // إذا لم تكن الحالة معلقة لا تظهر الأزرار
   if (currentStatus !== "PENDING") return null;
 
-  // ✅ قبول البلاغ
+  // ----- Handlers -----
   const handleApprove = async () => {
     setIsApproving(true);
     try {
@@ -64,16 +74,20 @@ export function TicketActions({ ticketId, currentStatus }: TicketActionsProps) {
       setTimeout(() => {
         router.push(`/${locale}/tickets`);
       }, 500);
-    } catch (err: any) {
-      toast.error(
-        err.message || (isRtl ? "تعذر الاتصال بالخادم" : "Server error")
-      );
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : isRtl
+            ? "تعذر الاتصال بالخادم"
+            : "Server error";
+
+      toast.error(message);
     } finally {
       setIsApproving(false);
     }
   };
 
-  // ❌ رفض البلاغ
   const handleReject = async () => {
     if (!rejectReason.trim()) {
       toast.error(
@@ -113,16 +127,22 @@ export function TicketActions({ ticketId, currentStatus }: TicketActionsProps) {
       setTimeout(() => {
         router.push(`/${locale}/tickets`);
       }, 500);
-    } catch (err: any) {
-      toast.error(
-        err.message || (isRtl ? "خطأ في الشبكة" : "Network error")
-      );
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : isRtl
+            ? "خطأ في الشبكة"
+            : "Network error";
+
+      toast.error(message);
     } finally {
       setIsRejecting(false);
       setRejectReason("");
     }
   };
 
+  // ----- Render -----
   return (
     <div className="space-y-3" dir={isRtl ? "rtl" : "ltr"}>
       {/* ✅ زر قبول - بتدرج indigo → purple */}

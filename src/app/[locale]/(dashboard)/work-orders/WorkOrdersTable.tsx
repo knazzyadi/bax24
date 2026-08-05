@@ -16,7 +16,6 @@ import {
   getWorkOrderTypeLabel,
   getFullLocation,
   getStatusDisplay,
-  getPriorityDisplay,
 } from "./helpers";
 import type { WorkOrder } from "./types";
 import { StatusBadge } from "./StatusBadge";

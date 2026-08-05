@@ -1,15 +1,13 @@
 // src/app/[locale]/(dashboard)/locations/rooms/RoomsTable.tsx
 'use client';
 
-import { useTranslations } from 'next-intl';
 import { Edit, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { DataTable } from '@/components/shared/layout/DataTable';
-import type { Room, Floor } from './types';
+import type { Room } from './types';
 
 interface RoomsTableProps {
   data: Room[];
-  floors: Floor[];
   onEdit: (room: Room) => void;
   onDelete: (id: string) => void;
   isRtl: boolean;
@@ -17,13 +15,10 @@ interface RoomsTableProps {
 
 export function RoomsTable({
   data,
-  floors,
   onEdit,
   onDelete,
   isRtl,
 }: RoomsTableProps) {
-  const t = useTranslations('Locations');
-
   const columns = [
     {
       key: 'name',

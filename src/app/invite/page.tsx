@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 
-export default function InvitePage() {
+function InviteContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get('token');
 
@@ -16,10 +16,12 @@ export default function InvitePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (password !== confirmPassword) {
       setError('كلمتا المرور غير متطابقتين');
       return;
     }
+
     if (password.length < 6) {
       setError('كلمة المرور يجب أن تكون 6 أحرف على الأقل');
       return;
@@ -31,9 +33,12 @@ export default function InvitePage() {
     try {
       const res = await fetch('/api/invite/accept', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ token, password }),
       });
+
       const data = await res.json();
 
       if (!res.ok) {
@@ -41,11 +46,17 @@ export default function InvitePage() {
       }
 
       setSuccess(true);
+
       setTimeout(() => {
         window.location.href = '/login?invited=true';
       }, 2000);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : 'حدث خطأ غير متوقع';
+
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -55,9 +66,18 @@ export default function InvitePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-red-600">رابط غير صالح</h1>
-          <p className="mt-2">لم يتم توفير رمز الدعوة.</p>
-          <Link href="/login" className="mt-4 inline-block text-indigo-600 hover:underline">
+          <h1 className="text-2xl font-bold text-red-600">
+            رابط غير صالح
+          </h1>
+
+          <p className="mt-2">
+            لم يتم توفير رمز الدعوة.
+          </p>
+
+          <Link
+            href="/login"
+            className="mt-4 inline-block text-indigo-600 hover:underline"
+          >
             العودة إلى تسجيل الدخول
           </Link>
         </div>
@@ -69,8 +89,13 @@ export default function InvitePage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background px-4">
         <div className="text-center">
-          <h1 className="text-2xl font-bold text-green-600">تم تفعيل الحساب بنجاح!</h1>
-          <p className="mt-2">جاري توجيهك إلى صفحة تسجيل الدخول...</p>
+          <h1 className="text-2xl font-bold text-green-600">
+            تم تفعيل الحساب بنجاح!
+          </h1>
+
+          <p className="mt-2">
+            جاري توجيهك إلى صفحة تسجيل الدخول...
+          </p>
         </div>
       </div>
     );
@@ -79,14 +104,20 @@ export default function InvitePage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">
       <div className="w-full max-w-md bg-card border border-border rounded-2xl shadow-xl p-8">
-        <h1 className="text-2xl font-bold text-center mb-6">تفعيل الحساب</h1>
+        <h1 className="text-2xl font-bold text-center mb-6">
+          تفعيل الحساب
+        </h1>
+
         <p className="text-muted-foreground text-center mb-6">
           يرجى تعيين كلمة المرور الخاصة بك لتفعيل الحساب.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-medium mb-1">كلمة المرور</label>
+            <label className="block text-sm font-medium mb-1">
+              كلمة المرور
+            </label>
+
             <input
               type="password"
               value={password}
@@ -98,7 +129,10 @@ export default function InvitePage() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium mb-1">تأكيد كلمة المرور</label>
+            <label className="block text-sm font-medium mb-1">
+              تأكيد كلمة المرور
+            </label>
+
             <input
               type="password"
               value={confirmPassword}
@@ -124,11 +158,28 @@ export default function InvitePage() {
         </form>
 
         <div className="mt-4 text-center text-sm">
-          <Link href="/login" className="text-indigo-600 hover:underline">
+          <Link
+            href="/login"
+            className="text-indigo-600 hover:underline"
+          >
             العودة إلى تسجيل الدخول
           </Link>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function InvitePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen flex items-center justify-center">
+          جاري التحميل...
+        </div>
+      }
+    >
+      <InviteContent />
+    </Suspense>
   );
 }

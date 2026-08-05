@@ -1,9 +1,13 @@
 // src/app/[locale]/(dashboard)/tickets/[id]/page.tsx
 "use client";
 
+// =========================
+// Imports
+// =========================
 import React, { use } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale } from "next-intl";
+import Image from "next/image";
 import {
   CheckCircle2,
   MapPin,
@@ -18,24 +22,91 @@ import {
   AlertCircle,
   ImageIcon,
   ArrowLeft,
-  Sparkles,
   Clock,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 
-import { StatusBadge } from "@/components/shared/StatusBadge";
 import { TicketActions } from "./TicketActions";
 
 // =========================
-// تكوين الحالات
+// Types
+// =========================
+type StatusKey = "PENDING" | "APPROVED" | "REJECTED";
+
+type RoomLocation =
+  | {
+      name: string;
+      nameEn?: string | null;
+      floor?: {
+        name: string;
+        nameEn?: string | null;
+        building?: {
+          name: string;
+          nameEn?: string | null;
+        } | null;
+      } | null;
+    }
+  | null
+  | undefined;
+
+type Attachment = {
+  id: string;
+  url: string;
+  originalName?: string | null;
+};
+
+type Ticket = {
+  id: string;
+  code: string;
+  title: string;
+  description: string;
+  status: string;
+
+  type?: string | null;
+  rejectionReason?: string | null;
+
+  createdAt: string;
+  updatedAt: string;
+
+  reporterName?: string | null;
+  reporterEmail?: string | null;
+  phone?: string | null;
+
+  room?: RoomLocation;
+  attachments?: Attachment[];
+
+  asset?: {
+    name?: string | null;
+    code?: string | null;
+  } | null;
+
+  workOrder?: {
+    id: string;
+    code?: string | null;
+  } | null;
+};
+
+interface TicketDetailsPageProps {
+  params: Promise<{ id: string }>;
+}
+
+// =========================
+// Constants
 // =========================
 const STATUS_CONFIG: Record<
-  string,
-  { label: { ar: string; en: string }; hex: string; icon: any; glow: string; bg: string }
+  StatusKey,
+  {
+    label: { ar: string; en: string };
+    hex: string;
+    icon: LucideIcon;
+    glow: string;
+    bg: string;
+  }
 > = {
   PENDING: {
     label: { ar: "معلق", en: "Pending" },
@@ -60,11 +131,14 @@ const STATUS_CONFIG: Record<
   },
 };
 
+const GLASS_CARD =
+  "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
+
 // =========================
-// دوال مساعدة
+// Helper Functions
 // =========================
 function getStatusDisplay(status: string, isRtl: boolean) {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
+  const config = STATUS_CONFIG[status as StatusKey] || STATUS_CONFIG.PENDING;
   return {
     label: isRtl ? config.label.ar : config.label.en,
     hex: config.hex,
@@ -74,7 +148,7 @@ function getStatusDisplay(status: string, isRtl: boolean) {
   };
 }
 
-function getFullLocation(room: any, isRtl: boolean): string {
+function getFullLocation(room: RoomLocation, isRtl: boolean): string {
   if (!room) return "—";
   const floor = room.floor;
   const building = floor?.building;
@@ -93,29 +167,20 @@ function getFullLocation(room: any, isRtl: boolean): string {
 }
 
 // =========================
-// تنسيقات موحدة
-// =========================
-const glassCard =
-  "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
-
-// =========================
-// Props
-// =========================
-interface TicketDetailsPageProps {
-  params: Promise<{ id: string }>;
-}
-
-// =========================
-// المكون الرئيسي
+// Component: TicketDetailsPage
 // =========================
 export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
+  // ----- Hooks -----
   const { id } = use(params);
   const router = useRouter();
   const locale = useLocale();
   const isRtl = locale === "ar";
-  const [ticket, setTicket] = React.useState<any>(null);
+
+  // ----- State -----
+  const [ticket, setTicket] = React.useState<Ticket | null>(null);
   const [loading, setLoading] = React.useState(true);
 
+  // ----- Data Fetching (useEffect) -----
   React.useEffect(() => {
     const fetchTicket = async () => {
       try {
@@ -130,7 +195,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
         }
         const data = await res.json();
         setTicket(data);
-      } catch (error) {
+      } catch {
         toast.error(isRtl ? "فشل تحميل التذكرة" : "Failed to load ticket");
         router.push(`/${locale}/tickets`);
       } finally {
@@ -140,6 +205,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
     fetchTicket();
   }, [id, locale, router, isRtl]);
 
+  // ----- Loading State -----
   if (loading) {
     return (
       <div className="relative min-h-[60vh] flex items-center justify-center p-6">
@@ -150,6 +216,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
   }
   if (!ticket) return null;
 
+  // ----- Derived Data -----
   const statusInfo = getStatusDisplay(ticket.status, isRtl);
   const StatusIcon = statusInfo.icon;
   const ticketType =
@@ -163,15 +230,16 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
         : "Incident Ticket"
       : ticket.type || (isRtl ? "غير محدد" : "Not specified");
 
-  const images = ticket.attachments || [];
+  const images: Attachment[] = ticket.attachments || [];
   const hasImages = Array.isArray(images) && images.length > 0;
 
+  // ----- Render -----
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
+      {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      {/* رأس الصفحة */}
+      {/* Header */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
@@ -209,11 +277,12 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
         </Button>
       </div>
 
+      {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* العمود الرئيسي (2/3) */}
+        {/* Left Column (2/3) */}
         <div className="lg:col-span-2 space-y-8">
-          {/* تفاصيل التذكرة */}
-          <div className={glassCard}>
+          {/* Ticket Details */}
+          <div className={GLASS_CARD}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
                 <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
@@ -224,6 +293,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
             </div>
 
             <div className="space-y-6">
+              {/* Type & Status */}
               <div className="grid sm:grid-cols-2 gap-5">
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
@@ -253,6 +323,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                 </div>
               </div>
 
+              {/* Title */}
               <div className="space-y-1">
                 <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   {isRtl ? "موضوع التذكرة" : "Ticket Title"}
@@ -262,6 +333,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                 </p>
               </div>
 
+              {/* Description */}
               <div className="space-y-1">
                 <div className="text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
                   {isRtl ? "وصف التذكرة" : "Description"}
@@ -271,7 +343,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                 </div>
               </div>
 
-              {/* المرفقات */}
+              {/* Attachments */}
               <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
                 <div className="flex items-center gap-2 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-4">
                   <ImageIcon className="h-3.5 w-3.5 text-indigo-400" />
@@ -279,7 +351,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                 </div>
                 {hasImages ? (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {images.map((img: any) => (
+                    {images.map((img) => (
                       <a
                         key={img.id}
                         href={img.url}
@@ -287,9 +359,11 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                         rel="noopener noreferrer"
                         className="block overflow-hidden rounded-xl border border-slate-200/50 dark:border-slate-700/50 hover:shadow-lg hover:scale-[1.02] transition-all duration-300"
                       >
-                        <img
+                        <Image
                           src={img.url}
                           alt={img.originalName || (isRtl ? "مرفق" : "Attachment")}
+                          width={400}
+                          height={200}
                           className="w-full h-32 object-cover hover:scale-105 transition-transform duration-300"
                         />
                       </a>
@@ -302,7 +376,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                 )}
               </div>
 
-              {/* الموقع والأصل */}
+              {/* Location & Asset */}
               <div className="grid sm:grid-cols-2 gap-5 pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider">
@@ -325,7 +399,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
                 </div>
               </div>
 
-              {/* سبب الرفض (إذا كان مرفوض) */}
+              {/* Rejection Reason */}
               {ticket.status === "REJECTED" && ticket.rejectionReason && (
                 <div className="pt-4 border-t border-slate-200/50 dark:border-slate-800/50">
                   <div className="flex items-center gap-1.5 text-[10px] font-medium text-slate-400 dark:text-slate-500 uppercase tracking-wider mb-2">
@@ -340,8 +414,8 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
             </div>
           </div>
 
-          {/* معلومات إضافية */}
-          <div className={glassCard}>
+          {/* Additional Info */}
+          <div className={GLASS_CARD}>
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2 rounded-xl bg-blue-50 dark:bg-blue-950/40">
                 <Calendar className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -377,10 +451,10 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
           </div>
         </div>
 
-        {/* العمود الجانبي (1/3) */}
+        {/* Right Column (1/3) */}
         <div className="space-y-6">
-          {/* بيانات المبلّغ */}
-          <div className={glassCard}>
+          {/* Reporter Info */}
+          <div className={GLASS_CARD}>
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
                 <User className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
@@ -454,10 +528,10 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
             </div>
           </div>
 
-          {/* الإجراءات */}
+          {/* Actions */}
           <TicketActions ticketId={ticket.id} currentStatus={ticket.status} />
 
-          {/* حالة القبول/الرفض */}
+          {/* Status Message (if not pending) */}
           {ticket.status !== "PENDING" && (
             <div
               className={cn(
@@ -477,7 +551,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
             </div>
           )}
 
-          {/* أمر العمل المرتبط */}
+          {/* Associated Work Order */}
           {ticket.workOrder && (
             <div className="p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200/50 dark:border-indigo-800/30">
               <p className="text-sm font-medium text-slate-600 dark:text-slate-400">
@@ -492,7 +566,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
             </div>
           )}
 
-          {/* مساعدة سريعة */}
+          {/* Quick Help */}
           <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50/50 to-purple-50/50 dark:from-indigo-950/20 dark:to-purple-950/20 border border-indigo-200/30 dark:border-indigo-800/30 flex items-start gap-3">
             <Info className="h-5 w-5 text-indigo-500 dark:text-indigo-400 shrink-0 mt-0.5" />
             <div className="text-xs font-medium text-slate-600 dark:text-slate-400 leading-relaxed">
@@ -502,7 +576,7 @@ export default function TicketDetailsPage({ params }: TicketDetailsPageProps) {
             </div>
           </div>
 
-          {/* زر العودة */}
+          {/* Back Button */}
           <Button
             onClick={() => router.push(`/${locale}/tickets`)}
             variant="outline"

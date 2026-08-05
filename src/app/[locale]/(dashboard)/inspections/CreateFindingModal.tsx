@@ -32,7 +32,7 @@ interface CreateFindingModalProps {
   inspectionResultId: string;
   onSuccess?: () => void;
   isRtl: boolean;
-  t: (key: string) => string;
+  // تم إزالة prop 't' لأنه سيتم استخدام useTranslations محلياً
 }
 
 export function CreateFindingModal({
@@ -41,7 +41,6 @@ export function CreateFindingModal({
   inspectionResultId,
   onSuccess,
   isRtl,
-  t,
 }: CreateFindingModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 

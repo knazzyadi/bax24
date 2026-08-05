@@ -1,13 +1,20 @@
 // src/app/[locale]/(dashboard)/locations/buildings/useBuildings.ts
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Building, Branch, BuildingFormData, BuildingFilters } from './types';
-import { BuildingService } from '@/lib/services/locations/buildings.service'; // ✅ مسار جديد
+import type { Building, Branch, BuildingFormData, BuildingFilters } from './types';
+import { BuildingService } from '@/lib/services/locations/buildings.service';
 
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return 'حدث خطأ غير معروف';
+}
 
 export function useBuildings(initialBuildings: Building[], initialBranches: Branch[]) {
   const [buildings, setBuildings] = useState<Building[]>(initialBuildings);
-  const [branches] = useState<Branch[]>(initialBranches);
+  const branches = initialBranches;
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -19,20 +26,18 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
     sortOrder: 'asc',
   });
 
-  // ✅ دالة refetch (مستعارة من refreshBuildings)
   const refetch = useCallback(async () => {
     setIsLoading(true);
     try {
       const data = await BuildingService.getAll();
       setBuildings(data);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  // ✅ استخدام refetch بدلاً من refreshBuildings
   const createBuilding = useCallback(async (data: BuildingFormData) => {
     setIsSaving(true);
     try {
@@ -40,8 +45,8 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
       toast.success('تم إضافة المبنى بنجاح');
       await refetch();
       return true;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
       return false;
     } finally {
       setIsSaving(false);
@@ -55,8 +60,8 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
       toast.success('تم تحديث المبنى بنجاح');
       await refetch();
       return true;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
       return false;
     } finally {
       setIsSaving(false);
@@ -70,8 +75,8 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
       toast.success('تم حذف المبنى بنجاح');
       await refetch();
       return true;
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
       return false;
     } finally {
       setIsDeleting(false);
@@ -100,8 +105,8 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
 
     const { sortBy, sortOrder } = filters;
     result.sort((a, b) => {
-      let aVal: any = a[sortBy as keyof Building];
-      let bVal: any = b[sortBy as keyof Building];
+      let aVal = a[sortBy as keyof Building];
+      let bVal = b[sortBy as keyof Building];
 
       if (aVal === null || aVal === undefined) aVal = '';
       if (bVal === null || bVal === undefined) bVal = '';
@@ -111,7 +116,10 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
           ? aVal.localeCompare(bVal)
           : bVal.localeCompare(aVal);
       }
-      return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+
+      const aNum = Number(aVal);
+      const bNum = Number(bVal);
+      return sortOrder === 'asc' ? aNum - bNum : bNum - aNum;
     });
 
     return result;
@@ -129,6 +137,6 @@ export function useBuildings(initialBuildings: Building[], initialBranches: Bran
     createBuilding,
     updateBuilding,
     deleteBuilding,
-    refetch, // ✅ أضفنا refetch بدلاً من refreshBuildings
+    refetch,
   };
 }

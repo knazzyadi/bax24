@@ -44,11 +44,15 @@ export default function AssetTypesPage() {
         const error = await res.json();
         throw new Error(error.error || "فشل تحديث الترتيب");
       }
-      toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
-      refetch();
-    } catch (error: any) {
-      toast.error(error.message || (isRtl ? "فشل تحديث الترتيب" : "Failed to update order"));
-    }
+        toast.success(isRtl ? "تم تحديث الترتيب بنجاح" : "Order updated successfully");
+        refetch();
+      } catch (error: unknown) {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : (isRtl ? "فشل تحديث الترتيب" : "Failed to update order")
+        );
+      }
   };
 
   const handleCreate = () => {
@@ -77,8 +81,12 @@ export default function AssetTypesPage() {
       toast.success(t("deleteSuccess"));
       refetch();
       setConfirmDialog({ open: false });
-    } catch (err: any) {
-      toast.error(err.message);
+        } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : t("deleteError")
+      );
     } finally {
       setDeleting(false);
     }

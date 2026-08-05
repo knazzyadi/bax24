@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/inspection-types/CategoryDialog.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react"; // ✅ إزالة useEffect
 import { toast } from "sonner";
 import {
   Dialog,
@@ -19,6 +19,24 @@ import { Switch } from "@/components/ui/switch";
 import { Loader2 } from "lucide-react";
 import type { InspectionCategory, InspectionTemplate } from "./types";
 
+// ============================================================
+// ✅ دالة مساعدة لتهيئة البيانات
+// ============================================================
+const getInitialFormData = (
+  category: InspectionCategory | null,
+  templateId?: string
+) => ({
+  templateId: category?.templateId ?? templateId ?? "",
+  code: category?.code ?? "",
+  name: category?.name ?? "",
+  nameAr: category?.nameAr ?? "",
+  description: category?.description ?? "",
+  isActive: category?.isActive ?? true,
+});
+
+// ============================================================
+// المكون الرئيسي
+// ============================================================
 interface CategoryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean, refetch?: boolean) => void;
@@ -37,41 +55,45 @@ export function CategoryDialog({
   isRtl,
 }: CategoryDialogProps) {
   const [loading, setLoading] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [nameAr, setNameAr] = useState("");
-  const [description, setDescription] = useState("");
-  const [isActive, setIsActive] = useState(true);
-
   const isEditing = !!category;
 
-  useEffect(() => {
-    if (category) {
-      setSelectedTemplateId(category.templateId || "");
-      setCode(category.code || "");
-      setName(category.name || "");
-      setNameAr(category.nameAr || "");
-      setDescription(category.description || "");
-      setIsActive(category.isActive ?? true);
-    } else {
-      setSelectedTemplateId(templateId || "");
-      setCode("");
-      setName("");
-      setNameAr("");
-      setDescription("");
-      setIsActive(true);
+  // ✅ استخدام useState مع دالة initializer
+  const [formData, setFormData] = useState(() =>
+    getInitialFormData(category, templateId)
+  );
+
+  // ✅ دالة معالجة فتح/إغلاق النافذة مع إعادة ضبط البيانات
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!loading) {
+      if (newOpen) {
+        setFormData(getInitialFormData(category, templateId));
+      }
+      onOpenChange(newOpen, false);
     }
-  }, [category, templateId, open]);
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
+  ) => {
+    const { name, value, type } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
+    }));
+  };
+
+  const handleSwitchChange = (checked: boolean) => {
+    setFormData((prev) => ({ ...prev, isActive: checked }));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!selectedTemplateId) {
+    if (!formData.templateId) {
       toast.error(isRtl ? "يرجى اختيار نموذج الفحص" : "Please select a template");
       return;
     }
-    if (!code.trim() || !name.trim()) {
+    if (!formData.code.trim() || !formData.name.trim()) {
       toast.error(isRtl ? "الكود والاسم مطلوبان" : "Code and name are required");
       return;
     }
@@ -79,12 +101,12 @@ export function CategoryDialog({
     setLoading(true);
     try {
       const payload = {
-        templateId: selectedTemplateId,
-        code: code.trim(),
-        name: name.trim(),
-        nameAr: nameAr.trim(),
-        description: description.trim(),
-        isActive,
+        templateId: formData.templateId,
+        code: formData.code.trim(),
+        name: formData.name.trim(),
+        nameAr: formData.nameAr.trim(),
+        description: formData.description.trim(),
+        isActive: formData.isActive,
       };
 
       const url = isEditing
@@ -105,15 +127,19 @@ export function CategoryDialog({
 
       toast.success(isEditing ? "تم التحديث بنجاح" : "تمت الإضافة بنجاح");
       onOpenChange(false, true);
-    } catch (err: any) {
-      toast.error(err.message);
+    } catch (err: unknown) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : (isRtl ? "حدث خطأ أثناء الحفظ" : "An error occurred while saving")
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={(open) => !loading && onOpenChange(open, false)}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px] rounded-3xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-slate-200/50 dark:border-slate-800/50">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-slate-800 dark:text-slate-100">
@@ -139,8 +165,9 @@ export function CategoryDialog({
               {isRtl ? "نموذج الفحص *" : "Inspection Template *"}
             </Label>
             <select
-              value={selectedTemplateId}
-              onChange={(e) => setSelectedTemplateId(e.target.value)}
+              name="templateId"
+              value={formData.templateId}
+              onChange={handleChange}
               className="w-full h-11 rounded-xl border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-900/50 px-4 focus:ring-2 focus:ring-indigo-500/50"
               required
             >
@@ -159,8 +186,9 @@ export function CategoryDialog({
               {isRtl ? "الكود *" : "Code *"}
             </Label>
             <Input
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
+              name="code"
+              value={formData.code}
+              onChange={handleChange}
               placeholder={isRtl ? "مثال: SAF-01" : "e.g. SAF-01"}
               className="rounded-xl font-mono uppercase"
               dir="ltr"
@@ -173,8 +201,9 @@ export function CategoryDialog({
               {isRtl ? "الاسم (إنجليزي) *" : "Name (English) *"}
             </Label>
             <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              name="name"
+              value={formData.name}
+              onChange={handleChange}
               placeholder={isRtl ? "مثال: Fire Safety" : "e.g. Fire Safety"}
               className="rounded-xl"
               dir="ltr"
@@ -187,8 +216,9 @@ export function CategoryDialog({
               {isRtl ? "الاسم (عربي)" : "Name (Arabic)"}
             </Label>
             <Input
-              value={nameAr}
-              onChange={(e) => setNameAr(e.target.value)}
+              name="nameAr"
+              value={formData.nameAr}
+              onChange={handleChange}
               placeholder={isRtl ? "مثال: السلامة من الحرائق" : "e.g. Fire Safety"}
               className="rounded-xl"
               dir={isRtl ? "rtl" : "ltr"}
@@ -201,8 +231,9 @@ export function CategoryDialog({
               {isRtl ? "الوصف (اختياري)" : "Description (Optional)"}
             </Label>
             <Textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              name="description"
+              value={formData.description}
+              onChange={handleChange}
               placeholder={isRtl ? "وصف مختصر لهذه الفئة..." : "Brief description for this category..."}
               className="rounded-xl min-h-[80px]"
               dir={isRtl ? "rtl" : "ltr"}
@@ -215,8 +246,8 @@ export function CategoryDialog({
               {isRtl ? "حالة التفعيل" : "Active Status"}
             </Label>
             <Switch
-              checked={isActive}
-              onCheckedChange={setIsActive}
+              checked={formData.isActive}
+              onCheckedChange={handleSwitchChange}
               className="data-[state=checked]:bg-indigo-600"
             />
           </div>
@@ -225,7 +256,7 @@ export function CategoryDialog({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false, false)}
+              onClick={() => handleOpenChange(false)}
               disabled={loading}
               className="rounded-xl"
             >

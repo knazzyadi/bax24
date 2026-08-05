@@ -7,11 +7,11 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Skeleton } from '@/components/ui/skeleton';
 
-import { useBranches } from './hooks/useBranches';
-import { BranchToolbar } from './components/BranchToolbar';
-import { BranchTable } from './components/BranchTable';
-import { BranchDialog } from './components/BranchDialog';
-import { DeleteBranchDialog } from './components/DeleteBranchDialog';
+import { useBranches } from './useBranches';
+import { BranchToolbar } from './BranchToolbar';
+import { BranchTable } from './BranchTable';
+import { BranchDialog } from './BranchDialog';
+import { DeleteBranchDialog } from './DeleteBranchDialog';
 import { Branch, BranchFormData } from './types';
 
 export default function BranchesPage() {

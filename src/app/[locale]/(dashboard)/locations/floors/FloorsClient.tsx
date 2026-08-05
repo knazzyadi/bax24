@@ -36,8 +36,6 @@ export default function FloorsClient({
     buildings,
     isLoading,
     isDeleting,
-    filters,
-    updateFilters,
     deleteFloor,
     refreshFloors,
   } = useFloors(initialFloors, initialBuildings);
@@ -71,10 +69,10 @@ export default function FloorsClient({
       } else {
         toast.error(t('deleteError'));
       }
-    } catch (error) {
+    } catch {
       toast.error(t('deleteError'));
     }
-  };
+  }; // ✅ إضافة القوس المفقود
 
   const handleDialogClose = (refetchData?: boolean) => {
     setDialogOpen(false);
@@ -148,7 +146,7 @@ export default function FloorsClient({
         <ConfirmDialog
           open={confirmDialog.open}
           onOpenChange={(open) => setConfirmDialog({ open, id: confirmDialog.id })}
-          onConfirm={handleConfirmDelete}
+          onConfirm={handleConfirmDelete} // ✅ مستخدمة هنا
           title={isRtl ? 'تأكيد الحذف' : 'Confirm Delete'}
           description={
             isRtl

@@ -5,6 +5,15 @@ import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { requirePermission } from '@/lib/auth/permissions';
 import { UserService } from '@/lib/server/services/user.service';
 
+// واجهة بيانات الطلب لتحديث المستخدم
+interface UpdateUserBody {
+  name?: string;
+  email?: string;
+  roleId?: string;
+  status?: boolean;
+  action?: 'restore'; // فقط للاستعادة
+}
+
 // ============================================================
 // PUT - تحديث مستخدم
 // ============================================================
@@ -38,8 +47,8 @@ export async function PUT(
     // ✅ 4. استخراج id من params
     const { id } = await params;
 
-    // ✅ 5. قراءة الجسم
-    const body = await request.json();
+    // ✅ 5. قراءة الجسم مع تحديد النوع
+    const body = (await request.json()) as UpdateUserBody;
 
     // ✅ 6. دعم استعادة المستخدم
     if (body.action === 'restore') {
@@ -50,15 +59,19 @@ export async function PUT(
     // ✅ 7. تحديث المستخدم
     const user = await UserService.updateUser(id, companyId, body);
     return NextResponse.json(user);
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('PUT /api/company/users/[id]', error);
-    if (error.message === 'UNAUTHORIZED') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    if (error.message === 'FORBIDDEN') {
+    if (message === 'FORBIDDEN') {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
-    return NextResponse.json({ error: error.message || 'حدث خطأ في الخادم' }, { status: 400 });
+    return NextResponse.json(
+      { error: message || 'حدث خطأ في الخادم' },
+      { status: 400 }
+    );
   }
 }
 
@@ -98,12 +111,13 @@ export async function DELETE(
     // ✅ 5. حذف المستخدم
     await UserService.deleteUser(id, companyId);
     return NextResponse.json({ success: true });
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('DELETE /api/company/users/[id]', error);
-    if (error.message === 'UNAUTHORIZED') {
+    const message = error instanceof Error ? error.message : '';
+    if (message === 'UNAUTHORIZED') {
       return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
-    if (error.message === 'FORBIDDEN') {
+    if (message === 'FORBIDDEN') {
       return NextResponse.json({ error: 'لا تملك الصلاحية' }, { status: 403 });
     }
     return NextResponse.json({ error: 'حدث خطأ في الخادم' }, { status: 500 });

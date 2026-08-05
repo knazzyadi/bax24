@@ -1,10 +1,9 @@
-// src/app/[locale]/(super-admin)/super-admin/branches/components/BranchTable.tsx
+// src/app/[locale]/(super-admin)/super-admin/branches/BranchTable.tsx
 'use client';
 
 import { Share2, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Branch } from '../types';
-import { toast } from 'sonner';
+import { Branch } from './types';
 
 interface BranchTableProps {
   branches: Branch[];
@@ -19,7 +18,7 @@ export function BranchTable({ branches, onEdit, onDelete, onCopyLink }: BranchTa
       <div className="flex flex-col items-center justify-center rounded-xl border border-dashed bg-card py-16">
         <div className="mb-4 text-6xl">📂</div>
         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">لا توجد فروع مسجلة</h3>
-        <p className="mt-2 text-sm text-muted-foreground">انقر على 'إضافة فرع جديد' لإنشاء أول فرع</p>
+        <p className="mt-2 text-sm text-muted-foreground">انقر على «إضافة فرع جديد» لإنشاء أول فرع</p>
       </div>
     );
   }

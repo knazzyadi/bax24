@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/work-order-statuses/WorkOrderStatusTable.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ إزالة useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import {
   Edit,
@@ -106,9 +106,6 @@ function DraggableRow({
         </div>
       </td>
 
-      {/* ❌ تم حذف عمود "الكود" */}
-      {/* ❌ تم حذف عمود "الترتيب" (يتم استخدام الترتيب عبر السحب) */}
-
       {/* الافتراضي */}
       <td className="py-3 px-4 text-center">
         {status.isDefault ? (
@@ -165,11 +162,10 @@ export function WorkOrderStatusTable({
   isRtl,
 }: WorkOrderStatusTableProps) {
   const t = useTranslations("WorkOrderStatuses");
+  // ✅ حذف useEffect - فقط نترك state مع القيمة الأولية
   const [items, setItems] = useState<WorkOrderStatus[]>(data);
 
-  useEffect(() => {
-    setItems(data);
-  }, [data]);
+  // ✅ تم حذف useEffect بالكامل
 
   const sensors = useSensors(
     useSensor(PointerSensor),

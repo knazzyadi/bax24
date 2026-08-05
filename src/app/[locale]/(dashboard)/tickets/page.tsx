@@ -3,6 +3,7 @@
 import { redirect } from 'next/navigation';
 import { getAuthSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
+import type { Prisma, TicketStatus } from '@prisma/client';
 import TicketsClient from './TicketsClient';
 import type { Ticket } from './types';
 
@@ -20,13 +21,20 @@ export default async function TicketsPage({
   const { q = "", status = "all", page = "1" } = await searchParams;
 
   const companyId = session.companyId;
+  if (!companyId) {
+    redirect('/login');
+  }
+
   const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
   const branchIds = session.branchIds || [];
 
   // =========================
   // Build Where Clause
   // =========================
-  const where: any = { companyId, deletedAt: null };
+  const where: Prisma.TicketWhereInput = {
+    companyId,
+    deletedAt: null,
+  };
 
   if (!isAdmin) {
     if (branchIds.length > 0) {
@@ -52,7 +60,10 @@ export default async function TicketsPage({
       { reporterEmail: { contains: q, mode: 'insensitive' } },
     ];
   }
-  if (status !== "all") where.status = status;
+
+  if (status !== "all") {
+    where.status = status as TicketStatus;
+  }
 
   // =========================
   // Pagination (offset)
@@ -62,41 +73,40 @@ export default async function TicketsPage({
   const skip = (currentPage - 1) * limit;
 
   // =========================
-  // Fetch Data with Prisma directly (to keep attachments and shape)
+  // Fetch Data (بدون count)
   // =========================
-  const [tickets, total] = await Promise.all([
-    prisma.ticket.findMany({
-      where,
-      include: {
-        asset: true,
-        room: {
-          include: {
-            floor: {
-              include: { building: true }
-            }
+  const tickets = await prisma.ticket.findMany({
+    where,
+    include: {
+      asset: true,
+      room: {
+        include: {
+          floor: {
+            include: { building: true }
           }
-        },
-        branch: true,
-        attachments: true,
-        workOrder: true, // include workOrder if needed
+        }
       },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: limit,
-    }),
-    prisma.ticket.count({ where }),
-  ]);
+      branch: true,
+      attachments: true,
+      workOrder: true,
+    },
+    orderBy: { createdAt: 'desc' },
+    skip,
+    take: limit,
+  });
 
   // =========================
-  // Serialize dates
+  // Serialize dates (including attachments)
   // =========================
-  const serializedTickets: Ticket[] = tickets.map((t: any) => ({
+  const serializedTickets: Ticket[] = tickets.map((t) => ({
     ...t,
     createdAt: t.createdAt.toISOString(),
     updatedAt: t.updatedAt?.toISOString(),
+    attachments: t.attachments?.map((a) => ({
+      ...a,
+      createdAt: a.createdAt?.toISOString(),
+    })),
   }));
-
-  const totalPages = Math.ceil(total / limit);
 
   // =========================
   // Render

@@ -281,8 +281,13 @@ export async function PUT(request: NextRequest) {
             continue;
           }
 
-          const { id: _, createdAt, updatedAt, ...updateData } = data;
+          // ✅ استبعاد الحقول غير القابلة للتحديث (id, createdAt, updatedAt)
+          const updateData = { ...data };
+          delete updateData.id;
+          delete updateData.createdAt;
+          delete updateData.updatedAt;
 
+          // تحويل التواريخ إذا وُجدت
           if (updateData.purchaseDate) {
             updateData.purchaseDate = new Date(updateData.purchaseDate);
           }

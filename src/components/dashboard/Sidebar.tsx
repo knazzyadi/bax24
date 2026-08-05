@@ -1,6 +1,7 @@
+// src/components/dashboard/Sidebar.tsx
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { useTheme } from "@/components/theme-provider";
@@ -8,7 +9,6 @@ import { useSession, signOut } from "next-auth/react";
 import { useTranslations, useLocale } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { useOutsideClick } from "@/hooks/useOutsideClick";
 import {
   Sun,
   Moon,
@@ -31,12 +31,14 @@ export default function Sidebar() {
   const { data: session } = useSession();
 
   const isRTL = locale === "ar";
-  const [mounted, setMounted] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [pendingTicketsCount, setPendingTicketsCount] = useState<number>(0);
-
-  // حالة فتح وإغلاق الأقسام الديناميكية (مفتاح = labelKey للقسم)
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
+
+  // ✅ إغلاق جميع الأقسام المفتوحة – تُستخدم فقط مع الروابط النهائية (Leaf Items)
+  const closeSections = () => {
+    setOpenSections({});
+  };
 
   // جلب عدد البلاغات المعلقة
   useEffect(() => {
@@ -59,15 +61,8 @@ export default function Sidebar() {
     return () => clearInterval(interval);
   }, []);
 
-  // إغلاق جميع الأقسام عند تغيير المسار (اختياري)
-  useEffect(() => {
-    setOpenSections({});
-  }, [pathname]);
-
-  useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
+
   const getLabel = (key: string, fallback: string) => {
     const translated = t(key);
     return translated === key ? fallback : translated;
@@ -87,13 +82,18 @@ export default function Sidebar() {
     return theme === "light" ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-primary" />;
   };
 
+  // ✅ يتم تمرير closeSections فقط إلى العناصر النهائية (SidebarNavItem)
   const commonNavProps = {
     isOpen: sidebarOpen,
     locale,
+    onNavigate: closeSections,
   };
 
-  // دالة مساعدة لعرض عناصر التنقل بشكل متكرر (تدعم التداخل)
-  const renderNavItems = (items: NavItem[], depth: number = 0, parentKey: string = "") => {
+  const renderNavItems = (
+    items: NavItem[],
+    depth: number = 0,
+    parentKey: string = ""
+  ) => {
     return items.map((item, index) => {
       const key = parentKey + item.labelKey + index;
       const hasChildren = item.children && item.children.length > 0;
@@ -101,8 +101,8 @@ export default function Sidebar() {
         ? pathname.startsWith(`/${locale}${item.href}`)
         : false;
 
-      // إذا كان العنصر يحتوي على أبناء، نعرضه كـ SidebarSection
       if (hasChildren) {
+        // الأقسام – لا تستخدم onNavigate، فقط تتحكم في الفتح/الإغلاق
         const isOpen = openSections[key] ?? false;
         const toggleOpen = () => {
           setOpenSections((prev) => ({
@@ -120,13 +120,12 @@ export default function Sidebar() {
             triggerLabel={getLabel(item.labelKey, item.labelKey)}
             sidebarOpen={sidebarOpen}
           >
-            {/* عرض الأبناء مع زيادة العمق */}
             {renderNavItems(item.children!, depth + 1, key + "-")}
           </SidebarSection>
         );
       }
 
-      // عنصر عادي (رابط)
+      // ✅ العناصر النهائية – تستقبل onNavigate لإغلاق الأقسام عند النقر
       let badgeCount: number | undefined;
       if (item.href === "/tickets" && pendingTicketsCount > 0) {
         badgeCount = pendingTicketsCount;
@@ -140,7 +139,7 @@ export default function Sidebar() {
           icon={item.icon}
           isActive={isActive}
           badgeCount={badgeCount}
-          subItem={depth > 0} // العناصر في المستوى الأول ليست subItem
+          subItem={depth > 0}
           {...commonNavProps}
         />
       );
@@ -198,7 +197,7 @@ export default function Sidebar() {
             <Button
               variant="ghost"
               size="icon"
-              onClick={() => setSidebarOpen(!sidebarOpen)}
+              onClick={() => setSidebarOpen((prev) => !prev)}
               className="h-8 w-8 rounded-full text-slate-500 hover:text-indigo-600 dark:text-slate-400 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 shrink-0"
               aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
             >
@@ -221,7 +220,6 @@ export default function Sidebar() {
           : renderNavItems(MAIN_MENU_ITEMS, 0, "main-")
         }
 
-        {/* زر تسجيل الخروج (يظهر بغض النظر عن الدور) */}
         <button
           onClick={() => signOut({ callbackUrl: `/${locale}/login` })}
           className={cn(

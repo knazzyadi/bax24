@@ -64,7 +64,7 @@ export function useNewAsset() {
   });
 
   // =========================
-  // جلب البيانات الأولية (مع المسارات الجديدة)
+  // جلب البيانات الأولية
   // =========================
   useEffect(() => {
     const fetchData = async () => {
@@ -72,29 +72,30 @@ export function useNewAsset() {
         const [statusesRes, typesRes, branchesRes, suppliersRes] = await Promise.all([
           fetch(`/api/asset-statuses?locale=${locale}`),
           fetch(`/api/asset-types?locale=${locale}`),
-          fetch(`/api/locations/branches?locale=${locale}`), // ✅ تحديث المسار
+          fetch(`/api/locations/branches?locale=${locale}`),
           fetch(`/api/suppliers?locale=${locale}`),
         ]);
         if (statusesRes.ok) setStatuses(await statusesRes.json());
         if (typesRes.ok) setTypes(await typesRes.json());
         if (branchesRes.ok) setBranches(await branchesRes.json());
         if (suppliersRes.ok) setSuppliers(await suppliersRes.json());
-      } catch (err) {
+      } catch {
         toast.error(t("fetchError"));
       }
     };
     fetchData();
   }, [locale, t]);
 
-  // جلب المباني (مع المسار الجديد)
+  // جلب المباني
   useEffect(() => {
     if (!branchId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setBuildings([]);
       return;
     }
     async function fetchBuildings() {
       try {
-        const res = await fetch(`/api/locations/buildings?branchId=${branchId}`); // ✅ تحديث المسار
+        const res = await fetch(`/api/locations/buildings?branchId=${branchId}`);
         if (res.ok) setBuildings(await res.json());
         else setBuildings([]);
       } catch {
@@ -104,17 +105,19 @@ export function useNewAsset() {
     fetchBuildings();
   }, [branchId]);
 
-  // جلب الأدوار (مع المسار الجديد)
+  // جلب الأدوار
   useEffect(() => {
     if (!buildingId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFloors([]);
+
       setFloorId("");
       return;
     }
     async function fetchFloors() {
       setLoadingFloors(true);
       try {
-        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`); // ✅ تحديث المسار
+        const res = await fetch(`/api/locations/buildings/${buildingId}/floors`);
         if (res.ok) setFloors(await res.json());
         else setFloors([]);
       } catch {
@@ -126,17 +129,19 @@ export function useNewAsset() {
     fetchFloors();
   }, [buildingId]);
 
-  // جلب الغرف (مع المسار الجديد)
+  // جلب الغرف
   useEffect(() => {
     if (!floorId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setRooms([]);
+
       setSelectedRoomFullCode("");
       return;
     }
     async function fetchRooms() {
       setLoadingRooms(true);
       try {
-        const res = await fetch(`/api/locations/floors/${floorId}/rooms`); // ✅ تحديث المسار
+        const res = await fetch(`/api/locations/floors/${floorId}/rooms`);
         if (res.ok) {
           const data = (await res.json()) as ApiRoom[];
           const currentBuilding = buildings.find((b) => b.id === buildingId);
@@ -168,7 +173,7 @@ export function useNewAsset() {
   }, [floorId, buildingId, buildings, floors]);
 
   // =========================
-  // دوال التحكم (بدون تغيير)
+  // دوال التحكم
   // =========================
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
@@ -213,7 +218,7 @@ export function useNewAsset() {
   };
 
   // =========================
-  // الإرسال (بدون تغيير)
+  // الإرسال
   // =========================
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -275,7 +280,7 @@ export function useNewAsset() {
       let data;
       try {
         data = JSON.parse(rawText);
-      } catch (e) {
+      } catch {
         data = { error: rawText };
       }
 

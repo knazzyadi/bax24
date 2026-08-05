@@ -15,12 +15,12 @@ export default function SettingsPage() {
   const params = useParams();
   const locale = params?.locale as string;
 
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
+  const [formData, setFormData] = useState(() => ({
+    name: session?.user?.name || '',
+    email: session?.user?.email || '',
     password: '',
     confirmPassword: '',
-  });
+  }));
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<Message | null>(null);
@@ -33,21 +33,11 @@ export default function SettingsPage() {
 
     if (session?.user?.role !== 'SUPER_ADMIN') {
       router.push(`/${locale}/dashboard`);
-      return;
-    }
-
-    if (session?.user) {
-      setFormData((prev) => ({
-        ...prev,
-        name: session.user.name || '',
-        email: session.user.email || '',
-      }));
     }
   }, [status, session, router, locale]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -71,12 +61,15 @@ export default function SettingsPage() {
         return;
       }
 
-      const payload: any = {
+      const payload: {
+        name: string;
+        email: string;
+        password?: string;
+      } = {
         name,
         email,
       };
 
-      // إرسال كلمة المرور فقط إذا تم إدخالها
       if (password) {
         payload.password = password;
       }
@@ -98,20 +91,23 @@ export default function SettingsPage() {
         email,
       });
 
+      // تحديث النموذج بالبيانات الجديدة وإعادة تعيين كلمات المرور
+      setFormData((prev) => ({
+        ...prev,
+        name,
+        email,
+        password: '',
+        confirmPassword: '',
+      }));
+
       setMessage({
         type: 'success',
         text: 'تم تحديث الملف الشخصي بنجاح',
       });
-
-      setFormData((prev) => ({
-        ...prev,
-        password: '',
-        confirmPassword: '',
-      }));
-    } catch (err: any) {
+    } catch (err: unknown) {
       setMessage({
         type: 'error',
-        text: err.message,
+        text: err instanceof Error ? err.message : 'حدث خطأ غير متوقع',
       });
     } finally {
       setLoading(false);

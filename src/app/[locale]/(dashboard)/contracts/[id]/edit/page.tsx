@@ -21,7 +21,7 @@ import {
   Paperclip,
   Eye,
   Trash2,
-  Image,
+  Image as ImageIcon,
   File,
   User,
   Phone,
@@ -93,15 +93,24 @@ export default function EditContractPage() {
           agentEmail: data.agentEmail || "",
         });
         if (data.attachments && Array.isArray(data.attachments)) {
-          setAttachments(
-            data.attachments.map((att: any) => ({
-              id: att.id,
-              name: att.originalName || att.name,
-              url: att.url,
-              type: att.mimeType,
-              size: att.size,
-            }))
-          );
+          interface ApiAttachment {
+          id: string;
+          name?: string;
+          originalName?: string;
+          url: string;
+          mimeType: string;
+          size: number;
+        }
+
+        setAttachments(
+          (data.attachments as ApiAttachment[]).map((att) => ({
+            id: att.id,
+            name: att.originalName || att.name || "",
+            url: att.url,
+            type: att.mimeType,
+            size: att.size,
+          }))
+        );
         }
       } catch (error) {
         console.error(error);
@@ -460,7 +469,7 @@ export default function EditContractPage() {
                             <div className="flex items-center gap-3 overflow-hidden">
                               <div className="shrink-0">
                                 {att.type?.startsWith("image/") ? (
-                                  <Image className="h-5 w-5 text-indigo-400" />
+                              <ImageIcon className="h-5 w-5 text-indigo-400" />
                                 ) : att.type === "application/pdf" ? (
                                   <FileText className="h-5 w-5 text-rose-400" />
                                 ) : (

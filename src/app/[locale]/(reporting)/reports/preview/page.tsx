@@ -1,13 +1,11 @@
 // src/app/[locale]/(reporting)/reports/preview/page.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter, useSearchParams, useParams } from "next/navigation";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Table,
@@ -20,10 +18,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Loader2, ArrowLeft, Eye, Database, FileText } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+
+interface PreviewRow {
+  [key: string]: unknown;
+}
 
 interface PreviewData {
-  data: any[];
+  data: PreviewRow[];
   columns: string[];
   modelType: string;
 }
@@ -49,6 +50,29 @@ function getModelLabel(modelType: string, isRtl: boolean): string {
   return isRtl ? label.ar : label.en;
 }
 
+// ============================================================
+// ✅ دالة مساعدة لعرض أي قيمة كنص آمن (نسخة محسّنة)
+// ============================================================
+function renderCellValue(value: unknown): React.ReactNode {
+  if (value === null || value === undefined) {
+    return "—";
+  }
+
+  if (value instanceof Date) {
+    return value.toLocaleDateString();
+  }
+
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return "—";
+    }
+  }
+
+  return String(value);
+}
+
 export default function ReportPreviewPage() {
   const router = useRouter();
   const params = useParams();
@@ -63,35 +87,65 @@ export default function ReportPreviewPage() {
   const [previewData, setPreviewData] = useState<PreviewData | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
+  // ============================================================
+  // ✅ دالة تحميل المعاينة (مستقلة)
+  // ============================================================
+  const fetchPreviewData = useCallback(async () => {
     if (!columnsParam) {
       setError(isRtl ? "لا توجد أعمدة محددة للمعاينة" : "No columns specified for preview");
       setLoading(false);
       return;
     }
 
-    const fetchPreview = async () => {
-      try {
-        const res = await fetch(
-          `/api/reports/preview?model=${modelType}&columns=${columnsParam}`
-        );
-        if (!res.ok) {
-          const data = await res.json();
-          throw new Error(data.error || (isRtl ? "فشل تحميل المعاينة" : "Failed to load preview"));
-        }
+    setLoading(true);
+    try {
+      const res = await fetch(
+        `/api/reports/preview?model=${modelType}&columns=${columnsParam}`
+      );
+      if (!res.ok) {
         const data = await res.json();
-        setPreviewData(data);
-      } catch (err: any) {
-        setError(err.message);
-        toast.error(err.message);
-      } finally {
-        setLoading(false);
+        throw new Error(data.error || (isRtl ? "فشل تحميل المعاينة" : "Failed to load preview"));
       }
-    };
+      const data = await res.json();
+      setPreviewData(data);
+      setError(null);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : isRtl
+          ? "حدث خطأ غير متوقع"
+          : "Unexpected error";
 
-    fetchPreview();
+      setError(message);
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
   }, [modelType, columnsParam, isRtl]);
 
+  // ============================================================
+  // useEffect لاستدعاء دالة التحميل
+  // ============================================================
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadPreview = async () => {
+      await fetchPreviewData();
+
+      if (cancelled) return;
+    };
+
+    loadPreview();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchPreviewData]);
+
+  // ============================================================
+  // حالات التحميل والخطأ وعرض البيانات
+  // ============================================================
   if (loading) {
     return (
       <div className="relative min-h-[60vh] flex items-center justify-center p-6">
@@ -242,7 +296,7 @@ export default function ReportPreviewPage() {
                       key={col}
                       className="text-center px-4 py-2 text-sm text-slate-700 dark:text-slate-300"
                     >
-                      {row[col] ?? "—"}
+                      {renderCellValue(row[col])}
                     </TableCell>
                   ))}
                 </TableRow>

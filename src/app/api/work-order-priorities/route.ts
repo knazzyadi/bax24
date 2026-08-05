@@ -1,22 +1,29 @@
 // src/app/api/work-order-priorities/route.ts
+
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
 
-export async function GET(request: NextRequest) {
+// ✅ تم إزالة المعامل غير المستخدم _request
+export async function GET() {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
 
     const companyId = session.companyId;
-    if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
-    }
 
-    const searchParams = request.nextUrl.searchParams;
-    const locale = searchParams.get('locale') || 'ar';
+    if (!companyId) {
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
+    }
 
     const priorities = await prisma.workOrderPriority.findMany({
       where: {
@@ -24,7 +31,7 @@ export async function GET(request: NextRequest) {
         deletedAt: null,
       },
       orderBy: [
-        { order: 'asc' }, // ✅ استخدم order بدلاً من level
+        { order: 'asc' },
         { name: 'asc' },
       ],
       select: {
@@ -33,7 +40,7 @@ export async function GET(request: NextRequest) {
         nameEn: true,
         code: true,
         color: true,
-        order: true, // ✅ تأكد من وجود order
+        order: true,
         isDefault: true,
         isActive: true,
         createdAt: true,
@@ -43,7 +50,11 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json(priorities);
   } catch (error) {
-    console.error('Error in GET /api/work-order-priorities:', error);
+    console.error(
+      'Error in GET /api/work-order-priorities:',
+      error
+    );
+
     return NextResponse.json(
       { error: 'حدث خطأ في جلب الأولويات' },
       { status: 500 }
@@ -54,20 +65,40 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const session = await getAuthenticatedSession();
+
     if (!session) {
-      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'غير مصرح' },
+        { status: 401 }
+      );
     }
 
     const companyId = session.companyId;
+
     if (!companyId) {
-      return NextResponse.json({ error: 'لا توجد شركة مرتبطة' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'لا توجد شركة مرتبطة' },
+        { status: 400 }
+      );
     }
 
     const body = await request.json();
-    const { name, nameEn, code, color, order, isDefault, isActive } = body;
+
+    const {
+      name,
+      nameEn,
+      code,
+      color,
+      order,
+      isDefault,
+      isActive,
+    } = body;
 
     if (!name?.trim()) {
-      return NextResponse.json({ error: 'الاسم مطلوب' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'الاسم مطلوب' },
+        { status: 400 }
+      );
     }
 
     const existing = await prisma.workOrderPriority.findFirst({
@@ -77,14 +108,23 @@ export async function POST(request: NextRequest) {
         deletedAt: null,
       },
     });
+
     if (existing) {
-      return NextResponse.json({ error: 'هناك أولوية بنفس الاسم بالفعل' }, { status: 409 });
+      return NextResponse.json(
+        { error: 'هناك أولوية بنفس الاسم بالفعل' },
+        { status: 409 }
+      );
     }
 
     if (isDefault) {
       await prisma.workOrderPriority.updateMany({
-        where: { companyId, deletedAt: null },
-        data: { isDefault: false },
+        where: {
+          companyId,
+          deletedAt: null,
+        },
+        data: {
+          isDefault: false,
+        },
       });
     }
 
@@ -113,9 +153,15 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return NextResponse.json(newPriority, { status: 201 });
+    return NextResponse.json(newPriority, {
+      status: 201,
+    });
   } catch (error) {
-    console.error('Error in POST /api/work-order-priorities:', error);
+    console.error(
+      'Error in POST /api/work-order-priorities:',
+      error
+    );
+
     return NextResponse.json(
       { error: 'حدث خطأ في إنشاء الأولوية' },
       { status: 500 }

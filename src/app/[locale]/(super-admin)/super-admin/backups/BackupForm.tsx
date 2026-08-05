@@ -40,7 +40,7 @@ export function BackupForm({
   const [selectedCompanyId, setSelectedCompanyId] = useState<string>("");
   const [backupType, setBackupType] = useState<"full" | "config">("full");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSelectOpen, setIsSelectOpen] = useState(false); // ✅ للاختبار
+  const [isSelectOpen, setIsSelectOpen] = useState(false);
 
   const rtl = isRtl || locale === "ar";
 
@@ -72,8 +72,15 @@ export function BackupForm({
       if (onBackupCreated) {
         onBackupCreated(newBackup);
       }
-    } catch (error: any) {
-      toast.error(error.message || (rtl ? "فشل إنشاء النسخة" : "Failed to create backup"));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : rtl
+            ? "فشل إنشاء النسخة"
+            : "Failed to create backup";
+
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }

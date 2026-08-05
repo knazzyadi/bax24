@@ -16,6 +16,14 @@ import {
 import { FileText } from "lucide-react";
 import type { TreeNode as TreeNodeType } from "./types";
 
+// ============================================================
+// ✅ تعريف نوع موحد للـ original
+// ============================================================
+type OriginalWithDescription = {
+  description?: string | null;
+  descriptionEn?: string | null;
+};
+
 interface TreeNodeProps {
   node: TreeNodeType;
   level: number;
@@ -78,20 +86,30 @@ export function TreeNode({
     }
   };
 
-  // ✅ استخراج النص من العقدة أو من original
+  // ============================================================
+  // ✅ الحصول على نص التعليمات بدون استخدام any
+  // ============================================================
   const getGuideText = () => {
-    // 1. نفضل استخدام الحقول المباشرة في العقدة
     const desc = isRtl ? node.description : node.descriptionEn;
+
     if (desc) return desc;
 
-    // 2. الاحتياطي: نقرأ من original حسب النوع
-    const orig = node.original;
+    const orig = node.original as OriginalWithDescription | undefined;
+
     if (orig) {
       if (isRtl) {
-        return (orig as any).description || (orig as any).descriptionEn || (isRtl ? "لا توجد تعليمات" : "No guide available");
-      } else {
-        return (orig as any).descriptionEn || (orig as any).description || "No guide available";
+        return (
+          orig.description ||
+          orig.descriptionEn ||
+          "لا توجد تعليمات"
+        );
       }
+
+      return (
+        orig.descriptionEn ||
+        orig.description ||
+        "No guide available"
+      );
     }
 
     return isRtl ? "لا توجد تعليمات" : "No guide available";
@@ -99,9 +117,17 @@ export function TreeNode({
 
   const guideText = getGuideText();
 
-  // ✅ تحديد إذا كان هناك وصف للعرض (للتحكم في ظهور الزر)
-  const hasDescription = !!(node.description || node.descriptionEn || 
-    (node.original && ((node.original as any).description || (node.original as any).descriptionEn)));
+  // ============================================================
+  // ✅ التحقق من وجود وصف بدون أي
+  // ============================================================
+  const originalDescription = node.original as OriginalWithDescription | undefined;
+
+  const hasDescription = !!(
+    node.description ||
+    node.descriptionEn ||
+    originalDescription?.description ||
+    originalDescription?.descriptionEn
+  );
 
   return (
     <>

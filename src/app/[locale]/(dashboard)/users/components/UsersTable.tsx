@@ -1,6 +1,5 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
 import { Pencil, Trash2, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -19,8 +18,7 @@ interface UsersTableProps {
   onDelete: (id: string) => void;
   onToggleStatus: (id: string) => void;
   onResendInvite: (id: string) => void;
-  isPending?: boolean;
-  isRtl?: boolean; // ✅ إضافة isRtl اختيارية
+  isRtl?: boolean;
 }
 
 export function UsersTable({
@@ -29,11 +27,8 @@ export function UsersTable({
   onDelete,
   onToggleStatus,
   onResendInvite,
-  isPending,
-  isRtl = true, // ✅ قيمة افتراضية
+  isRtl = true,
 }: UsersTableProps) {
-  const t = useTranslations('UsersPage');
-
   if (users.length === 0) {
     return (
       <div className="text-center py-12 text-slate-400 dark:text-slate-500">

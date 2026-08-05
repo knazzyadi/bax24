@@ -75,36 +75,50 @@ export default function PublicTicketPage() {
     isRtl,
   });
 
-    const assetData = useAssetData({
-      slug,
-      token,
-      roomId: location.roomId,
-      assetTypeId: form.assetTypeId,
-    });
+  const assetData = useAssetData({
+    slug,
+    token,
+    roomId: location.roomId,
+    assetTypeId: form.assetTypeId,
+  });
+
+  // ✅ استخراج fetchAssetTypes كمتغير مستقل لتجنب مشكلة التبعية
+  const { fetchAssetTypes } = assetData;
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSuccessDialog, setShowSuccessDialog] = useState(false);
 
-  const ticketTypeMap: Record<string, string> = {
-    MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
-    INCIDENT: isRtl ? "حادث" : "Incident",
-  };
+  // ✅ useMemo لتجنب إعادة الإنشاء
+  const ticketTypeMap = useMemo(
+    () => ({
+      MAINTENANCE: isRtl ? "صيانة" : "Maintenance",
+      INCIDENT: isRtl ? "حادث" : "Incident",
+    }),
+    [isRtl]
+  );
 
-  // Theme & Language
-  const [theme, setTheme] = useState<"light" | "dark">("light");
-  useEffect(() => {
+  // ✅ Theme - استخدام lazy initialization لتجنب setState في useEffect
+  const [theme, setTheme] = useState<"light" | "dark">(() => {
+    if (typeof window === "undefined") return "light";
+
     const stored = localStorage.getItem("theme") as "light" | "dark" | null;
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    const initial = stored ?? (prefersDark ? "dark" : "light");
-    setTheme(initial);
-    document.documentElement.classList.toggle("dark", initial === "dark");
-  }, []);
+
+    if (stored) return stored;
+
+    return window.matchMedia("(prefers-color-scheme: dark)").matches
+      ? "dark"
+      : "light";
+  });
+
+  // ✅ تأثير جانبي فقط لتطبيق الكلاس على العنصر <html>
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", theme === "dark");
+  }, [theme]);
 
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
     localStorage.setItem("theme", newTheme);
-    document.documentElement.classList.toggle("dark", newTheme === "dark");
   };
 
   const switchLanguage = () => {
@@ -137,39 +151,64 @@ export default function PublicTicketPage() {
     setShowSuccessDialog(false);
   }, [resetFiles, location, assetData]);
 
-  // Branch validation & fetch asset types
+  // ✅ Branch validation & fetch asset types باستخدام fetchAssetTypes المستخرجة
   useEffect(() => {
     if (!slug || !token) return;
+
     const controller = new AbortController();
+
     const fetchBranch = async () => {
       setBranchLoading(true);
       setBranchError(null);
+
       try {
-        const res = await fetch(`/api/public/branch?slug=${slug}&token=${token}`, {
-          signal: controller.signal,
-        });
+        const res = await fetch(
+          `/api/public/branch?slug=${slug}&token=${token}`,
+          {
+            signal: controller.signal,
+          }
+        );
+
         const data = await res.json();
+
         if (!res.ok || !data?.branch) {
-          setBranchError(isRtl ? "الرابط غير صالح أو منتهي الصلاحية" : "Invalid or expired link");
+          setBranchError(
+            isRtl
+              ? "الرابط غير صالح أو منتهي الصلاحية"
+              : "Invalid or expired link"
+          );
           return;
         }
+
         if (data.branch.allowPublicTickets !== true) {
-          setBranchError(isRtl ? "البلاغات العامة لهذا الفرع معطلة" : "Public tickets are disabled for this branch");
+          setBranchError(
+            isRtl
+              ? "البلاغات العامة لهذا الفرع معطلة"
+              : "Public tickets are disabled for this branch"
+          );
           return;
         }
+
         setBranch(data.branch);
-        await assetData.fetchAssetTypes();
-      } catch (error: any) {
-        if (error?.name !== "AbortError") {
-          setBranchError(isRtl ? "حدث خطأ أثناء الاتصال بالخادم" : "Server connection error");
+
+        await fetchAssetTypes();
+      } catch (error: unknown) {
+        if (error instanceof Error && error.name !== "AbortError") {
+          setBranchError(
+            isRtl
+              ? "حدث خطأ أثناء الاتصال بالخادم"
+              : "Server connection error"
+          );
         }
       } finally {
         setBranchLoading(false);
       }
     };
+
     fetchBranch();
+
     return () => controller.abort();
-  }, [slug, token, isRtl, assetData.fetchAssetTypes]);
+  }, [slug, token, isRtl, fetchAssetTypes]); // ✅ استخدام fetchAssetTypes كتبعية
 
   // Submit
   const handleSubmit = async () => {

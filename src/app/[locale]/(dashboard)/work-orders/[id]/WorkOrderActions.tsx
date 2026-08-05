@@ -48,7 +48,7 @@ export function WorkOrderActions({
         const error = await res.json();
         toast.error(error.error || (isRtl ? "فشل حذف طلب العمل" : "Failed to delete work order"));
       }
-    } catch (err) {
+    } catch {
       toast.error(isRtl ? "حدث خطأ أثناء الحذف" : "An error occurred");
     } finally {
       setIsDeleting(false);

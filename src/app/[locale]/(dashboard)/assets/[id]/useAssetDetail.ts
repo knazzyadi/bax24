@@ -9,16 +9,19 @@ import type { AssetDetail, WorkOrder, MaintenanceRecord } from "./types";
 
 export function useAssetDetail(assetId: string) {
   const t = useTranslations("Assets");
+
   const [asset, setAsset] = useState<AssetDetail | null>(null);
   const [workOrders, setWorkOrders] = useState<WorkOrder[]>([]);
   const [maintenanceHistory, setMaintenanceHistory] = useState<MaintenanceRecord[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+
+  const [loading, setLoading] = useState(Boolean(assetId));
+
+  const [error, setError] = useState<string | null>(
+    assetId ? null : t("assetNotFound")
+  );
 
   useEffect(() => {
     if (!assetId) {
-      setLoading(false);
-      setError(t("assetNotFound"));
       return;
     }
 
@@ -35,20 +38,22 @@ export function useAssetDetail(assetId: string) {
 
         if (!assetRes.ok) {
           let errorMessage = t("fetchError");
+
           try {
-            const errorData = await assetRes.json();
+            const errorData: { error?: string } = await assetRes.json();
+
             if (errorData.error) {
               errorMessage = errorData.error;
             }
-          } catch (e) {
+          } catch {
             // ignore
           }
+
           throw new Error(errorMessage);
         }
 
         const assetData = await assetRes.json();
 
-        // ✅ بناء الكائنات المتداخلة من الحقول المسطحة في AssetResponse
         const transformedAsset: AssetDetail = {
           id: assetData.id,
           code: assetData.code,
@@ -67,7 +72,6 @@ export function useAssetDetail(assetId: string) {
           supplierName: assetData.supplierName,
           supplierNameEn: assetData.supplierNameEn,
 
-          // ✅ بناء كائن type من الحقول المسطحة
           type: assetData.typeName
             ? {
                 id: assetData.typeId || "",
@@ -76,7 +80,6 @@ export function useAssetDetail(assetId: string) {
               }
             : undefined,
 
-          // ✅ بناء كائن status من الحقول المسطحة
           status: assetData.statusName
             ? {
                 id: assetData.statusId || "",
@@ -86,23 +89,25 @@ export function useAssetDetail(assetId: string) {
               }
             : undefined,
 
-          // ✅ بناء كائن room المتداخل بالكامل من الحقول المسطحة (مع الدور)
           room: assetData.roomName
             ? {
                 id: assetData.roomId || "",
                 name: assetData.roomName,
                 nameEn: assetData.roomNameEn || undefined,
                 code: assetData.roomCode || undefined,
+
                 floor: {
                   id: assetData.floorId || "",
                   name: assetData.floorName || "",
                   nameEn: assetData.floorNameEn || undefined,
                   code: assetData.floorCode || undefined,
+
                   building: {
                     id: assetData.buildingId || "",
                     name: assetData.buildingName || "",
                     nameEn: assetData.buildingNameEn || undefined,
                     code: assetData.buildingCode || undefined,
+
                     branch: {
                       id: assetData.branchId || "",
                       name: assetData.branchName || "",
@@ -118,17 +123,24 @@ export function useAssetDetail(assetId: string) {
 
         if (workOrdersRes.ok) {
           const data = await workOrdersRes.json();
-          setWorkOrders(Array.isArray(data) ? data : data.workOrders || []);
+
+          setWorkOrders(
+            Array.isArray(data) ? data : (data.workOrders ?? [])
+          );
         }
 
         if (maintenanceRes.ok) {
-          const historyData = await maintenanceRes.json();
+          const historyData: MaintenanceRecord[] =
+            await maintenanceRes.json();
+
           setMaintenanceHistory(historyData);
         }
-      } catch (err: any) {
-        if (err.name !== "AbortError") {
+      } catch (err: unknown) {
+        if (err instanceof Error && err.name !== "AbortError") {
           console.error("Error fetching asset details:", err);
+
           const message = err.message || t("fetchError");
+
           setError(message);
           toast.error(message);
         }
@@ -139,9 +151,18 @@ export function useAssetDetail(assetId: string) {
       }
     }
 
-    fetchData();
-    return () => controller.abort();
+    void fetchData();
+
+    return () => {
+      controller.abort();
+    };
   }, [assetId, t]);
 
-  return { asset, workOrders, maintenanceHistory, loading, error };
+  return {
+    asset,
+    workOrders,
+    maintenanceHistory,
+    loading,
+    error,
+  };
 }

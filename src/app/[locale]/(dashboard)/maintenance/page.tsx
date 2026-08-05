@@ -1,8 +1,12 @@
 // src/app/[locale]/(dashboard)/maintenance/page.tsx
 
 import { redirect } from "next/navigation";
-import { getAuthSession, requirePermission } from '@/lib/auth/auth-helper';
+import {
+  getAuthSession,
+  requirePermission,
+} from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 
 import MaintenanceClient from "./MaintenanceClient";
 
@@ -41,7 +45,6 @@ export default async function MaintenancePage({
   searchParams,
 }: {
   params: Promise<{ locale: string }>;
-
   searchParams: Promise<{
     q?: string;
     isActive?: string;
@@ -49,7 +52,15 @@ export default async function MaintenancePage({
   }>;
 }) {
   const session = await getAuthSession();
-  if (!session) redirect("/login");
+
+  if (!session) {
+    redirect("/login");
+  }
+
+  if (!session.companyId) {
+    throw new Error("Company ID is missing");
+  }
+
   await requirePermission("maintenance.read");
 
   const { locale } = await params;
@@ -62,13 +73,13 @@ export default async function MaintenancePage({
 
   const companyId = session.companyId;
   const isAdmin = session.isAdmin;
-  const branchIds = session.branchIds || [];
+  const branchIds = session.branchIds ?? [];
 
-  const where: any = {
+  const where: Prisma.MaintenanceScheduleWhereInput = {
     companyId,
   };
 
-  if (!isAdmin && branchIds.length) {
+  if (!isAdmin && branchIds.length > 0) {
     where.branchId = {
       in: branchIds,
     };
@@ -90,142 +101,109 @@ export default async function MaintenancePage({
   }
 
   const limit = 10;
+  const currentPage = Number.parseInt(page, 10) || 1;
+  const skip = (currentPage - 1) * limit;
 
-  const currentPage = parseInt(page);
+  const schedules = await prisma.maintenanceSchedule.findMany({
+  where,
 
-  const skip =
-    (currentPage - 1) * limit;
+  select: {
+    id: true,
+    name: true,
+    frequency: true,
+    frequencyDays: true,
+    leadDays: true,
+    isActive: true,
+    startDate: true,
+    createdAt: true,
+    lastRunAt: true,
 
-  const [schedules, total] =
-    await Promise.all([
-      prisma.maintenanceSchedule.findMany({
-        where,
+    assetType: {
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+      },
+    },
 
-        select: {
-          id: true,
-          name: true,
-          frequency: true,
-          frequencyDays: true,
-          leadDays: true,
-          isActive: true,
-          startDate: true,
-          createdAt: true,
-          lastRunAt: true,
+    branch: {
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+      },
+    },
 
-          assetType: {
-            select: {
-              id: true,
-              name: true,
-              nameEn: true,
-            },
-          },
+    building: {
+      select: {
+        id: true,
+        name: true,
+        nameEn: true,
+      },
+    },
+  },
 
-          branch: {
-            select: {
-              id: true,
-              name: true,
-              nameEn: true,
-            },
-          },
+  orderBy: {
+    createdAt: "desc",
+  },
 
-          building: {
-            select: {
-              id: true,
-              name: true,
-              nameEn: true,
-            },
-          },
-        },
+  skip,
+  take: limit,
+});
 
-        orderBy: {
-          createdAt: "desc",
-        },
+  type MaintenanceScheduleItem = (typeof schedules)[number];
 
-        skip,
-        take: limit,
-      }),
+  const transformedSchedules: ScheduleForClient[] = schedules.map(
+    (s: MaintenanceScheduleItem) => ({
+      id: s.id,
+      name: s.name,
+      frequency: s.frequency,
+      frequencyDays: s.frequencyDays ?? undefined,
+      leadDays: s.leadDays,
+      isActive: s.isActive,
 
-      prisma.maintenanceSchedule.count({
-        where,
-      }),
-    ]);
+      startDate: s.startDate
+        ? s.startDate.toISOString()
+        : null,
 
-  type MaintenanceScheduleItem =
-    (typeof schedules)[number];
+      createdAt: s.createdAt.toISOString(),
 
-  const transformedSchedules:
-    ScheduleForClient[] =
-    schedules.map(
-      (s: MaintenanceScheduleItem) => ({
-        id: s.id,
+      lastRunAt: s.lastRunAt
+        ? s.lastRunAt.toISOString()
+        : null,
 
-        name: s.name,
+      assetType: s.assetType
+        ? {
+            id: s.assetType.id,
+            name: s.assetType.name,
+            nameEn: s.assetType.nameEn ?? undefined,
+          }
+        : null,
 
-        frequency: s.frequency,
+      branch: s.branch
+        ? {
+            id: s.branch.id,
+            name: s.branch.name,
+            nameEn: s.branch.nameEn ?? undefined,
+          }
+        : null,
 
-        frequencyDays:
-          s.frequencyDays ?? undefined,
-
-        leadDays: s.leadDays,
-
-        isActive: s.isActive,
-
-        startDate: s.startDate
-          ? s.startDate.toISOString()
-          : null,
-
-        createdAt:
-          s.createdAt.toISOString(),
-
-        lastRunAt: s.lastRunAt
-          ? s.lastRunAt.toISOString()
-          : null,
-
-        assetType: s.assetType
-          ? {
-              id: s.assetType.id,
-              name: s.assetType.name,
-              nameEn:
-                s.assetType.nameEn ??
-                undefined,
-            }
-          : null,
-
-        branch: s.branch
-          ? {
-              id: s.branch.id,
-              name: s.branch.name,
-              nameEn:
-                s.branch.nameEn ??
-                undefined,
-            }
-          : null,
-
-        building: s.building
-          ? {
-              id: s.building.id,
-              name: s.building.name,
-              nameEn:
-                s.building.nameEn ??
-                undefined,
-            }
-          : null,
-      })
-    );
+      building: s.building
+        ? {
+            id: s.building.id,
+            name: s.building.name,
+            nameEn: s.building.nameEn ?? undefined,
+          }
+        : null,
+    })
+  );
 
   return (
     <MaintenanceClient
-      initialSchedules={
-        transformedSchedules
-      }
-      total={total}
-      currentPage={currentPage}
-      totalPages={Math.ceil(
-        total / limit
-      )}
+      initialSchedules={transformedSchedules}
       limit={limit}
+      currentPage={currentPage}
       q={q}
-      isActive={isActive}
       locale={locale}
     />
   );

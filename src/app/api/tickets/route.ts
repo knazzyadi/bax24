@@ -1,14 +1,62 @@
 // src/app/api/tickets/route.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
 import { prisma } from '@/lib/prisma';
-import { uploadFileToR2 } from "@/lib/storage";
+import { uploadFileToR2 } from '@/lib/storage';
+import { Prisma, TicketStatus, Ticket } from '@prisma/client';
+
+// ========== تعريف الأنواع ==========
+type TicketCreateInput = {
+  companyId: string;
+  branchId: string;
+  roomId: string;
+  assetId?: string | null;
+  createdBy: string;
+  status: TicketStatus;
+  type: 'INCIDENT' | 'MAINTENANCE';
+  title: string;
+  description: string;
+  reporterName: string;
+  reporterEmail: string;
+  phone?: string | null;
+};
+
+interface Session {
+  userId: string;
+  companyId?: string | null;
+  role: string;
+  branchIds?: string[] | null;
+}
+
+type TicketWithRelations = Prisma.TicketGetPayload<{
+  include: {
+    asset: { select: { id: true; name: true; code: true } };
+    room: {
+      include: {
+        floor: { include: { building: true } };
+      };
+    };
+    branch: true;
+    attachments: {
+      select: {
+        id: true;
+        url: true;
+        key: true;
+        mimeType: true;
+        size: true;
+        originalName: true;
+        provider: true;
+        createdAt: true;
+      };
+    };
+  };
+}>;
 
 // ========== دالة توليد كود فريد لكل فرع ==========
 async function generateTicketCode(branchId: string): Promise<{ code: string; branchSeqNum: number }> {
   const lastTicket = await prisma.ticket.findFirst({
     where: { branchId },
-    orderBy: { branchSeqNum: "desc" },
+    orderBy: { branchSeqNum: 'desc' },
     select: { branchSeqNum: true },
   });
 
@@ -19,29 +67,59 @@ async function generateTicketCode(branchId: string): Promise<{ code: string; bra
     select: { code: true },
   });
 
-  const prefix = branch?.code || "BR";
-  const code = `${prefix}-${nextNumber.toString().padStart(4, "0")}`;
+  const prefix = branch?.code || 'BR';
+  const code = `${prefix}-${nextNumber.toString().padStart(4, '0')}`;
 
   return { code, branchSeqNum: nextNumber };
 }
 
 // ========== دالة إنشاء التذكرة مع إعادة المحاولة ==========
-async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
+async function createTicketWithRetry(
+  data: TicketCreateInput,
+  maxRetries = 3
+): Promise<Ticket> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const { code, branchSeqNum } = await generateTicketCode(data.branchId);
 
       const ticket = await prisma.ticket.create({
         data: {
-          ...data,
           code,
           branchSeqNum,
+          title: data.title,
+          description: data.description,
+          reporterName: data.reporterName,
+          reporterEmail: data.reporterEmail,
+          phone: data.phone ?? null,
+          type: data.type,
+          status: data.status,
+          createdBy: data.createdBy,
+          company: {
+            connect: { id: data.companyId },
+          },
+          branch: {
+            connect: { id: data.branchId },
+          },
+          room: {
+            connect: { id: data.roomId },
+          },
+          ...(data.assetId
+            ? {
+                asset: {
+                  connect: { id: data.assetId },
+                },
+              }
+            : {}),
         },
       });
 
       return ticket;
-    } catch (error: any) {
-      if (error.code === "P2002" && attempt < maxRetries) {
+    } catch (error: unknown) {
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002' &&
+        attempt < maxRetries
+      ) {
         console.log(`⚠️ تعارض في الترقيم، إعادة المحاولة ${attempt + 1}...`);
         continue;
       }
@@ -49,48 +127,50 @@ async function createTicketWithRetry(data: any, maxRetries = 3): Promise<any> {
     }
   }
 
-  throw new Error("فشل إنشاء التذكرة بعد عدة محاولات");
+  throw new Error('فشل إنشاء التذكرة بعد عدة محاولات');
 }
 
 // ========== GET ==========
 export async function GET(request: NextRequest) {
   try {
-    let session;
+    let session: Session | null = null;
     try {
-      session = await getAuthenticatedSession();
+      session = (await getAuthenticatedSession()) as Session;
     } catch {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     if (!session) {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const searchParams = request.nextUrl.searchParams;
-    const q = searchParams.get("q") || "";
-    const status = searchParams.get("status");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const q = searchParams.get('q') || '';
+    const status = searchParams.get('status');
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
     const skip = (page - 1) * limit;
 
     const companyId = session.companyId;
     if (!companyId) {
-      return NextResponse.json({ error: "لا توجد شركة مرتبطة بالمستخدم" }, { status: 400 });
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
     }
 
-    const isAdmin =
-      session.role === "ADMIN" || session.role === "SUPER_ADMIN";
-
+    const isAdmin = session.role === 'ADMIN' || session.role === 'SUPER_ADMIN';
     const branchIds = session.branchIds || [];
 
-    const where: any = {
-      companyId,
+    const where: Prisma.TicketWhereInput = {
       deletedAt: null,
+      company: {
+        id: companyId,
+      },
     };
 
     if (!isAdmin) {
       if (branchIds.length > 0) {
-        where.branchId = { in: branchIds };
+        where.branch = {
+          id: { in: branchIds },
+        };
       } else {
         return NextResponse.json({
           items: [],
@@ -104,13 +184,16 @@ export async function GET(request: NextRequest) {
 
     if (q) {
       where.OR = [
-        { title: { contains: q, mode: "insensitive" } },
-        { code: { contains: q, mode: "insensitive" } },
+        { title: { contains: q, mode: 'insensitive' } },
+        { code: { contains: q, mode: 'insensitive' } },
       ];
     }
 
-    if (status && status !== "all") {
-      where.status = status;
+    if (status && status !== 'all') {
+      const validStatuses: TicketStatus[] = ['PENDING', 'APPROVED', 'REJECTED'];
+      if (validStatuses.includes(status as TicketStatus)) {
+        where.status = status as TicketStatus;
+      }
     }
 
     const [tickets, total] = await Promise.all([
@@ -120,9 +203,7 @@ export async function GET(request: NextRequest) {
           asset: { select: { id: true, name: true, code: true } },
           room: {
             include: {
-              floor: {
-                include: { building: true },
-              },
+              floor: { include: { building: true } },
             },
           },
           branch: true,
@@ -139,15 +220,14 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
         skip,
         take: limit,
       }),
-
       prisma.ticket.count({ where }),
     ]);
 
-    const serializedTickets = tickets.map((ticket: any) => ({
+    const serializedTickets = tickets.map((ticket: TicketWithRelations) => ({
       ...ticket,
       createdAt: ticket.createdAt.toISOString(),
       updatedAt: ticket.updatedAt?.toISOString(),
@@ -160,60 +240,52 @@ export async function GET(request: NextRequest) {
       totalPages: Math.ceil(total / limit),
       limit,
     });
-  } catch (error: any) {
-    console.error("GET /api/tickets error:", error);
-    return NextResponse.json(
-      { error: "خطأ في جلب التذاكر" },
-      { status: 500 }
-    );
+  } catch (error: unknown) {
+    console.error('GET /api/tickets error:', error);
+    const message = error instanceof Error ? error.message : 'خطأ في جلب التذاكر';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
 // ========== POST ==========
 export async function POST(request: Request) {
   try {
-    let session;
+    let session: Session | null = null;
     try {
-      session = await getAuthenticatedSession();
+      session = (await getAuthenticatedSession()) as Session;
     } catch {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     if (!session) {
-      return NextResponse.json({ error: "غير مصرح" }, { status: 401 });
+      return NextResponse.json({ error: 'غير مصرح' }, { status: 401 });
     }
 
     const formData = await request.formData();
 
-    const type = formData.get("type") as string;
-    const title = formData.get("title") as string;
-    const description = formData.get("description") as string;
-    const roomId = formData.get("roomId") as string;
-    const branchId = formData.get("branchId") as string;
-    const assetId = formData.get("assetId") as string;
-    const reporterName = formData.get("reporterName") as string;
-    const reporterEmail = formData.get("reporterEmail") as string;
-    const phone = formData.get("phone") as string;
+    const type = formData.get('type') as string;
+    const title = formData.get('title') as string;
+    const description = formData.get('description') as string;
+    const roomId = formData.get('roomId') as string;
+    const branchId = formData.get('branchId') as string;
+    const assetId = formData.get('assetId') as string;
+    const reporterName = formData.get('reporterName') as string;
+    const reporterEmail = formData.get('reporterEmail') as string;
+    const phone = formData.get('phone') as string;
 
-    const imageFiles = formData.getAll("images") as File[];
+    const imageFiles = formData.getAll('images') as File[];
 
     if (!title || !description || !reporterName || !reporterEmail || !roomId || !branchId) {
-      return NextResponse.json(
-        { error: "بيانات ناقصة" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'بيانات ناقصة' }, { status: 400 });
     }
 
     const companyId = session.companyId;
     if (!companyId) {
-      return NextResponse.json(
-        { error: "لا توجد شركة مرتبطة بالمستخدم" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'لا توجد شركة مرتبطة بالمستخدم' }, { status: 400 });
     }
 
-    const ticket = await createTicketWithRetry({
-      type: type === "INCIDENT" ? "INCIDENT" : "MAINTENANCE",
+    const ticketData: TicketCreateInput = {
+      type: type === 'INCIDENT' ? 'INCIDENT' : 'MAINTENANCE',
       title,
       description,
       reporterName,
@@ -223,14 +295,16 @@ export async function POST(request: Request) {
       roomId,
       branchId,
       assetId: assetId || null,
-      createdBy: session.userId, // ✅ استخدام userId بدلاً من id
-      status: "PENDING",
-    });
+      createdBy: session.userId,
+      status: 'PENDING',
+    };
+
+    const ticket = await createTicketWithRetry(ticketData);
 
     const attachments = [];
 
     for (const file of imageFiles) {
-      if (!file.type.startsWith("image/")) continue;
+      if (!file.type.startsWith('image/')) continue;
 
       const uploaded = await uploadFileToR2(file, `tickets/${ticket.id}`);
 
@@ -239,7 +313,7 @@ export async function POST(request: Request) {
           ticketId: ticket.id,
           url: uploaded.url,
           key: uploaded.key,
-          provider: "CLOUDFLARE_R2",
+          provider: 'CLOUDFLARE_R2',
           mimeType: uploaded.mimeType,
           size: uploaded.size,
           originalName: uploaded.originalName,
@@ -249,16 +323,10 @@ export async function POST(request: Request) {
       attachments.push(attachment);
     }
 
-    return NextResponse.json(
-      { ...ticket, attachments },
-      { status: 201 }
-    );
-  } catch (error: any) {
-    console.error("POST_TICKET_ERROR:", error);
-
-    return NextResponse.json(
-      { error: error.message || "خطأ أثناء إنشاء التذكرة" },
-      { status: 500 }
-    );
+    return NextResponse.json({ ...ticket, attachments }, { status: 201 });
+  } catch (error: unknown) {
+    console.error('POST_TICKET_ERROR:', error);
+    const message = error instanceof Error ? error.message : 'خطأ أثناء إنشاء التذكرة';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

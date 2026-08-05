@@ -2,8 +2,8 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from "react";
+import type { LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useLocale, useTranslations } from "next-intl";
 import {
   ClipboardCheck,
   Calendar,
@@ -32,7 +32,13 @@ import type { Inspection } from "./types";
 // ============================================================
 const STATUS_CONFIG: Record<
   string,
-  { label: { ar: string; en: string }; hex: string; icon: any; glow: string; bg: string }
+  {
+    label: { ar: string; en: string };
+    hex: string;
+    icon: LucideIcon; // ✅ استبدال any بنوع LucideIcon
+    glow: string;
+    bg: string;
+  }
 > = {
   draft: {
     label: { ar: "مسودة", en: "Draft" },
@@ -124,7 +130,6 @@ export default function InspectionsClient({
 }: InspectionsClientProps) {
   const router = useRouter();
   const isRtl = locale === "ar";
-  const t = useTranslations("Inspections");
 
   // ✅ القائمة الافتراضية للحالات (بدون "all" لأننا سنضيفها يدوياً)
   const defaultStatuses = [
@@ -140,8 +145,6 @@ export default function InspectionsClient({
   // حالة الفلاتر
   const [searchTerm, setSearchTerm] = useState(q);
   const [selectedStatus, setSelectedStatus] = useState(statusFilter || "all");
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const debouncedSearch = useDebounce(searchTerm, 500);
 
@@ -163,8 +166,6 @@ export default function InspectionsClient({
     );
     if (!confirmed) return;
 
-    setIsDeleting(true);
-    setDeletingId(id);
     try {
       const res = await fetch(`/api/inspections/${id}`, { method: "DELETE" });
       const data = await res.json();
@@ -179,9 +180,6 @@ export default function InspectionsClient({
     } catch (error) {
       console.error(error);
       toast.error(isRtl ? "حدث خطأ أثناء الاتصال بالخادم" : "Server connection error");
-    } finally {
-      setIsDeleting(false);
-      setDeletingId(null);
     }
   };
 

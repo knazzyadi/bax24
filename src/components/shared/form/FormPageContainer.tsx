@@ -1,9 +1,9 @@
 // src/components/shared/form/FormPageContainer.tsx
-//إنشاء “قالب صفحة فورم جاهز” (Form Page Layout) يُستخدم لتوحيد شكل صفحات الإدخال داخل النظام
+// إنشاء "قالب صفحة فورم جاهز" (Form Page Layout) يُستخدم لتوحيد شكل صفحات الإدخال داخل النظام
+
 "use client";
 
 import { ReactNode } from "react";
-import { cn } from "@/lib/utils";
 
 interface FormPageContainerProps {
   icon?: ReactNode;

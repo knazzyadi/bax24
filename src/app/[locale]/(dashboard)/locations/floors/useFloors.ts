@@ -1,14 +1,34 @@
 // src/app/[locale]/(dashboard)/locations/floors/hooks/useFloors.ts
-import * as React from 'react';
-const { useState, useEffect, useCallback, useMemo } = React;
 
+import { useState, useCallback, useMemo } from 'react';
 import { toast } from 'sonner';
-import { Floor, Building, FloorFormData, FloorFilters } from './types';
+
+import type {
+  Floor,
+  Building,
+  FloorFormData,
+  FloorFilters,
+} from './types';
+
 import { FloorService } from '@/lib/services/locations/floors.service';
 
-export function useFloors(initialFloors: Floor[], initialBuildings: Building[]) {
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return 'حدث خطأ غير معروف';
+}
+
+export function useFloors(
+  initialFloors: Floor[],
+  initialBuildings: Building[]
+) {
   const [floors, setFloors] = useState<Floor[]>(initialFloors);
-  const [buildings] = useState<Building[]>(initialBuildings);
+
+  // لا حاجة إلى useState هنا
+  const buildings = initialBuildings;
+
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -22,103 +42,149 @@ export function useFloors(initialFloors: Floor[], initialBuildings: Building[]) 
 
   const refreshFloors = useCallback(async () => {
     setIsLoading(true);
+
     try {
       const data = await FloorService.getAll();
       setFloors(data);
-    } catch (error: any) {
-      toast.error(error.message);
+    } catch (error: unknown) {
+      toast.error(getErrorMessage(error));
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const createFloor = useCallback(async (data: FloorFormData) => {
-    setIsSaving(true);
-    try {
-      await FloorService.create(data);
-      toast.success('تم إضافة الدور بنجاح');
-      await refreshFloors();
-      return true;
-    } catch (error: any) {
-      toast.error(error.message);
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
-  }, [refreshFloors]);
+  const createFloor = useCallback(
+    async (data: FloorFormData) => {
+      setIsSaving(true);
 
-  const updateFloor = useCallback(async (id: string, data: FloorFormData) => {
-    setIsSaving(true);
-    try {
-      await FloorService.update(id, data);
-      toast.success('تم تحديث الدور بنجاح');
-      await refreshFloors();
-      return true;
-    } catch (error: any) {
-      toast.error(error.message);
-      return false;
-    } finally {
-      setIsSaving(false);
-    }
-  }, [refreshFloors]);
+      try {
+        await FloorService.create(data);
 
-  const deleteFloor = useCallback(async (id: string) => {
-    setIsDeleting(true);
-    try {
-      await FloorService.delete(id);
-      toast.success('تم حذف الدور بنجاح');
-      await refreshFloors();
-      return true;
-    } catch (error: any) {
-      toast.error(error.message);
-      return false;
-    } finally {
-      setIsDeleting(false);
-    }
-  }, [refreshFloors]);
+        toast.success('تم إضافة الدور بنجاح');
 
-  const updateFilters = useCallback((newFilters: Partial<FloorFilters>) => {
-    setFilters((prev) => ({ ...prev, ...newFilters }));
-  }, []);
+        await refreshFloors();
+
+        return true;
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error));
+
+        return false;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [refreshFloors]
+  );
+
+  const updateFloor = useCallback(
+    async (id: string, data: FloorFormData) => {
+      setIsSaving(true);
+
+      try {
+        await FloorService.update(id, data);
+
+        toast.success('تم تحديث الدور بنجاح');
+
+        await refreshFloors();
+
+        return true;
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error));
+
+        return false;
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [refreshFloors]
+  );
+
+  const deleteFloor = useCallback(
+    async (id: string) => {
+      setIsDeleting(true);
+
+      try {
+        await FloorService.delete(id);
+
+        toast.success('تم حذف الدور بنجاح');
+
+        await refreshFloors();
+
+        return true;
+      } catch (error: unknown) {
+        toast.error(getErrorMessage(error));
+
+        return false;
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [refreshFloors]
+  );
+
+  const updateFilters = useCallback(
+    (newFilters: Partial<FloorFilters>) => {
+      setFilters((prev) => ({
+        ...prev,
+        ...newFilters,
+      }));
+    },
+    []
+  );
 
   const filteredFloors = useMemo(() => {
     let result = [...floors];
 
     if (filters.search.trim()) {
       const query = filters.search.toLowerCase();
-      result = result.filter((f) =>
-        f.name.toLowerCase().includes(query) ||
-        (f.nameEn?.toLowerCase() || '').includes(query) ||
-        f.code.toLowerCase().includes(query)
+
+      result = result.filter(
+        (floor) =>
+          floor.name.toLowerCase().includes(query) ||
+          (floor.nameEn?.toLowerCase() ?? '').includes(query) ||
+          floor.code.toLowerCase().includes(query)
       );
     }
 
     if (filters.buildingId) {
-      result = result.filter((f) => f.buildingId === filters.buildingId);
+      result = result.filter(
+        (floor) => floor.buildingId === filters.buildingId
+      );
     }
 
     const { sortBy, sortOrder } = filters;
+
     result.sort((a, b) => {
-      let aVal: any;
-      let bVal: any;
+      let aVal: string | number = '';
+      let bVal: string | number = '';
 
       if (sortBy === 'buildingId') {
-        aVal = a.building?.name || '';
-        bVal = b.building?.name || '';
+        aVal = a.building?.name ?? '';
+        bVal = b.building?.name ?? '';
       } else {
-        aVal = a[sortBy as keyof Floor];
-        bVal = b[sortBy as keyof Floor];
-      }
+        const valueA = a[sortBy as keyof Floor];
+        const valueB = b[sortBy as keyof Floor];
 
-      if (aVal === null || aVal === undefined) aVal = '';
-      if (bVal === null || bVal === undefined) bVal = '';
+        aVal =
+          typeof valueA === 'number' || typeof valueA === 'string'
+            ? valueA
+            : '';
+
+        bVal =
+          typeof valueB === 'number' || typeof valueB === 'string'
+            ? valueB
+            : '';
+      }
 
       if (typeof aVal === 'string' && typeof bVal === 'string') {
         return sortOrder === 'asc'
           ? aVal.localeCompare(bVal)
           : bVal.localeCompare(aVal);
       }
-      return sortOrder === 'asc' ? aVal - bVal : bVal - aVal;
+
+      return sortOrder === 'asc'
+        ? Number(aVal) - Number(bVal)
+        : Number(bVal) - Number(aVal);
     });
 
     return result;

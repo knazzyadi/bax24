@@ -39,9 +39,10 @@ export function useUsers() {
 
   // تنظيف الطلبات المعلقة عند إلغاء تحميل المكون
   useEffect(() => {
+    const controllers = controllersRef.current;
     return () => {
-      controllersRef.current.forEach((c) => c.abort());
-      controllersRef.current.clear();
+      controllers.forEach((c) => c.abort());
+      controllers.clear();
     };
   }, []);
 
@@ -83,6 +84,7 @@ export function useUsers() {
 
   // ======================== التأثيرات الجانبية ========================
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUsers();
   }, [fetchUsers]);
 

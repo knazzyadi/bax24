@@ -1,12 +1,13 @@
 // src/app/[locale]/(dashboard)/tickets/TicketsClient.tsx
 "use client";
 
+// =========================
+// Imports
+// =========================
 import React, { useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { useLocale } from "next-intl";
 import {
   ShieldCheck,
-  AlertCircle,
   MapPin,
   Calendar,
   Edit,
@@ -19,18 +20,46 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  type LucideIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { DataList, type FilterSection, type ItemActions } from "@/components/shared/DataList";
-import { cn } from "@/lib/utils";
 import type { Ticket } from "./types";
 
 // =========================
-// تكوين الحالات
+// Types (local)
 // =========================
+type StatusKey = "PENDING" | "APPROVED" | "REJECTED";
+
+type RoomLocation =
+  | {
+      name: string;
+      nameEn?: string | null;
+      floor?: {
+        name: string;
+        nameEn?: string | null;
+        building?: {
+          name: string;
+          nameEn?: string | null;
+        } | null;
+      } | null;
+    }
+  | null
+  | undefined;
+
+// =========================
+// Constants
+// =========================
+const ITEMS_PER_PAGE = 10;
+
 const STATUS_CONFIG: Record<
-  string,
-  { label: { ar: string; en: string }; hex: string; icon: any; glow: string }
+  StatusKey,
+  {
+    label: { ar: string; en: string };
+    hex: string;
+    icon: LucideIcon;
+    glow: string;
+  }
 > = {
   PENDING: {
     label: { ar: "معلق", en: "Pending" },
@@ -53,10 +82,10 @@ const STATUS_CONFIG: Record<
 };
 
 // =========================
-// دوال مساعدة
+// Helper Functions
 // =========================
 function getStatusDisplay(status: string, isRtl: boolean) {
-  const config = STATUS_CONFIG[status] || STATUS_CONFIG.PENDING;
+  const config = STATUS_CONFIG[status as StatusKey] || STATUS_CONFIG.PENDING;
   return {
     label: isRtl ? config.label.ar : config.label.en,
     hex: config.hex,
@@ -65,7 +94,7 @@ function getStatusDisplay(status: string, isRtl: boolean) {
   };
 }
 
-function getFullLocation(room: any, isRtl: boolean): string {
+function getFullLocation(room: RoomLocation, isRtl: boolean): string {
   if (!room) return "—";
   const floor = room.floor;
   const building = floor?.building;
@@ -84,7 +113,7 @@ function getFullLocation(room: any, isRtl: boolean): string {
 }
 
 // =========================
-// Props
+// Component: TicketsClient
 // =========================
 interface TicketsClientProps {
   initialTickets: Ticket[];
@@ -94,9 +123,6 @@ interface TicketsClientProps {
   locale: string;
 }
 
-// =========================
-// المكون الرئيسي
-// =========================
 export default function TicketsClient({
   initialTickets,
   initialSearch,
@@ -104,14 +130,16 @@ export default function TicketsClient({
   canCreate = false,
   locale,
 }: TicketsClientProps) {
+  // ----- Hooks -----
   const router = useRouter();
   const isRtl = locale === "ar";
 
+  // ----- State -----
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [selectedStatus, setSelectedStatus] = useState(initialStatus);
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
 
+  // ----- Data Filtering & Pagination -----
   const filteredTickets = useMemo(() => {
     let result = [...initialTickets];
     if (searchTerm) {
@@ -129,13 +157,19 @@ export default function TicketsClient({
   }, [initialTickets, searchTerm, selectedStatus]);
 
   const totalItems = filteredTickets.length;
-  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const totalPages = Math.ceil(totalItems / ITEMS_PER_PAGE);
   const paginatedTickets = filteredTickets.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
 
+  // ----- Handlers -----
   const handleDelete = async (id: string, title: string) => {
+    // ✅ استخدام title في رسالة التأكيد
+    if (!confirm(isRtl ? `هل أنت متأكد من حذف البلاغ "${title}"؟` : `Are you sure you want to delete ticket "${title}"?`)) {
+      return;
+    }
+
     const res = await fetch(`/api/tickets/${id}`, { method: "DELETE" });
     if (!res.ok) {
       const error = await res.json();
@@ -155,6 +189,7 @@ export default function TicketsClient({
     router.push(`/${locale}/tickets/${id}`);
   };
 
+  // ----- Filter Configuration -----
   const filterSections: FilterSection[] = [
     {
       id: "status",
@@ -174,9 +209,7 @@ export default function TicketsClient({
     setCurrentPage(1);
   };
 
-  // =========================
-  // عرض عنصر التذكرة
-  // =========================
+  // ----- Render Helpers -----
   const renderTicket = (ticket: Ticket, actions: ItemActions) => {
     const statusInfo = getStatusDisplay(ticket.status, isRtl);
     const Icon = statusInfo.icon;
@@ -193,10 +226,10 @@ export default function TicketsClient({
         onClick={() => handleView(ticket.id)}
         className="group relative flex flex-col md:flex-row items-start md:items-center gap-6 p-6 rounded-2xl transition-all duration-300 cursor-pointer bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 hover:bg-white/90 dark:hover:bg-slate-900/90 hover:scale-[1.01] hover:shadow-xl shadow-sm hover:shadow-indigo-500/5 dark:hover:shadow-indigo-400/5"
       >
-        {/* خلفية متدرجة خفيفة */}
+        {/* Background gradient */}
         <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-indigo-50/30 to-purple-50/30 dark:from-indigo-950/20 dark:to-purple-950/20 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
-        {/* الأيقونة الرئيسية */}
+        {/* Icon */}
         <div
           className="relative z-10 h-14 w-14 rounded-2xl flex items-center justify-center shrink-0 transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-3"
           style={glowStyle}
@@ -204,7 +237,7 @@ export default function TicketsClient({
           <Icon size={28} style={{ color: statusColor }} />
         </div>
 
-        {/* البيانات الأساسية */}
+        {/* Ticket Info */}
         <div className="relative z-10 flex-1 min-w-0 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-200 truncate leading-none">
@@ -237,7 +270,7 @@ export default function TicketsClient({
           </div>
         </div>
 
-        {/* الحالة والإجراءات */}
+        {/* Status & Actions */}
         <div className="relative z-10 flex items-center gap-3 shrink-0" onClick={(e) => e.stopPropagation()}>
           <span
             className="rounded-full text-xs font-semibold px-3 py-1.5 inline-flex items-center gap-1.5 border border-slate-200/30 dark:border-slate-700/30 shadow-sm"
@@ -279,9 +312,6 @@ export default function TicketsClient({
     );
   };
 
-  // =========================
-  // حساب إحصائيات الحالات
-  // =========================
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = {};
     initialTickets.forEach((t) => {
@@ -290,15 +320,13 @@ export default function TicketsClient({
     return counts;
   }, [initialTickets]);
 
-  // =========================
-  // العرض مع رأس موحّد
-  // =========================
+  // ----- Render -----
   return (
     <div className="relative space-y-8 p-6">
-      {/* خلفية متدرجة خفيفة */}
+      {/* Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-      {/* رأس الصفحة المخصص */}
+      {/* Header */}
       <div className="relative flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/10 to-purple-500/10 dark:from-indigo-500/20 dark:to-purple-500/20 border border-indigo-200/30 dark:border-indigo-800/30 shadow-lg shadow-indigo-500/5">
@@ -325,7 +353,7 @@ export default function TicketsClient({
         )}
       </div>
 
-      {/* DataList بدون عنوان وزر إضافة (لتجنب التكرار) */}
+      {/* DataList */}
       <DataList
         searchPlaceholder={
           isRtl
@@ -346,12 +374,12 @@ export default function TicketsClient({
         emptyMessage={isRtl ? "لا توجد بلاغات لعرضها" : "No tickets to display"}
         onEdit={handleEdit}
         onDelete={handleDelete}
-        itemsPerPage={itemsPerPage}
+        itemsPerPage={ITEMS_PER_PAGE}
         showPagination={true}
         className="relative z-10"
       />
 
-      {/* ملخص الحالات */}
+      {/* Status Summary */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-4 py-3 rounded-2xl bg-white/40 dark:bg-slate-900/40 backdrop-blur-sm border border-slate-200/30 dark:border-slate-800/30 text-sm text-slate-600 dark:text-slate-400">
         <div className="flex items-center gap-3">
           <Sparkles size={16} className="text-indigo-400 dark:text-indigo-500" />

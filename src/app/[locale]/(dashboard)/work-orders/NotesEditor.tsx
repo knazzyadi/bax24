@@ -7,21 +7,22 @@ import { Textarea } from "@/components/ui/textarea";
 interface NotesEditorProps {
   value?: string;
   onChange: (value: string) => void;
-  isRtl: boolean;
-  t: any;
+  t: (key: string) => string;
 }
 
-export function NotesEditor({ value, onChange, isRtl, t }: NotesEditorProps) {
+export function NotesEditor({ value, onChange, t }: NotesEditorProps) {
   return (
     <div className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-sm border border-slate-200/80 dark:border-slate-700/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow duration-300">
       <div className="flex items-center gap-3 mb-4">
         <div className="p-2 rounded-xl bg-amber-100 dark:bg-amber-900/40">
           <FileText className="h-5 w-5 text-amber-700 dark:text-amber-300" />
         </div>
+
         <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
           {t("notes")}
         </h3>
       </div>
+
       <Textarea
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}

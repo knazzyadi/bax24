@@ -1,15 +1,99 @@
-//src/app/[locale]/(dashboard)/work-orders/[id]/print/WorkOrderPrint.tsx
+// src/app/[locale]/(dashboard)/work-orders/[id]/print/WorkOrderPrint.tsx
 "use client";
 
 import { useEffect } from "react";
 
-interface WorkOrderPrintProps {
-  data: any;
-  isRtl: boolean;
-  locale: string;
+// ============================================================
+// الأنواع
+// ============================================================
+
+interface WorkOrderAsset {
+  assetId: string;
+  asset: {
+    code: string;
+    name: string;
+    nameEn?: string | null;
+  };
+  completedAt?: string | null;
+  notes?: string | null;
 }
 
-export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
+interface AuditLog {
+  id: string;
+  action: string;
+  createdAt: string;
+  user?: {
+    name?: string | null;
+  } | null;
+  details?: unknown;
+}
+
+interface WorkOrderPrintData {
+  code: string;
+  title: string;
+  type: string;
+  createdAt: string;
+
+  company?: {
+    name: string;
+    nameEn?: string | null;
+  } | null;
+
+  priority?: {
+    name: string;
+    nameEn?: string | null;
+  } | null;
+
+  status?: {
+    name: string;
+    nameEn?: string | null;
+  } | null;
+
+  createdBy?: {
+    name?: string | null;
+  } | null;
+
+  assignedTo?: {
+    name?: string | null;
+  } | null;
+
+  branch?: {
+    name: string;
+    nameEn?: string | null;
+  } | null;
+
+  room?: {
+    name: string;
+    nameEn?: string | null;
+    floor?: {
+      name: string;
+      nameEn?: string | null;
+      building?: {
+        name: string;
+        nameEn?: string | null;
+      } | null;
+    } | null;
+  } | null;
+
+  description?: string | null;
+  notes?: string | null;
+  source?: string | null;
+
+  workOrderAssets?: WorkOrderAsset[];
+
+  auditLogs?: AuditLog[];
+}
+
+interface WorkOrderPrintProps {
+  data: WorkOrderPrintData;
+  isRtl: boolean; // ✅ locale محذوف
+}
+
+// ============================================================
+// المكون
+// ============================================================
+
+export function WorkOrderPrint({ data, isRtl }: WorkOrderPrintProps) {
   useEffect(() => {
     document.body.classList.add("printing");
 
@@ -67,7 +151,6 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
     return parts.join(" - ");
   };
 
-  // ✅ دالة لعرض نص الإجراء باللغة المناسبة
   const getActionLabel = (action: string) => {
     const actions: Record<string, { ar: string; en: string }> = {
       CREATED: { ar: "تم الإنشاء", en: "Created" },
@@ -77,7 +160,6 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
       COMPLETED: { ar: "تم الإكمال", en: "Completed" },
       CANCELLED: { ar: "تم الإلغاء", en: "Cancelled" },
       COMMENT_ADDED: { ar: "إضافة تعليق", en: "Comment Added" },
-      // أضف المزيد حسب احتياجاتك
     };
     return isRtl ? actions[action]?.ar || action : actions[action]?.en || action;
   };
@@ -204,7 +286,7 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
               </tr>
             </thead>
             <tbody>
-              {data.workOrderAssets.map((woa: any) => (
+              {data.workOrderAssets.map((woa: WorkOrderAsset) => (
                 <tr key={woa.assetId}>
                   <td className="border border-gray-300 px-4 py-2 font-mono text-xs" style={{ color: "#000000" }}>
                     {woa.asset.code}
@@ -249,9 +331,7 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
         </div>
       )}
 
-      {/* ============================================================
-          ✅ سجل التدقيق (Audit Log) – بدلاً من "سجل التنفيذ"
-          ============================================================ */}
+      {/* ========== سجل التدقيق ========== */}
       <div className="mb-4">
         <h2 className="text-lg font-bold border-b-2 border-gray-300 pb-2 mb-4" style={{ color: "#000000" }}>
           {isRtl ? "سجل التدقيق" : "Audit Log"}
@@ -277,7 +357,7 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
                 </tr>
               </thead>
               <tbody>
-                {data.auditLogs.map((log: any) => (
+                {data.auditLogs.map((log: AuditLog) => (
                   <tr key={log.id}>
                     <td className="border border-gray-300 px-3 py-1.5 text-xs" style={{ color: "#000000" }}>
                       {formatDate(log.createdAt)}
@@ -342,7 +422,7 @@ export function WorkOrderPrint({ data, isRtl, locale }: WorkOrderPrintProps) {
         <span style={{ color: "#555555" }}>{isRtl ? "الصفحة" : "Page"} 1 / 1</span>
       </div>
 
-      {/* ========== أنماط الطباعة ========== (كما هي، لم تتغير) ========== */}
+      {/* ========== أنماط الطباعة ========== */}
       <style jsx global>{`
         body.printing {
           margin: 0 !important;

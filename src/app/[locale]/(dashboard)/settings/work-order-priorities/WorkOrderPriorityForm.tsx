@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/work-order-priorities/WorkOrderPriorityForm.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react"; // ✅ حذف useEffect من الاستيراد
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -25,33 +25,20 @@ export function WorkOrderPriorityForm({
 }: WorkOrderPriorityFormProps) {
   const t = useTranslations("WorkOrderPriorities");
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: "",
-    nameEn: "",
-    color: "#6B7280",
-    isDefault: false,
-    isActive: true,
+
+  // ✅ دالة القيم الافتراضية
+  const getInitialFormData = () => ({
+    name: priority?.name ?? "",
+    nameEn: priority?.nameEn ?? "",
+    color: priority?.color ?? "#6B7280",
+    isDefault: priority?.isDefault ?? false,
+    isActive: priority?.isActive ?? true,
   });
 
-  useEffect(() => {
-    if (priority) {
-      setFormData({
-        name: priority.name || "",
-        nameEn: priority.nameEn || "",
-        color: priority.color || "#6B7280",
-        isDefault: priority.isDefault || false,
-        isActive: priority.isActive !== undefined ? priority.isActive : true,
-      });
-    } else {
-      setFormData({
-        name: "",
-        nameEn: "",
-        color: "#6B7280",
-        isDefault: false,
-        isActive: true,
-      });
-    }
-  }, [priority]);
+  // ✅ تعريف state باستخدام الدالة
+  const [formData, setFormData] = useState(getInitialFormData);
+
+  // ✅ تم حذف useEffect بالكامل
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -100,8 +87,13 @@ export function WorkOrderPriorityForm({
 
       toast.success(priority ? t("updateSuccess") : t("createSuccess"));
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || t("saveError"));
+        } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : t("saveError");
+
+      toast.error(message);
       console.error(error);
     } finally {
       setLoading(false);

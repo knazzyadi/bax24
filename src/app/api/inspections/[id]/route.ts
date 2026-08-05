@@ -1,30 +1,68 @@
 // src/app/api/inspections/[id]/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
 import { prisma } from "@/lib/prisma";
-import { RiskLevel, FindingStatus } from "@prisma/client";
+import { RiskLevel, FindingStatus, ResultStatus } from "@prisma/client";
+
+// ============================================================
+// Types
+// ============================================================
+type FindingInput = {
+  title?: string;
+  text?: string;
+  description?: string;
+  riskLevel?: RiskLevel;
+  correctiveAction?: string;
+  dueDate?: string | Date | null;
+  status?: FindingStatus;
+  createdById?: string | null;
+};
+type CategoryGroup = {
+  categoryId: string | null;
+  categoryName: string | null;
+  categoryNameAr: string | null;
+
+  items: Array<{
+    id: string;
+    itemId: string | null;
+    code: string | null;
+    name: string | null;
+    nameAr: string | null;
+    description: string | null;
+    riskLevel: RiskLevel | null;
+    inputType: string | null;
+    sortOrder: number;
+    autoCreateWorkOrder: boolean;
+    result: unknown;
+  }>;
+};
 
 // ============================================================
 // GET: جلب بيانات الفحص (مع النتائج والملاحظات)
 // ============================================================
 export async function GET(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        { error: "Unauthorized" },
+        { status: 401 }
+      );
     }
-
     const { id } = await params;
-
-    // جلب الفحص مع عناصر النموذج والنتائج والملاحظات المرتبطة
     const inspection = await prisma.inspection.findUnique({
-      where: { id },
+      where: {
+        id,
+      },
       include: {
         formItems: {
-          orderBy: { sortOrder: "asc" },
+          orderBy: {
+            sortOrder: "asc",
+          },
           include: {
             results: {
               include: {
@@ -35,58 +73,71 @@ export async function GET(
         },
       },
     });
-
     if (!inspection) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
+      return NextResponse.json(
+        {
+          error: "Inspection not found",
+        },
+        {
+          status:404,
+        }
+      );
     }
-
-    // تجميع البيانات حسب الفئة (categoryId) لعرضها منظم
-    const categoriesMap = new Map();
-    inspection.formItems.forEach((item) => {
+    const categoriesMap = new Map<string | null, CategoryGroup>();
+    inspection.formItems.forEach((item)=>{
       const catId = item.categoryId;
-      if (!categoriesMap.has(catId)) {
-        categoriesMap.set(catId, {
-          categoryId: catId,
-          categoryName: item.categoryName,
-          categoryNameAr: item.categoryNameAr,
-          items: [],
+      if(!categoriesMap.has(catId)){
+        categoriesMap.set(catId,{
+          categoryId:catId,
+          categoryName:item.categoryName,
+          categoryNameAr:item.categoryNameAr,
+          items:[],
         });
       }
-      // إضافة البند مع نتيجته (افترضنا أن لكل بند نتيجة واحدة) مع تضمين findings
-      const result = item.results?.[0] || null;
-      categoriesMap.get(catId).items.push({
-        id: item.id,
-        itemId: item.itemId,
-        code: item.itemCode,
-        name: item.itemName,
-        nameAr: item.itemNameAr,
-        description: item.description,
-        riskLevel: item.riskLevel,
-        inputType: item.inputType,
-        sortOrder: item.sortOrder,
-        autoCreateWorkOrder: item.autoCreateWorkOrder,
+      const result = item.results?.[0] ?? null;
+      categoriesMap.get(catId)!.items.push({
+        id:item.id,
+        itemId:item.itemId,
+        code:item.itemCode,
+        name:item.itemName,
+        nameAr:item.itemNameAr,
+        description:item.description,
+        riskLevel:
+          item.riskLevel
+            ? (item.riskLevel as RiskLevel)
+            : null,
+        inputType:item.inputType,
+        sortOrder:item.sortOrder,
+        autoCreateWorkOrder:item.autoCreateWorkOrder,
         result,
       });
     });
-
-    const categories = Array.from(categoriesMap.values());
-
+    const categories = Array.from(
+      categoriesMap.values()
+    );
     return NextResponse.json({
       ...inspection,
       categories,
     });
-  } catch (error) {
-    console.error("❌ Error fetching inspection:", error);
+  } catch(error){
+    console.error(
+      "❌ Error fetching inspection:",
+      error
+    );
     return NextResponse.json(
       {
-        error: "Internal Server Error",
-        details: error instanceof Error ? error.message : String(error),
+        error:"Internal Server Error",
+        details:
+          error instanceof Error
+          ? error.message
+          : String(error),
       },
-      { status: 500 }
+      {
+        status:500,
+      }
     );
   }
 }
-
 // ============================================================
 // PUT: تحديث بيانات الفحص (بما في ذلك النتائج والملاحظات)
 // ============================================================
@@ -97,12 +148,17 @@ export async function PUT(
   try {
     const session = await getServerSession();
     if (!session) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      return NextResponse.json(
+        {
+          error:"Unauthorized",
+        },
+        {
+          status:401,
+        }
+      );
     }
-
     const { id } = await params;
     const body = await req.json();
-
     const {
       title,
       scheduledDate,
@@ -115,34 +171,50 @@ export async function PUT(
       roomId,
       results,
     } = body;
-
-    // التحقق من وجود الفحص
     const existing = await prisma.inspection.findUnique({
-      where: { id },
-      select: { companyId: true },
-    });
-    if (!existing) {
-      return NextResponse.json({ error: "Inspection not found" }, { status: 404 });
-    }
-
-    // 1. تحديث بيانات الفحص الأساسية
-    await prisma.inspection.update({
-      where: { id },
-      data: {
-        title: title?.trim(),
-        scheduledDate: scheduledDate ? new Date(scheduledDate) : undefined,
-        status,
-        notes: notes || undefined,
-        inspectorId: inspectorId || undefined,
-        branchId: branchId || undefined,
-        buildingId: buildingId || undefined,
-        floorId: floorId || undefined,
-        roomId: roomId || undefined,
+      where:{
+        id,
+      },
+      select:{
+        companyId:true,
       },
     });
-
-    // 2. تحديث النتائج والملاحظات
-    if (results && Array.isArray(results)) {
+    if(!existing){
+      return NextResponse.json(
+        {
+          error:"Inspection not found",
+        },
+        {
+          status:404,
+        }
+      );
+    }
+    await prisma.inspection.update({
+      where:{
+        id,
+      },
+      data:{
+        title:title?.trim(),
+        scheduledDate:
+          scheduledDate
+          ? new Date(scheduledDate)
+          : undefined,
+        status,
+        notes:
+          notes || undefined,
+        inspectorId:
+          inspectorId || undefined,
+        branchId:
+          branchId || undefined,
+        buildingId:
+          buildingId || undefined,
+        floorId:
+          floorId || undefined,
+        roomId:
+          roomId || undefined,
+      },
+    });
+        if (results && Array.isArray(results)) {
       for (const resultData of results) {
         const {
           inspectionFormItemId,
@@ -150,104 +222,157 @@ export async function PUT(
           notes: resultNotes,
           workOrderId,
           findings,
-        } = resultData;
+        } = resultData as {
+          inspectionFormItemId: string;
+          result: string;
+          notes?: string;
+          workOrderId?: string;
+          findings?: FindingInput[];
+        };
 
-        if (!inspectionFormItemId) continue;
+        if (!inspectionFormItemId) {
+          continue;
+        }
 
-        // البحث عن النتيجة الحالية لهذا البند في هذا الفحص
-        const existingResult = await prisma.inspectionResult.findFirst({
-          where: {
-            inspectionId: id,
-            inspectionFormItemId: inspectionFormItemId,
-          },
-        });
+        const existingResult =
+          await prisma.inspectionResult.findFirst({
+            where: {
+              inspectionId: id,
+              inspectionFormItemId,
+            },
+          });
+
+        const createFindings = async (
+          inspectionResultId: string
+        ) => {
+          if (!findings || findings.length === 0) {
+            return;
+          }
+
+          const findingsData = findings.map(
+            (f: FindingInput) => ({
+              inspectionResultId,
+              title:
+                f.title ||
+                f.text ||
+                "ملاحظة تفتيش",
+
+              description:
+                f.description ||
+                f.text ||
+                null,
+
+              riskLevel:
+                f.riskLevel ??
+                RiskLevel.medium,
+
+              correctiveAction:
+                f.correctiveAction ??
+                null,
+
+              dueDate:
+                f.dueDate
+                  ? new Date(f.dueDate)
+                  : null,
+
+              status:
+                f.status ??
+                FindingStatus.Open,
+
+              createdById:
+                f.createdById ??
+                null,
+            })
+          );
+
+          await prisma.inspectionFinding.createMany({
+            data: findingsData,
+          });
+        };
+
 
         if (existingResult) {
-          // تحديث النتيجة الموجودة
+
           await prisma.inspectionResult.update({
-            where: { id: existingResult.id },
+            where: {
+              id: existingResult.id,
+            },
             data: {
-              result,
+              result: result as ResultStatus,
               notes: resultNotes,
               workOrderId,
             },
           });
-          // تحديث الملاحظات (findings) إذا تم إرسالها
-          if (findings && Array.isArray(findings)) {
-            // حذف الملاحظات القديمة
+
+
+          if (findings) {
+
             await prisma.inspectionFinding.deleteMany({
-              where: { inspectionResultId: existingResult.id },
+              where: {
+                inspectionResultId:
+                  existingResult.id,
+              },
             });
-            // إضافة الملاحظات الجديدة (إن وجدت) مع التحقق من الحقول المطلوبة
-            if (findings.length > 0) {
-              const findingsData = findings.map((f: any) => ({
-                inspectionResultId: existingResult.id,
-                title: f.title || f.text || "ملاحظة تفتيش",
-                description: f.description || f.text || null,
-                riskLevel: (f.riskLevel as RiskLevel) || RiskLevel.medium,
-                correctiveAction: f.correctiveAction || null,
-                dueDate: f.dueDate ? new Date(f.dueDate) : null,
-                status: f.status || FindingStatus.Open,
-                createdById: f.createdById || null,
-              }));
-              await prisma.inspectionFinding.createMany({
-                data: findingsData,
-              });
-            }
+
+            await createFindings(
+              existingResult.id
+            );
           }
+
+
         } else {
-          // إنشاء نتيجة جديدة
-          const newResult = await prisma.inspectionResult.create({
-            data: {
-              inspectionId: id,
-              inspectionFormItemId: inspectionFormItemId,
-              result,
-              notes: resultNotes,
-              workOrderId,
-            },
-          });
-          // إضافة الملاحظات إن وجدت
-          if (findings && Array.isArray(findings) && findings.length > 0) {
-            const findingsData = findings.map((f: any) => ({
-              inspectionResultId: newResult.id,
-              title: f.title || f.text || "ملاحظة تفتيش",
-              description: f.description || f.text || null,
-              riskLevel: (f.riskLevel as RiskLevel) || RiskLevel.medium,
-              correctiveAction: f.correctiveAction || null,
-              dueDate: f.dueDate ? new Date(f.dueDate) : null,
-              status: f.status || FindingStatus.Open,
-              createdById: f.createdById || null,
-            }));
-            await prisma.inspectionFinding.createMany({
-              data: findingsData,
+
+          const newResult =
+            await prisma.inspectionResult.create({
+              data: {
+                inspectionId: id,
+                inspectionFormItemId,
+                result: result as ResultStatus,
+                notes: resultNotes,
+                workOrderId,
+              },
             });
-          }
+
+
+          await createFindings(
+            newResult.id
+          );
         }
       }
     }
 
-    // 3. جلب الفحص المحدث مع العلاقات الجديدة
-    const fullInspection = await prisma.inspection.findUnique({
-      where: { id },
-      include: {
-        formItems: {
-          include: {
-            results: {
-              include: {
-                findings: true,
+
+    const fullInspection =
+      await prisma.inspection.findUnique({
+        where: {
+          id,
+        },
+        include: {
+          formItems: {
+            orderBy: {
+              sortOrder: "asc",
+            },
+            include: {
+              results: {
+                include: {
+                  findings: true,
+                },
               },
             },
           },
-          orderBy: { sortOrder: "asc" },
         },
-      },
-    });
+      });
 
-    // إعادة تجميع البيانات بنفس هيكل GET
-    const categoriesMap = new Map();
+
+    const categoriesMap =
+      new Map<string | null, CategoryGroup>();
+
     fullInspection?.formItems.forEach((item) => {
+
       const catId = item.categoryId;
+
       if (!categoriesMap.has(catId)) {
+
         categoriesMap.set(catId, {
           categoryId: catId,
           categoryName: item.categoryName,
@@ -255,49 +380,59 @@ export async function PUT(
           items: [],
         });
       }
-      const result = item.results?.[0] || null;
-      categoriesMap.get(catId).items.push({
+
+
+      categoriesMap.get(catId)!.items.push({
         id: item.id,
         itemId: item.itemId,
         code: item.itemCode,
         name: item.itemName,
         nameAr: item.itemNameAr,
         description: item.description,
-        riskLevel: item.riskLevel,
+        riskLevel:
+          item.riskLevel
+            ? (item.riskLevel as RiskLevel)
+            : null,
         inputType: item.inputType,
         sortOrder: item.sortOrder,
-        autoCreateWorkOrder: item.autoCreateWorkOrder,
-        result,
+        autoCreateWorkOrder:
+          item.autoCreateWorkOrder,
+        result:
+          item.results?.[0] ?? null,
       });
+
     });
 
-    const categories = Array.from(categoriesMap.values());
 
     return NextResponse.json(
       {
         ...fullInspection,
-        categories,
+        categories:
+          Array.from(categoriesMap.values()),
       },
-      { status: 200 }
+      {
+        status: 200,
+      }
     );
-  } catch (error) {
-    console.error("❌ Error updating inspection:", error);
+
+  } catch(error) {
+
+    console.error(
+      "❌ Error updating inspection:",
+      error
+    );
+
     return NextResponse.json(
       {
         error: "Internal Server Error",
-        details: error instanceof Error ? error.message : String(error),
+        details:
+          error instanceof Error
+            ? error.message
+            : String(error),
       },
-      { status: 500 }
+      {
+        status: 500,
+      }
     );
   }
-}
-
-// ============================================================
-// PATCH (اختياري) – نفس منطق PUT
-// ============================================================
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  return PUT(req, { params });
 }

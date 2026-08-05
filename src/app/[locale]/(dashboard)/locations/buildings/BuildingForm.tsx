@@ -1,8 +1,7 @@
 // src/app/[locale]/(dashboard)/locations/buildings/BuildingForm.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useTranslations } from 'next-intl';
+import { useState } from 'react'; // ✅ حذف useEffect من الاستيراد
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,35 +29,16 @@ export function BuildingForm({
   onSuccess,
   isRtl,
 }: BuildingFormProps) {
-  const t = useTranslations('Locations');
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    nameEn: '',
-    code: '',
-    order: 0,
-    branchId: '',
-  });
-
-  useEffect(() => {
-    if (editingBuilding) {
-      setFormData({
-        name: editingBuilding.name || '',
-        nameEn: editingBuilding.nameEn || '',
-        code: editingBuilding.code || '',
-        order: editingBuilding.order ?? 0,
-        branchId: editingBuilding.branchId || '',
-      });
-    } else {
-      setFormData({
-        name: '',
-        nameEn: '',
-        code: '',
-        order: 0,
-        branchId: '',
-      });
-    }
-  }, [editingBuilding]);
+  
+  // ✅ تهيئة الحالة مباشرة بدون useEffect
+  const [formData, setFormData] = useState(() => ({
+    name: editingBuilding?.name ?? '',
+    nameEn: editingBuilding?.nameEn ?? '',
+    code: editingBuilding?.code ?? '',
+    order: editingBuilding?.order ?? 0,
+    branchId: editingBuilding?.branchId ?? '',
+  }));
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>
@@ -114,8 +94,16 @@ export function BuildingForm({
           : 'Building created successfully'
       );
       onSuccess();
-    } catch (error: any) {
-      toast.error(error.message || (isRtl ? 'حدث خطأ أثناء الحفظ' : 'Save error'));
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Save error';
+
+      toast.error(
+        message || (isRtl ? 'حدث خطأ أثناء الحفظ' : 'Save error')
+      );
+
       console.error(error);
     } finally {
       setLoading(false);

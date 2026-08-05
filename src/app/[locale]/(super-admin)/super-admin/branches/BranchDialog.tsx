@@ -1,4 +1,4 @@
-// src/app/[locale]/(super-admin)/super-admin/branches/components/BranchDialog.tsx
+// src/app/[locale]/(super-admin)/super-admin/branches/BranchDialog.tsx
 'use client';
 
 import { useEffect } from 'react';
@@ -22,7 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Branch, Company, BranchFormData } from '../types';
+import { Branch, Company, BranchFormData } from './types';
 import { Loader2 } from 'lucide-react';
 
 const branchSchema = z.object({

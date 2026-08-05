@@ -1,22 +1,26 @@
-// src/app/[locale]/(dashboard)/tickets/types.ts (أو src/types/tickets.ts)
+// src/app/[locale]/(dashboard)/tickets/types.ts
+
+// =========================
+// Types
+// =========================
 
 export interface BuildingSimple {
   id: string;
   name: string;
-  nameEn?: string;
+  nameEn?: string | null; // ✅ السماح null من Prisma
 }
 
 export interface FloorSimple {
   id: string;
   name: string;
-  nameEn?: string;
+  nameEn?: string | null; // ✅ السماح null من Prisma
   building?: BuildingSimple;
 }
 
 export interface RoomSimple {
   id: string;
   name: string;
-  nameEn?: string;
+  nameEn?: string | null; // ✅ السماح null من Prisma
   code?: string;
   floor?: FloorSimple;
 }
@@ -24,7 +28,7 @@ export interface RoomSimple {
 export interface BranchSimple {
   id: string;
   name: string;
-  nameEn?: string;
+  nameEn?: string | null; // ✅ السماح null من Prisma
 }
 
 export interface AssetSimple {
@@ -35,14 +39,13 @@ export interface AssetSimple {
   statusId?: string | null;
 }
 
-// تعريف نوع المرفق الجديد (TicketAttachment)
 export interface TicketAttachment {
   id: string;
   url: string;
   key?: string;
   mimeType?: string;
   size?: number;
-  originalName?: string;
+  originalName?: string | null; // ✅ السماح null
   createdAt?: string;
 }
 
@@ -54,10 +57,17 @@ export interface Ticket {
   reporterName: string;
   reporterEmail: string;
   phone: string | null;
-  status: "PENDING" | "APPROVED" | "REJECTED"; // تأكد من تطابق القيم مع الـ enum في schema
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  type?: string | null;                // ✅ مطلوب في page.tsx
+  rejectionReason?: string | null;     // ✅ مطلوب في page.tsx
   createdAt: string;
+  updatedAt: string;                   // ✅ مطلوب في page.tsx
   room?: RoomSimple | null;
   branch?: BranchSimple | null;
   asset?: AssetSimple | null;
-  attachments?: TicketAttachment[];   // ✅ استبدال ticketImages بـ attachments
+  attachments?: TicketAttachment[];    // ✅ بدلاً من ticketImages
+  workOrder?: {
+    id: string;
+    code?: string | null;
+  } | null;                            // ✅ مطلوب في page.tsx
 }

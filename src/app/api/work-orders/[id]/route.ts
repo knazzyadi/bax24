@@ -93,6 +93,22 @@ export async function PUT(
       );
     }
 
+    // ✅ 1. جلب السجل الحالي أولاً
+    const existing = await prisma.workOrder.findFirst({
+      where: {
+        id,
+        companyId,
+        deletedAt: null,
+      },
+    });
+
+    if (!existing) {
+      return NextResponse.json(
+        { error: "أمر العمل غير موجود" },
+        { status: 404 }
+      );
+    }
+
     const body = await request.json();
 
     const {
@@ -115,27 +131,18 @@ export async function PUT(
       ticketId,
     } = body;
 
-    if (!title?.trim()) {
-      return NextResponse.json(
-        { error: "عنوان أمر العمل مطلوب" },
-        { status: 400 }
-      );
-    }
+    // ✅ 2. استخدام القيم الافتراضية من السجل الحالي إذا لم تُقدم
+    const finalTitle = title ?? existing.title;
+    const finalBranchId = branchId ?? existing.branchId;
 
-    if (!branchId) {
-      return NextResponse.json(
-        { error: "الفرع مطلوب" },
-        { status: 400 }
-      );
-    }
-
+    // التحقق من الصلاحيات باستخدام finalBranchId
     const isAdmin =
       session.role === "ADMIN" || session.role === "SUPER_ADMIN";
 
     if (!isAdmin) {
       const userBranchIds = session.branchIds || [];
 
-      if (!userBranchIds.includes(branchId)) {
+      if (!userBranchIds.includes(finalBranchId)) {
         return NextResponse.json(
           { error: "لا تملك صلاحية تعديل أمر العمل في هذا الفرع" },
           { status: 403 }
@@ -143,21 +150,7 @@ export async function PUT(
       }
     }
 
-    const existing = await prisma.workOrder.findFirst({
-      where: {
-        id,
-        companyId,
-        deletedAt: null,
-      },
-    });
-
-    if (!existing) {
-      return NextResponse.json(
-        { error: "أمر العمل غير موجود" },
-        { status: 404 }
-      );
-    }
-
+    // باقي المعالجة (التحقق من الأولوية والحالة، إلخ)
     let finalPriorityId: string | null = priorityId;
     let finalStatusId: string | null = statusId;
 
@@ -247,15 +240,16 @@ export async function PUT(
       finalRoomId = null;
     }
 
+    // ✅ 3. تحديث السجل باستخدام finalTitle و finalBranchId
     await prisma.workOrder.update({
       where: { id },
       data: {
-        title: title.trim(),
+        title: finalTitle.trim(),
         description: description || undefined,
         type: workOrderTypeEnum,
         priorityId: finalPriorityId,
         statusId: finalStatusId,
-        branchId: branchId || undefined,
+        branchId: finalBranchId,
         buildingId: finalBuildingId || undefined,
         floorId: finalFloorId || undefined,
         roomId: finalRoomId || undefined,
@@ -270,6 +264,7 @@ export async function PUT(
       },
     });
 
+    // حذف الأصول القديمة وإضافة الجديدة
     await prisma.workOrderAsset.deleteMany({
       where: {
         workOrderId: id,

@@ -239,6 +239,7 @@ export default function InspectionTypesView({
 
         {/* حوارات */}
         <SectionDialog
+          key={editingSection?.id ?? "new-section"}
           open={sectionDialogOpen}
           onOpenChange={onSectionDialogClose}
           section={editingSection}
@@ -246,6 +247,7 @@ export default function InspectionTypesView({
         />
 
         <TemplateDialog
+          key={editingTemplate?.id ?? "new-template"}
           open={templateDialogOpen}
           onOpenChange={(open) => {
             if (!open) onTemplateDialogClose(false);
@@ -257,6 +259,7 @@ export default function InspectionTypesView({
         />
 
         <CategoryDialog
+          key={editingCategory?.id ?? "new-category"}
           open={categoryDialogOpen}
           onOpenChange={(open) => {
             if (!open) onCategoryDialogClose(false);
@@ -268,6 +271,7 @@ export default function InspectionTypesView({
         />
 
         <ItemDialog
+          key={editingItem?.id ?? "new-item"}
           open={itemDialogOpen}
           onOpenChange={(open) => {
             if (!open) onItemDialogClose(false);

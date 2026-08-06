@@ -35,6 +35,7 @@ import {
   Sparkles,
   Plus,
   X,
+  Building,
 } from "lucide-react";
 
 // ============================================================
@@ -61,9 +62,17 @@ interface Category {
   _count?: { items: number };
 }
 
+// ✅ تم تعديل Branch ليشمل nameAr و nameEn اختياريين
+interface Branch {
+  id: string;
+  name: string;
+  nameAr?: string;
+  nameEn?: string;
+}
+
 // مجموعة واحدة (صف)
 interface RowData {
-  id: string; // معرف فريد مؤقت للصف
+  id: string;
   sectionId: string;
   templateId: string;
   categoryId: string;
@@ -83,6 +92,7 @@ export default function NewInspectionPage() {
   const [sections, setSections] = useState<Section[]>([]);
   const [templates, setTemplates] = useState<Template[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -92,6 +102,7 @@ export default function NewInspectionPage() {
   const [scheduledDate, setScheduledDate] = useState<string>(
     new Date().toISOString().split("T")[0]
   );
+  const [branchId, setBranchId] = useState("");
 
   // الصفوف الديناميكية
   const [rows, setRows] = useState<RowData[]>([
@@ -105,20 +116,22 @@ export default function NewInspectionPage() {
     const fetchAllData = async () => {
       setLoading(true);
       try {
-        // ✅ تم تعديل هذا السطر: إضافة ?active=true لجلب الأقسام النشطة فقط
-        const [sectionsRes, templatesRes, categoriesRes] = await Promise.all([
-          fetch("/api/inspection-sections?active=true"),
-          fetch("/api/inspection-templates?active=true"),
-          fetch("/api/inspection-categories?active=true"),
-        ]);
+        const [sectionsRes, templatesRes, categoriesRes, branchesRes] =
+          await Promise.all([
+            fetch("/api/inspection-sections?active=true"),
+            fetch("/api/inspection-templates?active=true"),
+            fetch("/api/inspection-categories?active=true"),
+            fetch("/api/branches?active=true"),
+          ]);
 
-        if (!sectionsRes.ok || !templatesRes.ok || !categoriesRes.ok) {
+        if (!sectionsRes.ok || !templatesRes.ok || !categoriesRes.ok || !branchesRes.ok) {
           throw new Error("Failed to fetch data");
         }
 
         const sectionsData = await sectionsRes.json();
         const templatesData = await templatesRes.json();
         const categoriesData = await categoriesRes.json();
+        const branchesData = await branchesRes.json();
 
         // جلب عدد البنود لكل فئة (اختياري)
         const categoriesWithCount = await Promise.all(
@@ -132,6 +145,12 @@ export default function NewInspectionPage() {
         setSections(sectionsData);
         setTemplates(templatesData);
         setCategories(categoriesWithCount);
+        setBranches(branchesData);
+
+        // تحديد الفرع الافتراضي إن وجد
+        if (branchesData.length > 0) {
+          setBranchId(branchesData[0].id);
+        }
       } catch {
         toast.error(isRtl ? "فشل في تحميل البيانات" : "Failed to load data");
       } finally {
@@ -191,11 +210,9 @@ export default function NewInspectionPage() {
     setRows(
       rows.map((row) => {
         if (row.id === id) {
-          // عند تغيير القسم، نعيد تعيين النموذج والفئة
           if (field === "sectionId") {
             return { ...row, sectionId: value, templateId: "", categoryId: "" };
           }
-          // عند تغيير النموذج، نعيد تعيين الفئة
           if (field === "templateId") {
             return { ...row, templateId: value, categoryId: "" };
           }
@@ -207,7 +224,7 @@ export default function NewInspectionPage() {
   };
 
   // ============================================================
-  // 2.5 بناء خيارات القوائم لكل صف
+  // 2.5 بناء خيارات القوائم
   // ============================================================
   const getSectionOptions = useMemo(() => {
     return sections.map((s) => ({
@@ -216,16 +233,23 @@ export default function NewInspectionPage() {
     }));
   }, [sections, getLocalizedName]);
 
+  const getBranchOptions = useMemo(() => {
+    return branches.map((b) => ({
+      value: b.id,
+      label: getLocalizedName(b), // ✅ الآن يعمل لأن Branch يحتوي nameAr اختياري
+    }));
+  }, [branches, getLocalizedName]);
+
   // ============================================================
   // 2.6 التحقق من اكتمال البيانات
   // ============================================================
   const isFormValid = useMemo(() => {
     if (!inspectionTitle.trim()) return false;
-    // يجب أن يكون كل صف قد اختار قسماً ونموذجاً وفئة
+    if (!branchId) return false;
     return rows.every(
       (row) => row.sectionId && row.templateId && row.categoryId
     );
-  }, [inspectionTitle, rows]);
+  }, [inspectionTitle, branchId, rows]);
 
   // ============================================================
   // 2.7 ملخص الاختيارات
@@ -257,16 +281,16 @@ export default function NewInspectionPage() {
     if (!isFormValid) {
       toast.error(
         isRtl
-          ? "يرجى ملء جميع الحقول في كل صف"
-          : "Please fill all fields in each row"
+          ? "يرجى ملء جميع الحقول في كل صف واختيار الفرع"
+          : "Please fill all fields in each row and select a branch"
       );
       return;
     }
 
-    // بناء payload
     const payload = {
       title: inspectionTitle.trim(),
       scheduledDate,
+      branchId,
       items: rows.map((row) => ({
         sectionId: row.sectionId,
         templateId: row.templateId,
@@ -345,8 +369,8 @@ export default function NewInspectionPage() {
 
           <form onSubmit={handleSubmit}>
             <CardContent className="space-y-8 pt-6">
-              {/* الحقول الأساسية: العنوان والتاريخ */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* الحقول الأساسية: العنوان والتاريخ والفرع */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-2">
                   <Label htmlFor="title" className="text-slate-700 dark:text-slate-300 font-medium flex items-center gap-2">
                     <FileText className="h-4 w-4 text-indigo-500" />
@@ -375,6 +399,25 @@ export default function NewInspectionPage() {
                     className="bg-white/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-indigo-500 h-12 text-base"
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="branch" className="text-slate-700 dark:text-slate-300 font-medium flex items-center gap-2">
+                    <Building className="h-4 w-4 text-indigo-500" />
+                    {isRtl ? "الفرع" : "Branch"} *
+                  </Label>
+                  <Select value={branchId} onValueChange={setBranchId}>
+                    <SelectTrigger className="bg-white/60 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700 h-12">
+                      <SelectValue placeholder={isRtl ? "اختر الفرع" : "Select branch"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {getBranchOptions.map((opt) => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
 
               <div className="relative">
@@ -391,7 +434,6 @@ export default function NewInspectionPage() {
               {/* الصفوف الديناميكية */}
               <div className="space-y-6">
                 {rows.map((row, index) => {
-                  // خيارات النماذج بناءً على القسم المختار في هذا الصف
                   const templateOptions = row.sectionId
                     ? getTemplatesForSection(row.sectionId).map((t) => ({
                         value: t.id,
@@ -399,7 +441,6 @@ export default function NewInspectionPage() {
                       }))
                     : [];
 
-                  // خيارات الفئات بناءً على النموذج المختار في هذا الصف
                   const categoryOptions = row.templateId
                     ? getCategoriesForTemplate(row.templateId).map((c) => ({
                         value: c.id,
@@ -412,7 +453,6 @@ export default function NewInspectionPage() {
                       key={row.id}
                       className="relative p-6 rounded-xl border border-slate-200 dark:border-slate-700 bg-white/50 dark:bg-slate-800/50"
                     >
-                      {/* رأس الصف مع رقم وزر الحذف */}
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="text-sm font-semibold text-slate-600 dark:text-slate-300 flex items-center gap-2">
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 text-xs">
@@ -433,7 +473,6 @@ export default function NewInspectionPage() {
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {/* القسم */}
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">
                             {isRtl ? "القسم" : "Section"}
@@ -457,7 +496,6 @@ export default function NewInspectionPage() {
                           </Select>
                         </div>
 
-                        {/* النموذج */}
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">
                             {isRtl ? "النموذج" : "Template"}
@@ -492,7 +530,6 @@ export default function NewInspectionPage() {
                           </Select>
                         </div>
 
-                        {/* الفئة */}
                         <div className="space-y-1">
                           <Label className="text-xs text-muted-foreground">
                             {isRtl ? "الفئة" : "Category"}
@@ -531,7 +568,6 @@ export default function NewInspectionPage() {
                   );
                 })}
 
-                {/* زر إضافة صف */}
                 <Button
                   type="button"
                   variant="outline"

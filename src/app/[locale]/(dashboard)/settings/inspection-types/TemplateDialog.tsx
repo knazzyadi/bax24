@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/inspection-types/TemplateDialog.tsx
 "use client";
 
-import { useState } from "react"; // ✅ حذف useEffect من الاستيراد
+import { useState, useCallback, } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -62,15 +62,15 @@ export function TemplateDialog({
     getInitialFormData(template, sectionId)
   );
 
-  // ✅ دالة معالجة فتح/إغلاق النافذة مع إعادة ضبط البيانات
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!loading) {
-      if (newOpen) {
-        setFormData(getInitialFormData(template, sectionId));
+  // ✅ دالة معالجة فتح/إغلاق النافذة (بدون تعديل البيانات، لأن useEffect يتولى ذلك)
+  const handleOpenChange = useCallback(
+    (newOpen: boolean) => {
+      if (!loading) {
+        onOpenChange(newOpen, false);
       }
-      onOpenChange(newOpen, false);
-    }
-  };
+    },
+    [loading, onOpenChange]
+  );
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>

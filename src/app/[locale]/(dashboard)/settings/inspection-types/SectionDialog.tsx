@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/inspection-types/SectionDialog.tsx
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -26,7 +26,6 @@ interface SectionDialogProps {
   isRtl: boolean;
 }
 
-// ✅ دالة مساعدة لتهيئة البيانات – تُستخدم في useState و عند فتح النافذة
 const getInitialFormData = (section: InspectionSection | null) => ({
   code: section?.code ?? "",
   name: section?.name ?? "",
@@ -44,21 +43,15 @@ export function SectionDialog({
   const [loading, setLoading] = useState(false);
   const isEditing = !!section;
 
-  // ✅ استخدام useState مع دالة initializer – لا حاجة لـ useEffect
   const [formData, setFormData] = useState(() => getInitialFormData(section));
 
-  // ✅ عند فتح النافذة أو تغيير section، نعيد ضبط البيانات
   const handleOpenChange = useCallback(
     (newOpen: boolean) => {
       if (!loading) {
-        if (newOpen) {
-          // عند الفتح، نحدّث البيانات بناءً على section الجديد
-          setFormData(getInitialFormData(section));
-        }
         onOpenChange(newOpen, false);
       }
     },
-    [loading, section, onOpenChange]
+    [loading, onOpenChange]
   );
 
   const handleChange = (

@@ -120,6 +120,7 @@ export default async function AssetsPage({
     deletedAt: status.deletedAt?.toISOString() ?? null,
     createdAt: status.createdAt.toISOString(),
     updatedAt: status.updatedAt.toISOString(),
+    description: status.description ?? undefined,
   }));
 
   // 6. بناء روابط التنقل

@@ -18,7 +18,7 @@ export default async function InspectionDetailPage({
   const companyId = session.companyId;
   if (!companyId) redirect("/login");
 
-  // ✅ التعديل الأول: جلب findings مع النتائج
+  // ✅ جلب findings مع النتائج
   const inspection = await prisma.inspection.findUnique({
     where: { id },
     include: {
@@ -68,7 +68,7 @@ export default async function InspectionDetailPage({
       inputType: item.inputType,
       sortOrder: item.sortOrder,
       isRequired: item.isRequired,
-      // ✅ التعديل الثاني: إضافة findings و findingId
+      // ✅ إضافة findings و findingId
       result: result
         ? {
             id: result.id,
@@ -93,17 +93,28 @@ export default async function InspectionDetailPage({
   if (inspection.room) locationParts.push(inspection.room.name);
   const locationName = locationParts.length > 0 ? locationParts.join(" - ") : undefined;
 
+  // ✅ كائن initialData المعدل
   const initialData = {
     id: inspection.id,
     title: inspection.title,
+
+    branchId: inspection.branchId,
+    branch: {
+      id: inspection.branch.id,
+      name: inspection.branch.name,
+      nameEn: inspection.branch.nameEn ?? undefined,
+    },
+
     locationName,
     scheduledDate: inspection.scheduledDate.toISOString(),
     status: inspection.status,
     categories,
-    branchId: inspection.branchId,
+
+    // الحقول الإضافية (اختيارية)
     buildingId: inspection.buildingId,
     floorId: inspection.floorId,
     roomId: inspection.roomId,
+
     createdAt: inspection.createdAt.toISOString(),
     updatedAt: inspection.updatedAt.toISOString(),
   };

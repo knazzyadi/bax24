@@ -46,18 +46,13 @@ export default async function InspectionsPage({
   const where: Prisma.InspectionWhereInput = {};
 
   if (q) {
-    where.OR = [
-      { title: { contains: q, mode: 'insensitive' } },
-    ];
+    where.OR = [{ title: { contains: q, mode: 'insensitive' } }];
   }
 
-  // التحقق الآمن من الحالة بدون استخدام any
   if (status && status !== 'all') {
-    // التأكد من أن القيمة المرسلة هي حالة صالحة في Prisma enum
     if (Object.values(InspectionStatus).includes(status as InspectionStatus)) {
       where.status = status as InspectionStatus;
     }
-    // إذا كانت القيمة غير صالحة، يمكن تجاهلها أو تسجيل خطأ، لكننا هنا نتجاهلها ببساطة
   }
 
   const [inspections, totalCount] = await Promise.all([
@@ -67,24 +62,49 @@ export default async function InspectionsPage({
       skip,
       take: limitNum,
       include: {
-        selectedCategories: {
-          include: { category: true }
+        branch: true,
+        formItems: {
+          include: {
+            results: true,
+          },
         },
-        results: true
-      }
+      },
     }),
-    prisma.inspection.count({ where })
+    prisma.inspection.count({ where }),
   ]);
 
+  // ✅ التعديل المطلوب: تعيين الحقول بشكل صريح مع معالجة null
   const transformedInspections: Inspection[] = inspections.map((ins) => ({
-    ...ins,
+    id: ins.id,
+    title: ins.title,
+
+    branchId: ins.branchId,
+    branch: {
+      id: ins.branch.id,
+      name: ins.branch.name,
+      nameEn: ins.branch.nameEn ?? undefined, // تحويل null إلى undefined
+    },
+
+    locationName: undefined,
+
     scheduledDate: ins.scheduledDate.toISOString(),
+
+    inspectorName: undefined,
+
+    status: ins.status,
+
+    inspectorSignature: undefined,
+    supervisorSignature: undefined,
+
     createdAt: ins.createdAt.toISOString(),
     updatedAt: ins.updatedAt.toISOString(),
+
     _count: {
-      totalItems: ins.results.length,
-      completedItems: ins.results.filter(r => r.result !== 'na').length
-    }
+      totalItems: ins.formItems.length,
+      completedItems: ins.formItems.filter(
+        (item) => item.results.some((r) => r.result !== 'na')
+      ).length,
+    },
   }));
 
   const statuses = [

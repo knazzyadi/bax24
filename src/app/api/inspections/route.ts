@@ -12,7 +12,7 @@ type InspectionGroup = {
 };
 
 // ============================================================
-// GET: جلب قائمة الفحوصات مع الإحصائيات
+// GET: جلب قائمة الفحوصات مع الإحصائيات وبيانات الفرع
 // ============================================================
 export async function GET() {
   try {
@@ -30,6 +30,7 @@ export async function GET() {
         createdAt: "desc",
       },
       include: {
+        branch: true,
         formItems: {
           include: {
             results: true,
@@ -87,9 +88,9 @@ export async function POST(req: NextRequest) {
     const {
       title,
       scheduledDate,
+      branchId,
       items,
       inspectorId,
-      branchId,
       buildingId,
       floorId,
       roomId,
@@ -97,18 +98,44 @@ export async function POST(req: NextRequest) {
     } = body as {
       title?: string;
       scheduledDate?: string;
+      branchId?: string;
       items?: InspectionGroup[];
       inspectorId?: string;
-      branchId?: string;
       buildingId?: string;
       floorId?: string;
       roomId?: string;
       notes?: string;
     };
 
+    // التحقق من الحقول المطلوبة
     if (!title?.trim()) {
       return NextResponse.json(
         { error: "Title is required" },
+        { status: 400 }
+      );
+    }
+
+    if (!branchId?.trim()) {
+      return NextResponse.json(
+        { error: "Branch is required" },
+        { status: 400 }
+      );
+    }
+
+    // ✅ التحقق من أن الفرع يتبع لنفس الشركة
+    const branch = await prisma.branch.findFirst({
+      where: {
+        id: branchId,
+        companyId: session.companyId,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!branch) {
+      return NextResponse.json(
+        { error: "Invalid branch" },
         { status: 400 }
       );
     }
@@ -245,7 +272,7 @@ export async function POST(req: NextRequest) {
       });
 
     // ============================================================
-    // 3. إنشاء الفحص
+    // 3. إنشاء الفحص مع branchId مطلوب
     // ============================================================
 
     const newInspection = await prisma.inspection.create({
@@ -255,8 +282,8 @@ export async function POST(req: NextRequest) {
         scheduledDate: scheduledDate
           ? new Date(scheduledDate)
           : new Date(),
+        branchId: branchId.trim(),
         inspectorId: inspectorId || null,
-        branchId: branchId || null,
         buildingId: buildingId || null,
         floorId: floorId || null,
         roomId: roomId || null,
@@ -323,7 +350,7 @@ export async function POST(req: NextRequest) {
     });
 
     // ============================================================
-    // 7. إعادة البيانات
+    // 7. إعادة البيانات مع تضمين الفرع
     // ============================================================
 
     const fullInspection = await prisma.inspection.findUnique({
@@ -331,6 +358,7 @@ export async function POST(req: NextRequest) {
         id: newInspection.id,
       },
       include: {
+        branch: true, // ✅ تم إضافة جلب الفرع
         formItems: {
           include: {
             results: {

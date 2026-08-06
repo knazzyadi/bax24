@@ -907,7 +907,7 @@ model Inspection {
   companyId          String
   title              String                        @db.VarChar(255)
   notes              String?
-  branchId           String?
+  branchId           String
   buildingId         String?
   floorId            String?
   roomId             String?
@@ -926,7 +926,7 @@ model Inspection {
   formItems          InspectionFormItem[]
   results            InspectionResult[]
   approvedBy         User?                         @relation("InspectionApprover", fields: [approvedById], references: [id])
-  branch             Branch?                       @relation(fields: [branchId], references: [id])
+  branch             Branch                        @relation(fields: [branchId], references: [id])
   building           Building?                     @relation(fields: [buildingId], references: [id])
   company            Company                       @relation(fields: [companyId], references: [id], onDelete: Cascade)
   floor              Floor?                        @relation(fields: [floorId], references: [id])

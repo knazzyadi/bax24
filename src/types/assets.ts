@@ -33,7 +33,7 @@ export interface Branch extends CodeEntity {
 export interface Building extends CodeEntity {
   code: string;
   order: number;
-  branchId: string;
+  branchId?: string | null;
   branch?: Branch;
   companyId: string;
   deletedAt?: string | null;
@@ -114,12 +114,14 @@ export interface AssetTypeRef {
   updatedAt?: string;
 }
 
+// ✅ AssetStatusRef مع description
 export interface AssetStatusRef {
   id: string;
   name: string;
   nameEn?: string;
   code?: string;
   color?: string;
+  description?: string | null;
   order?: number;
   isDefault?: boolean;
   isActive?: boolean;
@@ -129,14 +131,15 @@ export interface AssetStatusRef {
   updatedAt?: string;
 }
 
+// ✅ Supplier مع null
 export interface Supplier {
   id: string;
   name: string;
   nameEn?: string;
-  code?: string;
-  contactPerson?: string;
-  phone?: string;
-  email?: string;
+  code?: string | null;          // ✅
+  contactPerson?: string | null; // ✅
+  phone?: string | null;         // ✅
+  email?: string | null;         // ✅
   isActive?: boolean;
   companyId: string;
   deletedAt?: string | null;

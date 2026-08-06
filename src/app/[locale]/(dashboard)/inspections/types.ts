@@ -7,6 +7,15 @@
 export interface Inspection {
   id: string;
   title: string;
+  
+  // بيانات الفرع (مطلوبة)
+  branchId: string;
+  branch: {
+    id: string;
+    name: string;
+    nameEn?: string | null; // ✅ null للتوافق مع Prisma
+  };
+  
   locationName?: string;
   scheduledDate: string;
   inspectorName?: string;
@@ -48,52 +57,58 @@ export interface InspectionItem {
 export interface InspectionResult {
   id: string;
   inspectionId: string;
-  itemId: string;
+  inspectionFormItemId: string;
   result: 'pass' | 'fail' | 'na';
   notes?: string;
   imageUrl?: string;
   workOrderId?: string;
   executedAt?: string;
   updatedAt: string;
-  findings?: Finding[]; // ربط الـ Findings بالنتيجة
+  findings?: Finding[];
 }
 
-// ============================================================
-// ✅ الأنواع الخاصة بـ Findings (مسودة ونهائية)
-// ============================================================
-
-// مسودة الملاحظة أثناء التحرير
 export interface FindingDraft {
   title: string;
   description?: string;
   riskLevel: 'low' | 'medium' | 'high' | 'critical';
   correctiveAction?: string;
-  dueDate?: string; // YYYY-MM-DD
+  dueDate?: string;
 }
 
-// حالة النتيجة داخل صفحة تنفيذ الفحص
 export interface ResultState {
   id: string;
   inspectionFormItemId: string;
   result: 'pass' | 'fail' | 'na';
   notes?: string;
   imageUrl?: string;
-  findingId?: string; // معرف الملاحظة بعد حفظها (إن وجدت)
+  findingId?: string;
   workOrderId?: string;
-  finding?: FindingDraft | null; // البيانات غير المحفوظة (لتعديلها)
-  findings?: Finding[]; // ✅ المصفوفة الكاملة للـ Findings المحفوظة (من قاعدة البيانات)
+  finding?: FindingDraft | null;
+  findings?: Finding[];
 }
 
-// بيانات الفحص الكاملة المستخدمة في ClientWrapper
 export interface InspectionData {
   id: string;
   title: string;
+
+  branchId: string;
+  branch: {
+    id: string;
+    name: string;
+    nameEn?: string; // ✅ اختياري بدون null
+  };
+
   locationName?: string;
   scheduledDate: string;
   status: string;
   categories: InspectionCategoryWithItems[];
   createdAt: string;
   updatedAt: string;
+
+  // ✅ الحقول الإضافية للتوافق مع بيانات Prisma (اختيارية)
+  buildingId?: string | null;
+  floorId?: string | null;
+  roomId?: string | null;
 }
 
 export interface InspectionCategoryWithItems {
@@ -103,34 +118,19 @@ export interface InspectionCategoryWithItems {
   items: InspectionItemWithResult[];
 }
 
-// ============================================================
-// ✅ تعريف InspectionItemWithResult محدث ليشمل الخصائص المطلوبة
-// ============================================================
 export interface InspectionItemWithResult {
   id: string;
-
-  // الأسماء (دعم لغتين)
   name: string;
   nameAr?: string;
   nameEn?: string;
-
-  // الوصف (دعم لغتين)
   description?: string;
   descriptionAr?: string;
-
-  // بيانات العنصر
-  code?: string; // يستخدم كـ cbahiCode أحياناً
+  code?: string;
   riskLevel?: 'low' | 'medium' | 'high' | 'critical';
   inputType?: 'pass_fail' | 'numeric' | 'text';
   sortOrder?: number;
-
-  // النتيجة (محسوبة/مؤقتة أثناء التنفيذ)
   result?: ResultState | null;
 }
-
-// ============================================================
-// ✅ الأنواع الخاصة بـ Findings (النهائية بعد الحفظ)
-// ============================================================
 
 export interface Finding {
   id: string;
@@ -142,14 +142,14 @@ export interface Finding {
   dueDate: string | null;
   createdAt: string;
   updatedAt: string;
-  resultId: string;
+  inspectionResultId: string;
   createdById?: string | null;
   createdBy?: {
     id: string;
     name: string;
     email: string;
   } | null;
-  workOrderFindings: Array<{
+  workOrders: Array<{
     workOrder: {
       id: string;
       code: string;
@@ -163,10 +163,6 @@ export interface Finding {
     };
   }>;
 }
-
-// ============================================================
-// ✅ الأنواع الخاصة بـ Work Orders
-// ============================================================
 
 export interface WorkOrder {
   id: string;
@@ -206,10 +202,6 @@ export interface WorkOrder {
   source: 'MANUAL' | 'INSPECTION' | 'INSPECTION_FINDING' | 'PREVENTIVE_MAINTENANCE';
   sourceId?: string;
 }
-
-// ============================================================
-// ✅ الأنواع المستخدمة في الفلاتر والـ API
-// ============================================================
 
 export interface FilterOption {
   id: string;

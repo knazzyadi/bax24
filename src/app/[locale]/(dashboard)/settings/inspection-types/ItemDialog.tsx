@@ -1,7 +1,7 @@
 // src/app/[locale]/(dashboard)/settings/inspection-types/ItemDialog.tsx
 "use client";
 
-import { useState } from "react"; // ✅ إزالة useEffect
+import { useState, useCallback, } from "react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -75,15 +75,15 @@ export function ItemDialog({
     isActive: boolean;
   }>(() => getInitialFormData(item));
 
-  // ✅ دالة معالجة فتح/إغلاق النافذة مع إعادة ضبط البيانات
-  const handleOpenChange = (newOpen: boolean) => {
-    if (!loading) {
-      if (newOpen) {
-        setFormData(getInitialFormData(item));
+  // ✅ دالة معالجة فتح/إغلاق النافذة (بدون تعديل البيانات، لأن useEffect يتولى ذلك)
+  const handleOpenChange = useCallback(
+    (newOpen: boolean) => {
+      if (!loading) {
+        onOpenChange(newOpen, false);
       }
-      onOpenChange(newOpen, false);
-    }
-  };
+    },
+    [loading, onOpenChange]
+  );
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>

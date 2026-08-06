@@ -1,10 +1,10 @@
-// src/app/api/stats/low-inventory-count/route.ts
+// src/app/api/stats/assets-count/route.ts
 
-import { NextResponse } from 'next/server';
+import { NextResponse } from "next/server";
 
-import { getAuthenticatedSession } from '@/lib/auth/auth-helper';
-import { prisma } from '@/lib/prisma';
-import { Prisma } from '@prisma/client';
+import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
+import { prisma } from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 
 export async function GET() {
   try {
@@ -12,7 +12,7 @@ export async function GET() {
 
     if (!session) {
       return NextResponse.json(
-        { error: 'غير مصرح' },
+        { error: "غير مصرح" },
         { status: 401 }
       );
     }
@@ -21,28 +21,30 @@ export async function GET() {
 
     if (!companyId) {
       return NextResponse.json(
-        { error: 'لا توجد شركة مرتبطة' },
+        { error: "لا توجد شركة مرتبطة" },
         { status: 400 }
       );
     }
 
     const isAdmin =
-      session.role === 'ADMIN' ||
-      session.role === 'SUPER_ADMIN';
+      session.role === "ADMIN" ||
+      session.role === "SUPER_ADMIN";
 
-    const branchIds = session.branchIds || [];
+    const branchIds = session.branchIds ?? [];
 
-    const baseWhere: Prisma.InventoryItemWhereInput = {
+    const where: Prisma.AssetWhereInput = {
       companyId,
       deletedAt: null,
     };
 
     if (!isAdmin) {
       if (branchIds.length === 0) {
-        return NextResponse.json({ count: 0 });
+      return NextResponse.json({
+        count: 0,
+      });
       }
 
-      baseWhere.room = {
+      where.room = {
         floor: {
           building: {
             branchId: {
@@ -53,29 +55,21 @@ export async function GET() {
       };
     }
 
-    const items = await prisma.inventoryItem.findMany({
-      where: baseWhere,
-      select: {
-        quantity: true,
-        minQuantity: true,
-      },
+    const count = await prisma.asset.count({
+      where,
     });
 
-    const lowItemsCount = items.filter(
-      (item) => item.quantity < item.minQuantity
-    ).length;
-
-    return NextResponse.json({
-      count: lowItemsCount,
-    });
-  } catch (error: unknown) {
+  return NextResponse.json({
+    count,
+  });
+  } catch (error) {
     console.error(
-      'GET /api/stats/low-inventory-count error:',
+      "GET /api/stats/assets-count error:",
       error
     );
 
     return NextResponse.json(
-      { error: 'خطأ في الخادم' },
+      { error: "خطأ في الخادم" },
       { status: 500 }
     );
   }

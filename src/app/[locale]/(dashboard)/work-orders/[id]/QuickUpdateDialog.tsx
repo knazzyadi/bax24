@@ -40,6 +40,7 @@ interface QuickUpdateDialogProps {
 }
 
 export function QuickUpdateDialog({
+  open,
   onOpenChange,
   currentStatus,
   currentPriority,
@@ -70,8 +71,8 @@ export function QuickUpdateDialog({
   };
 
   return (
-    <Dialog open={true} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
+        <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md rounded-2xl bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 shadow-xl">
         <DialogHeader>
           <DialogTitle className="text-slate-800 dark:text-slate-100 text-xl font-bold">
             {isRtl ? "تحديث سريع" : "Quick Update"}

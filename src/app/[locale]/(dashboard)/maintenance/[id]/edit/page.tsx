@@ -41,6 +41,9 @@ import { BuildingSelector } from "@/components/shared/BuildingSelector";
 import { FloorSelector } from "@/components/shared/FloorSelector";
 import { RoomSelector } from "@/components/shared/RoomSelector";
 import { AssetTypeField } from "@/components/shared/form/AssetTypeField";
+import { isFrequencyType } from "../../types";
+// ✅ استيراد الدالة المساعدة
+import { frequencyStringToDays } from "../../utils";
 
 // ✅ استيراد الـ Hook (بدون استيراد الأنواع غير المستخدمة)
 import { useMaintenanceEdit } from "./useMaintenanceEdit";
@@ -170,9 +173,16 @@ export default function EditMaintenanceSchedulePage() {
                   <Select
                     value={formData.frequency}
                     onValueChange={(val) => {
+                      if (!isFrequencyType(val)) return;
+
                       setFormData((prev) => ({
                         ...prev,
                         frequency: val,
+                        // ✅ عند اختيار CUSTOM نحتفظ بالقيمة الحالية، وإلا نضع القيمة القياسية
+                        frequencyDays:
+                          val === "CUSTOM"
+                            ? prev.frequencyDays
+                            : frequencyStringToDays(val),
                       }));
                     }}
                   >
@@ -184,29 +194,35 @@ export default function EditMaintenanceSchedulePage() {
                       <SelectItem value="QUARTERLY">{t("quarterly")}</SelectItem>
                       <SelectItem value="SEMI_ANNUAL">{t("semiAnnual")}</SelectItem>
                       <SelectItem value="YEARLY">{t("yearly")}</SelectItem>
+                      <SelectItem value="CUSTOM">
+                        {isRtl ? "مخصص" : "Custom"}
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
 
               <div className="grid md:grid-cols-3 gap-5">
-                <div className="space-y-1.5">
-                  <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                    {t("frequencyDays")}
-                  </Label>
-                  <Input
-                    type="number"
-                    min={1}
-                    value={formData.frequencyDays}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        frequencyDays: parseInt(e.target.value) || 0,
-                      })
-                    }
-                    className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
-                  />
-                </div>
+                {formData.frequency === "CUSTOM" && (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                      {isRtl ? "عدد الأيام بين الصيانة" : "Days Between Maintenance"}
+                    </Label>
+
+                    <Input
+                      type="number"
+                      min={1}
+                      value={formData.frequencyDays || ""}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          frequencyDays: parseInt(e.target.value, 10) || 0,
+                        })
+                      }
+                      className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">

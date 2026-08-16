@@ -12,6 +12,9 @@ export const TABLE_COLUMNS: Column[] = [
   { key: "name", labelRtl: "الاسم", labelEn: "Name", required: true, width: "min-w-[120px]" },
   { key: "nameEn", labelRtl: "الاسم (إنجليزي)", labelEn: "Name (EN)", width: "min-w-[120px]" },
   { key: "description", labelRtl: "الوصف", labelEn: "Description", width: "min-w-[120px]" },
+  // ✅ إضافة عمودي الدور والغرفة (مطلوبين)
+  { key: "floorCode", labelRtl: "الدور", labelEn: "Floor", required: true, width: "min-w-[100px]" },
+  { key: "roomCode", labelRtl: "الغرفة", labelEn: "Room", required: true, width: "min-w-[100px]" },
   { key: "typeId", labelRtl: "النوع", labelEn: "Type", required: true, width: "min-w-[140px]" },
   { key: "statusId", labelRtl: "الحالة", labelEn: "Status", width: "min-w-[140px]" },
   { key: "purchaseDate", labelRtl: "تاريخ الشراء", labelEn: "Purchase Date", width: "min-w-[120px]" },

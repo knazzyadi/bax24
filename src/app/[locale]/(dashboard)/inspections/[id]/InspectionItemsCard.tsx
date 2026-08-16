@@ -1,5 +1,4 @@
 // src/app/[locale]/(dashboard)/inspections/[id]/InspectionItemsCard.tsx
-
 "use client";
 
 import { useState } from "react";
@@ -15,7 +14,7 @@ import { cn } from "@/lib/utils";
 import type {
   ResultState,
   FindingDraft,
-  InspectionItemWithResult, // ✅ 1. استيراد النوع الجديد
+  InspectionItemWithResult,
 } from "../types";
 
 // ============================================================
@@ -87,24 +86,28 @@ const ResultIcon = ({
 // المكون الرئيسي
 // ============================================================
 export function InspectionItemsCard({
-  categories,
+  categories = [],
   resultsState,
   onUpdateResult,
+  onDeleteFinding,
   isRtl,
+  editMode,
 }: {
-  categories: {
+  categories?: {
     categoryId: string;
     categoryName: string;
     categoryNameAr?: string;
-    items: InspectionItemWithResult[]; // ✅ 2. استبدال any
+    items: InspectionItemWithResult[];
   }[];
   resultsState: Record<string, ResultState>;
   onUpdateResult: (
     formItemId: string,
     field: keyof ResultState,
-    value: ResultState[keyof ResultState] // ✅ 3. استبدال any
+    value: ResultState[keyof ResultState]
   ) => void;
+  onDeleteFinding: (formItemId: string) => void;
   isRtl: boolean;
+  editMode: boolean;
 }) {
   // ===== حالة تحرير الملاحظة =====
   const [editingFailId, setEditingFailId] = useState<string | null>(null);
@@ -118,6 +121,7 @@ export function InspectionItemsCard({
 
   // ===== دوال النتائج =====
   const setResult = (formItemId: string, value: "pass" | "fail" | "na") => {
+    if (!editMode) return;
     if (value === "fail") {
       setEditingFailId(formItemId);
       const existing = resultsState[formItemId]?.finding;
@@ -156,7 +160,6 @@ export function InspectionItemsCard({
 
   // ===== إحصائيات الفئة =====
   const getCategoryStats = (items: InspectionItemWithResult[]) => {
-    // ✅ 4. استبدال any
     let pass = 0,
       fail = 0,
       na = 0;
@@ -541,6 +544,29 @@ export function InspectionItemsCard({
                                         }
                                       )}
                                     </p>
+                                  </div>
+                                )}
+
+                                {/* ===== زر حذف الملاحظة ===== */}
+                                {editMode && (
+                                  <div className="pt-3 border-t border-slate-200 dark:border-slate-700">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (
+                                          confirm(
+                                            isRtl
+                                              ? "هل تريد حذف الملاحظة؟"
+                                              : "Delete this finding?"
+                                          )
+                                        ) {
+                                          onDeleteFinding(item.id);
+                                        }
+                                      }}
+                                      className="w-full rounded-lg bg-red-600 px-3 py-2 text-sm text-white hover:bg-red-700 transition-colors"
+                                    >
+                                      {isRtl ? "حذف الملاحظة" : "Delete Finding"}
+                                    </button>
                                   </div>
                                 )}
                               </div>

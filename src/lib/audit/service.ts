@@ -7,6 +7,7 @@ import { changesToDb } from './diff';
 
 /**
  * Create a single audit log entry
+ * Now explicitly receives companyId and branchId from the caller.
  */
 export async function createAuditLog({
   entityType,
@@ -14,6 +15,8 @@ export async function createAuditLog({
   action,
   userId,
   userEmail,
+  companyId,
+  branchId,
   field,
   oldValue,
   newValue,
@@ -21,22 +24,6 @@ export async function createAuditLog({
   metadata,
 }: AuditLogData): Promise<void> {
   try {
-    let companyId: string | undefined;
-
-    try {
-      const { getAuthenticatedSession } = await import(
-        '@/lib/auth/auth-helper'
-      );
-
-      const session = await getAuthenticatedSession();
-
-      if (session.companyId) {
-        companyId = session.companyId;
-      }
-    } catch {
-      // Ignore session errors
-    }
-
     let finalField = field;
     let finalOldValue = oldValue;
     let finalNewValue = newValue;
@@ -59,17 +46,19 @@ export async function createAuditLog({
       finalMetadata = metadata as Prisma.JsonValue;
     }
 
+    // Build the audit log data object
     const data: Prisma.AuditLogCreateInput = {
       entityType,
       entityId,
       userId,
       userEmail,
       action,
-      companyId: companyId ?? '',
+      companyId: companyId ?? '', // companyId is required in the database
     };
 
-    if (companyId) {
-      data.companyId = companyId;
+    // ✅ إضافة branchId إذا كان موجوداً
+    if (branchId) {
+      data.branchId = branchId;
     }
 
     if (finalField != null) {
@@ -112,12 +101,13 @@ export async function createAuditLogs(
 }
 
 /**
- * Fetch audit logs for an entity
+ * Fetch audit logs for an entity with optional company/branch filtering
  */
 export async function getAuditLogs(
   entityType: AuditEntityType,
   entityId: string,
-  companyId?: string | null
+  companyId?: string | null,
+  branchId?: string | null
 ) {
   const where: Prisma.AuditLogWhereInput = {
     entityType,
@@ -126,6 +116,10 @@ export async function getAuditLogs(
 
   if (companyId) {
     where.companyId = companyId;
+  }
+
+  if (branchId) {
+    where.branchId = branchId;
   }
 
   const logs = await prisma.auditLog.findMany({

@@ -1,5 +1,4 @@
 // src/app/[locale]/(dashboard)/inspections/[id]/ClientWrapper.tsx
-
 "use client";
 
 import { useState } from "react";
@@ -15,6 +14,7 @@ import type {
   InspectionData,
   FindingDraft,
 } from "../types";
+import AuditTimeline from "@/components/audit/AuditTimeline";
 
 // ===== أنواع مساعدة =====
 interface FindingResponse {
@@ -31,6 +31,7 @@ interface ClientWrapperProps {
   initialData: InspectionData;
   inspectionId: string;
   locale: string;
+  initialEditMode?: boolean;
 }
 
 // ===== دالة تحويل Finding إلى FindingDraft =====
@@ -46,6 +47,23 @@ const mapFindingToDraft = (
     correctiveAction: finding.correctiveAction || "",
     dueDate: finding.dueDate ? new Date(finding.dueDate).toISOString().split("T")[0] : "",
     status: finding.status,
+  };
+};
+
+// ===== توحيد وحماية بيانات الفحص =====
+const normalizeInspectionData = (
+  data: InspectionData
+): InspectionData => {
+  return {
+    ...data,
+    categories: Array.isArray(data.categories)
+      ? data.categories.map((category) => ({
+          ...category,
+          items: Array.isArray(category.items)
+            ? category.items
+            : [],
+        }))
+      : [],
   };
 };
 
@@ -81,23 +99,42 @@ const buildInitialResults = (data: InspectionData): Record<string, ResultState> 
   return initial;
 };
 
-export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapperProps) {
+export function ClientWrapper({
+  initialData,
+  inspectionId,
+  locale,
+  initialEditMode = false,
+}: ClientWrapperProps) {
   const router = useRouter();
   const isRtl = locale === "ar";
 
+  // ===== توحيد البيانات مرة واحدة فقط =====
+  const normalizedInitialData = normalizeInspectionData(initialData);
+
   const [saving, setSaving] = useState(false);
   const [creatingOrders, setCreatingOrders] = useState(false);
-  const [inspection, setInspection] = useState(initialData);
+  const [inspection, setInspection] = useState<InspectionData>(
+    normalizedInitialData
+  );
+  const [editMode, setEditMode] = useState(initialEditMode);
 
-  // استخدام lazy initialization لتجنب تحذير useEffect
+  // ===== الحالة الحالية للنتائج =====
   const [resultsState, setResultsState] = useState<Record<string, ResultState>>(() =>
-    buildInitialResults(initialData)
+    buildInitialResults(normalizedInitialData)
   );
 
-  // ===== حساب status من inspection (المصدر الوحيد) =====
+  // ===== النسخة الأصلية للنتائج (للرجوع عند الإلغاء) =====
+  const [initialResultsState, setInitialResultsState] =
+    useState<Record<string, ResultState>>(() =>
+      buildInitialResults(normalizedInitialData)
+    );
+
+  // ===== العناصر المعدلة =====
+  const [changedItems, setChangedItems] = useState<Set<string>>(new Set());
+
   const status = inspection.status;
 
-  // ===== تحديث نتيجة عنصر =====
+  // ===== تحديث نتيجة =====
   const updateResult = (
     inspectionFormItemId: string,
     field: keyof ResultState,
@@ -110,58 +147,88 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
         [field]: value,
       },
     }));
+
+    setChangedItems((prev) => {
+      const next = new Set(prev);
+      next.add(inspectionFormItemId);
+      return next;
+    });
+  };
+
+  // ===== حذف Finding =====
+  const handleDeleteFinding = (inspectionFormItemId: string) => {
+    setResultsState((prev) => ({
+      ...prev,
+      [inspectionFormItemId]: {
+        ...prev[inspectionFormItemId],
+        result: "na",
+        finding: null,
+        findingId: undefined,
+        workOrderId: undefined,
+      },
+    }));
+
+    setChangedItems((prev) => {
+      const next = new Set(prev);
+      next.add(inspectionFormItemId);
+      return next;
+    });
   };
 
   // ===== جلب بيانات الفحص المحدثة =====
   const fetchUpdatedInspection = async (): Promise<InspectionData> => {
     const res = await fetch(`/api/inspections/${inspectionId}`);
-    if (!res.ok) throw new Error("Failed to fetch updated inspection");
-    return res.json();
+
+    if (!res.ok) {
+      throw new Error("Failed to fetch updated inspection");
+    }
+
+    const data = (await res.json()) as InspectionData;
+
+    return normalizeInspectionData(data);
   };
 
-  // ===== تحديث resultsState من بيانات الفحص الجديدة =====
-  const refreshResultsState = (inspectionData: InspectionData) => {
-    const newResults = buildInitialResults(inspectionData);
-    setResultsState(newResults);
-  };
-
-  // ===== حفظ الفحص =====
+  // ===== حفظ التغييرات =====
   const handleSave = async (closeAfterSave: boolean = false) => {
-    const resultsArray = Object.values(resultsState).map((r) => {
-      const resultPayload: {
-        inspectionFormItemId: string;
-        result: ResultState["result"];
-        notes: string;
-        imageUrl: string;
-        findings: Array<{
-          title: string;
-          description: string;
-          riskLevel: FindingDraft["riskLevel"];
-          correctiveAction: string;
-          dueDate: string | null;
-        }>;
-      } = {
-        inspectionFormItemId: r.inspectionFormItemId,
-        result: r.result,
-        notes: r.notes || "",
-        imageUrl: r.imageUrl || "",
-        findings: [],
-      };
+    const resultsArray = Array.from(changedItems)
+      .map((itemId) => resultsState[itemId])
+      .filter(Boolean)
+      .map((r) => {
+        const resultPayload: {
+          inspectionFormItemId: string;
+          result: ResultState["result"];
+          notes: string;
+          imageUrl: string;
+          findings: Array<{
+            id?: string;
+            title: string;
+            description: string;
+            riskLevel: FindingDraft["riskLevel"];
+            correctiveAction: string;
+            dueDate: string | null;
+          }>;
+        } = {
+          inspectionFormItemId: r.inspectionFormItemId,
+          result: r.result,
+          notes: r.notes || "",
+          imageUrl: r.imageUrl || "",
+          findings: [],
+        };
 
-      if (r.finding) {
-        resultPayload.findings = [
-          {
-            title: r.finding.title,
-            description: r.finding.description || "",
-            riskLevel: r.finding.riskLevel,
-            correctiveAction: r.finding.correctiveAction || "",
-            dueDate: r.finding.dueDate || null,
-          },
-        ];
-      }
+        if (r.finding) {
+          resultPayload.findings = [
+            {
+              title: r.finding.title,
+              description: r.finding.description || "",
+              riskLevel: r.finding.riskLevel,
+              correctiveAction: r.finding.correctiveAction || "",
+              dueDate: r.finding.dueDate || null,
+            },
+          ];
+        }
 
-      return resultPayload;
-    });
+        return resultPayload;
+      });
 
     setSaving(true);
     try {
@@ -178,11 +245,26 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
 
       if (!res.ok) throw new Error("Save failed");
 
-      toast.success(isRtl ? "✅ تم حفظ التغييرات" : "✅ Changes saved");
+      toast.success(
+        isRtl ? "✅ تم حفظ التغييرات" : "✅ Changes saved"
+      );
 
+      // ============================================================
+      // إعادة جلب الفحص من الخادم بعد الحفظ
+      // للحصول على IDs الجديدة للـ Findings
+      // ============================================================
       const updatedData = await fetchUpdatedInspection();
+
       setInspection(updatedData);
-      refreshResultsState(updatedData);
+
+      const newResults = buildInitialResults(updatedData);
+
+      setResultsState(newResults);
+      setInitialResultsState(newResults);
+      setChangedItems(new Set());
+      setEditMode(false);
+
+      router.refresh();
 
       if (closeAfterSave) {
         setTimeout(() => {
@@ -197,14 +279,21 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
     }
   };
 
-  // ===== إنهاء الفحص =====
+  // ===== إكمال الفحص =====
   const handleComplete = () => {
     handleSave(true);
   };
 
+  // ===== إلغاء التعديلات (العودة إلى الحالة الأصلية) =====
+  const handleCancelEdit = () => {
+    setResultsState(initialResultsState);
+    setChangedItems(new Set());
+    setEditMode(false);
+    toast.info(isRtl ? "↩️ تم إلغاء التعديلات" : "↩️ Changes discarded");
+  };
+
   // ===== إنشاء أوامر العمل =====
   const handleCreateWorkOrders = async () => {
-    // ✅ استخدام type guard بدلاً من as string
     const findingIds = Object.values(resultsState)
       .filter(
         (r): r is ResultState & { findingId: string } =>
@@ -240,7 +329,10 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
 
       const updatedData = await fetchUpdatedInspection();
       setInspection(updatedData);
-      refreshResultsState(updatedData);
+      const newResults = buildInitialResults(updatedData);
+      setResultsState(newResults);
+      setInitialResultsState(newResults);
+      setChangedItems(new Set());
       router.refresh();
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error";
@@ -271,7 +363,6 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
       <div className="relative space-y-8 p-6">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
 
-        {/* ===== شريط الأدوات ===== */}
         <div className="flex flex-wrap items-center justify-between gap-4">
           <InspectionHeader
             title={inspection.title}
@@ -285,6 +376,9 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
             hasFailures={stats.fail > 0}
             inspectionId={inspectionId}
             locale={locale}
+            editMode={editMode}
+            onEdit={() => setEditMode(true)}
+            onCancelEdit={handleCancelEdit}
           />
 
           {findingsCount > 0 && (
@@ -312,8 +406,20 @@ export function ClientWrapper({ initialData, inspectionId, locale }: ClientWrapp
           categories={inspection.categories}
           resultsState={resultsState}
           onUpdateResult={updateResult}
+          onDeleteFinding={handleDeleteFinding}
           isRtl={isRtl}
+          editMode={editMode}
         />
+
+        <div className="mt-8 rounded-xl border bg-white p-6 shadow-sm dark:bg-gray-900/50 dark:border-gray-800">
+          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-200">
+            {isRtl ? "سجل العمليات" : "Audit Log"}
+          </h2>
+          <AuditTimeline
+            entityType="INSPECTION"
+            entityId={inspectionId}
+          />
+        </div>
 
         <div className="print-footer hidden print:block text-center text-xs text-gray-600 mt-10 pt-4 border-t border-gray-300">
           {isRtl ? "تم الإنشاء بواسطة نظام الفحص" : "Generated by Inspection System"}

@@ -1,5 +1,4 @@
 // src/app/api/inspections/route.ts
-
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
@@ -8,7 +7,7 @@ import { ResultStatus } from "@prisma/client";
 type InspectionGroup = {
   sectionId?: string;
   templateId?: string;
-  categoryId?: string;
+  categoryIds?: string[];
 };
 
 // ============================================================
@@ -26,6 +25,9 @@ export async function GET() {
     }
 
     const inspections = await prisma.inspection.findMany({
+      where: {
+        deletedAt: null,
+      },
       orderBy: {
         createdAt: "desc",
       },
@@ -90,6 +92,9 @@ export async function POST(req: NextRequest) {
       scheduledDate,
       branchId,
       items,
+      sectionId,
+      templateId,
+      categoryIds,
       inspectorId,
       buildingId,
       floorId,
@@ -100,6 +105,9 @@ export async function POST(req: NextRequest) {
       scheduledDate?: string;
       branchId?: string;
       items?: InspectionGroup[];
+      sectionId?: string;
+      templateId?: string;
+      categoryIds?: string[];
       inspectorId?: string;
       buildingId?: string;
       floorId?: string;
@@ -140,7 +148,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!Array.isArray(items) || items.length === 0) {
+    // ============================================================
+    // توحيد صيغة الطلب
+    // ============================================================
+    // الواجهة الجديدة ترسل:
+    // sectionId + templateId + categoryIds
+    //
+    // بينما الـ API القديم كان يستقبل:
+    // items: [{ sectionId, templateId, categoryIds }]
+    //
+    // نحول الصيغة الجديدة إلى الصيغة الداخلية الموحدة.
+    // ============================================================
+
+    const normalizedItems: InspectionGroup[] =
+      Array.isArray(items) && items.length > 0
+        ? items
+        : sectionId || templateId || (Array.isArray(categoryIds) && categoryIds.length > 0)
+          ? [
+              {
+                sectionId,
+                templateId,
+                categoryIds,
+              },
+            ]
+          : [];
+
+    if (normalizedItems.length === 0) {
       return NextResponse.json(
         {
           error:
@@ -151,18 +184,20 @@ export async function POST(req: NextRequest) {
     }
 
     // ============================================================
-    // 1. جمع معرفات الفئات
+    // 1. جمع معرفات الفئات (للاستخدام في جلب البنود)
     // ============================================================
 
     const categoryIdSet = new Set<string>();
 
-    for (const group of items) {
-      const { sectionId, templateId, categoryId } = group;
+    for (const group of normalizedItems) {
+      const { sectionId, templateId, categoryIds } = group;
 
-      if (categoryId?.trim()) {
-        const category = await prisma.inspectionCategory.findFirst({
+      if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+        const categories = await prisma.inspectionCategory.findMany({
           where: {
-            id: categoryId,
+            id: {
+              in: categoryIds,
+            },
             companyId: session.companyId,
             deletedAt: null,
             isActive: true,
@@ -172,9 +207,9 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        if (category) {
+        categories.forEach((category) => {
           categoryIdSet.add(category.id);
-        }
+        });
       } else if (templateId?.trim()) {
         const categories = await prisma.inspectionCategory.findMany({
           where: {
@@ -228,9 +263,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const categoryIds = Array.from(categoryIdSet);
+    const categoryIdsFinal = Array.from(categoryIdSet);
 
-    if (categoryIds.length === 0) {
+    if (categoryIdsFinal.length === 0) {
       return NextResponse.json(
         {
           error:
@@ -248,7 +283,7 @@ export async function POST(req: NextRequest) {
       await prisma.inspectionCategory.findMany({
         where: {
           id: {
-            in: categoryIds,
+            in: categoryIdsFinal,
           },
           companyId: session.companyId,
           deletedAt: null,
@@ -293,6 +328,21 @@ export async function POST(req: NextRequest) {
     });
 
     // ============================================================
+    // 3.5 ✅ حفظ الفئات المختارة مع الحفاظ على ترتيب المجموعات
+    // ============================================================
+    const selections = normalizedItems.flatMap((group, groupIndex) =>
+      (group.categoryIds ?? []).map((categoryId) => ({
+        inspectionId: newInspection.id,
+        categoryId,
+        sortOrder: groupIndex,
+      }))
+    );
+
+    await prisma.inspectionCategorySelection.createMany({
+      data: selections,
+    });
+
+    // ============================================================
     // 4. إنشاء Form Items
     // ============================================================
 
@@ -324,7 +374,7 @@ export async function POST(req: NextRequest) {
     });
 
     // ============================================================
-    // 5. جلب العناصر
+    // 5. جلب العناصر (Form Items) لإنشاء النتائج
     // ============================================================
 
     const createdFormItems =
@@ -338,7 +388,7 @@ export async function POST(req: NextRequest) {
       });
 
     // ============================================================
-    // 6. إنشاء النتائج
+    // 6. إنشاء النتائج (كلها NA مبدئياً)
     // ============================================================
 
     await prisma.inspectionResult.createMany({
@@ -350,7 +400,7 @@ export async function POST(req: NextRequest) {
     });
 
     // ============================================================
-    // 7. إعادة البيانات مع تضمين الفرع
+    // 7. إعادة البيانات مع تضمين الفرع والعلاقات
     // ============================================================
 
     const fullInspection = await prisma.inspection.findUnique({
@@ -358,7 +408,7 @@ export async function POST(req: NextRequest) {
         id: newInspection.id,
       },
       include: {
-        branch: true, // ✅ تم إضافة جلب الفرع
+        branch: true,
         formItems: {
           include: {
             results: {

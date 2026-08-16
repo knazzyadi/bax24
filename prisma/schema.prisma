@@ -194,7 +194,7 @@ model Room {
   tickets              Ticket[]
   workOrders           WorkOrder[]
 
-  @@unique([floorId, code])
+  @@unique([buildingId, code])
   @@map("rooms")
 }
 

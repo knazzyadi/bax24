@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react';
 import { useLocale } from 'next-intl';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
-import type { Building, Floor, Room, AssetStatus, AssetType } from '@/types/assets';
+import type { Building, AssetStatus, AssetType } from '@/types/assets';
 import { BulkAssetRow } from './bulkImport.types';
 import { generateId } from './generateId';
 
@@ -21,12 +21,6 @@ type SubmitResult = {
   successCount: number;
   failCount: number;
   errors: SubmitError[];
-};
-
-// الغرفة مع الكود الكامل (يُستخدم فقط في القيم المشتقة)
-type RoomWithCode = Room & {
-  nameEn?: string;
-  fullCode: string; // ✅ تمت إضافة fullCode
 };
 
 type CsvRow = Record<string, string | undefined>;
@@ -50,32 +44,81 @@ const normalizeBuilding = (b: Building): Building & { nameEn?: string } => ({
   nameEn: b.nameEn ?? undefined,
 });
 
-const normalizeFloor = (f: Floor): Floor & { nameEn?: string } => ({
-  ...f,
-  nameEn: f.nameEn ?? undefined,
-});
-
 function parseDate(value: string): string {
-  if (!value || value.trim() === '') return '';
-  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) return value.trim();
-  const parts = value.trim().split(/[\/\-.]/);
+  if (!value || value.trim() === "") return "";
+
+  // تحويل الأرقام العربية والهندية إلى أرقام إنجليزية
+  const normalized = value
+    .trim()
+    .replace(/[٠-٩]/g, (d) => String("٠١٢٣٤٥٦٧٨٩".indexOf(d)))
+    .replace(/[۰-۹]/g, (d) => String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)));
+
+  // YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(normalized)) {
+    return normalized;
+  }
+
+  // DD/MM/YYYY أو DD-MM-YYYY أو DD.MM.YYYY
+  const parts = normalized.split(/[\/.\-]/);
+
   if (parts.length === 3) {
-    const d = parseInt(parts[0], 10);
-    const m = parseInt(parts[1], 10);
-    const y = parseInt(parts[2], 10);
-    if (d > 12) {
-      return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const first = parseInt(parts[0], 10);
+    const second = parseInt(parts[1], 10);
+    const third = parseInt(parts[2], 10);
+
+    if (
+      Number.isNaN(first) ||
+      Number.isNaN(second) ||
+      Number.isNaN(third)
+    ) {
+      return "";
     }
-    if (m > 12) {
-      return `${y}-${String(d).padStart(2, '0')}-${String(m).padStart(2, '0')}`;
+
+    let day: number;
+    let month: number;
+    let year: number;
+
+    // YYYY-MM-DD
+    if (parts[0].length === 4) {
+      year = first;
+      month = second;
+      day = third;
+    } else {
+      // DD/MM/YYYY
+      day = first;
+      month = second;
+      year = third;
+
+      // MM/DD/YYYY
+      if (day <= 12 && month > 12) {
+        day = second;
+        month = first;
+      }
     }
-    return `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+    if (
+      year < 1900 ||
+      month < 1 ||
+      month > 12 ||
+      day < 1 ||
+      day > 31
+    ) {
+      return "";
+    }
+
+    return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(
+      2,
+      "0"
+    )}`;
   }
-  const date = new Date(value);
-  if (!isNaN(date.getTime())) {
-    return date.toISOString().split('T')[0];
+
+  const date = new Date(normalized);
+
+  if (!Number.isNaN(date.getTime())) {
+    return date.toISOString().split("T")[0];
   }
-  return '';
+
+  return "";
 }
 
 // =======================================================
@@ -90,18 +133,12 @@ export function useBulkImport() {
 
   // ---------- الحالة: البيانات الخام ----------
   const [rawBuildings, setRawBuildings] = useState<Building[]>([]);
-  const [rawFloors, setRawFloors] = useState<Floor[]>([]);
-  const [rawRooms, setRawRooms] = useState<Room[]>([]); // ✅ تغيير النوع إلى Room[]
 
   // ---------- الحالة: الاختيارات ----------
   const [selectedBuildingId, setSelectedBuildingId] = useState('');
-  const [selectedFloorId, setSelectedFloorId] = useState('');
-  const [selectedRoomId, setSelectedRoomId] = useState('');
 
   // ---------- الحالة: مؤشرات التحميل والأخطاء ----------
   const [loadingBuildings, setLoadingBuildings] = useState(false);
-  const [loadingFloors, setLoadingFloors] = useState(false);
-  const [loadingRooms, setLoadingRooms] = useState(false);
   const [locationFetchError, setLocationFetchError] = useState<string | null>(null);
 
   // ---------- الحالة: الأنواع والحالات ----------
@@ -127,6 +164,8 @@ export function useBulkImport() {
       model: '',
       supplier: '',
       notes: '',
+      floorCode: '',
+      roomCode: '',
     },
   ]);
 
@@ -155,42 +194,12 @@ export function useBulkImport() {
     [rawBuildings]
   );
 
-  const floors = useMemo(() => {
-    if (!selectedBuildingId) return [];
-    return rawFloors.map(normalizeFloor);
-  }, [rawFloors, selectedBuildingId]);
-
-  // الغرف مع fullCode محسوب من المبنى والدور
-  const rooms = useMemo((): RoomWithCode[] => {
-    if (!selectedFloorId) return [];
-    const building = rawBuildings.find(b => b.id === selectedBuildingId);
-    const floor = rawFloors.find(f => f.id === selectedFloorId);
-    return rawRooms.map((room) => ({
-      ...room,
-      nameEn: room.nameEn ?? undefined,
-      fullCode: `${building?.code ?? ''}-${floor?.code ?? ''}-${room.code ?? ''}`,
-    }));
-  }, [rawRooms, selectedFloorId, selectedBuildingId, rawBuildings, rawFloors]);
-
-  const selectedRoomCode = useMemo(() => {
-    const room = rooms.find(r => r.id === selectedRoomId);
-    return room?.fullCode || '';
-  }, [rooms, selectedRoomId]);
-
-  const selectedRoomName = useMemo(() => {
-    const room = rooms.find(r => r.id === selectedRoomId);
-    return room?.name || '';
-  }, [rooms, selectedRoomId]);
-
   // =======================================================
   // تأثيرات جلب البيانات
   // =======================================================
 
-  // جلب المباني
   useEffect(() => {
-    if (!session?.user?.companyId) {
-      return;
-    }
+    if (!session?.user?.companyId) return;
 
     const fetchBuildings = async () => {
       setLoadingBuildings(true);
@@ -216,80 +225,6 @@ export function useBulkImport() {
     fetchBuildings();
   }, [session]);
 
-  // جلب الأدوار (مع إلغاء الطلب)
-  useEffect(() => {
-    if (!selectedBuildingId) return;
-
-    let cancelled = false;
-
-    const loadFloors = async () => {
-      try {
-        setLoadingFloors(true);
-        const res = await fetch(`/api/locations/buildings/${selectedBuildingId}/floors`);
-        if (!res.ok) {
-          throw new Error('فشل تحميل الأدوار');
-        }
-        const data: Floor[] = await res.json();
-        if (!cancelled) {
-          setRawFloors(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          toast.error(err instanceof Error ? err.message : 'خطأ غير معروف');
-          setRawFloors([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingFloors(false);
-        }
-      }
-    };
-
-    loadFloors();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedBuildingId]);
-
-  // جلب الغرف (مع إلغاء الطلب) - نخزن البيانات الخام بدون fullCode
-  useEffect(() => {
-    if (!selectedFloorId) return;
-
-    let cancelled = false;
-
-    const loadRooms = async () => {
-      try {
-        setLoadingRooms(true);
-        const res = await fetch(`/api/locations/floors/${selectedFloorId}/rooms`);
-        if (!res.ok) {
-          throw new Error('فشل تحميل الغرف');
-        }
-        const data: Room[] = await res.json();
-        if (!cancelled) {
-          // نخزن البيانات الخام فقط (بدون fullCode)
-          setRawRooms(data);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          toast.error(err instanceof Error ? err.message : 'خطأ غير معروف');
-          setRawRooms([]);
-        }
-      } finally {
-        if (!cancelled) {
-          setLoadingRooms(false);
-        }
-      }
-    };
-
-    loadRooms();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedFloorId]);
-
-  // جلب الأنواع والحالات
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -314,17 +249,6 @@ export function useBulkImport() {
 
   const handleBuildingChange = (id: string) => {
     setSelectedBuildingId(id);
-    setSelectedFloorId('');
-    setSelectedRoomId('');
-  };
-
-  const handleFloorChange = (id: string) => {
-    setSelectedFloorId(id);
-    setSelectedRoomId('');
-  };
-
-  const handleRoomChange = (id: string) => {
-    setSelectedRoomId(id);
   };
 
   // =======================================================
@@ -336,6 +260,8 @@ export function useBulkImport() {
       ...prev,
       {
         id: generateId(),
+        floorCode: '',
+        roomCode: '',
         name: '',
         nameEn: '',
         description: '',
@@ -374,7 +300,7 @@ export function useBulkImport() {
   };
 
   // =======================================================
-  // دوال CSV
+  // دوال CSV (تم التعديل هنا)
   // =======================================================
 
   const processCSVFile = async (file: File) => {
@@ -408,24 +334,78 @@ export function useBulkImport() {
             }
 
             const name = normalizedRow.name?.trim() || '';
-            const typeId = normalizedRow.typeId || normalizedRow.type || '';
-            if (name && typeId) {
+
+            // ✅ دعم أسماء الأعمدة المختلفة: typeId, type, typeCode
+            const typeValue =
+              normalizedRow.typeId?.trim() ||
+              normalizedRow.type?.trim() ||
+              normalizedRow.typeCode?.trim() ||
+              '';
+
+            // ✅ دعم أسماء الأعمدة المختلفة: statusId, status, statusCode
+            const statusValue =
+              normalizedRow.statusId?.trim() ||
+              normalizedRow.status?.trim() ||
+              normalizedRow.statusCode?.trim() ||
+              '';
+
+            if (name && typeValue) {
               validatedRows.push({
                 id: generateId(),
+
+                floorCode:
+                  normalizedRow.floorCode?.trim() ||
+                  undefined,
+
+                roomCode:
+                  normalizedRow.roomCode?.trim() ||
+                  undefined,
+
                 name,
-                nameEn: normalizedRow.nameEn?.trim() || '',
-                description: normalizedRow.description?.trim() || '',
-                typeId,
-                statusId: normalizedRow.statusId || normalizedRow.status || '',
-                purchaseDate: normalizedRow.purchaseDate || '',
-                operationDate: normalizedRow.operationDate || '',
-                warrantyEnd: normalizedRow.warrantyEnd || '',
-                lastMaintenanceDate: normalizedRow.lastMaintenanceDate || '',
-                serialNumber: normalizedRow.serialNumber?.trim() || '',
-                manufacturer: normalizedRow.manufacturer?.trim() || '',
-                model: normalizedRow.model?.trim() || '',
-                supplier: normalizedRow.supplier?.trim() || '',
-                notes: normalizedRow.notes?.trim() || '',
+
+                nameEn:
+                  normalizedRow.nameEn?.trim() ||
+                  '',
+
+                description:
+                  normalizedRow.description?.trim() ||
+                  '',
+
+                typeId: typeValue,
+
+                statusId: statusValue,
+
+                purchaseDate:
+                  normalizedRow.purchaseDate || '',
+
+                operationDate:
+                  normalizedRow.operationDate || '',
+
+                warrantyEnd:
+                  normalizedRow.warrantyEnd || '',
+
+                lastMaintenanceDate:
+                  normalizedRow.lastMaintenanceDate || '',
+
+                serialNumber:
+                  normalizedRow.serialNumber?.trim() ||
+                  '',
+
+                manufacturer:
+                  normalizedRow.manufacturer?.trim() ||
+                  '',
+
+                model:
+                  normalizedRow.model?.trim() ||
+                  '',
+
+                supplier:
+                  normalizedRow.supplier?.trim() ||
+                  '',
+
+                notes:
+                  normalizedRow.notes?.trim() ||
+                  '',
               });
             } else {
               errors.push(`Row ${idx + 1}: missing name or type`);
@@ -502,14 +482,40 @@ export function useBulkImport() {
   // =======================================================
 
   const submit = async () => {
-    if (!selectedRoomId) {
-      toast.error(isRtl ? 'الرجاء اختيار غرفة أولاً' : 'Please select a room first');
+    if (!selectedBuildingId) {
+      toast.error(
+        isRtl
+          ? 'يرجى اختيار المبنى'
+          : 'Please select a building'
+      );
       return;
     }
 
-    const invalidRows = rows.filter((row) => !row.name.trim() || !row.typeId);
+    const invalidRows = rows.filter(
+      (row) => !row.name.trim() || !row.typeId
+    );
+
     if (invalidRows.length > 0) {
-      toast.error(isRtl ? 'جميع الصفوف يجب أن تحتوي على اسم ونوع' : 'All rows must have name and type');
+      toast.error(
+        isRtl
+          ? 'جميع الصفوف يجب أن تحتوي على اسم ونوع'
+          : 'All rows must have name and type'
+      );
+      return;
+    }
+
+    const invalidLocationRows = rows.filter(
+      (row) =>
+        !row.floorCode?.trim() ||
+        !row.roomCode?.trim()
+    );
+
+    if (invalidLocationRows.length > 0) {
+      toast.error(
+        isRtl
+          ? 'يجب تحديد الدور والغرفة لكل أصل'
+          : 'Every asset must have a floor and room'
+      );
       return;
     }
 
@@ -517,18 +523,31 @@ export function useBulkImport() {
     setSubmitResult(null);
 
     try {
+      console.log("===== BULK IMPORT DEBUG =====");
+      console.log("selectedBuildingId:", selectedBuildingId);
+      console.log("rows:", rows);
+      console.log("first floorCode:", rows[0]?.floorCode);
+      console.log("first roomCode:", rows[0]?.roomCode);
+      console.log("=============================");
+
       const payload = {
-        roomId: selectedRoomId,
+        buildingId: selectedBuildingId,
         assets: rows.map((row) => ({
           name: row.name.trim(),
           nameEn: row.nameEn?.trim() || null,
           description: row.description?.trim() || null,
+
+          floorCode: row.floorCode?.trim() || null,
+          roomCode: row.roomCode?.trim() || null,
+
           typeId: row.typeId,
           statusId: row.statusId || null,
+
           purchaseDate: row.purchaseDate || null,
           operationDate: row.operationDate || null,
           warrantyEnd: row.warrantyEnd || null,
           lastMaintenanceDate: row.lastMaintenanceDate || null,
+
           serialNumber: row.serialNumber?.trim() || null,
           manufacturer: row.manufacturer?.trim() || null,
           model: row.model?.trim() || null,
@@ -594,24 +613,16 @@ export function useBulkImport() {
   // القيم المُرجعة
   // =======================================================
 
-  const isLoading = loadingBuildings || loadingFloors || loadingRooms || loadingTypesStatuses;
+  const isLoading =
+    loadingBuildings ||
+    loadingTypesStatuses;
 
   return {
     location: {
       buildings,
-      floors,
-      rooms,          // الآن من النوع RoomWithCode[] (يحتوي fullCode)
       selectedBuildingId,
-      selectedFloorId,
-      selectedRoomId,
-      selectedRoomCode,
-      selectedRoomName,
       loadingBuildings,
-      loadingFloors,
-      loadingRooms,
       handleBuildingChange,
-      handleFloorChange,
-      handleRoomChange,
     },
     locationError,
     types,

@@ -14,8 +14,9 @@ import { AlertCircle } from "lucide-react";
 import type {
   MaintenanceFormData,
   SetMaintenanceFormData,
+  FrequencyType,
 } from "./types";
-import { getFrequencyLabel } from "./utils";
+import { getFrequencyLabel, getFrequencyOptions } from "./utils";
 
 interface BasicInfoSectionProps {
   formData: MaintenanceFormData;
@@ -30,7 +31,7 @@ export function BasicInfoSection({
   isRtl,
   t,
 }: BasicInfoSectionProps) {
-  // دوال مساعدة فقط للتاريخ والحالة (يمكن استبدالها أيضاً ولكننا نلتزم بالتعديلات المطلوبة)
+  // دوال مساعدة
   const handleStartDateChange = (value: string) => {
     setFormData((prev) => ({ ...prev, startDate: value }));
   };
@@ -38,6 +39,15 @@ export function BasicInfoSection({
   const handleIsActiveChange = (value: boolean) => {
     setFormData((prev) => ({ ...prev, isActive: value }));
   };
+
+  // ✅ الحصول على خيارات التردد (بما فيها CUSTOM)
+  const frequencyOptions = getFrequencyOptions(isRtl);
+
+  // ✅ التحقق مما إذا كان التردد المحدد هو CUSTOM
+  const isCustomFrequency = formData.frequency === "CUSTOM";
+
+  // ✅ الحصول على التسمية المناسبة للتردد لعرضها في الـ Select
+  const selectedFrequencyLabel = getFrequencyLabel(formData.frequency, isRtl);
 
   return (
     <>
@@ -69,6 +79,7 @@ export function BasicInfoSection({
         </div>
 
         <div className="grid md:grid-cols-2 gap-5">
+          {/* ✅ عمود التردد */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
               {t("frequency")}
@@ -78,30 +89,43 @@ export function BasicInfoSection({
               onValueChange={(value) =>
                 setFormData((prev) => ({
                   ...prev,
-                  frequency: value,
+                  frequency: value as FrequencyType,
                 }))
               }
             >
               <SelectTrigger className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                 <SelectValue placeholder={t("selectFrequency")}>
-                  {getFrequencyLabel(formData.frequency, isRtl)}
+                  {selectedFrequencyLabel}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="MONTHLY">{t("monthly")}</SelectItem>
-                <SelectItem value="QUARTERLY">{t("quarterly")}</SelectItem>
-                <SelectItem value="SEMI_ANNUAL">{t("semiAnnual")}</SelectItem>
-                <SelectItem value="YEARLY">{t("yearly")}</SelectItem>
+                {frequencyOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {/* ✅ عرض الفترة التوضيحية بناءً على التردد (غير مخصص) */}
+            {!isCustomFrequency && formData.frequency !== "CUSTOM" && (
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                {isRtl ? "كل " : "Every "}
+                {formData.frequency === "MONTHLY" && (isRtl ? "شهر" : "month")}
+                {formData.frequency === "QUARTERLY" && (isRtl ? "3 أشهر" : "3 months")}
+                {formData.frequency === "SEMI_ANNUAL" && (isRtl ? "6 أشهر" : "6 months")}
+                {formData.frequency === "YEARLY" && (isRtl ? "سنة" : "year")}
+              </p>
+            )}
           </div>
 
+          {/* ✅ عمود أيام التحضير المسبق (يظهر دائماً) */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
               {t("leadDays")}
             </Label>
             <Input
               type="number"
+              min={0}
               value={formData.leadDays}
               onChange={(e) =>
                 setFormData((prev) => ({
@@ -115,25 +139,33 @@ export function BasicInfoSection({
         </div>
 
         <div className="grid md:grid-cols-2 gap-5">
-          <div className="space-y-1.5">
-            <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-              {t("frequencyDays")}
-            </Label>
-            <Input
-              type="number"
-              min={1}
-              value={formData.frequencyDays}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  frequencyDays: parseInt(e.target.value) || 0,
-                }))
-              }
-              className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
-              placeholder={isRtl ? "مثال: 30" : "e.g. 30"}
-            />
-          </div>
+          {/* ✅ حقل الأيام (يظهر فقط عند اختيار CUSTOM) */}
+          {isCustomFrequency && (
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
+                {t("customFrequencyDays") || "عدد الأيام بين الصيانة"}
+                <span className="text-rose-500">*</span>
+              </Label>
+              <Input
+                type="number"
+                min={1}
+                value={formData.frequencyDays}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    frequencyDays: parseInt(e.target.value) || 0,
+                  }))
+                }
+                className="h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4"
+                placeholder={isRtl ? "مثال: 45" : "e.g. 45"}
+              />
+              <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
+                {isRtl ? "أدخل عدد الأيام بين كل صيانة وأخرى" : "Enter the number of days between each maintenance"}
+              </p>
+            </div>
+          )}
 
+          {/* ✅ عمود تاريخ البدء */}
           <div className="space-y-1.5">
             <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
               {t("startDate")}
@@ -150,6 +182,7 @@ export function BasicInfoSection({
           </div>
         </div>
 
+        {/* ✅ حالة النشاط */}
         <div className="flex items-center gap-3 p-3 rounded-xl bg-slate-50/50 dark:bg-slate-900/30 border border-slate-200/30 dark:border-slate-700/30">
           <input
             type="checkbox"

@@ -2060,6 +2060,8 @@
     "notesPlaceholder": "أضف ملاحظات إضافية (اختياري)"
   },
   "MaintenanceForm": {
+    "customFrequencyDays": "عدد الأيام بين الصيانة",
+    "customDaysRequired": "يجب تحديد عدد الأيام عند اختيار تردد مخصص",
     "assets": "الأصول",
     "selectedLocation": "الموقع المختار",
     "frequencyDays": "عدد الأيام بين الصيانة",

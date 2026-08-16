@@ -3,7 +3,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Save, CheckCircle, Printer } from "lucide-react";
+import {
+  ArrowLeft,
+  Save,
+  CheckCircle,
+  Printer,
+  Edit,
+  X,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface InspectionHeaderProps {
@@ -18,6 +25,9 @@ interface InspectionHeaderProps {
   hasFailures?: boolean;
   inspectionId: string;
   locale: string;
+  editMode: boolean;
+  onEdit: () => void;
+  onCancelEdit: () => void;
 }
 
 export function InspectionHeader({
@@ -32,6 +42,9 @@ export function InspectionHeader({
   hasFailures,
   inspectionId,
   locale,
+  editMode,
+  onEdit,
+  onCancelEdit,
 }: InspectionHeaderProps) {
   const router = useRouter();
 
@@ -74,34 +87,58 @@ export function InspectionHeader({
       </div>
 
       <div className="flex items-center gap-2">
+
+      {!editMode ? (
         <Button
           variant="outline"
-          onClick={onSave}
-          disabled={isSaving}
+          onClick={onEdit}
           className="gap-2"
         >
-          <Save className="h-4 w-4" />
-          {isRtl ? "حفظ" : "Save"}
+          <Edit className="h-4 w-4" />
+          {isRtl ? "تعديل" : "Edit"}
         </Button>
+      ) : (
+        <>
+          <Button
+            variant="outline"
+            onClick={onSave}
+            disabled={isSaving}
+            className="gap-2"
+          >
+            <Save className="h-4 w-4" />
+            {isRtl ? "حفظ" : "Save"}
+          </Button>
 
-        <Button
-          variant="outline"
-          onClick={handlePrint}
-          className="gap-2"
-        >
-          <Printer className="h-4 w-4" />
-          {isRtl ? "طباعة" : "Print"}
-        </Button>
+          <Button
+            variant="outline"
+            onClick={onCancelEdit}
+            className="gap-2"
+          >
+            <X className="h-4 w-4" />
+            {isRtl ? "إلغاء" : "Cancel"}
+          </Button>
 
-        <Button
-          onClick={onComplete}
-          disabled={isSaving}
-          className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-        >
-          <CheckCircle className="h-4 w-4" />
-          {isRtl ? "إكمال الفحص" : "Complete"}
-        </Button>
-      </div>
+          <Button
+            onClick={onComplete}
+            disabled={isSaving}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+          >
+            <CheckCircle className="h-4 w-4" />
+            {isRtl ? "إكمال الفحص" : "Complete"}
+          </Button>
+        </>
+      )}
+
+      <Button
+        variant="outline"
+        onClick={handlePrint}
+        className="gap-2"
+      >
+        <Printer className="h-4 w-4" />
+        {isRtl ? "طباعة" : "Print"}
+      </Button>
+
+    </div>
     </div>
   );
 }

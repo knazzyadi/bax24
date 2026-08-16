@@ -2138,6 +2138,8 @@
     }
   },
   "MaintenanceForm": {
+    "customFrequencyDays": "Days between maintenance",
+    "customDaysRequired": "Please specify the number of days for custom frequency",
     "assets": "Assets",
     "selectedLocation": "Selected Location",
     "frequencyDays": "Days between maintenance",

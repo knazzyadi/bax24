@@ -1,4 +1,3 @@
-// src/app/[locale]/(dashboard)/maintenance/[id]/page.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -21,10 +20,14 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { addMonths, addYears, format } from "date-fns";
+import { format } from "date-fns";
 import { arSA, enUS } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
+// استيراد دوال utils الجديدة
+import { calculateNextDate } from "../utils";
+
+// تعريف ScheduleDetail
 interface ScheduleDetail {
   id: string;
   name: string;
@@ -46,9 +49,7 @@ interface ScheduleDetail {
   scheduleAssets: { asset: { id: string; name: string; code: string; nameEn?: string } }[];
 }
 
-// =========================
-// تكوين التردد
-// =========================
+// تكوين التردد (بما فيها CUSTOM)
 import type { LucideIcon } from "lucide-react";
 const FREQUENCY_MAP: Record<
   string,
@@ -83,11 +84,15 @@ const FREQUENCY_MAP: Record<
     icon: Calendar,
     color: "text-purple-500 bg-purple-50 dark:bg-purple-950/30",
   },
+  CUSTOM: {
+    ar: "مخصص",
+    en: "Custom",
+    icon: CalendarDays,
+    color: "text-rose-500 bg-rose-50 dark:bg-rose-950/30",
+  },
 };
 
-// =========================
 // المكون الرئيسي
-// =========================
 export default function MaintenanceScheduleDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -152,24 +157,21 @@ export default function MaintenanceScheduleDetailPage() {
     }
   };
 
+  // ✅ استبدال getNextDueDate لاستخدام calculateNextDate من utils (بدون leadDays)
   const getNextDueDate = (): Date | null => {
     if (!schedule) return null;
-    const lastRun = schedule.lastRunAt ? new Date(schedule.lastRunAt) : null;
-    const start = schedule.startDate ? new Date(schedule.startDate) : null;
-    const createdAt = new Date(schedule.createdAt);
-    const reference = lastRun || start || createdAt;
-    switch (schedule.frequency) {
-      case "MONTHLY":
-        return addMonths(reference, 1);
-      case "QUARTERLY":
-        return addMonths(reference, 3);
-      case "SEMI_ANNUAL":
-        return addMonths(reference, 6);
-      case "YEARLY":
-        return addYears(reference, 1);
-      default:
-        return addMonths(reference, 1);
-    }
+
+    const referenceDate = schedule.lastRunAt
+      ? new Date(schedule.lastRunAt)
+      : schedule.startDate
+        ? new Date(schedule.startDate)
+        : new Date(schedule.createdAt);
+
+    return calculateNextDate(
+      referenceDate,
+      schedule.frequency,
+      schedule.frequencyDays
+    );
   };
 
   const formatLocalDate = (date: Date | string | null) => {
@@ -212,9 +214,7 @@ export default function MaintenanceScheduleDetailPage() {
 
   const getLocationName = (): string => {
     if (!schedule) return "";
-
     const parts: string[] = [];
-
     if (schedule.locationLevel === "room" && schedule.room) {
       parts.push(isRtl ? schedule.room.name : schedule.room.nameEn || schedule.room.name);
       if (schedule.floor) {
@@ -228,7 +228,6 @@ export default function MaintenanceScheduleDetailPage() {
       }
       return parts.join(" - ");
     }
-
     if (schedule.locationLevel === "floor" && schedule.floor) {
       parts.push(isRtl ? schedule.floor.name : schedule.floor.nameEn || schedule.floor.name);
       if (schedule.building) {
@@ -239,7 +238,6 @@ export default function MaintenanceScheduleDetailPage() {
       }
       return parts.join(" - ");
     }
-
     if (schedule.locationLevel === "building" && schedule.building) {
       parts.push(isRtl ? schedule.building.name : schedule.building.nameEn || schedule.building.name);
       if (schedule.branch) {
@@ -247,11 +245,9 @@ export default function MaintenanceScheduleDetailPage() {
       }
       return parts.join(" - ");
     }
-
     if (schedule.branch) {
       return isRtl ? schedule.branch.name : schedule.branch.nameEn || schedule.branch.name;
     }
-
     return isRtl ? "جميع المواقع" : "All locations";
   };
 
@@ -339,6 +335,11 @@ export default function MaintenanceScheduleDetailPage() {
                     <FreqIcon size={14} />
                     {freqDisplay.label}
                   </span>
+                  {schedule.frequency === "CUSTOM" && (
+                    <span className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                      ({schedule.frequencyDays} {isRtl ? "يوم" : "days"})
+                    </span>
+                  )}
                 </div>
               </div>
 

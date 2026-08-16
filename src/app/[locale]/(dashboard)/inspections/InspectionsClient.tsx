@@ -9,6 +9,7 @@ import {
   Calendar,
   MapPin,
   Trash2,
+  Edit,
   Loader2,
   ChevronLeft,
   ChevronRight,
@@ -302,26 +303,41 @@ export default function InspectionsClient({
           </Badge>
 
           <div className="flex items-center gap-1">
-            <Link href={`/${locale}/inspections/${inspection.id}`}>
-              <button
-                className="p-2 rounded-full text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-all duration-200 hover:scale-110"
-                title={isRtl ? "عرض التفاصيل" : "View Details"}
-              >
-                <ChevronRight size={18} />
-              </button>
-            </Link>
+          {/* عرض */}
+          <Link href={`/${locale}/inspections/${inspection.id}`}>
             <button
-              onClick={() => actions.delete(inspection.id, inspection.title)}
-              disabled={actions.isDeleting && actions.deletingId === inspection.id}
-              className="p-2 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all duration-200 hover:scale-110 disabled:opacity-50"
+              className="p-2 rounded-full text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/30 transition-all duration-200 hover:scale-110"
+              title={isRtl ? "عرض التفاصيل" : "View Details"}
             >
-              {actions.isDeleting && actions.deletingId === inspection.id ? (
-                <Loader2 size={18} className="animate-spin" />
-              ) : (
-                <Trash2 size={18} />
-              )}
+              <ChevronRight size={18} />
             </button>
-          </div>
+          </Link>
+
+          {/* تعديل */}
+          <Link href={`/${locale}/inspections/${inspection.id}?edit=true`}>
+            <button
+              className="p-2 rounded-full text-slate-400 hover:text-amber-500 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-all duration-200 hover:scale-110"
+              title={isRtl ? "تعديل الفحص" : "Edit Inspection"}
+            >
+              <Edit className="h-4 w-4" />
+            </button>
+          </Link>
+
+          {/* حذف */}
+          <button
+            onClick={() => actions.delete(inspection.id, inspection.title)}
+            disabled={actions.isDeleting && actions.deletingId === inspection.id}
+            className="p-2 rounded-full text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all duration-200 hover:scale-110 disabled:opacity-50"
+            title={isRtl ? "حذف الفحص" : "Delete Inspection"}
+          >
+            {actions.isDeleting && actions.deletingId === inspection.id ? (
+              <Loader2 size={18} className="animate-spin" />
+            ) : (
+              <Trash2 size={18} />
+            )}
+          </button>
+
+        </div>
 
           <div className="shrink-0 text-slate-300 dark:text-slate-700 group-hover:text-indigo-400 dark:group-hover:text-indigo-500 transition-all duration-300 group-hover:translate-x-1">
             {isRtl ? <ChevronLeft size={24} /> : <ChevronRight size={24} />}

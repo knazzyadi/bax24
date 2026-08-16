@@ -32,7 +32,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 
 import { BranchSelector } from "@/components/shared/BranchSelector";
 import { BuildingSelector } from "@/components/shared/BuildingSelector";
@@ -103,15 +102,15 @@ export default function NewTicketPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loadingAssets, setLoadingAssets] = useState(false);
 
+  const [branchId, setBranchId] = useState<string>("");
   const [buildingId, setBuildingId] = useState<string>("");
   const [floorId, setFloorId] = useState<string>("");
   const [roomId, setRoomId] = useState<string>("");
-  const [branchId, setBranchId] = useState<string>("");
 
   const [buildings, setBuildings] = useState<Building[]>([]);
   const [floors, setFloors] = useState<Floor[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
-  const [loadingBuildings, setLoadingBuildings] = useState(true);
+  const [loadingBuildings, setLoadingBuildings] = useState(false);
   const [loadingFloors, setLoadingFloors] = useState(false);
   const [loadingRooms, setLoadingRooms] = useState(false);
 
@@ -133,34 +132,54 @@ export default function NewTicketPage() {
   const glassCard =
     "bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border border-slate-200/50 dark:border-slate-800/50 rounded-3xl p-6 shadow-sm hover:shadow-xl transition-all duration-300";
 
-  // جلب المباني وأنواع الأصول
+  // جلب أنواع الأصول فقط في البداية
   useEffect(() => {
-    async function fetchInitialData() {
+    async function fetchAssetTypes() {
       try {
-        const [buildingsRes, assetTypesRes] = await Promise.all([
-          fetch("/api/locations/buildings"),
-          fetch("/api/asset-types"),
-        ]);
-        const buildingsData = await buildingsRes.json();
-        const typesData = await assetTypesRes.json();
-        setBuildings(Array.isArray(buildingsData) ? buildingsData : []);
-        setAssetTypes(Array.isArray(typesData) ? typesData : []);
+        const res = await fetch("/api/asset-types");
+        const data = await res.json();
+        setAssetTypes(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error(error);
         toast.error(t("fetchError"));
       } finally {
-        setLoadingBuildings(false);
         setDataLoaded(true);
       }
     }
-    fetchInitialData();
+    fetchAssetTypes();
   }, [t]);
 
-  // جلب الأدوار (بدون setFloors([]))
+  // جلب المباني بناءً على الفرع المختار
+    useEffect(() => {
+      if (!branchId) {
+        return;
+      }
+
+      async function fetchBuildings() {
+      setLoadingBuildings(true);
+      try {
+        const res = await fetch(`/api/locations/buildings?branchId=${branchId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setBuildings(Array.isArray(data) ? data : []);
+        } else {
+          setBuildings([]);
+        }
+      } catch {
+        setBuildings([]);
+      } finally {
+        setLoadingBuildings(false);
+      }
+    }
+    fetchBuildings();
+  }, [branchId]);
+
+  // جلب الأدوار بناءً على المبنى المختار
   useEffect(() => {
     if (!buildingId) {
       return;
     }
+
     async function fetchFloors() {
       setLoadingFloors(true);
       try {
@@ -168,7 +187,9 @@ export default function NewTicketPage() {
         if (res.ok) {
           const data = await res.json();
           setFloors(Array.isArray(data) ? data : []);
-        } else setFloors([]);
+        } else {
+          setFloors([]);
+        }
       } catch {
         setFloors([]);
       } finally {
@@ -178,11 +199,12 @@ export default function NewTicketPage() {
     fetchFloors();
   }, [buildingId]);
 
-  // جلب الغرف (بدون setRooms([]))
+  // جلب الغرف بناءً على الدور المختار
   useEffect(() => {
     if (!floorId) {
       return;
     }
+
     async function fetchRooms() {
       setLoadingRooms(true);
       try {
@@ -205,7 +227,9 @@ export default function NewTicketPage() {
             })
           );
           setRooms(roomsWithCode);
-        } else setRooms([]);
+        } else {
+          setRooms([]);
+        }
       } catch {
         setRooms([]);
       } finally {
@@ -215,9 +239,9 @@ export default function NewTicketPage() {
     fetchRooms();
   }, [floorId, buildingId, buildings, floors]);
 
-  // ✅ جلب الأصول مع AbortController وعدم مسح assets
+  // ✅ جلب الأصول فقط عند وجود roomId و assetTypeId معاً
   useEffect(() => {
-    if (!roomId) {
+    if (!roomId || !formData.assetTypeId) {
       return;
     }
 
@@ -225,15 +249,16 @@ export default function NewTicketPage() {
 
     const fetchAssets = async () => {
       setLoadingAssets(true);
+
       try {
         const params = new URLSearchParams();
         params.append("roomId", roomId);
-        if (formData.assetTypeId && formData.assetTypeId !== "all") {
-          params.append("typeId", formData.assetTypeId);
-        }
+        params.append("typeId", formData.assetTypeId);
+        params.append("limit", "100");
 
         const res = await fetch(`/api/assets?${params.toString()}`, {
           signal: abortController.signal,
+          cache: "no-store",
         });
 
         if (!res.ok) {
@@ -241,11 +266,18 @@ export default function NewTicketPage() {
         }
 
         const data = await res.json();
-        const assetsData = data.data || data || [];
-        setAssets(Array.isArray(assetsData) ? assetsData : []);
+
+        const assetsData = Array.isArray(data)
+          ? data
+          : Array.isArray(data.assets)
+          ? data.assets
+          : [];
+
+        setAssets(assetsData);
       } catch (error: unknown) {
         if (error instanceof Error && error.name !== "AbortError") {
           console.error("Error fetching assets:", error);
+          setAssets([]);
           toast.error(t("fetchError"));
         }
       } finally {
@@ -256,12 +288,12 @@ export default function NewTicketPage() {
     fetchAssets();
 
     return () => abortController.abort();
-  }, [roomId, formData.assetTypeId, t]); // ✅ إضافة t إلى التبعيات
+  }, [roomId, formData.assetTypeId, t]);
 
   // المتغيرات المشتقة
   const visibleFloors = buildingId ? floors : [];
   const visibleRooms = floorId ? rooms : [];
-  const visibleAssets = roomId ? assets : [];
+  const visibleAssets = roomId && formData.assetTypeId ? assets : [];
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = Array.from(e.target.files || []);
@@ -330,7 +362,7 @@ export default function NewTicketPage() {
     }
   };
 
-  if (!dataLoaded || loadingBuildings) {
+  if (!dataLoaded) {
     return (
       <div className="relative min-h-[60vh] flex items-center justify-center p-6">
         <div className="absolute inset-0 bg-gradient-to-br from-indigo-100/20 via-transparent to-purple-100/20 dark:from-indigo-950/10 dark:via-transparent dark:to-purple-950/10 rounded-3xl -z-10" />
@@ -370,7 +402,7 @@ export default function NewTicketPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* العمود الرئيسي */}
         <div className="lg:col-span-2 space-y-8">
-          {/* تفاصيل البلاغ */}
+          {/* حاوية تفاصيل البلاغ */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-xl bg-gradient-to-br from-indigo-50 to-purple-50 dark:from-indigo-950/40 dark:to-purple-950/40">
@@ -446,24 +478,49 @@ export default function NewTicketPage() {
             </div>
           </div>
 
-          {/* الموقع */}
+          {/* حاوية موقع البلاغ (الفرع + الموقع) */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/40">
                 <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
               </div>
               <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                {isRtl ? "تفاصيل الموقع" : "Location Details"}
+                {isRtl ? "موقع البلاغ" : "Ticket Location"}
                 <span className="text-rose-500 text-sm ml-1">*</span>
               </h2>
             </div>
 
             <div className="space-y-5">
+              {/* الفرع */}
+              <div className="space-y-1.5">
+                <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+                  <Building className="h-4 w-4 text-indigo-400" />
+                  {isRtl ? "الفرع" : "Branch"} <span className="text-rose-500">*</span>
+                </Label>
+                <BranchSelector
+                  className="w-full"
+                  value={branchId}
+                  onValueChange={(val) => {
+                    setBranchId(val);
+                    setBuildingId("");
+                    setFloorId("");
+                    setRoomId("");
+                    setAssets([]);
+                    setFormData((prev) => ({
+                      ...prev,
+                      assetTypeId: "",
+                      assetId: "",
+                    }));
+                  }}
+                />
+              </div>
+
+              {/* المبنى والدور والوحدة في صف واحد */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <Building className="h-4 w-4 text-indigo-400" />
-                    {isRtl ? "المبنى أو المنطقة" : "Building / Zone"}
+                    {isRtl ? "المبنى / المنطقة" : "Building / Zone"}
                   </Label>
                   <BuildingSelector
                     className="w-full"
@@ -472,19 +529,30 @@ export default function NewTicketPage() {
                       setBuildingId(val);
                       setFloorId("");
                       setRoomId("");
-                      setFormData((prev) => ({ ...prev, assetId: "" }));
+                      setFloors([]);
+                      setRooms([]);
+                      setAssets([]);
+                      setLoadingFloors(false);
+                      setLoadingRooms(false);
+                      setLoadingAssets(false);
+                      setFormData((prev) => ({
+                        ...prev,
+                        assetTypeId: "",
+                        assetId: "",
+                      }));
                     }}
                     buildings={buildings}
                     loading={loadingBuildings}
                     placeholder={isRtl ? "اختر المبنى" : "Select building"}
                     emptyMessage={isRtl ? "لا توجد مباني" : "No buildings"}
+                    disabled={!branchId}
                   />
                 </div>
 
                 <div className="space-y-1.5">
                   <Label className="text-sm font-medium text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
                     <Layers className="h-4 w-4 text-indigo-400" />
-                    {isRtl ? "الدور أو المنطقة" : "Floor / Zone"}
+                    {isRtl ? "الدور / المنطقة" : "Floor / Zone"}
                   </Label>
                   <FloorSelector
                     className="w-full"
@@ -492,7 +560,15 @@ export default function NewTicketPage() {
                     onValueChange={(val) => {
                       setFloorId(val);
                       setRoomId("");
-                      setFormData((prev) => ({ ...prev, assetId: "" }));
+                      setRooms([]);
+                      setAssets([]);
+                      setLoadingRooms(false);
+                      setLoadingAssets(false);
+                      setFormData((prev) => ({
+                        ...prev,
+                        assetTypeId: "",
+                        assetId: "",
+                      }));
                     }}
                     floors={visibleFloors}
                     buildingId={buildingId}
@@ -500,6 +576,7 @@ export default function NewTicketPage() {
                     placeholder={isRtl ? "اختر الدور" : "Select floor"}
                     emptyMessage={isRtl ? "لا توجد أدوار" : "No floors"}
                     noBuildingMessage={isRtl ? "اختر مبنى أولاً" : "Select building first"}
+                    disabled={!buildingId}
                   />
                 </div>
 
@@ -513,7 +590,13 @@ export default function NewTicketPage() {
                     value={roomId}
                     onValueChange={(val) => {
                       setRoomId(val);
-                      setFormData((prev) => ({ ...prev, assetId: "" }));
+                      setAssets([]);
+                      setLoadingAssets(false);
+                      setFormData((prev) => ({
+                        ...prev,
+                        assetTypeId: "",
+                        assetId: "",
+                      }));
                     }}
                     rooms={visibleRooms}
                     floorId={floorId}
@@ -521,10 +604,12 @@ export default function NewTicketPage() {
                     placeholder={isRtl ? "اختر الغرفة" : "Select room"}
                     emptyMessage={isRtl ? "لا توجد غرف" : "No rooms"}
                     noFloorMessage={isRtl ? "اختر دور أولاً" : "Select floor first"}
+                    disabled={!floorId}
                   />
                 </div>
               </div>
 
+              {/* عرض الوحدة المختارة */}
               {roomId && (() => {
                 const selectedRoom = rooms.find((r) => r.id === roomId);
                 if (!selectedRoom) return null;
@@ -543,14 +628,14 @@ export default function NewTicketPage() {
             </div>
           </div>
 
-          {/* الأصول */}
+          {/* حاوية الأصل المرتبط (اختياري) */}
           <div className={glassCard}>
             <div className="flex items-center gap-3 mb-6">
               <div className="p-2 rounded-xl bg-purple-50 dark:bg-purple-950/40">
                 <FileText className="h-5 w-5 text-purple-600 dark:text-purple-400" />
               </div>
               <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                {isRtl ? "بيانات الأصل (اختياري)" : "Asset Details (Optional)"}
+                {isRtl ? "الأصل المرتبط (اختياري)" : "Asset Details (Optional)"}
               </h2>
             </div>
 
@@ -578,15 +663,12 @@ export default function NewTicketPage() {
                             ? "اختر نوع الأصل"
                             : "Select asset type"
                           : isRtl
-                          ? "اختر الموقع أولاً"
-                          : "Select location first"
+                          ? "اختر الغرفة أولاً"
+                          : "Select room first"
                       }
                     />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">
-                      {isRtl ? "جميع الأنواع" : "All types"}
-                    </SelectItem>
                     {assetTypes.map((type) => (
                       <SelectItem key={type.id} value={type.id}>
                         {type.name} {type.code ? `(${type.code})` : ""}
@@ -598,14 +680,14 @@ export default function NewTicketPage() {
 
               <div className="space-y-1.5">
                 <Label className="text-sm font-medium text-slate-600 dark:text-slate-300">
-                  {isRtl ? "الأصل (اختياري)" : "Asset (Optional)"}
+                  {isRtl ? "الأصل" : "Asset"}
                 </Label>
                 <Select
                   value={formData.assetId}
                   onValueChange={(val) =>
                     setFormData((prev) => ({ ...prev, assetId: val }))
                   }
-                  disabled={!roomId || loadingAssets}
+                  disabled={!roomId || !formData.assetTypeId || loadingAssets}
                 >
                   <SelectTrigger className="w-full h-12 rounded-xl border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 focus:ring-2 focus:ring-indigo-500/50 transition-all px-4">
                     <SelectValue
@@ -616,12 +698,16 @@ export default function NewTicketPage() {
                             : "Loading..."
                           : !roomId
                           ? isRtl
-                            ? "اختر الموقع أولاً"
-                            : "Select location first"
+                            ? "اختر الغرفة أولاً"
+                            : "Select room first"
+                          : !formData.assetTypeId
+                          ? isRtl
+                            ? "اختر نوع الأصل أولاً"
+                            : "Select asset type first"
                           : visibleAssets.length === 0
                           ? isRtl
-                            ? "لا توجد أصول في هذا الموقع"
-                            : "No assets at this location"
+                            ? "لا توجد أصول من هذا النوع في هذه الغرفة"
+                            : "No assets of this type in this room"
                           : isRtl
                           ? "اختر الأصل"
                           : "Select asset"
@@ -636,7 +722,7 @@ export default function NewTicketPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                {roomId && !loadingAssets && (
+                {roomId && formData.assetTypeId && !loadingAssets && (
                   <p className="text-xs text-slate-400 dark:text-slate-500 mt-1">
                     {visibleAssets.length} {isRtl ? "أصل متاح" : "asset(s) available"}
                   </p>
@@ -719,24 +805,6 @@ export default function NewTicketPage() {
                 />
               </div>
             </div>
-          </div>
-
-          {/* الفرع */}
-          <div className={cn(glassCard, "border-indigo-200/30 dark:border-indigo-800/30 border-2")}>
-            <div className="flex items-center gap-3 mb-5">
-              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/40">
-                <Building className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
-              </div>
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">
-                {isRtl ? "الفرع" : "Branch"} <span className="text-rose-500">*</span>
-              </h3>
-            </div>
-            <BranchSelector className="w-full" value={branchId} onValueChange={setBranchId} />
-            <p className="text-xs text-slate-400 dark:text-slate-500 mt-4">
-              {isRtl
-                ? "الفرع الذي سيتم توجيه البلاغ إليه."
-                : "The branch to which the ticket will be routed."}
-            </p>
           </div>
 
           {/* رفع الصور */}

@@ -11,11 +11,12 @@ import type {
   Asset,
   MaintenanceFormData,
   UseMaintenanceFormReturn,
+  FrequencyType, // ✅ استيراد النوع الجديد
 } from "./types";
 import { frequencyStringToDays } from "./utils";
 
 // ============================================================
-// نوع مؤقت لبيانات الغرفة من الـ API (قد تختلف عن Room الكامل)
+// نوع مؤقت لبيانات الغرفة من الـ API
 // ============================================================
 type RoomResponse = {
   id: string;
@@ -27,7 +28,6 @@ type RoomResponse = {
 export function useMaintenanceForm(): UseMaintenanceFormReturn {
   const router = useRouter();
   const locale = useLocale();
-  // ✅ isRtl غير مستخدم – تم حذفه
   const t = useTranslations("MaintenanceForm");
 
   // ===== State =====
@@ -69,9 +69,8 @@ export function useMaintenanceForm(): UseMaintenanceFormReturn {
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // ============================================================
-  // دوال التحميل (تقبل AbortSignal اختياري)
+  // دوال التحميل (بدون تغيير)
   // ============================================================
-
   const loadInitialData = useCallback(async (signal?: AbortSignal) => {
     try {
       const [assetTypesRes, buildingsRes] = await Promise.all([
@@ -161,7 +160,6 @@ export function useMaintenanceForm(): UseMaintenanceFormReturn {
         const currentFloor = floors.find((f) => f.id === floorId);
         const buildingCode = currentBuilding?.code || "";
         const floorCode = currentFloor?.code || "";
-        // ✅ استخدام النوع المخصص بدلاً من any
         const roomsWithCode = (Array.isArray(data) ? data : []).map(
           (room: RoomResponse) => ({
             id: room.id,
@@ -218,77 +216,54 @@ export function useMaintenanceForm(): UseMaintenanceFormReturn {
   }, [buildingId, floorId, roomId, formData.assetTypeId, branchId]);
 
   // ============================================================
-  // useEffect مع AbortController ودالة async داخلية
+  // useEffect مع AbortController
   // ============================================================
-
-  // الأول: تحميل البيانات الأولية
   useEffect(() => {
     const controller = new AbortController();
-
     async function fetchData() {
-    void loadInitialData(controller.signal);
+      void loadInitialData(controller.signal);
     }
-
     fetchData();
-
     return () => controller.abort();
   }, [loadInitialData]);
 
-  // الثاني: تحميل أنواع الأصول حسب الموقع
   useEffect(() => {
     const controller = new AbortController();
-
     async function fetchData() {
       await loadFilteredAssetTypes(controller.signal);
     }
-
     fetchData();
-
     return () => controller.abort();
   }, [loadFilteredAssetTypes]);
 
-  // الثالث: تحميل الأدوار
   useEffect(() => {
     const controller = new AbortController();
-
     async function fetchData() {
       await loadFloors(controller.signal);
     }
-
     fetchData();
-
     return () => controller.abort();
   }, [loadFloors]);
 
-  // الرابع: تحميل الغرف
   useEffect(() => {
     const controller = new AbortController();
-
     async function fetchData() {
       await loadRooms(controller.signal);
     }
-
     fetchData();
-
     return () => controller.abort();
   }, [loadRooms]);
 
-  // الخامس: تحميل الأصول (مع إلغاء الطلب السابق)
   useEffect(() => {
-    // إلغاء الطلب السابق إذا كان موجوداً
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
-
     const controller = new AbortController();
     abortControllerRef.current = controller;
-
     async function fetchData() {
       await loadAssets(controller.signal);
     }
-
     fetchData();
-
     return () => {
       controller.abort();
       abortControllerRef.current = null;
@@ -296,18 +271,33 @@ export function useMaintenanceForm(): UseMaintenanceFormReturn {
   }, [loadAssets]);
 
   // ============================================================
-  // باقي الدوال (بدون تغيير)
+  // دوال تعديل النموذج (تم التعديل هنا)
   // ============================================================
   const handleNameChange = useCallback((value: string) => {
     setFormData((prev) => ({ ...prev, name: value }));
   }, []);
 
+  // ✅ التعديل الأساسي: دعم CUSTOM
   const handleFrequencyChange = useCallback((value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      frequency: value,
-      frequencyDays: frequencyStringToDays(value),
-    }));
+    setFormData((prev) => {
+      // إذا كان التردد الجديد هو CUSTOM
+      if (value === 'CUSTOM') {
+        // نحافظ على القيمة الحالية لـ frequencyDays، وإذا كانت 0 نضبطها على 30
+        const currentDays = prev.frequencyDays;
+        return {
+          ...prev,
+          frequency: value as FrequencyType,
+          frequencyDays: currentDays > 0 ? currentDays : 30,
+        };
+      }
+
+      // للترددات الأخرى، نضبط الأيام تلقائياً (30، 90، 180، 365)
+      return {
+        ...prev,
+        frequency: value as FrequencyType,
+        frequencyDays: frequencyStringToDays(value),
+      };
+    });
   }, []);
 
   const handleFrequencyDaysChange = useCallback((value: number) => {
@@ -382,12 +372,17 @@ export function useMaintenanceForm(): UseMaintenanceFormReturn {
     setSelectedAssetIds((prev) => prev.filter((id) => id !== assetId));
   }, []);
 
+  // ============================================================
+  // ✅ handleSubmit مع تحقق CUSTOM
+  // ============================================================
   const handleSubmit = useCallback(async () => {
+    // التحقق من الاسم
     if (!formData.name.trim()) {
       toast.error(t("nameRequired"));
       return;
     }
 
+    // التحقق من الموقع
     const hasLocation = !!buildingId || !!floorId || !!roomId;
     if (!hasLocation) {
       toast.error(t("locationRequired"));
@@ -398,9 +393,20 @@ export function useMaintenanceForm(): UseMaintenanceFormReturn {
       return;
     }
 
+    // ✅ التحقق من التردد المخصص
     let finalFrequencyDays = formData.frequencyDays;
-    if (!finalFrequencyDays || finalFrequencyDays <= 0) {
-      finalFrequencyDays = frequencyStringToDays(formData.frequency);
+
+    if (formData.frequency === 'CUSTOM') {
+      // إذا كان مخصصاً، يجب أن تكون الأيام أكبر من 0
+      if (!finalFrequencyDays || finalFrequencyDays <= 0) {
+        toast.error(t("customDaysRequired") || "يجب تحديد عدد الأيام عند اختيار تردد مخصص");
+        return;
+      }
+    } else {
+      // للترددات الأخرى، إذا كانت الأيام غير صالحة، نستخدم القيمة الافتراضية
+      if (!finalFrequencyDays || finalFrequencyDays <= 0) {
+        finalFrequencyDays = frequencyStringToDays(formData.frequency);
+      }
     }
 
     setIsSubmitting(true);

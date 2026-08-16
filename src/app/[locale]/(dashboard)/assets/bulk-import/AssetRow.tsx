@@ -39,9 +39,27 @@ export const AssetRow = memo(function AssetRow({
   const locale = useLocale();
   const isRtl = locale === "ar";
 
+  // ✅ البحث عن النوع المطابق بالـ id أو code
+  const selectedTypeId =
+    types.find(
+      (type) =>
+        type.id === row.typeId ||
+        type.code === row.typeId
+    )?.id ?? "";
+
+  // ✅ البحث عن الحالة المطابقة بالـ id أو code
+  const selectedStatusId =
+    statuses.find(
+      (status) =>
+        status.id === row.statusId ||
+        status.code === row.statusId
+    )?.id ?? "";
+
   return (
     <tr className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
       <td className="p-2 text-center text-slate-400">{index + 1}</td>
+
+      {/* الاسم */}
       <td className="p-2 min-w-[120px]">
         <Input
           value={row.name}
@@ -50,6 +68,8 @@ export const AssetRow = memo(function AssetRow({
           className="h-9 rounded-lg border-slate-200 dark:border-slate-700"
         />
       </td>
+
+      {/* الاسم الإنجليزي */}
       <td className="p-2 min-w-[120px]">
         <Input
           value={row.nameEn}
@@ -58,6 +78,8 @@ export const AssetRow = memo(function AssetRow({
           className="h-9 rounded-lg border-slate-200 dark:border-slate-700"
         />
       </td>
+
+      {/* الوصف */}
       <td className="p-2 min-w-[120px]">
         <Input
           value={row.description}
@@ -66,14 +88,37 @@ export const AssetRow = memo(function AssetRow({
           className="h-9 rounded-lg border-slate-200 dark:border-slate-700"
         />
       </td>
+
+      {/* الدور */}
+      <td className="p-2 min-w-[100px]">
+        <Input
+          value={row.floorCode ?? ""}
+          onChange={(e) => updateRow(index, "floorCode", e.target.value)}
+          placeholder={isRtl ? "الدور" : "Floor"}
+          className="h-9 rounded-lg border-slate-200 dark:border-slate-700"
+        />
+      </td>
+
+      {/* الغرفة */}
+      <td className="p-2 min-w-[100px]">
+        <Input
+          value={row.roomCode ?? ""}
+          onChange={(e) => updateRow(index, "roomCode", e.target.value)}
+          placeholder={isRtl ? "الغرفة" : "Room"}
+          className="h-9 rounded-lg border-slate-200 dark:border-slate-700"
+        />
+      </td>
+
+      {/* النوع */}
       <td className="p-2 min-w-[140px]">
         <Select
-          value={row.typeId}
+          value={selectedTypeId}
           onValueChange={(v: string) => updateRow(index, "typeId", v)}
         >
           <SelectTrigger className="h-9 rounded-lg border-slate-200 dark:border-slate-700">
             <SelectValue placeholder={isRtl ? "النوع" : "Type"} />
           </SelectTrigger>
+
           <SelectContent>
             {types.map((type) => (
               <SelectItem key={type.id} value={type.id}>
@@ -83,9 +128,11 @@ export const AssetRow = memo(function AssetRow({
           </SelectContent>
         </Select>
       </td>
+
+      {/* الحالة */}
       <td className="p-2 min-w-[140px]">
         <Select
-          value={row.statusId}
+          value={selectedStatusId}
           onValueChange={(v: string) => updateRow(index, "statusId", v)}
         >
           <SelectTrigger className="h-9 rounded-lg border-slate-200 dark:border-slate-700">
@@ -106,6 +153,8 @@ export const AssetRow = memo(function AssetRow({
           </SelectContent>
         </Select>
       </td>
+
+      {/* تواريخ */}
       <td className="p-2 min-w-[120px]">
         <Input
           type="date"
@@ -138,6 +187,8 @@ export const AssetRow = memo(function AssetRow({
           className="h-9 rounded-lg border-slate-200 dark:border-slate-700"
         />
       </td>
+
+      {/* حقول إضافية */}
       <td className="p-2 min-w-[120px]">
         <Input
           value={row.serialNumber}
@@ -178,6 +229,8 @@ export const AssetRow = memo(function AssetRow({
           className="h-9 rounded-lg border-slate-200 dark:border-slate-700"
         />
       </td>
+
+      {/* حذف الصف */}
       <td className="p-2 text-center">
         <Button
           variant="ghost"

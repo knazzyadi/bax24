@@ -1,4 +1,3 @@
-// src/app/[locale]/(dashboard)/work-orders/[id]/page.tsx
 import { redirect } from "next/navigation";
 import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
@@ -55,10 +54,30 @@ export default async function WorkOrderDetailPage({
     orderBy: { order: "asc" },
   })).map(p => ({ ...p, nameEn: p.nameEn ?? undefined, color: p.color ?? undefined }));
 
-  // ✅ ملاحظة: المصدر (source) هنا قد يحتاج إلى تحديث إذا كانت القيمة "pm" ولكن نتركها كما هي
-  // لأن Prisma ترجع القيمة الصحيحة من النوع WorkOrderSource (manual/ticket/ppm/checklist)
-  // لكننا نستخدم شرطاً بسيطاً لتعيين source بناءً على وجود ticketId
-  const source: "manual" | "ticket" | "ppm" | "checklist" = workOrder.ticketId ? "ticket" : "manual";
+  // ============================================================
+  // ✅ تحديد المصدر بشكل صحيح
+  // ============================================================
+  let source: "manual" | "ticket" | "pm" | "checklist" = "manual";
+
+  if (workOrder.sourceType === "MAINTENANCE_SCHEDULE" || workOrder.maintenanceScheduleId) {
+    source = "pm";
+  } else if (workOrder.sourceType === "INSPECTION_FINDING") {
+    source = "checklist";
+  } else if (workOrder.ticketId) {
+    source = "ticket";
+  } else {
+    source = "manual";
+  }
+
+  // ============================================================
+  // ترجمة المصدر حسب اللغة
+  // ============================================================
+  const sourceLabel = {
+    pm: locale === "ar" ? "صيانة دورية" : "PPM",
+    ticket: locale === "ar" ? "تذكرة" : "Ticket",
+    checklist: locale === "ar" ? "فحص" : "Inspection",
+    manual: locale === "ar" ? "يدوي" : "Manual",
+  }[source];
 
   const initialData = {
     id: workOrder.id,
@@ -69,7 +88,6 @@ export default async function WorkOrderDetailPage({
     workOrderType: workOrder.workOrderType,
     priority: workOrder.priority ? { ...workOrder.priority, nameEn: workOrder.priority.nameEn ?? undefined, color: workOrder.priority.color ?? undefined } : null,
     status: workOrder.status ? { ...workOrder.status, nameEn: workOrder.status.nameEn ?? undefined, color: workOrder.status.color ?? undefined } : null,
-    // ✅ تم التعديل هنا: تحويل null إلى undefined لـ nameEn في كل الكائنات
     building: workOrder.building
       ? {
           ...workOrder.building,
@@ -113,7 +131,8 @@ export default async function WorkOrderDetailPage({
     ticket: workOrder.ticket || null,
     attachments: workOrder.attachments || [],
     source,
-    sourceId: workOrder.ticketId || null,
+    sourceLabel, // ✅ تمرير الترجمة
+    sourceId: workOrder.sourceId || workOrder.ticketId || null,
     reason: workOrder.reason || null,
     createdBy: workOrder.createdByUser ? { id: workOrder.createdByUser.id, name: workOrder.createdByUser.name ?? "غير معروف", email: workOrder.createdByUser.email } : null,
     assignedTo: workOrder.assignedUser ? { id: workOrder.assignedUser.id, name: workOrder.assignedUser.name ?? "غير معروف", email: workOrder.assignedUser.email } : null,

@@ -34,17 +34,14 @@ export function AssetsTable({
   const locale = useLocale();
   const isRtl = locale === "ar";
 
-  // ✅ دالة وسيطة لضمان التوافق مع AssetRow
   const handleUpdateRow = useCallback((index: number, field: keyof BulkAssetRow, value: string) => {
     onUpdateRow(index, field, value);
   }, [onUpdateRow]);
 
-  // ✅ دالة وسيطة للحذف
   const handleRemoveRow = useCallback((index: number) => {
     onRemoveRow(index);
   }, [onRemoveRow]);
 
-  // ✅ تنسيق الأعمدة مع الترجمة
   const columns = useMemo(() => {
     return TABLE_COLUMNS.map((col) => ({
       ...col,
@@ -86,18 +83,18 @@ export function AssetsTable({
       </div>
 
       <div className="border border-slate-200/30 dark:border-slate-700/30 rounded-xl overflow-auto max-h-[400px]">
-        <div className="min-w-[1200px]">
-          <table className="w-full border-collapse text-sm">
+        <div className="min-w-[1500px]">
+          <table className="w-full border-collapse text-sm" dir={isRtl ? "rtl" : "ltr"}>
             <thead>
               <tr className="border-b border-slate-200 dark:border-slate-700">
                 {columns.map((col) => (
                   <th
                     key={col.key}
                     className={`
-                      p-2 text-left font-medium text-slate-500 dark:text-slate-400
+                      p-2 font-medium text-slate-500 dark:text-slate-400
                       sticky top-0 bg-white/90 dark:bg-slate-900/90 backdrop-blur z-10
                       ${col.width || ""}
-                      ${col.key === "actions" ? "text-center" : ""}
+                      ${col.key === "actions" ? "text-center" : (isRtl ? "text-right" : "text-left")}
                     `}
                   >
                     {col.label}

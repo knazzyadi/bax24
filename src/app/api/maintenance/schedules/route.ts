@@ -14,12 +14,11 @@ function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
-
   return 'Unknown error';
 }
 
 // ============================================================
-// GET: جلب قائمة جداول الصيانة
+// GET: جلب قائمة جداول الصيانة (بدون تغيير)
 // ============================================================
 export async function GET(req: NextRequest) {
   try {
@@ -99,7 +98,7 @@ export async function GET(req: NextRequest) {
 }
 
 // ============================================================
-// POST: إنشاء جدول صيانة جديد
+// POST: إنشاء جدول صيانة جديد (مع التحقق من CUSTOM)
 // ============================================================
 export async function POST(req: NextRequest) {
   try {
@@ -162,6 +161,17 @@ export async function POST(req: NextRequest) {
         { error: 'يجب تحديد موقع الصيانة' },
         { status: 400 }
       );
+    }
+
+    // ✅ التحقق الإضافي: إذا كان التردد CUSTOM، يجب أن يكون frequencyDays > 0
+    if (frequency === 'CUSTOM') {
+      const days = Number(frequencyDays);
+      if (!days || days <= 0) {
+        return NextResponse.json(
+          { error: 'عند اختيار تردد مخصص، يجب تحديد عدد الأيام (أكبر من 0)' },
+          { status: 400 }
+        );
+      }
     }
 
     // ===== التحقق من نوع الأصل =====

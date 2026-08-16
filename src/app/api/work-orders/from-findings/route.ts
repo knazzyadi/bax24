@@ -5,22 +5,17 @@ import { getAuthenticatedSession } from "@/lib/auth/auth-helper";
 import { prisma } from "@/lib/prisma";
 import { FindingStatus, WorkOrderSource } from "@prisma/client";
 
-// ============================================================
-// Helper: توليد كود أمر العمل
-// ============================================================
-async function generateWorkOrderCode(): Promise<string> {
-  const timestamp = Date.now().toString().slice(-6);
-  const random = Math.random().toString(36).substring(2, 6).toUpperCase();
-
-  return `WO-${timestamp}-${random}`;
-}
+// ✅ استيراد الدالة الموحدة من lib
+import { generateWorkOrderCode } from "@/lib/generateCode";
 
 // ============================================================
 // POST: إنشاء أمر عمل من Findings محددة
 // ============================================================
 export async function POST(req: NextRequest) {
   try {
+    // ========================================================
     // 1. المصادقة
+    // ========================================================
     const session = await getAuthenticatedSession();
 
     if (!session) {
@@ -40,33 +35,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ========================================================
     // 2. قراءة البيانات
+    // ========================================================
     const body = await req.json();
+    const { findingIds, title, description, assignedTo } = body;
 
-    const {
-      findingIds,
-      title,
-      description,
-      assignedTo,
-    } = body;
-
-    if (
-      !findingIds ||
-      !Array.isArray(findingIds) ||
-      findingIds.length === 0
-    ) {
+    // ========================================================
+    // التحقق من Finding IDs
+    // ========================================================
+    if (!findingIds || !Array.isArray(findingIds) || findingIds.length === 0) {
       return NextResponse.json(
         { error: "يجب اختيار ملاحظة واحدة على الأقل" },
         { status: 400 }
       );
     }
 
-    // 3. جلب الـ Findings المختارة والتحقق منها
+    const uniqueFindingIds = [
+      ...new Set(
+        findingIds.filter(
+          (id: unknown): id is string => typeof id === "string" && id.trim().length > 0
+        )
+      ),
+    ];
+
+    if (uniqueFindingIds.length === 0) {
+      return NextResponse.json(
+        { error: "معرفات الملاحظات غير صالحة" },
+        { status: 400 }
+      );
+    }
+
+    // ========================================================
+    // 3. جلب Findings والتحقق منها
+    // ========================================================
     const findings = await prisma.inspectionFinding.findMany({
       where: {
-        id: {
-          in: findingIds,
-        },
+        id: { in: uniqueFindingIds },
         status: FindingStatus.Open,
         inspectionResult: {
           inspection: {
@@ -97,164 +102,174 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 4. استخراج معلومات الموقع
-    const firstFinding = findings[0];
-
-    const inspection =
-      firstFinding.inspectionResult?.inspectionFormItem?.inspection;
-
-    const branchId = inspection?.branchId || null;
-    const buildingId = inspection?.buildingId || null;
-    const floorId = inspection?.floorId || null;
-    const roomId = inspection?.roomId || null;
-
-    // 5. الحالة الافتراضية
-    const defaultStatus =
-      await prisma.workOrderStatus.findFirst({
-        where: {
-          companyId,
-          isDefault: true,
-        },
-        select: {
-          id: true,
-        },
-      });
-
-    if (!defaultStatus) {
+    if (findings.length !== uniqueFindingIds.length) {
       return NextResponse.json(
         {
-          error: "لا توجد حالة افتراضية لأوامر العمل",
+          error:
+            "بعض الملاحظات المحددة غير متاحة أو تم تحويلها مسبقاً إلى أمر عمل",
         },
         { status: 400 }
       );
     }
 
+    // ========================================================
+    // 4. استخراج بيانات الفحص
+    // ========================================================
+    const firstFinding = findings[0];
+    const inspection = firstFinding.inspectionResult?.inspectionFormItem?.inspection;
+
+    if (!inspection) {
+      return NextResponse.json(
+        { error: "تعذر العثور على الفحص المرتبط بالملاحظة" },
+        { status: 400 }
+      );
+    }
+
+    const branchId = inspection.branchId;
+    if (!branchId) {
+      return NextResponse.json(
+        { error: "لا يمكن إنشاء أمر العمل لأن الفحص غير مرتبط بفرع" },
+        { status: 400 }
+      );
+    }
+
+    const buildingId = inspection.buildingId || null;
+    const floorId = inspection.floorId || null;
+    const roomId = inspection.roomId || null;
+
+    // ========================================================
+    // 5. الحالة الافتراضية
+    // ========================================================
+    const defaultStatus = await prisma.workOrderStatus.findFirst({
+      where: { companyId, isDefault: true },
+      select: { id: true },
+    });
+
+    if (!defaultStatus) {
+      return NextResponse.json(
+        { error: "لا توجد حالة افتراضية لأوامر العمل" },
+        { status: 400 }
+      );
+    }
+
+    // ========================================================
     // 6. الأولوية الافتراضية
-    const defaultPriority =
-      await prisma.workOrderPriority.findFirst({
-        where: {
-          companyId,
-          isDefault: true,
-        },
-        select: {
-          id: true,
-        },
-      });
+    // ========================================================
+    const defaultPriority = await prisma.workOrderPriority.findFirst({
+      where: { companyId, isDefault: true },
+      select: { id: true },
+    });
 
-    // 7. توليد كود أمر العمل
-    const code = await generateWorkOrderCode();
+    // ========================================================
+    // 7. Transaction
+    // ========================================================
+    const result = await prisma.$transaction(
+      async (tx) => {
+        // ✅ استخدام الدالة الموحدة (ترتيب الوسائط: branchId أولاً، ثم tx)
+        const { code, branchSeqNum } = await generateWorkOrderCode(
+          branchId,
+          tx
+        );
 
-    // 8. الرقم التسلسلي للفرع
-    const lastSeqNum =
-      await prisma.workOrder.aggregate({
-        where: {
-          branchId: branchId || undefined,
-        },
-        _max: {
-          branchSeqNum: true,
-        },
-      });
-
-    const branchSeqNum =
-      (lastSeqNum._max.branchSeqNum || 0) + 1;
-
-    // 9. Transaction
-    const result = await prisma.$transaction(async (tx) => {
-      const workOrder =
-        await tx.workOrder.create({
+        const workOrder = await tx.workOrder.create({
           data: {
             code,
             branchSeqNum,
-
-            title:
-              title ||
-              inspection?.title ||
-              `أمر عمل لـ ${findings.length} ملاحظة`,
-
+            title: title || inspection.title || `أمر عمل لـ ${findings.length} ملاحظة`,
             description:
               description ||
-              `تم إنشاء أمر العمل تلقائياً من نتائج الفحص "${inspection?.title ?? ""}"`,
-
+              `تم إنشاء الأمر تلقائياً من نتائج الفحص "${inspection.title}"`,
             type: "CORRECTIVE",
-
             companyId,
             createdBy: userId,
-
             assignedTo: assignedTo || null,
-
             branchId,
             buildingId,
             floorId,
             roomId,
-
             statusId: defaultStatus.id,
-
-            priorityId:
-              defaultPriority?.id || null,
-
+            priorityId: defaultPriority?.id ?? null,
             source: WorkOrderSource.checklist,
-
-            sourceId: findings
-              .map((f) => f.id)
-              .join(","),
-
+            sourceId: findings.map((finding) => finding.id).join(","),
             sourceType: "INSPECTION_FINDING",
+          },
+          select: {
+            id: true,
+            code: true,
+            branchSeqNum: true,
+            title: true,
           },
         });
 
+        // ربط Findings بأمر العمل
+        await tx.workOrderFinding.createMany({
+          data: findings.map((finding) => ({
+            workOrderId: workOrder.id,
+            findingId: finding.id,
+          })),
+          skipDuplicates: true,
+        });
 
-      await tx.workOrderFinding.createMany({
-        data: findings.map((finding) => ({
-          workOrderId: workOrder.id,
-          findingId: finding.id,
-        })),
-      });
-
-
-      await tx.inspectionFinding.updateMany({
-        where: {
-          id: {
-            in: findingIds,
+        // تحديث حالة Findings: Open → InProgress
+        await tx.inspectionFinding.updateMany({
+          where: {
+            id: { in: findings.map((finding) => finding.id) },
+            status: FindingStatus.Open,
           },
-        },
-        data: {
-          status: FindingStatus.InProgress,
-        },
-      });
+          data: {
+            status: FindingStatus.InProgress,
+          },
+        });
 
+        return workOrder;
+      },
+      { timeout: 30000 }
+    );
 
-      return workOrder;
-    });
+    // ========================================================
+    // 8. التحقق من إنشاء أمر العمل
+    // ========================================================
+    if (!result?.id) {
+      throw new Error("فشل إنشاء أمر العمل");
+    }
+    if (!result.code) {
+      throw new Error("كود أمر العمل غير صالح");
+    }
 
-
-    // 10. الرد
+    // ========================================================
+    // 9. الرد
+    // ========================================================
     return NextResponse.json(
-      result,
+      {
+        message: `تم إنشاء أمر العمل ${result.code} بنجاح`,
+        workOrderId: result.id,
+        code: result.code,
+        branchSeqNum: result.branchSeqNum,
+        findingsCount: findings.length,
+        status: "SUCCESS",
+      },
       { status: 201 }
     );
-
-
   } catch (error: unknown) {
+    console.error("POST /api/work-orders/from-findings error:", error);
 
-    console.error(
-      "POST /api/work-orders/from-findings error:",
-      error
-    );
+    if (typeof error === "object" && error !== null && "code" in error) {
+      const prismaError = error as { code?: string; meta?: unknown; message?: string };
+      console.error("Prisma error code:", prismaError.code);
+      console.error("Prisma error meta:", prismaError.meta);
 
-    const message =
-      error instanceof Error
-        ? error.message
-        : "خطأ غير معروف";
-
-
-    return NextResponse.json(
-      {
-        error: "حدث خطأ في الخادم",
-        details: message,
-      },
-      {
-        status: 500,
+      if (prismaError.code === "P2002") {
+        return NextResponse.json(
+          { error: "حدث تعارض في الرقم التسلسلي لأمر العمل. حاول مرة أخرى." },
+          { status: 409 }
+        );
       }
+    }
+
+    const message = error instanceof Error ? error.message : "خطأ غير معروف";
+    return NextResponse.json(
+      { error: "حدث خطأ في الخادم", details: message },
+      { status: 500 }
     );
   }
 }

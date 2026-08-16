@@ -2,6 +2,26 @@
 
 import type { Dispatch, SetStateAction } from "react";
 
+// ============================================================
+// إضافة نوع مخصص للتردد (مع التوافق مع القديم)
+// ============================================================
+export type FrequencyType =
+  | "MONTHLY"
+  | "QUARTERLY"
+  | "SEMI_ANNUAL"
+  | "YEARLY"
+  | "CUSTOM";
+
+export function isFrequencyType(value: string): value is FrequencyType {
+  return (
+    value === "MONTHLY" ||
+    value === "QUARTERLY" ||
+    value === "SEMI_ANNUAL" ||
+    value === "YEARLY" ||
+    value === "CUSTOM"
+  );
+}
+
 // ----- أنواع الكيانات الأساسية -----
 export interface Building {
   id: string;
@@ -41,14 +61,13 @@ export interface Asset {
   nameEn?: string;
 }
 
-// ✅ تم الإبقاء على LocationLevel لأنه قد يستخدم في مكان آخر (مثلاً في عرض التفاصيل)
 export type LocationLevel = "building" | "floor" | "room";
 
 // ----- أنواع البيانات المركبة -----
 export interface ScheduleDetail {
   id: string;
   name: string;
-  frequency: string;
+  frequency: string; // يمكن أن يكون CUSTOM أيضاً، لكن نتركه string للتوافق
   frequencyDays: number;
   leadDays: number;
   startDate: string | null;
@@ -61,14 +80,15 @@ export interface ScheduleDetail {
   building: Building | null;
   floor: Floor | null;
   room: Room | null;
-  locationLevel: string | null; // يبقى لأن قاعدة البيانات تحتويه
+  locationLevel: string | null;
   assetType: AssetType | null;
   scheduleAssets: { asset: Asset }[];
 }
 
+// ✅ تعديل MaintenanceFormData لاستخدام النوع الجديد
 export interface MaintenanceFormData {
   name: string;
-  frequency: string;
+  frequency: FrequencyType; // الآن هو النوع المحدد
   frequencyDays: number;
   leadDays: number;
   startDate: string;
@@ -77,25 +97,20 @@ export interface MaintenanceFormData {
   isActive: boolean;
 }
 
-// ----- أنواع مساعدة (للدوال) -----
+// ----- أنواع مساعدة -----
 export type SetMaintenanceFormData = Dispatch<SetStateAction<MaintenanceFormData>>;
 export type TranslateFunction = (key: string) => string;
 
 // ============================================================
-// ✅ UseMaintenanceFormReturn (مطابق للـ Hook المعدل)
+// باقي الأنواع (UseMaintenanceFormReturn، UseMaintenanceEditReturn) بدون تغيير
 // ============================================================
 export interface UseMaintenanceFormReturn {
-  // البيانات الأساسية
   formData: MaintenanceFormData;
   setFormData: SetMaintenanceFormData;
-
-  // المعرفات
   branchId: string;
   buildingId: string;
   floorId: string;
   roomId: string;
-
-  // القوائم
   buildings: Building[];
   floors: Floor[];
   rooms: Room[];
@@ -103,8 +118,6 @@ export interface UseMaintenanceFormReturn {
   assets: Asset[];
   selectedAssetIds: string[];
   tempSelectedAssetIds: string[];
-
-  // حالات التحميل
   loadingBuildings: boolean;
   loadingFloors: boolean;
   loadingRooms: boolean;
@@ -114,9 +127,9 @@ export interface UseMaintenanceFormReturn {
   isSubmitting: boolean;
   assetDialogOpen: boolean;
 
-  // ✅ دوال تعديل النموذج (مضافة حديثاً)
+  // دوال تعديل النموذج
   handleNameChange: (value: string) => void;
-  handleFrequencyChange: (value: string) => void;
+  handleFrequencyChange: (value: string) => void; // تستقبل string لكنها تتوقع FrequencyType
   handleLeadDaysChange: (value: number) => void;
   handleFrequencyDaysChange: (value: number) => void;
   handleStartDateChange: (value: string) => void;
@@ -124,13 +137,11 @@ export interface UseMaintenanceFormReturn {
   handleNotesChange: (value: string) => void;
   handleAssetTypeChange: (val: string | null) => void;
 
-  // دوال تحديث المعرفات
   setBranchId: (val: string) => void;
   setBuildingId: (val: string) => void;
   setFloorId: (val: string) => void;
   setRoomId: (val: string) => void;
 
-  // دوال الأصول
   setSelectedAssetIds: Dispatch<SetStateAction<string[]>>;
   setTempSelectedAssetIds: Dispatch<SetStateAction<string[]>>;
   openAssetDialog: () => void;
@@ -138,27 +149,18 @@ export interface UseMaintenanceFormReturn {
   confirmAssetSelection: () => void;
   removeAsset: (assetId: string) => void;
 
-  // دوال مساعدة
   handleSubmit: () => Promise<void>;
   getSelectedLocationSummary: () => string;
   isLocationSelected: () => boolean;
 }
 
-// ============================================================
-// ✅ UseMaintenanceEditReturn (مطابق للـ Hook المعدل)
-// ============================================================
 export interface UseMaintenanceEditReturn {
-  // البيانات الأساسية
   formData: MaintenanceFormData;
   setFormData: SetMaintenanceFormData;
-
-  // المعرفات
   branchId: string;
   buildingId: string;
   floorId: string;
   roomId: string;
-
-  // القوائم
   buildings: Building[];
   floors: Floor[];
   rooms: Room[];
@@ -166,17 +168,14 @@ export interface UseMaintenanceEditReturn {
   assets: Asset[];
   selectedAssetIds: string[];
   tempSelectedAssetIds: string[];
-
-  // حالات التحميل
   loading: boolean;
   loadingFloors: boolean;
   loadingRooms: boolean;
-  loadingAssetTypes: boolean; // ✅ تمت الإضافة
+  loadingAssetTypes: boolean;
   loadingAssets: boolean;
   isSubmitting: boolean;
   assetDialogOpen: boolean;
 
-  // ✅ دوال تعديل النموذج (مضافة حديثاً للاتساق)
   handleNameChange: (value: string) => void;
   handleFrequencyChange: (value: string) => void;
   handleLeadDaysChange: (value: number) => void;
@@ -186,13 +185,11 @@ export interface UseMaintenanceEditReturn {
   handleNotesChange: (value: string) => void;
   handleAssetTypeChange: (val: string | null) => void;
 
-  // دوال تحديث المعرفات
   setBranchId: (val: string) => void;
   setBuildingId: (val: string) => void;
   setFloorId: (val: string) => void;
   setRoomId: (val: string) => void;
 
-  // دوال الأصول
   setSelectedAssetIds: Dispatch<SetStateAction<string[]>>;
   setTempSelectedAssetIds: Dispatch<SetStateAction<string[]>>;
   openAssetDialog: () => void;
@@ -200,7 +197,6 @@ export interface UseMaintenanceEditReturn {
   confirmAssetSelection: () => void;
   removeAsset: (assetId: string) => void;
 
-  // دوال مساعدة
   handleSubmit: () => Promise<void>;
   getSelectedLocationSummary: () => string;
   isLocationSelected: () => boolean;

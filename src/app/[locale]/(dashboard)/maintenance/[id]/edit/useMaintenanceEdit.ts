@@ -1,5 +1,3 @@
-// src/app/[locale]/(dashboard)/maintenance/[id]/edit/useMaintenanceEdit.ts
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -15,6 +13,7 @@ import type {
   Asset,
   MaintenanceFormData,
   UseMaintenanceEditReturn,
+  FrequencyType,
 } from "../../types";
 
 import { frequencyStringToDays } from "../../utils";
@@ -36,10 +35,7 @@ export function useMaintenanceEdit({
   const locale = useLocale();
   const t = useTranslations("MaintenanceForm");
 
-  // ============================================================
   // State
-  // ============================================================
-
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -75,10 +71,7 @@ export function useMaintenanceEdit({
     isActive: true,
   });
 
-  // ============================================================
   // تحميل بيانات الجدول
-  // ============================================================
-
   useEffect(() => {
     async function fetchEditData() {
       try {
@@ -127,11 +120,9 @@ export function useMaintenanceEdit({
         setTempSelectedAssetIds(assetIds);
       } catch (error) {
         console.error(error);
-
         toast.error(
           t("fetchError") || "فشل تحميل بيانات الجدول"
         );
-
         router.push(`/${locale}/maintenance`);
       } finally {
         setLoading(false);
@@ -141,10 +132,7 @@ export function useMaintenanceEdit({
     fetchEditData();
   }, [id, locale, router, t]);
 
-  // ============================================================
   // تحميل المباني
-  // ============================================================
-
   useEffect(() => {
     const controller = new AbortController();
 
@@ -178,10 +166,7 @@ export function useMaintenanceEdit({
     return () => controller.abort();
   }, [branchId]);
 
-  // ============================================================
   // تحميل الطوابق
-  // ============================================================
-
   useEffect(() => {
     const controller = new AbortController();
 
@@ -219,10 +204,7 @@ export function useMaintenanceEdit({
     return () => controller.abort();
   }, [buildingId]);
 
-  // ============================================================
   // تحميل الغرف
-  // ============================================================
-
   useEffect(() => {
     const controller = new AbortController();
 
@@ -260,10 +242,7 @@ export function useMaintenanceEdit({
     return () => controller.abort();
   }, [floorId]);
 
-  // ============================================================
-  // تحميل الأصول حسب الموقع ونوع الأصل
-  // ============================================================
-
+  // تحميل الأصول
   useEffect(() => {
     const controller = new AbortController();
 
@@ -327,10 +306,7 @@ export function useMaintenanceEdit({
     roomId,
   ]);
 
-  // ============================================================
-  // تغيير الموقع
-  // ============================================================
-
+  // دوال تغيير الموقع
   const resetAssetSelection = useCallback(() => {
     setSelectedAssetIds([]);
     setTempSelectedAssetIds([]);
@@ -342,10 +318,8 @@ export function useMaintenanceEdit({
       setBuildingId(value);
       setFloorId("");
       setRoomId("");
-
       setFloors([]);
       setRooms([]);
-
       resetAssetSelection();
     },
     [resetAssetSelection]
@@ -355,9 +329,7 @@ export function useMaintenanceEdit({
     (value: string) => {
       setFloorId(value);
       setRoomId("");
-
       setRooms([]);
-
       resetAssetSelection();
     },
     [resetAssetSelection]
@@ -366,7 +338,6 @@ export function useMaintenanceEdit({
   const handleRoomChange = useCallback(
     (value: string) => {
       setRoomId(value);
-
       resetAssetSelection();
     },
     [resetAssetSelection]
@@ -378,16 +349,12 @@ export function useMaintenanceEdit({
         ...prev,
         assetTypeId: value ?? "",
       }));
-
       resetAssetSelection();
     },
     [resetAssetSelection]
   );
 
-  // ============================================================
   // نافذة اختيار الأصول
-  // ============================================================
-
   const openAssetDialog = useCallback(() => {
     setTempSelectedAssetIds(selectedAssetIds);
     setAssetDialogOpen(true);
@@ -408,14 +375,10 @@ export function useMaintenanceEdit({
     );
   }, []);
 
-  // ============================================================
   // دوال مساعدة
-  // ============================================================
-
   const getSelectedLocationSummary = useCallback(() => {
     if (roomId) {
       const room = rooms.find(({ id }) => id === roomId);
-
       return room
         ? `${room.name} (${room.fullCode ?? ""})`
         : t("room");
@@ -423,7 +386,6 @@ export function useMaintenanceEdit({
 
     if (floorId) {
       const floor = floors.find(({ id }) => id === floorId);
-
       return floor?.name ?? t("floor");
     }
 
@@ -431,7 +393,6 @@ export function useMaintenanceEdit({
       const building = buildings.find(
         ({ id }) => id === buildingId
       );
-
       return building?.name ?? t("building");
     }
 
@@ -450,10 +411,7 @@ export function useMaintenanceEdit({
     return Boolean(branchId && buildingId);
   }, [branchId, buildingId]);
 
-  // ============================================================
   // إرسال النموذج
-  // ============================================================
-
   const handleSubmit = useCallback(async () => {
     if (!formData.name.trim()) {
       toast.error(t("nameRequired"));
@@ -486,12 +444,10 @@ export function useMaintenanceEdit({
         startDate: formData.startDate || null,
         notes: formData.notes,
         isActive: formData.isActive,
-
         branchId: branchId || null,
         buildingId: buildingId || null,
         floorId: floorId || null,
         roomId: roomId || null,
-
         assetTypeId: formData.assetTypeId || null,
         assetIds: selectedAssetIds,
       };
@@ -509,13 +465,11 @@ export function useMaintenanceEdit({
 
       if (!res.ok) {
         const error = await res.json();
-
         toast.error(error.error || t("updateError"));
         return;
       }
 
       toast.success(t("updateSuccess"));
-
       router.push(`/${locale}/maintenance`);
       router.refresh();
     } catch {
@@ -537,10 +491,7 @@ export function useMaintenanceEdit({
     isLocationSelected,
   ]);
 
-  // ============================================================
-  // تحديث formData
-  // ============================================================
-
+  // دوال تغيير formData
   const handleNameChange = useCallback((value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -549,9 +500,15 @@ export function useMaintenanceEdit({
   }, []);
 
   const handleFrequencyChange = useCallback((value: string) => {
+    const frequency = value as FrequencyType;
+
     setFormData((prev) => ({
       ...prev,
-      frequency: value,
+      frequency,
+      frequencyDays:
+        frequency === "CUSTOM"
+          ? prev.frequencyDays
+          : frequencyStringToDays(frequency),
     }));
   }, []);
 
@@ -590,10 +547,7 @@ export function useMaintenanceEdit({
     }));
   }, []);
 
-  // ============================================================
-  // Return مع قيم مشتقة (visible) بدلاً من تعديل state مباشرة
-  // ============================================================
-
+  // Return
   const visibleBuildings = branchId ? buildings : [];
   const visibleFloors = buildingId ? floors : [];
   const visibleRooms = floorId ? rooms : [];
@@ -603,51 +557,38 @@ export function useMaintenanceEdit({
   return {
     formData,
     setFormData,
-
     branchId,
     buildingId,
     floorId,
     roomId,
-
     buildings: visibleBuildings,
     floors: visibleFloors,
     rooms: visibleRooms,
-
     assetTypes,
     assets: visibleAssets,
-
     selectedAssetIds,
     tempSelectedAssetIds,
-
     loading,
     loadingFloors,
     loadingRooms,
     loadingAssets,
     loadingAssetTypes: false,
-
     isSubmitting,
     assetDialogOpen,
-
     setBranchId,
     setBuildingId: handleBuildingChange,
     setFloorId: handleFloorChange,
     setRoomId: handleRoomChange,
-
     setSelectedAssetIds,
     setTempSelectedAssetIds,
-
     handleSubmit,
-
     getSelectedLocationSummary,
     isLocationSelected,
-
     openAssetDialog,
     closeAssetDialog,
     confirmAssetSelection,
     removeAsset,
-
     handleAssetTypeChange,
-
     handleNameChange,
     handleFrequencyChange,
     handleLeadDaysChange,

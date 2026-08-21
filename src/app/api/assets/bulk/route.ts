@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ─── التحقق من المبنى ────────────────────────────────────
+    // ─── التحقق من المبنى وجلب رمز الفرع ────────────────────
     const building = await prisma.building.findFirst({
       where: {
         id: buildingId,
@@ -52,6 +52,11 @@ export async function POST(request: NextRequest) {
       select: {
         id: true,
         branchId: true,
+        branch: {
+          select: {
+            code: true,
+          },
+        },
       },
     });
 
@@ -69,6 +74,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           error: "المبنى غير مرتبط بفرع",
+        },
+        { status: 400 }
+      );
+    }
+
+    // استخراج رمز الفرع والتحقق منه
+    const branchCode = building.branch?.code?.trim();
+    if (!branchCode) {
+      return NextResponse.json(
+        {
+          error: "الفرع المرتبط بالمبنى لا يحتوي على رمز",
         },
         { status: 400 }
       );
@@ -256,15 +272,28 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    const typeMap = new Map<string, string>();
-
-      for (const type of types) {
-        typeMap.set(type.id, type.id);
-
-        if (type.code) {
-          typeMap.set(type.code, type.id);
-        }
+    // تعديل typeMap لتخزين { id, code } بدلاً من id فقط
+    const typeMap = new Map<
+      string,
+      {
+        id: string;
+        code: string;
       }
+    >();
+
+    for (const type of types) {
+      if (!type.code) continue;
+
+      const typeInfo = {
+        id: type.id,
+        code: type.code.trim(),
+      };
+
+      // البحث باستخدام ID
+      typeMap.set(type.id, typeInfo);
+      // البحث باستخدام Code
+      typeMap.set(type.code.trim(), typeInfo);
+    }
 
     const missingTypes = typeValues.filter((val) => !typeMap.has(val));
     if (missingTypes.length > 0) {
@@ -304,13 +333,12 @@ export async function POST(request: NextRequest) {
 
       statusMap = new Map<string, string>();
 
-        for (const status of statuses) {
-          statusMap.set(status.id, status.id);
-
-          if (status.code) {
-            statusMap.set(status.code, status.id);
-          }
+      for (const status of statuses) {
+        statusMap.set(status.id, status.id);
+        if (status.code) {
+          statusMap.set(status.code, status.id);
         }
+      }
 
       const missingStatuses = statusValues.filter((val) => !statusMap.has(val));
       if (missingStatuses.length > 0) {
@@ -352,10 +380,11 @@ export async function POST(request: NextRequest) {
           }
 
           const typeInput = assetData.typeId.trim();
-          const actualTypeId = typeMap.get(typeInput);
-          if (!actualTypeId) {
+          const typeInfo = typeMap.get(typeInput);
+          if (!typeInfo) {
             throw new Error(`الصف ${rowNumber}: نوع الأصل "${typeInput}" غير موجود`);
           }
+          const actualTypeId = typeInfo.id;
 
           let actualStatusId: string | null = null;
           const statusInput = assetData.statusId?.trim();
@@ -367,7 +396,14 @@ export async function POST(request: NextRequest) {
             actualStatusId = found;
           }
 
-          const code = await generateUniqueAssetCode(tx, branchId, actualTypeId);
+          // استدعاء الدالة الجديدة مع تمرير الرموز
+          const code = await generateUniqueAssetCode(
+            tx,
+            branchId,
+            actualTypeId,
+            branchCode,
+            typeInfo.code
+          );
 
           const created = await tx.asset.create({
             data: {

@@ -69,13 +69,34 @@ export async function createAsset(
       }
     }
 
-    // 3. المعاملة الذرية: توليد الكود + إنشاء الأصل
+    // 3. المعاملة الذرية: جلب الرموز + توليد الكود + إنشاء الأصل
     const asset = await prisma.$transaction(
       async (tx) => {
+        // جلب رمز الفرع ونوع الأصل داخل المعاملة
+        const [branch, assetType] = await Promise.all([
+          tx.branch.findUnique({
+            where: { id: branchId },
+            select: { code: true },
+          }),
+          tx.assetType.findUnique({
+            where: { id: validated.typeId },
+            select: { code: true },
+          }),
+        ]);
+
+        if (!branch?.code) {
+          throw new Error('الفرع غير موجود أو لا يحتوي على رمز');
+        }
+        if (!assetType?.code) {
+          throw new Error('نوع الأصل غير موجود أو لا يحتوي على رمز');
+        }
+
         const code = await generateUniqueAssetCode(
           tx,
           branchId,
-          validated.typeId
+          validated.typeId,
+          branch.code,
+          assetType.code
         );
 
         return tx.asset.create({

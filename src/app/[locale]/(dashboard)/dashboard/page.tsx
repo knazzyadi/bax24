@@ -61,7 +61,7 @@ export default function DashboardPage() {
   const isRTL = locale === "ar";
   const t = useTranslations("Dashboard");
   const [loading, setLoading] = useState(true);
-  const [, setError] = useState(false); // ✅ error غير مستخدم، نستخدم _ بدلاً من ذلك
+  const [, setError] = useState(false);
   const [data, setData] = useState<DashboardData>({
     assets: 0,
     workOrders: 0,
@@ -72,14 +72,14 @@ export default function DashboardPage() {
 
   const isSessionLoading = status === "loading";
 
-  // ✅ استخدام session.user بشكل آمن
-  let companyDisplayName = isRTL ? "شركتك" : "Your Company";
+  // ✅ تحديد اسم الشركة - يعرض null إذا لم يكن موجوداً
+  let companyDisplayName: string | null = null;
   if (!isSessionLoading && session?.user) {
     const user = session.user as SessionUser;
     if (isRTL) {
-      companyDisplayName = user.companyName || "شركتك";
+      companyDisplayName = user.companyName || null;
     } else {
-      companyDisplayName = user.companyNameEn || user.companyName || "Your Company";
+      companyDisplayName = user.companyNameEn || user.companyName || null;
     }
   }
 
@@ -99,7 +99,7 @@ export default function DashboardPage() {
     return () => clearInterval(interval);
   }, [isRTL]);
 
-  // 📊 جلب الإحصائيات – تم دمج الدالة داخل useEffect مباشرة
+  // 📊 جلب الإحصائيات
   useEffect(() => {
     async function loadStats() {
       setLoading(true);
@@ -141,7 +141,7 @@ export default function DashboardPage() {
     }
 
     void loadStats();
-  }, []); // ✅ يعمل مرة واحدة فقط عند التحميل
+  }, []);
 
   const statsCards = useMemo(
     () => [
@@ -213,8 +213,11 @@ export default function DashboardPage() {
             <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100">
               {t("header.title")}
             </h1>
+            {/* ✅ نص الترحيب المعدل */}
             <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
-              {t("header.welcome", { company: companyDisplayName })}
+              {companyDisplayName
+                ? t("header.welcome", { company: companyDisplayName })
+                : (isRTL ? "مرحبا" : "Welcome")}
             </p>
           </div>
         </div>
